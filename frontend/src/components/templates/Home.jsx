@@ -4,7 +4,7 @@ import Header from "../organisms/Header";
 import Footer from "../organisms/Footer";
 import Main from "../organisms/Main";
 
-const Home = ({ children }) => {
+const Home = () => {
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-between"
