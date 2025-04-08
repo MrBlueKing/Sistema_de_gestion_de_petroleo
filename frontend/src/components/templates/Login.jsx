@@ -16,7 +16,7 @@ const Login = () => {
         backgroundRepeat: "no-repeat"
       }}
     >
-      <Header />
+      <Header showIcon={false} />
       <LoginScreen />
       <Footer />
     </div>
