@@ -1,10 +1,10 @@
 import React from "react";
 import fondo from "../../assets/fondo.png";
 import Header from "../organisms/Header";
-import Footer from "../organisms/Footer";
-import Main from "../organisms/Main";
+import Footer from "../organisms/Footer"; 
+import LoginScreen from "../organisms/LoginScreen";
 
-const Login = ({ children }) => {
+const Login = () => {
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-between"
@@ -17,7 +17,7 @@ const Login = ({ children }) => {
       }}
     >
       <Header />
-      <Main />
+      <LoginScreen />
       <Footer />
     </div>
   );

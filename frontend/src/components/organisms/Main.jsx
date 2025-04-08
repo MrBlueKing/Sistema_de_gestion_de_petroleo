@@ -11,7 +11,7 @@ const Main = () => {
             <h2 className="text-xl text-gray-100 mb-6 max-w-md mx-auto"> 
              Plataforma para el registro y control del ingreso y consumo de petróleo.       
             </h2>    
-            <Button text="Ingresar" to="/login" color={"orange"}/>
+            <Button text="Ingresar" to="/login" color={"orange"} className=" text-white font-bold text-2xl"/>
         </div>
       </main>
     );
