@@ -34,16 +34,16 @@ const LoginScreen = () => {
       }, {
         withCredentials: true,
       });
-      // si el login es exitoso, guarda el token en localStorage
+
+      // Si el login es exitoso, guarda el token en localStorage con la fecha de expiración
       if (response.status === 200) {
         if (response.data.token) {
           localStorage.setItem('authToken', response.data.token); // Guarda el token
-          localStorage.setItem('tokenTimestamp', Date.now().toString());  // Guardar el tiempo en milisegundos
+          localStorage.setItem('tokenTimestamp', Date.now().toString());  // Guarda el tiempo actual en milisegundos
+          localStorage.setItem('tokenExpiration', (Date.now() + 86400000).toString());  // Establece la expiración del token en 1 día (86400000 ms = 1 día)
           navigate('/menuprincipalbombero'); // Redirige después de un login exitoso
         }
       }
-      // If login is successful, redirect user
-      navigate('/menuprincipalbombero');
     } catch (error) {
       console.error('Error de login:', error);
       setError('Las credenciales ingresadas son incorrectas.'); // Set error message

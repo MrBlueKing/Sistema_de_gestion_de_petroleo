@@ -18,6 +18,7 @@ class User extends Authenticatable
         'nombre',
         'rut',
         'password',
+        'id_rol', // Agrega 'id_rol' aquí
     ];
 
     /**

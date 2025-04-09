@@ -20,12 +20,14 @@ return new class extends Migration
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->rememberToken();
+            $table->unsignedBigInteger('id_rol'); // FK al rol
             $table->unsignedBigInteger('id_faena')->nullable();
             $table->tinyInteger('estado')->default(1);
             $table->timestamps();
-            
-            // Solo esta clave foránea
-            $table->foreign('id_faena')->references('id_faena')->on('faenas')->onDelete('cascade');            
+        
+            // Relación con roles
+            $table->foreign('id_rol')->references('id_rol')->on('roles')->onDelete('cascade');
+            $table->foreign('id_faena')->references('id_faena')->on('faenas')->onDelete('cascade');
         });
 
         // Crear tabla para los tokens de restablecimiento de contraseña
