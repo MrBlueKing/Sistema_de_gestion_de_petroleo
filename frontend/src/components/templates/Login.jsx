@@ -2,7 +2,8 @@ import React from "react";
 import fondo from "../../assets/fondo.png";
 import Header from "../organisms/Header";
 import Footer from "../organisms/Footer"; 
-import LoginScreen from "../organisms/LoginScreen";
+import LoginScreen from "../organisms/Login/LoginScreen";
+
 
 const Login = () => {
   return (

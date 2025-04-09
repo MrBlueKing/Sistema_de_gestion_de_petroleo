@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import Button from "../atoms/Button";
+import Button from "../../atoms/Button";
 import { useNavigate } from "react-router-dom";
 
 const Main = () => {

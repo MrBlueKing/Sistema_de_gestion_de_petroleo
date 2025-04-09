@@ -1,8 +1,8 @@
 // src/components/templates/MenuPrincipalBombero.jsx
 import { useState } from "react";
-import MenuButton from "../atoms/MenuButton";
-import UserGreeting from "../atoms/UserGreeting";
-import Badge from "../atoms/Badge";
+import MenuButton from "../../components/atoms/MenuButton";
+import UserGreeting from "../../components/atoms/UserGreeting";
+import Badge from "../../components/atoms/Badge";
 
 const MenuPrincipalBombero = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);

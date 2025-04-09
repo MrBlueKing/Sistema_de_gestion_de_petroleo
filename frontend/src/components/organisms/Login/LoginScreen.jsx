@@ -1,13 +1,13 @@
 import React, { useState } from "react";
-import Icon from "../atoms/Icon3h";
-import InputField from "../atoms/InputField";
-import Button from "../atoms/Button";
-import LoadingOverlay from "../atoms/Loading"; 
-import icono from "../../assets/icono.png";
+import Icon from "../../atoms/Icon3h";
+import InputField from "../../atoms/InputField";
+import Button from "../../atoms/Button";
+import LoadingOverlay from "../../atoms/Loading"; 
+import icono from "../../../assets/icono.png";
 import { FaUser, FaLock } from "react-icons/fa";
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import ErrorMessage from "../atoms/ErrorMessage";
+import ErrorMessage from "../../atoms/ErrorMessage";
 
 const LoginScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
