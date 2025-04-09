@@ -8,6 +8,7 @@ export default defineConfig({
         host: true, // Esto permite conexiones externas
     },
   plugins: [
+    
     react(),
     tailwindcss(),
     
