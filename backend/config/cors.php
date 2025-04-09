@@ -15,20 +15,20 @@ return [
     |
     */
 
-    'paths' => ['*'],
+    'paths' => ['api/*', 'sanctum/csrf-cookie'], /* que rutas pueden realizar peticiones CORS */
 
-    'allowed_methods' => ['*'],
+    'allowed_methods' => ['*'], /* que metodos(POST, GET, DELETE) pueden realizar peticiones CORS */
 
-    'allowed_origins' => ['env'],
+    'allowed_origins' => [env('FRONTEND_URL'),'http://localhost:3000, http://127.0.0.1:5173, http://localhost:5173'], /* que dominios pueden realizar peticiones CORS */
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => [], /* patrones de dominios que pueden realizar peticiones CORS */
 
-    'allowed_headers' => ['*'],
+    'allowed_headers' => ['*'], /* que headers pueden realizar peticiones CORS */
 
-    'exposed_headers' => [],
+    'exposed_headers' => [], /* que headers pueden ser expuestos en la respuesta de la peticion CORS */
 
-    'max_age' => 0,
+    'max_age' => 0, /* cuanto tiempo en segundos el navegador puede cachear la respuesta de la peticion CORS */
 
-    'supports_credentials' => true,
+    'supports_credentials' => true, /* si se permiten credenciales en la peticion CORS */
 
 ];

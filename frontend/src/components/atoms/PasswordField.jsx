@@ -1,26 +1,26 @@
-// atoms/PasswordField.js
 import React from 'react';
 import { FaLock, FaEye, FaRegEyeSlash } from 'react-icons/fa';
 
-const PasswordField = ({ showPassword, setShowPassword }) => {
+const PasswordField = ({ value, onChange, showPassword, setShowPassword }) => {
   return (
-    <div className="relative mb-6">
-      <div className="absolute left-3 top-3 text-gray-500">
-        <FaLock size={18} />
-      </div>
+    <div className="relative">
       <input
         type={showPassword ? "text" : "password"}
-        className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md"
+        value={value}
+        onChange={onChange}
+        className="w-full border p-2 rounded"
         placeholder="Contraseña"
       />
       <button
-        className="absolute right-3 top-3 text-gray-500"
+        type="button"
         onClick={() => setShowPassword(!showPassword)}
+        className="absolute right-2 top-2"
       >
-        {showPassword ? <FaRegEyeSlash size={18} /> : <FaEye size={18} />}
+        {showPassword ? "🙈" : "👁️"}
       </button>
     </div>
   );
 };
+
 
 export default PasswordField;

@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
@@ -44,6 +45,8 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $credentials = $request->only('rut', 'password');
+
+        Log::info('Login request data:', $request->all());
 
         if (!Auth::attempt($credentials)) {
             return response()->json(['message' => 'Credenciales inválidas'], 401);
