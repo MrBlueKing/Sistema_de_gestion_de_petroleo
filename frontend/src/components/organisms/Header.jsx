@@ -1,5 +1,5 @@
 import React from "react";
-import Icon from "../atoms/Icon"; // Ruta del componente Icon
+import Icon from "../atoms/Icon3h"; // Ruta del componente Icon
 import icono from "../../assets/icono.png"; // Ruta del icono
 
 const Header = ({ showIcon = true }) => {

@@ -1,25 +1,11 @@
 import React from "react";
-import fondo from "../../assets/fondo.png";
-import Header from "../organisms/Header";
-import Footer from "../organisms/Footer"; 
-import LoginScreen from "../organisms/LoginScreen";
-import MainMenuPrincipalBombero from "../organisms/MainMenuPrincipalBombero";
+import HeaderMenuPrincipalBombero from "../organisms/HeaderMenuPrincipalBombero";
+
 
 const MenuPrincipalBombero = () => {
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-between"
-      style={{ 
-        backgroundImage: `url(${fondo})`,
-        backgroundColor: "#f0f0f0",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat"
-      }}
-    >
-      <Header showIcon={false} />
-      <MainMenuPrincipalBombero />
-      <Footer />
+    <div className="flex flex-col min-h-screen bg-gray-50">
+      <HeaderMenuPrincipalBombero />
     </div>
   );
 };

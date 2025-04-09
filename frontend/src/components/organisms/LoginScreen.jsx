@@ -1,49 +1,62 @@
 import React, { useState } from "react";
-import Icon from "../atoms/Icon";
+import Icon from "../atoms/Icon3h";
 import InputField from "../atoms/InputField";
-import PasswordField from "../atoms/PasswordField";
 import Button from "../atoms/Button";
-import icono from "../../assets/icono.png"; // Ruta del icono
-import { FaUser } from "react-icons/fa";
-import axios from 'axios'; // Importar Axios para hacer solicitudes HTTP
-import { useNavigate } from 'react-router-dom'; // Usar useNavigate en lugar de useHistory
+import LoadingOverlay from "../atoms/Loading"; 
+import icono from "../../assets/icono.png";
+import { FaUser, FaLock } from "react-icons/fa";
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import ErrorMessage from "../atoms/ErrorMessage";
 
 const LoginScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const [rut, setRut] = useState(''); // Estado para el RUT
-  const [password, setPassword] = useState(''); // Estado para la contraseña
-  const [error, setError] = useState(''); // Estado para capturar el error si la autenticación falla
-  const navigate = useNavigate(); // Usar useNavigate para la navegación
+  const [rut, setRut] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false); // Add loading state
+  const navigate = useNavigate();
 
-  // Función para manejar el envío del formulario
   const handleLogin = async (e) => {
     e.preventDefault();
+    setError(''); // Clear previous errors
+    setIsLoading(true); // Start loading
 
     try {
       // Realizar la solicitud POST a la API de Laravel
       await axios.get('http://localhost:8000/sanctum/csrf-cookie', {
         withCredentials: true,
       });
+      
       const response = await axios.post('http://localhost:8000/api/login', {
         rut,
         password,
       }, {
         withCredentials: true,
       });
-      
-      console.log('Login exitoso:', response.data);
-      
-      // Si el login es exitoso, redirigir al usuario a la página principal (por ejemplo)
-      navigate('/dashboard'); // Usar navigate en lugar de history.push()
-
+      // si el login es exitoso, guarda el token en localStorage
+      if (response.status === 200) {
+        if (response.data.token) {
+          localStorage.setItem('authToken', response.data.token); // Guarda el token
+          localStorage.setItem('tokenTimestamp', Date.now().toString());  // Guardar el tiempo en milisegundos
+          navigate('/menuprincipalbombero'); // Redirige después de un login exitoso
+        }
+      }
+      // If login is successful, redirect user
+      navigate('/menuprincipalbombero');
     } catch (error) {
       console.error('Error de login:', error);
-      setError('Credenciales incorrectas o error en la autenticación');
+      setError('Las credenciales ingresadas son incorrectas.'); // Set error message
+    } finally {
+      setIsLoading(false); // Stop loading regardless of outcome
     }
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-8">
+    <div className="relative bg-white rounded-lg shadow-md p-8">
+      {/* Loading Overlay */}
+      <LoadingOverlay isLoading={isLoading} message="Iniciando sesión..." />
+      
       {/* Logo */}
       <div className="flex justify-center mb-6">
         <Icon src={icono} alt="3H COOPER" size="w-32 h-40" />
@@ -51,35 +64,41 @@ const LoginScreen = () => {
 
       <p className="text-center text-gray-600 mb-6">Accede al sistema</p>
 
-      {/* Mostrar error si ocurre */}
-      {error && <div className="text-red-600 text-center mb-4">{error}</div>}
+      {/* Error message */}
+      <ErrorMessage message={error} />
 
-      {/* Formulario de login */}
+      {/* Login form */}
       <form onSubmit={handleLogin}>
         {/* RUT field */}
         <InputField
-          icon={<FaUser size={18} />}
           type="text"
           placeholder="RUT"
-          value={rut} // Controlar el valor del campo
-          onChange={(e) => setRut(e.target.value)} // Actualizar el estado
+          value={rut}
+          onChange={(e) => setRut(e.target.value)}
+          icon={<FaUser />}
+          disabled={isLoading} // Disable inputs during loading
         />
 
         {/* Password field */}
-        <PasswordField
+        <InputField
+          type="password"
+          placeholder="Contraseña"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
           showPassword={showPassword}
           setShowPassword={setShowPassword}
-          value={password} // Controlar el valor de la contraseña
-          onChange={(e) => setPassword(e.target.value)} // Actualizar el estado
+          icon={<FaLock />}
+          disabled={isLoading} // Disable inputs during loading
         />
 
         {/* Login button */}
         <Button
-          text="Ingresar"
+          text={isLoading ? "Cargando..." : "Ingresar"}
           color="orange"
           rounded="full"
           className="w-full text-white font-bold py-3 px-4"
-          type="submit" // Cambiar el tipo a "submit" para enviar el formulario
+          type="submit"
+          disabled={isLoading} // Disable button during loading
         />
       </form>
     </div>
