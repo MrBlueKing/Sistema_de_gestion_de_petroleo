@@ -8,12 +8,6 @@ const MenuPrincipalBombero = () => {
       <HeaderMenuPrincipalBombero />
       <Main />
     </div>
-
-
-      
-    
-
-
   );
 };
 

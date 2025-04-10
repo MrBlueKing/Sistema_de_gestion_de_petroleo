@@ -8,12 +8,6 @@ const RecepcionPetroleo = () => {
       <HeaderMenuPrincipalBombero />
       <Main />
     </div>
-
-
-      
-    
-
-
   );
 };
 

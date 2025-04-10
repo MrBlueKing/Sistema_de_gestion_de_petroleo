@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use App\Models\Rol; // Asegúrate de importar el modelo Rol
 
 class User extends Authenticatable
 {
@@ -46,5 +47,14 @@ class User extends Authenticatable
     public function getAuthIdentifierName()
     {
         return 'rut';
+    }
+
+    /**
+     * Relación con el modelo Rol.
+     * Un usuario tiene un solo rol.
+     */
+    public function rol()
+    {
+        return $this->belongsTo(Rol::class, 'id_rol', 'id_rol');
     }
 }

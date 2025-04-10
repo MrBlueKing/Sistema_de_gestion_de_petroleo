@@ -25,12 +25,28 @@ const Main = () => {
   }, []);
 
   const handleButtonClick = () => {
-    const token = localStorage.getItem("authToken");
+    const sessionData = JSON.parse(localStorage.getItem("authToken"));
+    const token = sessionData?.token;
+    const userRole = sessionData?.role;
 
     if (token) {
-      // Si el token existe y no ha expirado, redirige al menú de bombero
+      // Si el token existe y no ha expirado, redirige al menú correspondiente según el rol
       checkTokenExpiration(); // Verificar si el token ha expirado antes de navegar
-      navigate("/menuprincipalbombero");
+
+      // Redirigir según el rol del usuario
+      switch (userRole) {
+        case "bombero":
+          navigate("/menuprincipalbombero");
+          break;
+        case "gerente":
+          navigate("/menuprincipalgerente");
+          break;
+        case "admin":
+          navigate("/menuprincipaladministrador");
+          break;
+        default:
+          navigate("/login"); // En caso de que el rol no esté definido
+      }
     } else {
       // Si no hay token, redirige al login
       navigate("/login");

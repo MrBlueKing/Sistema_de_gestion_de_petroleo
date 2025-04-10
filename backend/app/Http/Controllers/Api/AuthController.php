@@ -63,21 +63,32 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $credentials = $request->only('rut', 'password');
-
+    
         Log::info('Login request data:', $request->all());
-
+    
         if (!Auth::attempt($credentials)) {
             return response()->json(['message' => 'Credenciales inválidas'], 401);
         }
-
-        $user = $request->user();
+    
+        $user = $request->user()->load('rol'); // Cargar la relación con el rol
         $token = $user->createToken('api_token')->plainTextToken;
 
+        // Luego, accede al nombre del rol de manera explícita:
+        $rolNombre = $user->rol->rol;  // 'rol' es el campo que contiene el nombre del rol
+
+        Log::info('Datos usuario', $user->toArray());
+    
         return response()->json([
-            'user' => $user,
+            'user' => [
+                'nombre' => $user->nombre,
+                'rut' => $user->rut,
+                'id_rol' => $user->id_rol,
+                'rol' => $rolNombre, 
+            ],
             'token' => $token,
         ]);
     }
+    
 
     // Método para cerrar sesión
     // Este método recibe una solicitud HTTP y cierra la sesión del usuario actual.

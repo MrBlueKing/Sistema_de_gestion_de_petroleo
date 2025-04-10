@@ -1,16 +1,18 @@
 import React from 'react';
-import { Route, Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 
-const PrivateRoute = ({ children }) => {
-  const isAuthenticated = localStorage.getItem("authToken"); // Verifica si el usuario está autenticado
+const PrivateRoutes = ({ children, requiredRole }) => {
+  const sessionData = JSON.parse(localStorage.getItem('authToken')); // Obtener los datos del localStorage
+  const isAuthenticated = sessionData?.token; // Verifica si está autenticado
+  const userRole = sessionData?.role; // Obtener el rol del usuario desde el localStorage
 
-  // Si no está autenticado, redirige a /login
-  if (!isAuthenticated) {
+  // Si no está autenticado o el rol no coincide, redirige al login
+  if (!isAuthenticated || userRole !== requiredRole) {
     return <Navigate to="/login" />;
   }
 
-  // Si está autenticado, renderiza el contenido de la ruta
+  // Si está autenticado y tiene el rol correcto, renderiza la ruta
   return children;
 };
 
-export default PrivateRoute;
+export default PrivateRoutes;
