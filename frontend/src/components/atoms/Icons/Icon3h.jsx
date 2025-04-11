@@ -1,3 +1,4 @@
+//Descripción: Componente del icono de la empresa reutilizable en React
 import React from "react";
 
 const Icon = ({ 

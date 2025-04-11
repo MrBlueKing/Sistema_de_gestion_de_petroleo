@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import Icon from "../../atoms/Icon3h";
-import InputField from "../../atoms/InputField";
-import Button from "../../atoms/Button";
-import LoadingOverlay from "../../atoms/Loading";
-import ErrorMessage from "../../atoms/ErrorMessage";
+import Icon from "../../atoms/Icons/Icon3h";
+import InputField from "../../atoms/Inputs/InputField";
+import Button from "../../atoms/Button/Button";
+import LoadingOverlay from "../../atoms/FeedBack/Loading";
+import ErrorMessage from "../../atoms/FeedBack/ErrorMessage";
 import icono from "../../../assets/icono.png";
 import { FaUser, FaLock } from "react-icons/fa";
 
@@ -23,7 +23,7 @@ const LoginScreen = () => {
       token,
       user,
       expiration,
-      role: user.rol, 
+      role: user.rol || 'desconocido', // Asegúrate de que el rol esté bien almacenado
     };
     localStorage.setItem('authToken', JSON.stringify(sessionData));
   };
@@ -31,16 +31,16 @@ const LoginScreen = () => {
   const redirectByRole = (rol) => {
     switch (rol) {
       case 'admin':
-        navigate('/menuprincipaladministrador');
+        navigate('/administrador');
         break;
       case 'bombero':
-        navigate('/menuprincipalbombero');
+        navigate('/bombero');
         break;
       case 'gerente':
-        navigate('/menuprincipalgerente');
+        navigate('/gerente');
         break;
       default:
-        navigate('/'); // fallback
+        navigate('/'); // fallback si el rol no es conocido
     }
   };
 
@@ -59,8 +59,7 @@ const LoginScreen = () => {
           token: response.data.token,
           user: response.data.user,
         });
-        console.log("Login rol:", response.data.user.rol);
-        const userRole = response.data.user.rol || 'desconocido'; // Fallback in case role is not found
+        const userRole = response.data.user.rol || 'desconocido'; // Asegúrate de que el rol esté en la respuesta
         redirectByRole(userRole);
       }
     } catch (err) {

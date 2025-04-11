@@ -1,4 +1,4 @@
-// IconButton.js (Átomo)
+// Descripción: Componente de botón de icono reutilizable en React
 const IconButton = ({ icon, label, onClick, active }) => (
     <button
       onClick={onClick}

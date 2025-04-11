@@ -1,4 +1,4 @@
-// atoms/InputField.js
+// Descripción: Componente de campo de entrada reutilizable en React
 import React from 'react';
 import { FaEye, FaRegEyeSlash } from 'react-icons/fa';
 import InputIcon from './InputIcon';

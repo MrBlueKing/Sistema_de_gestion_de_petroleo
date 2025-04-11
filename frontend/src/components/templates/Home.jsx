@@ -1,7 +1,7 @@
 import React from "react";
 import fondo from "../../assets/fondo.png";
-import Header from "../organisms/Header";
-import Footer from "../organisms/Footer";
+import Header from "../organisms/Home/Header";
+import Footer from "../organisms/Home/Footer";
 import Main from "../organisms/Home/Main";
 
 const Home = () => {

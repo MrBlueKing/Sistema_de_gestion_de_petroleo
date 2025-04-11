@@ -1,4 +1,4 @@
-// src/components/atoms/Badge.jsx
+// Descripción: Componente de Badge reutilizable en React
 const Badge = () => {
     return (
       <div className="ml-2 relative w-10 h-10">

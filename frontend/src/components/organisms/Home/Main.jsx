@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import Button from "../../atoms/Button";
+import Button from "../../atoms/Button/Button";
 import { useNavigate } from "react-router-dom";
 
 const Main = () => {
@@ -42,7 +42,7 @@ const Main = () => {
           navigate("/menuprincipalgerente");
           break;
         case "admin":
-          navigate("/menuprincipaladministrador");
+          navigate("/administrador");
           break;
         default:
           navigate("/login"); // En caso de que el rol no esté definido

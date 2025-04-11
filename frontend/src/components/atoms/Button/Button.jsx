@@ -1,6 +1,7 @@
 import React from "react";
-import { Link } from "react-router-dom";  // Importa Link de react-router-dom
+import { Link } from "react-router-dom";  
 
+//Boton de la aplicacion 
 const Button = ({
   onClick,
   className,
@@ -9,7 +10,8 @@ const Button = ({
   to,
   rounded = "lg",
   icon,
-  iconClassName = "w-6 h-6"  // Clase predeterminada para el ícono
+  iconClassName = "w-6 h-6",  // Clase predeterminada para el ícono
+  active 
 }) => {
   // Condicional para aplicar el color de fondo
   const backgroundColor = color === "transparent" ? "bg-transparent" : `bg-${color}-500`;
@@ -25,7 +27,11 @@ const Button = ({
     return (
       <Link to={to}>  {/* Enlace para rutas internas */}
         <button
-          className={`${backgroundColor} text-white px-6 py-2 rounded-${rounded} hover:bg-orange-600 transition duration-300 cursor-pointer ${className}`}
+          className={`
+            ${backgroundColor} text-white px-6 py-2 rounded-${rounded} 
+            hover:bg-orange-600 transition duration-300 cursor-pointer ${className}
+            ${active ? 'bg-blue-800' : 'hover:bg-gray-800'}
+          `}
           onClick={onClick}
         >
           {buttonContent}

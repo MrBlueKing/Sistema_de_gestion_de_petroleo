@@ -1,4 +1,4 @@
-// src/atoms/ErrorMessage.jsx
+// Descripcion: este componente se encarga de mostrar un mensaje de error en la pantalla
 import React from 'react';
 import { FaExclamationCircle } from 'react-icons/fa';
 

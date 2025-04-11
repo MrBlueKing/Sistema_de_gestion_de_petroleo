@@ -1,4 +1,4 @@
-// atoms/LoadingOverlay.jsx
+// Descripcion: este componente se encarga de mostrar un mensaje de carga en la pantalla
 import React, { useEffect, useState } from "react";
 import { FaSpinner } from "react-icons/fa";
 
