@@ -5,6 +5,7 @@ import LoginPage from "../pages/LoginPage";
 import PrivateRoute from "./PrivateRoutes"; 
 import AdministradorPage from "../pages/AdministradorPage";
 import AdministradorUserRegister from "../components/templates/Administrador/AdministradorUserRegister";
+import Bombero from "../pages/BomberoPage";
 
 const AppRoutes = () => {
   return (
@@ -21,6 +22,16 @@ const AppRoutes = () => {
           </PrivateRoute>
         } 
       /> <Route path="registroUsuario" element={<AdministradorUserRegister />} />
+
+      {/* Ruta protegida para Administrador */}
+      <Route 
+        path="/bombero" 
+        element={
+          <PrivateRoute requiredRole="bombero"> {/* Aquí asumo que el rol de "admin" es el que se asigna en tu backend */}
+            <Bombero />
+          </PrivateRoute>
+        } 
+      /> 
     </Routes>
   );
 };

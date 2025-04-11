@@ -50,12 +50,6 @@ const Header = () => {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Botón cambio de tema */}
-            <IconButton 
-              icono={<FaSun size={20} className="text-gray-600" />} 
-              onClick={() => console.log("Cambiar tema")} 
-            />
-
             {/* Notificaciones */}
             <div className="flex items-center gap-4">
               <NotificationDropdown notifications={notifications} />
