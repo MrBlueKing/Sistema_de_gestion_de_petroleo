@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FaBars, FaSun } from "react-icons/fa";
+import { FaBars, FaSun, FaHome, FaUser, FaCog } from "react-icons/fa";
 import NotificationDropdown from "../../molecules/NotificationDropdown";
 import UserProfileDropdown from "../../molecules/UserProfileDropdown";
 import IconButton from "../../atoms/Button/IconButton";
@@ -26,10 +26,17 @@ const Header = () => {
     navigate('/');  // Redirigir al login utilizando useNavigate
   };
 
-  return (
+// Lista de elementos del Sidebar
+const menuItems = [
+  { name: "Inicio", link: "/home", icon: <FaHome /> },
+  { name: "Usuarios", link: "/registroUsuario", icon: <FaUser /> },
+  { name: "Configuración", link: "/configuracion", icon: <FaCog /> },
+];      {/* Sidebar */}
+    
+return (
     <div className="flex">
       {/* Sidebar */}
-      <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
+      <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} menuItems={menuItems} />
 
       <div className="flex flex-col flex-1">
         {/* Header */}

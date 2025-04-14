@@ -24,11 +24,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     <span>Inicio</span>
   </Link>
 
-  <Link to="/registroUsuario" className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 p-2 rounded-lg cursor-pointer">
-    <FaUser />
-    <span>Usuarios</span>
-  </Link>
-
+  
   <Link to="/registroEquipo" className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 p-2 rounded-lg cursor-pointer">
     <FaCog />
     <span>Registro Equipos</span>
