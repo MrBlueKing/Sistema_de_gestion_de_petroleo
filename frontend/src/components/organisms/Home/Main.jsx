@@ -36,7 +36,7 @@ const Main = () => {
       // Redirigir según el rol del usuario
       switch (userRole) {
         case "bombero":
-          navigate("/menuprincipalbombero");
+          navigate("/bombero");
           break;
         case "gerente":
           navigate("/menuprincipalgerente");

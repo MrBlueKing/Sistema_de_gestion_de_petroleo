@@ -9,7 +9,7 @@ import { useNavigate } from "react-router-dom"; // Para redirigir al login
 const Header = () => {
   const [notifications] = useState([
     { id: 1, message: 'Nuevo usuario registrado', time: '5 min' },
-    { id: 2, message: 'Ingreso Petróleo ', time: '10 min' },
+    { id: 2, message: 'Ingreso Petróleo ', time: '10 nashe min' },
   ]);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);  // Estado para abrir/cerrar el Sidebar

@@ -1,31 +1,71 @@
-// src/components/templates/MenuPrincipalBombero.jsx
-import { useState } from "react";
-import MenuButton from "../../components/atoms/MenuButton";
-import UserGreeting from "../../components/atoms/UserGreeting";
-import Badge from "../../components/atoms/Badge";
+import React, { useState } from "react";
+import { FaBars, FaSun } from "react-icons/fa";
+import NotificationDropdown from "../../molecules/NotificationDropdown";
+import UserProfileDropdown from "../../molecules/UserProfileDropdown";
+import IconButton from "../../atoms/Button/IconButton";
+import SidebarBombero from "../../molecules/SideBardBombero";
+import { useNavigate } from "react-router-dom"; // Para redirigir al login
 
-const MenuPrincipalBombero = () => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const userName = "Usuario"; // O lo que sea que uses como nombre del usuario
-  
+const Header = () => {
+  const [notifications] = useState([
+    { id: 1, message: 'Nuevo usuario registrado', time: '5 min' },
+    { id: 2, message: 'Ingreso Petróleo ', time: '10 nashe min' },
+  ]);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);  // Estado para abrir/cerrar el Sidebar
+  const navigate = useNavigate(); // Hook para redirigir al login
+
+  // Función para abrir/cerrar el Sidebar
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);  // Cambiar el estado de visibilidad del Sidebar
+  };
+
+  // Función para cerrar sesión
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');  // Eliminar el token de localStorage
+    navigate('/');  // Redirigir al login utilizando useNavigate
+  };
+
   return (
-    <header className="bg-white shadow-md">
-      <div className="flex items-center justify-between p-4">
-        {/* Menu Button */}
-        <MenuButton onClick={() => setIsMenuOpen(!isMenuOpen)} />
+    <div className="flex">
+      {/* Sidebar */}
+      <SidebarBombero isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
 
-        {/* User Greeting - centrado */}
-        <div className="flex-1 flex justify-center">
-          <UserGreeting userName={userName} />
-        </div>
+      <div className="flex flex-col flex-1">
+        {/* Header */}
+        <header className="flex items-center justify-between bg-white shadow-md px-4 py-3">
+          {/* Botón hamburguesa para abrir el sidebar */}
+          <div className="flex items-center gap-4">
+            <IconButton 
+              icono={<FaBars size={20} className="text-gray-600" />} 
+              onClick={toggleSidebar}  // Llamar a la función para abrir el Sidebar
+            />
+            <h1
+              className={`text-xl font-bold text-gray-800 transition-all duration-300 ${
+                sidebarOpen ? 'ml-64' : 'ml-0'
+              }`}
+            >
+              Bombero
+            </h1>
+          </div>
 
-        {/* Badge - alineado a la derecha */}
-        <div>
-          <Badge />
-        </div>
+          <div className="flex items-center gap-4">
+            {/* Notificaciones */}
+            <div className="flex items-center gap-4">
+              <NotificationDropdown notifications={notifications} />
+            </div>
+
+            {/* Dropdown de usuario */}
+            <UserProfileDropdown 
+              userMenuOpen={userMenuOpen} 
+              setUserMenuOpen={setUserMenuOpen} 
+              handleLogout={handleLogout}  // Pasamos la función de cerrar sesión
+            />
+          </div>
+        </header>
       </div>
-    </header>
+    </div>
   );
 };
 
-export default MenuPrincipalBombero;
+export default Header;
