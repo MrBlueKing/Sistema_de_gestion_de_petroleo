@@ -8,6 +8,8 @@ import AdministradorUserRegister from "../components/templates/Administrador/Adm
 import BomberoPage from "../pages/BomberoPage";
 import BomberoRecepcionPage from "../pages/BomberoRecepcionPage";
 import BomberoSolicitantePage from "../pages/SolicitantePage";
+import GerentePage from "../pages/GerentePage";
+
 
 const AppRoutes = () => {
   return (
@@ -17,13 +19,42 @@ const AppRoutes = () => {
 
       {/* Ruta protegida para Administrador */}
       <Route 
+        path="/gerente" 
+        element={
+          <PrivateRoute requiredRole="gerente"> {/* Aquí asumo que el rol de "admin" es el que se asigna en tu backend */}
+            <GerentePage />
+          </PrivateRoute>
+        } 
+      /> 
+
+      {/* Ruta protegida para Administrador */}
+      <Route 
         path="/administrador" 
         element={
           <PrivateRoute requiredRole="admin"> {/* Aquí asumo que el rol de "admin" es el que se asigna en tu backend */}
             <AdministradorPage />
           </PrivateRoute>
         } 
-      /> <Route path="registroUsuario" element={<AdministradorUserRegister />} />
+      /> 
+
+      {/* Ruta protegida para Administrador */}
+      <Route 
+        path="/registroUsuario" 
+        element={
+          <PrivateRoute requiredRole="admin"> {/* Aquí asumo que el rol de "admin" es el que se asigna en tu backend */}
+            <AdministradorUserRegister />
+          </PrivateRoute>
+        } 
+      /> 
+            {/* Ruta protegida para Administrador */}
+      <Route 
+        path="/registroUsuario" 
+        element={
+          <PrivateRoute requiredRole="admin"> {/* Aquí asumo que el rol de "admin" es el que se asigna en tu backend */}
+            <AdministradorUserRegister />
+          </PrivateRoute>
+        } 
+      /> 
 
       {/* Ruta protegida para Bombero */}
       <Route 

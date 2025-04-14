@@ -44,10 +44,10 @@ const Solicitante = () => {
           <div className="flex justify-between items-center w-full px-4 py-2">
             
           <Button
-  to="/Bombero"
-  className="bg-transparent hover:bg-transparent p-0 m-0 shadow-none flex items-center justify-center"
-  icon={<FaHome className="text-black w-6 h-6" />}
-/>
+            to="/Bombero"
+            className="bg-transparent hover:bg-transparent p-0 m-0 shadow-none flex items-center justify-center"
+            icon={<FaHome className="text-black w-6 h-6" />}
+          />
             <PageControl 
               currentPage={currentPage} 
               totalPages={totalPages} 

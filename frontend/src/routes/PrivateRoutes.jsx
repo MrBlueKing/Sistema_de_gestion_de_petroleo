@@ -12,7 +12,7 @@ const PrivateRoutes = ({ children, requiredRole }) => {
   }
 
   // Si está autenticado y tiene el rol correcto, renderiza la ruta
-  return children;
+  return children;  
 };
 
 export default PrivateRoutes;

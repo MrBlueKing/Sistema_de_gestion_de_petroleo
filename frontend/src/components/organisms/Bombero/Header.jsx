@@ -3,7 +3,6 @@ import { FaBars, FaSun } from "react-icons/fa";
 import NotificationDropdown from "../../molecules/NotificationDropdown";
 import UserProfileDropdown from "../../molecules/UserProfileDropdown";
 import IconButton from "../../atoms/Button/IconButton";
-import SidebarBombero from "../../molecules/SideBardBombero";
 import { useNavigate } from "react-router-dom"; // Para redirigir al login
 
 const Header = () => {
@@ -29,7 +28,7 @@ const Header = () => {
   return (
     <div className="flex">
       {/* Sidebar */}
-      <SidebarBombero isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
+    
 
       <div className="flex flex-col flex-1">
         {/* Header */}
