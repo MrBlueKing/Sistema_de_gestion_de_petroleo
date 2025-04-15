@@ -17,7 +17,7 @@ const AppRoutes = () => {
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<LoginPage />} />
 
-      {/* Ruta protegida para Administrador */}
+      {/* Ruta protegida para Gerente */}
       <Route 
         path="/gerente" 
         element={
@@ -39,14 +39,14 @@ const AppRoutes = () => {
 
       {/* Ruta protegida para Administrador */}
       <Route 
-        path="/registroUsuario" 
+        path="/inicio" 
         element={
           <PrivateRoute requiredRole="admin"> {/* Aquí asumo que el rol de "admin" es el que se asigna en tu backend */}
-            <AdministradorUserRegister />
+            <AdministradorPage />
           </PrivateRoute>
         } 
       /> 
-            {/* Ruta protegida para Administrador */}
+      {/* Ruta protegida para Administrador */}
       <Route 
         path="/registroUsuario" 
         element={

@@ -13,7 +13,7 @@ const Header = () => {
   ]);
   // Lista de elementos del Sidebar
   const menuItems = [
-    { name: "Inicio", link: "/homeAdministrador", icon: <FaHome /> },
+    { name: "Inicio", link: "/inicio", icon: <FaHome /> },
     { name: "Registrar Usuarios", link: "/registroUsuario", icon: <FaUser /> },
     { name: "Configuración", link: "/configuracion", icon: <FaCog /> },
   ];
