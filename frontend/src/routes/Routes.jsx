@@ -2,57 +2,74 @@ import React from "react";
 import { Routes, Route } from "react-router-dom";
 import Home from "../pages/HomePage";
 import LoginPage from "../pages/LoginPage";
-import PrivateRoute from "./PrivateRoutes"; 
+import PrivateRoute from "./PrivateRoutes";
 import AdministradorPage from "../pages/AdministradorPage";
 import AdministradorUserRegister from "../components/templates/Administrador/AdministradorUserRegister";
 import BomberoPage from "../pages/BomberoPage";
 import BomberoRecepcionPage from "../pages/BomberoRecepcionPage";
 import BomberoNavigation from "../pages/BomberoNavigation";
+import GestionarTipoMaquina from "../pages/GestionarTipoMaquina";
 
 const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<LoginPage />} />
-
       {/* Ruta protegida para Administrador */}
-      <Route 
-        path="/administrador" 
+      <Route
+        path="/administrador"
         element={
-          <PrivateRoute requiredRole="admin"> {/* Aquí asumo que el rol de "admin" es el que se asigna en tu backend */}
+          <PrivateRoute requiredRole="admin">
+            {" "}
+            {/* Aquí asumo que el rol de "admin" es el que se asigna en tu backend */}
             <AdministradorPage />
           </PrivateRoute>
-        } 
-      /> <Route path="registroUsuario" element={<AdministradorUserRegister />} />
-
+        }
+      />{" "}
+      <Route path="registroUsuario" element={<AdministradorUserRegister />} />
       {/* Ruta protegida para Bombero */}
-      <Route 
-        path="/bombero" 
+      <Route
+        path="/bombero"
         element={
-          <PrivateRoute requiredRole="bombero"> {/* Aquí asumo que el rol de "admin" es el que se asigna en tu backend */}
+          <PrivateRoute requiredRole="bombero">
+            {" "}
+            {/* Aquí asumo que el rol de "admin" es el que se asigna en tu backend */}
             <BomberoPage />
           </PrivateRoute>
-        } 
-      /> 
-
+        }
+      />
       {/* Ruta protegida para Recepcion Bombero */}
-      <Route 
-        path="/bomberoRecepcion" 
+      <Route
+        path="/bomberoRecepcion"
         element={
-          <PrivateRoute requiredRole="bombero"> {/* Aquí asumo que el rol de "Bombero" es el que se asigna en tu backend */}
+          <PrivateRoute requiredRole="bombero">
+            {" "}
+            {/* Aquí asumo que el rol de "Bombero" es el que se asigna en tu backend */}
             <BomberoRecepcionPage />
           </PrivateRoute>
-        } 
-      /> 
-
+        }
+      />
       {/* Ruta protegida para Consumo Bombero */}
-      <Route 
-        path="/BomberoNavigation" 
+      <Route
+        path="/BomberoNavigation"
         element={
-          <PrivateRoute requiredRole="bombero"> {/* Aquí asumo que el rol de "Bombero" es el que se asigna en tu backend */}
+          <PrivateRoute requiredRole="bombero">
+            {" "}
+            {/* Aquí asumo que el rol de "Bombero" es el que se asigna en tu backend */}
             <BomberoNavigation />
           </PrivateRoute>
-        } 
+        }
+      />
+      {/* Ruta protegida para Consumo Bombero */}
+      <Route
+        path="/GestionarTipoMaquina"
+        element={
+          <PrivateRoute requiredRole="bombero">
+            {" "}
+            {/* Aquí asumo que el rol de "Bombero" es el que se asigna en tu backend */}
+            <GestionarTipoMaquina />
+          </PrivateRoute>
+        }
       />
     </Routes>
   );

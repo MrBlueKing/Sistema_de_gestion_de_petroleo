@@ -31,7 +31,7 @@ const Header = () => {
     { name: "Inicio", link: "/home", icon: <FaHome /> },
     {
       name: "Gestionar Tipo Maquina",
-      link: "/registroUsuario",
+      link: "/GestionarTipoMaquina",
       icon: <FaWrench />,
     },
     {

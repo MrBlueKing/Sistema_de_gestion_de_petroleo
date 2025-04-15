@@ -14,20 +14,45 @@ const ConsumoForm = ({ formData, handleChange, handleSubmit }) => {
 
   // Establecer la hora actual como valor por defecto para el datetime-local
   useEffect(() => {
+    const formatDateToLocalInput = (date) => {
+      const pad = (num) => String(num).padStart(2, "0");
+  
+      const year = date.getFullYear();
+      const month = pad(date.getMonth() + 1);
+      const day = pad(date.getDate());
+      const hours = pad(date.getHours());
+      const minutes = pad(date.getMinutes());
+  
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    };
+  
+    let localFormatted;
     if (!formData.fechaHora) {
-      const currentDateTime = new Date().toISOString().slice(0, 16); // Obtener la fecha y hora actual en formato YYYY-MM-DDTHH:MM
-      setFechaHora(currentDateTime);
+      const now = new Date();
+      localFormatted = formatDateToLocalInput(now);
     } else {
-      const formattedDate = new Date(formData.fechaHora).toISOString().slice(0, 16);
-      setFechaHora(formattedDate);
+      const savedDate = new Date(formData.fechaHora);
+      localFormatted = formatDateToLocalInput(savedDate);
     }
+  
+    setFechaHora(localFormatted);
+    handleChange("fechaHora", localFormatted); // <-- sincroniza el valor con formData
   }, [formData.fechaHora]);
 
   const handleFechaHoraChange = (date) => {
-    const newFechaHora = date.toISOString().slice(0, 16); // Formateamos la fecha en formato adecuado
-    setFechaHora(newFechaHora); // Actualizamos el estado local
-    handleChange("fechaHora", newFechaHora); // Actualizamos el estado global
+    const pad = (num) => String(num).padStart(2, "0");
+    const year = date.getFullYear();
+    const month = pad(date.getMonth() + 1);
+    const day = pad(date.getDate());
+    const hours = pad(date.getHours());
+    const minutes = pad(date.getMinutes());
+  
+    const localFormatted = `${year}-${month}-${day}T${hours}:${minutes}`;
+  
+    setFechaHora(localFormatted);
+    handleChange("fechaHora", localFormatted);
   };
+  
 
   return (
     <div className="flex flex-col space-y-3">
@@ -36,7 +61,7 @@ const ConsumoForm = ({ formData, handleChange, handleSubmit }) => {
   selected={fechaHora ? new Date(fechaHora) : null}
   onChange={handleFechaHoraChange}
   showTimeSelect
-  timeIntervals={15}
+  timeIntervals={1}
   timeCaption="Hora"
   dateFormat="dd/MM/yyyy HH:mm"
   locale="es"
