@@ -88,7 +88,6 @@ export default function Main() {
     return translated;
   };
 
-  // Validación de formato de RUT
   const isValidRutFormat = (rut) => {
     // Verifica que el RUT no tenga puntos, guiones ni espacios
     return /^[0-9kK]+$/.test(rut);

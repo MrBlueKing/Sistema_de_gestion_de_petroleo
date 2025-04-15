@@ -13,7 +13,7 @@ const Main = () => {
     className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-4 rounded-full w-full shadow-md"
   />
   <Button 
-    to= "/bomberoSolicitante"
+    to= "/BomberoNavigation"
     text="Cargar Combustible" 
     onClick={() => console.log('Cargar Combustible')} 
     className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-4 rounded-full w-full shadow-md"

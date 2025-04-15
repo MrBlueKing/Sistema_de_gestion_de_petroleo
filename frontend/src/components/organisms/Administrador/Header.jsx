@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FaHome, FaBars, FaUser, FaCog, FaSun } from "react-icons/fa";
+import { FaBars, FaHome, FaUser, FaCog } from "react-icons/fa";
 import NotificationDropdown from "../../molecules/NotificationDropdown";
 import UserProfileDropdown from "../../molecules/UserProfileDropdown";
 import IconButton from "../../atoms/Button/IconButton";
@@ -31,8 +31,8 @@ const Header = () => {
     localStorage.removeItem('authToken');  // Eliminar el token de localStorage
     navigate('/');  // Redirigir al login utilizando useNavigate
   };
-
-  return (
+    
+return (
     <div className="flex">
       {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} menuItems={menuItems} />

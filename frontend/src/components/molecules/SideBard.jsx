@@ -44,3 +44,4 @@ const Sidebar = ({ isOpen, toggleSidebar, menuItems}) => {
 };
 
 export default Sidebar;
+

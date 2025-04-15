@@ -7,9 +7,8 @@ import AdministradorPage from "../pages/AdministradorPage";
 import AdministradorUserRegister from "../components/templates/Administrador/AdministradorUserRegister";
 import BomberoPage from "../pages/BomberoPage";
 import BomberoRecepcionPage from "../pages/BomberoRecepcionPage";
-import BomberoSolicitantePage from "../pages/SolicitantePage";
 import GerentePage from "../pages/GerentePage";
-
+import BomberoNavigation from "../pages/BomberoNavigation";
 
 const AppRoutes = () => {
   return (
@@ -78,10 +77,10 @@ const AppRoutes = () => {
 
       {/* Ruta protegida para Consumo Bombero */}
       <Route 
-        path="/bomberoSolicitante" 
+        path="/BomberoNavigation" 
         element={
           <PrivateRoute requiredRole="bombero"> {/* Aquí asumo que el rol de "Bombero" es el que se asigna en tu backend */}
-            <BomberoSolicitantePage />
+            <BomberoNavigation />
           </PrivateRoute>
         } 
       />

@@ -2,7 +2,7 @@ import React from "react";
 import InputField from "../../atoms/Inputs/InputField";
 import Button from "../../atoms/Button/Button";
 import IconButton from "../../atoms/Button/IconButton";
-import { FaArrowLeft, FaBars } from "react-icons/fa";
+import { FaArrowLeft, FaBars, FaHome } from "react-icons/fa";
 
 const Main = () => {
   return (
@@ -31,7 +31,7 @@ const Main = () => {
         <Button
   to="/Bombero"
   className="bg-transparent hover:bg-transparent p-0 m-0 shadow-none flex items-center justify-center"
-  icon={<FaArrowLeft className="text-black w-6 h-6" />}
+  icon={<FaHome className="text-black w-6 h-6" />}
 />
 
 
