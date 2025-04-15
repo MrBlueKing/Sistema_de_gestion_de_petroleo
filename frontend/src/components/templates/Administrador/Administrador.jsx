@@ -1,11 +1,13 @@
 import React from 'react';
-import HeaderAdmin from '../../organisms/Administrador/Header';
+import Header from '../../organisms/Administrador/Header';
+import Main from '../../organisms/Administrador/Main';
 
-const MenuPrincipalAdministrador = () => { 
+const Administrador = () => { 
     return (
       <>
-        <HeaderAdmin />
+        <Header />
+        <Main />
       </>
     );
 };
-export default MenuPrincipalAdministrador;
+export default Administrador;

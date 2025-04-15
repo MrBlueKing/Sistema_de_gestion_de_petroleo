@@ -5,8 +5,8 @@ export default function AdministradorUserRegister() {
 
   return (
     <>
-        <HeaderAdmin />
-        <MainUserRegister />
+      <HeaderAdmin />
+      <MainUserRegister />
     </>
   );
 }

@@ -1,38 +1,50 @@
 import React from "react";
-import { Link } from "react-router-dom";  
+import { Link } from "react-router-dom";
 
-//Boton de la aplicacion 
+// Botón de la aplicación
 const Button = ({
   onClick,
-  className,
-  color = "white",
+  className = "",
+  color = "white",       // blanco por defecto
   text,
   to,
   rounded = "lg",
   icon,
-  iconClassName = "w-6 h-6",  // Clase predeterminada para el ícono
-  active 
+  iconClassName = "w-6 h-6",
+  active = false,
+  type = "button",       // para permitir submit
+  disabled = false       // para desactivar el botón
 }) => {
-  // Condicional para aplicar el color de fondo
-  const backgroundColor = color === "transparent" ? "bg-transparent" : `bg-${color}-500`;
+  const baseClasses = `
+    inline-flex items-center justify-center gap-2
+    px-6 py-2 text-white font-medium transition duration-300 
+    rounded-${rounded} focus:outline-none
+  `;
+
+  const bgColor =
+    disabled
+      ? "bg-gray-400 cursor-not-allowed"
+      : active
+      ? "bg-blue-800"
+      : `bg-${color}-500 hover:bg-${color}-600`;
 
   const buttonContent = (
     <>
-      {icon && <span className={`mr-2 ${iconClassName}`}>{icon}</span>}  {/* El ícono ocupa todo el espacio disponible */}
+      {icon && <span className={iconClassName}>{icon}</span>}
       {text}
     </>
   );
 
+  const finalClass = `${baseClasses} ${bgColor} ${className}`.trim();
+
   if (to) {
     return (
-      <Link to={to}>  {/* Enlace para rutas internas */}
+      <Link to={to}>
         <button
-          className={`
-            ${backgroundColor} text-white px-6 py-2 rounded-${rounded} 
-            hover:bg-orange-600 transition duration-300 cursor-pointer ${className}
-            ${active ? 'bg-blue-800' : 'hover:bg-gray-800'}
-          `}
+          className={finalClass}
           onClick={onClick}
+          type={type}
+          disabled={disabled}
         >
           {buttonContent}
         </button>
@@ -42,8 +54,10 @@ const Button = ({
 
   return (
     <button
-      className={`${backgroundColor} text-white px-6 py-2 rounded-lg hover:bg-orange-600 transition duration-300 cursor-pointer ${className}`}
+      className={finalClass}
       onClick={onClick}
+      type={type}
+      disabled={disabled}
     >
       {buttonContent}
     </button>

@@ -6,33 +6,26 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-use App\Models\Rol; // Asegúrate de importar el modelo Rol
+use App\Models\Rol;
 
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
-    /**
-     * Los atributos que se pueden asignar masivamente.
-     */
     protected $fillable = [
         'nombre',
+        'apellido',
         'rut',
         'password',
-        'id_rol', // Agrega 'id_rol' aquí
+        'id_faena',
+        'id_rol',
     ];
 
-    /**
-     * Los atributos que deben estar ocultos en la serialización.
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * Casts para atributos.
-     */
     protected function casts(): array
     {
         return [
@@ -40,19 +33,11 @@ class User extends Authenticatable
         ];
     }
 
-    /**
-     * Sobrescribir el campo que Laravel usará para autenticación.
-     * En lugar de 'email', usaremos 'rut'.
-     */
     public function getAuthIdentifierName()
     {
         return 'rut';
     }
 
-    /**
-     * Relación con el modelo Rol.
-     * Un usuario tiene un solo rol.
-     */
     public function rol()
     {
         return $this->belongsTo(Rol::class, 'id_rol', 'id_rol');

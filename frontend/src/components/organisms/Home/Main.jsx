@@ -39,7 +39,7 @@ const Main = () => {
           navigate("/bombero");
           break;
         case "gerente":
-          navigate("/menuprincipalgerente");
+          navigate("/gerente");
           break;
         case "admin":
           navigate("/administrador");
@@ -54,7 +54,7 @@ const Main = () => {
   };
 
   return (
-    <main className="flex-1 w-full p-6 text-center">
+    <main className="flex-1 w-full px-4 sm:px-6 lg:px-8 text-center">
       <div className="bg-black/20 py-2 px-4 rounded-lg">
         <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-300 mb-4 drop-shadow-lg ">
           Bienvenido al Sistema Petróleo

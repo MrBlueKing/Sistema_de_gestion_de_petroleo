@@ -14,49 +14,39 @@ class AuthController extends Controller
     // Método para registrar un nuevo usuario
     // Este método recibe una solicitud HTTP y crea un nuevo usuario en la base de datos.
 
+    // Registro de usuario
     public function register(Request $request)
     {
-        Log::info('Datos recibidos en el registro: ', ['id_rol' => $request->id_rol]);
-        Log::info('Datos recibidos en el registro: ', ['nombre' => $request->nombre]);
-        Log::info('Datos recibidos en el registro: ', ['rut' => $request->rut]);
-        // Validar los datos recibidos
         $validator = Validator::make($request->all(), [
-            'nombre' => 'required|string|max:100',
             'rut' => 'required|string|max:12|unique:users,rut',
-            'password' => 'required|string|min:8|confirmed',
-            'id_rol' => 'required|exists:roles,id_rol', // Asegura que sea un rol válido
+            'nombre' => 'required|string|max:100',
+            'apellido' => 'required|string|max:100',
+            'id_rol' => 'required|exists:roles,id_rol',
+            'id_faena' => 'required|integer', // o valida contra tabla faenas si existe
+            'password' => 'required|string|min:8',
         ]);
 
-        // Si la validación falla, devolver los errores
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 400);
         }
 
-        // Mostrar los datos que se están recibiendo
-        Log::info('Datos recibidos en el registro: ', $request->all());
-
-        // Crear el usuario con los datos válidos
         $user = User::create([
-            'nombre' => $request->nombre,
             'rut' => $request->rut,
+            'nombre' => $request->nombre,
+            'apellido' => $request->apellido,
+            'id_rol' => $request->id_rol,
+            'id_faena' => $request->id_faena,
             'password' => Hash::make($request->password),
-            'id_rol' => $request->id_rol, // Asignar el rol recibido
         ]);
 
-        // Crear un token para el usuario
         $token = $user->createToken('MyAppToken')->plainTextToken;
 
-        // Devolver la respuesta con los datos del usuario y token
         return response()->json([
             'message' => 'Usuario registrado exitosamente',
             'user' => $user,
             'token' => $token,
         ], 201);
     }
-
-
-    
-    
 
     // Método para iniciar sesión
     // Este método recibe una solicitud HTTP y autentica al usuario.

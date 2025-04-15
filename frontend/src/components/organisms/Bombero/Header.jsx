@@ -53,7 +53,6 @@ const Header = () => {
         toggleSidebar={toggleSidebar}
         menuItems={menuItems}
       />
-
       <div className="flex flex-col flex-1">
         {/* Header */}
         <header className="flex items-center justify-between bg-white shadow-md px-4 py-3">

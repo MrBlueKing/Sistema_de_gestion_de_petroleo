@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FaBars, FaSun, FaHome, FaUser, FaCog } from "react-icons/fa";
+import { FaBars, FaHome, FaUser, FaCog } from "react-icons/fa";
 import NotificationDropdown from "../../molecules/NotificationDropdown";
 import UserProfileDropdown from "../../molecules/UserProfileDropdown";
 import IconButton from "../../atoms/Button/IconButton";
@@ -9,8 +9,14 @@ import { useNavigate } from "react-router-dom"; // Para redirigir al login
 const Header = () => {
   const [notifications] = useState([
     { id: 1, message: 'Nuevo usuario registrado', time: '5 min' },
-    { id: 2, message: 'Ingreso Petróleo ', time: '10 nashe min' },
+    { id: 2, message: 'Ingreso Petróleo ', time: '10 min' },
   ]);
+  // Lista de elementos del Sidebar
+  const menuItems = [
+    { name: "Inicio", link: "/inicio", icon: <FaHome /> },
+    { name: "Registrar Usuarios", link: "/registroUsuario", icon: <FaUser /> },
+    { name: "Configuración", link: "/configuracion", icon: <FaCog /> },
+  ];
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);  // Estado para abrir/cerrar el Sidebar
   const navigate = useNavigate(); // Hook para redirigir al login
@@ -25,13 +31,6 @@ const Header = () => {
     localStorage.removeItem('authToken');  // Eliminar el token de localStorage
     navigate('/');  // Redirigir al login utilizando useNavigate
   };
-
-// Lista de elementos del Sidebar
-const menuItems = [
-  { name: "Inicio", link: "/home", icon: <FaHome /> },
-  { name: "Usuarios", link: "/registroUsuario", icon: <FaUser /> },
-  { name: "Configuración", link: "/configuracion", icon: <FaCog /> },
-];      {/* Sidebar */}
     
 return (
     <div className="flex">
@@ -47,11 +46,7 @@ return (
               icono={<FaBars size={20} className="text-gray-600" />} 
               onClick={toggleSidebar}  // Llamar a la función para abrir el Sidebar
             />
-            <h1
-              className={`text-xl font-bold text-gray-800 transition-all duration-300 ${
-                sidebarOpen ? 'ml-64' : 'ml-0'
-              }`}
-            >
+            <h1 className="text-xl font-bold text-gray-800">
               Administrador
             </h1>
           </div>
