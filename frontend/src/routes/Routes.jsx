@@ -11,6 +11,7 @@ import GerentePage from "../pages/GerentePage";
 import BomberoNavigation from "../pages/BomberoNavigation";
 import GestionarTipoMaquina from "../pages/GestionarTipoMaquina";
 import BomberoIngresoExterno from "../pages/BomberoIngresoExterno";
+import GestionarMaquinaCategoria from "../pages/GestionarMaquinCategoriaPage";
 
 const AppRoutes = () => {
   return (
@@ -115,6 +116,17 @@ const AppRoutes = () => {
         element={
           <PrivateRoute requiredRole="bombero">
             <BomberoIngresoExterno />
+          </PrivateRoute>
+        }
+        
+      />
+
+       {/* Ruta protegida para Categorizar Maquinas Bombero */}
+       <Route
+        path="/GestionarMaquinaCategoria"
+        element={
+          <PrivateRoute requiredRole="bombero">
+            <GestionarMaquinaCategoria />
           </PrivateRoute>
         }
         

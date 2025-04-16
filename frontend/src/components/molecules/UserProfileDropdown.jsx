@@ -3,8 +3,12 @@ import axios from "axios";
 import { FaChevronDown } from "react-icons/fa";
 import { UserContext } from "../../context/userContext"; // Contexto del usuario
 
-const UserProfileDropdown = ({ userMenuOpen, setUserMenuOpen, handleLogout }) => {
-  const { user, loading } = useContext(UserContext); // Acceder al usuario del contexto
+const UserProfileDropdown = ({
+  userMenuOpen,
+  setUserMenuOpen,
+  handleLogout,
+}) => {
+  const { user } = useContext(UserContext); // Acceder al usuario del contexto
   const [userData, setUserData] = useState(null);
   const [isLoading, setIsLoading] = useState(true); // Estado para la carga de datos
   const dropdownRef = useRef(null);
@@ -14,21 +18,18 @@ const UserProfileDropdown = ({ userMenuOpen, setUserMenuOpen, handleLogout }) =>
       // Si los datos están en el contexto, usarlos directamente
       setUserData(user);
       setIsLoading(false);
-      console.log("Datos del usuario desde el contexto:", user);
     } else {
       const sessionData = JSON.parse(localStorage.getItem("authToken"));
       if (sessionData && sessionData.user) {
         // Si los datos están en localStorage, usarlos
         setUserData(sessionData.user);
         setIsLoading(false);
-        console.log("Datos del usuario desde localStorage:", sessionData.user);
       } else {
         // Si no hay datos, hacer la llamada a la API
         const fetchUserData = async () => {
           try {
             const response = await axios.get("http://127.0.0.1:8000/api/user");
             setUserData(response.data); // Guardar los datos obtenidos de la API
-            console.log("Datos del usuario desde la API:", response.data);
           } catch (error) {
             console.error("Error al obtener los datos del usuario:", error);
           } finally {
@@ -69,7 +70,9 @@ const UserProfileDropdown = ({ userMenuOpen, setUserMenuOpen, handleLogout }) =>
             <span className="font-semibold text-white">Cargando...</span>
           ) : (
             <span className="font-semibold text-white">
-              {userData ? userData.nombre.charAt(0) + userData.apellido.charAt(0) : "N/A"}
+              {userData
+                ? userData.nombre.charAt(0) + userData.apellido.charAt(0)
+                : "N/A"}
             </span>
           )}
         </div>
@@ -82,7 +85,9 @@ const UserProfileDropdown = ({ userMenuOpen, setUserMenuOpen, handleLogout }) =>
                 <h3 className="font-medium text-gray-800">
                   {userData.nombre} {userData.apellido}
                 </h3>
-                <p className="text-xs text-gray-500">{userData.rol || "Rol desconocido"}</p>
+                <p className="text-xs text-gray-500">
+                  {userData.rol || "Rol desconocido"}
+                </p>
               </>
             )
           )}
@@ -92,10 +97,16 @@ const UserProfileDropdown = ({ userMenuOpen, setUserMenuOpen, handleLogout }) =>
 
       {userMenuOpen && (
         <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-40 border border-gray-200">
-          <a href="#" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+          <a
+            href="#"
+            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+          >
             Tu perfil
           </a>
-          <a href="#" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+          <a
+            href="#"
+            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+          >
             Configuración
           </a>
           <div className="border-t border-gray-100"></div>
