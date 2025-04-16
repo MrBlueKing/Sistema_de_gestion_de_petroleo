@@ -28,7 +28,7 @@ const Header = () => {
 
   // Lista de elementos del Sidebar
   const menuItems = [
-    { name: "Inicio", link: "/home", icon: <FaHome /> },
+    { name: "Inicio", link: "/bombero", icon: <FaHome /> },
     {
       name: "Gestionar Tipo Maquina",
       link: "/GestionarTipoMaquina",

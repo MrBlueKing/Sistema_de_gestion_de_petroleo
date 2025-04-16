@@ -18,14 +18,16 @@ const AppRoutes = () => {
       <Route path="/login" element={<LoginPage />} />
 
       {/* Ruta protegida para Gerente */}
-      <Route 
-        path="/gerente" 
+      <Route
+        path="/gerente"
         element={
-          <PrivateRoute requiredRole="gerente"> {/* Aquí asumo que el rol de "admin" es el que se asigna en tu backend */}
+          <PrivateRoute requiredRole="gerente">
+            {" "}
+            {/* Aquí asumo que el rol de "admin" es el que se asigna en tu backend */}
             <GerentePage />
           </PrivateRoute>
-        } 
-      /> 
+        }
+      />
 
       {/* Ruta protegida para Administrador */}
       <Route
@@ -36,28 +38,31 @@ const AppRoutes = () => {
             {/* Aquí asumo que el rol de "admin" es el que se asigna en tu backend */}
             <AdministradorPage />
           </PrivateRoute>
-
-        } 
-      /> 
+        }
+      />
 
       {/* Ruta protegida para Administrador */}
-      <Route 
-        path="/inicio" 
+      <Route
+        path="/inicio"
         element={
-          <PrivateRoute requiredRole="admin"> {/* Aquí asumo que el rol de "admin" es el que se asigna en tu backend */}
+          <PrivateRoute requiredRole="admin">
+            {" "}
+            {/* Aquí asumo que el rol de "admin" es el que se asigna en tu backend */}
             <AdministradorPage />
           </PrivateRoute>
-        } 
-      /> 
+        }
+      />
       {/* Ruta protegida para Administrador */}
-      <Route 
-        path="/registroUsuario" 
+      <Route
+        path="/registroUsuario"
         element={
-          <PrivateRoute requiredRole="admin"> {/* Aquí asumo que el rol de "admin" es el que se asigna en tu backend */}
+          <PrivateRoute requiredRole="admin">
+            {" "}
+            {/* Aquí asumo que el rol de "admin" es el que se asigna en tu backend */}
             <AdministradorUserRegister />
           </PrivateRoute>
-        } 
-      /> 
+        }
+      />
 
       {/* Ruta protegida para Bombero */}
       <Route

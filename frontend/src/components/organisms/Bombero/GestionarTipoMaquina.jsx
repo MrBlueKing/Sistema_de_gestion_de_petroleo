@@ -5,62 +5,74 @@ import RadioButton from "../../atoms/Button/RadioButton";
 import Header from "./Header";
 
 const GestionarTipoMaquina = () => {
-  const [nombreCategoria, setNombreCategoria] = useState('');
-  const [tipoMedicion, setTipoMedicion] = useState(''); // Comienza sin seleccionar
+  const [nombreCategoria, setNombreCategoria] = useState("");
+  const [tipoMedicion, setTipoMedicion] = useState("");
+  const [error, setError] = useState(""); // 🆕 Estado para mensaje de error
 
-  const handleRegistrar = () => {
+  const handleGuardar = () => {
     if (!nombreCategoria || !tipoMedicion) {
-      alert("Por favor completa todos los campos.");
+      setError("Por favor completa todos los campos.");
       return;
     }
 
-    console.log('Registrando categoría:', {
+    setError(""); // Limpiar error si todo está bien
+
+    console.log("Categoría guardada:", {
       nombreCategoria,
-      tipoMedicion
+      tipoMedicion,
     });
 
-    // Aquí iría la lógica para enviar los datos al backend
+    setNombreCategoria("");
+    setTipoMedicion("");
   };
 
   return (
-    <div className="max-w-sm mx-auto bg-white shadow-md rounded-md overflow-hidden">
-      <Header title="Opciones" />
+    <div className="w-screen h-screen bg-gray-100 flex flex-col">
+      <div className="flex-1 flex items-center justify-center px-2 py-2">
+        <div className="w-full max-w-4xl h-full bg-white shadow-md rounded-md overflow-auto p-6">
+          <div className="bg-gray-200 p-3 mb-6 text-center font-medium text-lg">
+            Gestionar Tipo Maquina
+          </div>
 
-      <div className="p-4">
-        <div className="bg-gray-200 p-3 mb-6 text-center font-medium">
-          Gestionar Tipo Maquina
-        </div>
+          {/* 🛑 Mostrar mensaje de error si existe */}
+          {error && (
+            <div className="text-red-600 text-sm font-medium mb-4 text-center">
+              {error}
+            </div>
+          )}
 
-        <InputField 
-          placeholder="Nombre Categoría" 
-          value={nombreCategoria}
-          onChange={(e) => setNombreCategoria(e.target.value)}
-        />
-
-        <div className="border rounded-lg p-4 mb-6">
-          <div className="text-sm text-gray-500 mb-2">Tipo Medición</div>
-
-          <RadioButton 
-            label="Horometro"
-            name="tipoMedicion"
-            value="horometro"
-            checked={tipoMedicion === 'horometro'}
-            onChange={() => setTipoMedicion('horometro')}
+          <InputField
+            placeholder="Nombre Categoría"
+            value={nombreCategoria}
+            onChange={(e) => setNombreCategoria(e.target.value)}
           />
 
-          <RadioButton 
-            label="Kilometraje"
-            name="tipoMedicion"
-            value="kilometraje"
-            checked={tipoMedicion === 'kilometraje'}
-            onChange={() => setTipoMedicion('kilometraje')}
+          <div className="border rounded-lg p-4 mb-6">
+            <div className="text-sm text-gray-500 mb-2">Tipo Medición</div>
+
+            <RadioButton
+              label="Horómetro"
+              name="tipoMedicion"
+              value="horometro"
+              checked={tipoMedicion === "horometro"}
+              onChange={() => setTipoMedicion("horometro")}
+            />
+            <RadioButton
+              label="Kilometraje"
+              name="tipoMedicion"
+              value="kilometraje"
+              checked={tipoMedicion === "kilometraje"}
+              onChange={() => setTipoMedicion("kilometraje")}
+            />
+          </div>
+
+          <Button
+            text="Registrar Recepción"
+            color="orange"
+            onClick={handleGuardar}
+            className="bg-orange-500 hover:bg-orange-600 text-white text-sm px-3 py-2 rounded-full shadow w-32 flex items-center justify-center w-full"
           />
         </div>
-
-        <Button 
-          label="Registrar Categoría" 
-          onClick={handleRegistrar}
-        />
       </div>
     </div>
   );
