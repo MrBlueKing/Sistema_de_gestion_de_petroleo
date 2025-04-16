@@ -65,8 +65,6 @@ class AuthController extends Controller
 
         // Luego, accede al nombre del rol de manera explícita:
         $rolNombre = $user->rol->rol;  // 'rol' es el campo que contiene el nombre del rol
-
-        Log::info('Datos usuario', $user->toArray());
     
         return response()->json([
             'user' => [

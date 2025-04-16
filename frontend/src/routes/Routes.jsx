@@ -10,7 +10,8 @@ import BomberoRecepcionPage from "../pages/Bombero/BomberoRecepcionPage";
 import GerentePage from "../pages/Gerente/GerentePage";
 import BomberoNavigation from "../pages/Bombero/BomberoNavigation";
 import GestionarTipoMaquina from "../pages/Bombero/GestionarTipoMaquina";
-import BomberoIngresoExterno from "../pages/Gerente/BomberoIngresoExterno";
+import BomberoIngresoExterno from "../pages/Bombero/BomberoIngresoExterno";
+import GestionarMaquinaCategoria from "../pages/GestionarMaquinCategoriaPage";
 
 const AppRoutes = () => {
   return (
@@ -115,6 +116,17 @@ const AppRoutes = () => {
         element={
           <PrivateRoute requiredRole="bombero">
             <BomberoIngresoExterno />
+          </PrivateRoute>
+        }
+        
+      />
+
+       {/* Ruta protegida para Categorizar Maquinas Bombero */}
+       <Route
+        path="/GestionarMaquinaCategoria"
+        element={
+          <PrivateRoute requiredRole="bombero">
+            <GestionarMaquinaCategoria />
           </PrivateRoute>
         }
         

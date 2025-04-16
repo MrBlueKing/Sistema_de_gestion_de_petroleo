@@ -31,7 +31,7 @@ const Header = () => {
     { name: "Inicio", link: "/bombero", icon: <FaHome /> },
 
     { name: "Gestionar Tipo Maquina", link: "/GestionarTipoMaquina", icon: <FaWrench />,},
-    { name: "Categorización de Equipos", link: "/configuracion", icon: <FaCogs />,},
+    { name: "Categorización de Equipos", link: "/GestionarMaquinaCategoria", icon: <FaCogs />,},
     { name: "Gestionar Personal", link: "/IngresoExterno", icon: <FaUserCog /> },
 
   ];
