@@ -92,8 +92,6 @@ export default function Main() {
     // Verifica que el RUT no tenga puntos, guiones ni espacios
     return /^[0-9kK]+$/.test(rut);
   };
-  
-  
 
   const handleRegister = async (e) => {
     e.preventDefault();

@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { login } from "../../../Api/authApi";
+import { storeSession } from "../../../utils/session";
 import Icon from "../../atoms/Icons/Icon3h";
 import InputField from "../../atoms/Inputs/InputField";
 import Button from "../../atoms/Button/Button";
@@ -8,63 +9,46 @@ import LoadingOverlay from "../../atoms/FeedBack/Loading";
 import ErrorMessage from "../../atoms/FeedBack/ErrorMessage";
 import icono from "../../../assets/icono.png";
 import { FaUser, FaLock } from "react-icons/fa";
+import { UserContext } from "../../../context/UserContext"; // ✅ Importar contexto
 
 const LoginScreen = () => {
-  const [rut, setRut] = useState('');
-  const [password, setPassword] = useState('');
+  const [rut, setRut] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-
-  const storeSession = ({ token, user }) => {
-    const expiration = Date.now() + 24 * 60 * 60 * 1000; // 24 horas
-    const sessionData = {
-      token,
-      user,
-      expiration,
-      role: user.rol || 'desconocido', // Asegúrate de que el rol esté bien almacenado
-    };
-    localStorage.setItem('authToken', JSON.stringify(sessionData));
-  };
+  const { setUser } = useContext(UserContext); // ✅ Obtener función del contexto
 
   const redirectByRole = (rol) => {
     switch (rol) {
-      case 'admin':
-        navigate('/administrador');
+      case "admin":
+        navigate("/administrador");
         break;
-      case 'bombero':
-        navigate('/bombero');
+      case "bombero":
+        navigate("/bombero");
         break;
-      case 'gerente':
-        navigate('/gerente');
+      case "gerente":
+        navigate("/gerente");
         break;
       default:
-        navigate('/'); // fallback si el rol no es conocido
+        navigate("/");
     }
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setIsLoading(true);
 
     try {
-      await axios.get('http://localhost:8000/sanctum/csrf-cookie', { withCredentials: true });
-
-      const response = await axios.post('http://localhost:8000/api/login', { rut, password }, { withCredentials: true });
-      console.log("Login response:", response.data);
-      if (response.status === 200 && response.data.token && response.data.user) {
-        storeSession({
-          token: response.data.token,
-          user: response.data.user,
-        });
-        const userRole = response.data.user.rol || 'desconocido'; // Asegúrate de que el rol esté en la respuesta
-        redirectByRole(userRole);
-      }
+      const { token, user } = await login({ rut, password });
+      storeSession({ token, user });
+      setUser(user); // ✅ Actualizar el contexto con los datos del usuario
+      redirectByRole(user.rol || "desconocido");
     } catch (err) {
       console.error("Login error:", err);
-      setError('RUT o contraseña incorrectos.');
+      setError("RUT o contraseña incorrectos.");
     } finally {
       setIsLoading(false);
     }
@@ -79,7 +63,6 @@ const LoginScreen = () => {
       </div>
 
       <p className="text-center text-gray-600 mb-6">Accede al sistema</p>
-
       <ErrorMessage message={error} />
 
       <form onSubmit={handleLogin}>

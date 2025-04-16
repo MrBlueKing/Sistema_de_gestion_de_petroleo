@@ -48,13 +48,13 @@ const Maquinaria = ({ onNext, onPrevious }) => {
             />
 
             <div className="bg-white rounded-3xl p-4">
-            <List
-  items={filteredMachines}
-  onItemSelect={(maquina) => {
-    setSeleccion(maquina.nombre);
-    onNext(maquina.nombre); // <--- Esto ejecuta el paso a Patente
-  }}
-/>
+              <List
+                items={filteredMachines}
+                onItemSelect={(maquina) => {
+                  setSeleccion(maquina.nombre);
+                  onNext(maquina.nombre); // <--- Esto ejecuta el paso a Patente
+                }}
+              />
 
             </div>
           </div>

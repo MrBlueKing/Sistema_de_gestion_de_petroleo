@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { FaHome, FaWrench, FaCogs, FaUserCog,FaBars } from "react-icons/fa";
+import { FaHome, FaWrench, FaCogs, FaUserCog, FaBars } from "react-icons/fa";
 import NotificationDropdown from "../../molecules/NotificationDropdown";
 import UserProfileDropdown from "../../molecules/UserProfileDropdown";
 import IconButton from "../../atoms/Button/IconButton";
 import Sidebar from "../../molecules/SideBard";
-import { useNavigate } from "react-router-dom"; // Para redirigir al login
+import { useNavigate } from "react-router-dom";
 
 const Header = () => {
   const [notifications] = useState([
@@ -28,22 +28,11 @@ const Header = () => {
 
   // Lista de elementos del Sidebar
   const menuItems = [
-    { name: "Inicio", link: "/home", icon: <FaHome /> },
-    {
-      name: "Gestionar Tipo Maquina",
-      link: "/GestionarTipoMaquina",
-      icon: <FaWrench />,
-    },
-    {
-      name: "Categorización de Equipos",
-      link: "/configuracion",
-      icon: <FaCogs />,
-    },
-    { name: "Gestionar Personal", link: "/configuracion", icon: <FaUserCog /> },
+    { name: "Inicio", link: "/bombero", icon: <FaHome /> },
+    { name: "Gestionar Tipo Maquina", link: "/GestionarTipoMaquina", icon: <FaWrench />,},
+    { name: "Categorización de Equipos", link: "/configuracion", icon: <FaCogs />,},
+    { name: "Gestionar Personal", link: "/IngresoExterno", icon: <FaUserCog /> },
   ];
-  {
-    /* Sidebar */
-  }
 
   return (
     <div className="flex">
@@ -62,13 +51,10 @@ const Header = () => {
               icono={<FaBars size={20} className="text-gray-600" />}
               onClick={toggleSidebar} // Llamar a la función para abrir el Sidebar
             />
-            <h1
-              className={`text-xl font-bold text-gray-800 transition-all duration-300 ${
-                sidebarOpen ? "ml-64" : "ml-0"
-              }`}
-            >
+            <h1 className="text-xl font-bold text-gray-800">
               Bombero
             </h1>
+
           </div>
 
           <div className="flex items-center gap-4">

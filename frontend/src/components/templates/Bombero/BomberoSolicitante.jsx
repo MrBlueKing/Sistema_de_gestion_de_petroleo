@@ -42,8 +42,8 @@ const Solicitante = ({ onNext }) => {
             <div className="bg-white rounded-3xl p-4">
               <List
                 items={filteredUsers}
-                onItemSelect={() => {
-                  onNext(); // Ejecuta la función al seleccionar
+                onItemSelect={(user)  => {
+                  onNext(user.nombre); // Aquí puedes manejar la selección del usuario
                 }}
               />
             </div>
