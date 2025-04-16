@@ -175,7 +175,6 @@ export default function Main() {
             {successMessage && <Alert type="success" message={successMessage} />}
           </div>
 
-
           <form onSubmit={handleRegister} className="space-y-4">
             {[
               {

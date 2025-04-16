@@ -3,14 +3,14 @@ import { Routes, Route } from "react-router-dom";
 import Home from "../pages/HomePage";
 import LoginPage from "../pages/LoginPage";
 import PrivateRoute from "./PrivateRoutes";
-import AdministradorPage from "../pages/AdministradorPage";
+import AdministradorPage from "../pages/Administrador/AdministradorPage";
 import AdministradorUserRegister from "../components/templates/Administrador/AdministradorUserRegister";
-import BomberoPage from "../pages/BomberoPage";
-import BomberoRecepcionPage from "../pages/BomberoRecepcionPage";
-import GerentePage from "../pages/GerentePage";
-import BomberoNavigation from "../pages/BomberoNavigation";
-import GestionarTipoMaquina from "../pages/GestionarTipoMaquina";
-import BomberoIngresoExterno from "../pages/BomberoIngresoExterno";
+import BomberoPage from "../pages/Bombero/BomberoPage";
+import BomberoRecepcionPage from "../pages/Bombero/BomberoRecepcionPage";
+import GerentePage from "../pages/Gerente/GerentePage";
+import BomberoNavigation from "../pages/Bombero/BomberoNavigation";
+import GestionarTipoMaquina from "../pages/Bombero/GestionarTipoMaquina";
+import BomberoIngresoExterno from "../pages/Gerente/BomberoIngresoExterno";
 
 const AppRoutes = () => {
   return (

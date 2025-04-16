@@ -1,5 +1,5 @@
 import React from "react";
-import GestionarTipoMaquina from "../components/templates/Bombero/GestionarTipoMaquina";
+import GestionarTipoMaquina from "../../components/templates/Bombero/GestionarTipoMaquina";
 
 const GestionarTipoMaquinaPage = () => {
   return (

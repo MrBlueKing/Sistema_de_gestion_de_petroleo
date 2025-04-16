@@ -2,10 +2,10 @@
 // Componente que maneja la navegación entre los distintos pasos del formulario de Bombero
 
 import React, { useState } from "react";
-import Solicitante from "../components/templates/Bombero/BomberoSolicitante";
-import Maquinaria from "../components/templates/Bombero/BomberoMaquinaria";
-import Patente from "../components/templates/Bombero/BomberoPatente";
-import Consumo from "../components/templates/Bombero/BomberoConsumo";
+import Solicitante from "../../components/templates/Bombero/BomberoSolicitante";
+import Maquinaria from "../../components/templates/Bombero/BomberoMaquinaria";
+import Patente from "../../components/templates/Bombero/BomberoPatente";
+import Consumo from "../../components/templates/Bombero/BomberoConsumo";
 
 const BomberoNavigation = () => {
   const [currentStep, setCurrentStep] = useState(1);

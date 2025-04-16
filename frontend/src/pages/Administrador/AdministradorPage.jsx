@@ -1,5 +1,5 @@
 import React from "react";
-import MenuPrincipalAdministrador from "../components/templates/Administrador/Administrador";
+import MenuPrincipalAdministrador from "../../components/templates/Administrador/Administrador";
 
 const AdministradorPage = () => {
   return (

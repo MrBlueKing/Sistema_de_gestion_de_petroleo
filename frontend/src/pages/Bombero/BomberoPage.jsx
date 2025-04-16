@@ -1,5 +1,5 @@
 import React from "react";
-import Bombero from "../components/templates/Bombero/Bombero";
+import Bombero from "../../components/templates/Bombero/Bombero";
 
 const MenuPrincipalBomberoPage = () => {
   return (

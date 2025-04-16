@@ -4,7 +4,7 @@ import { FaChevronDown } from "react-icons/fa";
 import { UserContext } from "../../context/userContext"; // Contexto del usuario
 
 const UserProfileDropdown = ({ userMenuOpen, setUserMenuOpen, handleLogout }) => {
-  const { user, loading } = useContext(UserContext); // Acceder al usuario del contexto
+  const { user } = useContext(UserContext); // Acceder al usuario del contexto
   const [userData, setUserData] = useState(null);
   const [isLoading, setIsLoading] = useState(true); // Estado para la carga de datos
   const dropdownRef = useRef(null);
@@ -14,21 +14,19 @@ const UserProfileDropdown = ({ userMenuOpen, setUserMenuOpen, handleLogout }) =>
       // Si los datos están en el contexto, usarlos directamente
       setUserData(user);
       setIsLoading(false);
-      console.log("Datos del usuario desde el contexto:", user);
     } else {
       const sessionData = JSON.parse(localStorage.getItem("authToken"));
       if (sessionData && sessionData.user) {
         // Si los datos están en localStorage, usarlos
         setUserData(sessionData.user);
         setIsLoading(false);
-        console.log("Datos del usuario desde localStorage:", sessionData.user);
+        console.log("Datos de sesión:", sessionData.user.rol);
       } else {
         // Si no hay datos, hacer la llamada a la API
         const fetchUserData = async () => {
           try {
             const response = await axios.get("http://127.0.0.1:8000/api/user");
             setUserData(response.data); // Guardar los datos obtenidos de la API
-            console.log("Datos del usuario desde la API:", response.data);
           } catch (error) {
             console.error("Error al obtener los datos del usuario:", error);
           } finally {

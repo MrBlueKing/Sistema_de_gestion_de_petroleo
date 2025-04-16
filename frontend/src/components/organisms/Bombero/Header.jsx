@@ -9,7 +9,7 @@ import { useNavigate } from "react-router-dom";
 const Header = () => {
   const [notifications] = useState([
     { id: 1, message: "Nuevo usuario registrado", time: "5 min" },
-    { id: 2, message: "Ingreso Petróleo ", time: "10 nashe min" },
+    { id: 2, message: "Ingreso Petróleo ", time: "10 min" },
   ]);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false); // Estado para abrir/cerrar el Sidebar

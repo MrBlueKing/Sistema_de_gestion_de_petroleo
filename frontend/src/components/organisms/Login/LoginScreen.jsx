@@ -9,7 +9,7 @@ import LoadingOverlay from "../../atoms/FeedBack/Loading";
 import ErrorMessage from "../../atoms/FeedBack/ErrorMessage";
 import icono from "../../../assets/icono.png";
 import { FaUser, FaLock } from "react-icons/fa";
-import { UserContext } from "../../../context/UserContext"; // ✅ Importar contexto
+import { UserContext } from "../../../context/userContext"; // ✅ Importar contexto
 
 const LoginScreen = () => {
   const [rut, setRut] = useState("");

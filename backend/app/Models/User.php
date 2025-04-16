@@ -7,6 +7,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use App\Models\Rol;
+use App\Models\Faena;
 
 class User extends Authenticatable
 {
@@ -41,5 +42,11 @@ class User extends Authenticatable
     public function rol()
     {
         return $this->belongsTo(Rol::class, 'id_rol', 'id_rol');
+    }
+
+    // Relación con Faena
+    public function faena()
+    {
+        return $this->belongsTo(Faena::class, 'id_faena'); // Relación con la tabla faena
     }
 }
