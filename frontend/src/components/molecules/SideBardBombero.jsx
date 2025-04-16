@@ -19,37 +19,36 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         </button>
       </div>
       <nav className="flex flex-col p-4 gap-2">
-  <Link to="/home" className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 p-2 rounded-lg cursor-pointer">
-    <FaHome />
-    <span>Inicio</span>
-  </Link>
+        <Link to="/home" className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 p-2 rounded-lg cursor-pointer">
+          <FaHome />
+          <span>Inicio</span>
+        </Link>
 
-  
-  <Link to="/registroEquipo" className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 p-2 rounded-lg cursor-pointer">
-    <FaCog />
-    <span>Registro Equipos</span>
-  </Link>
+        <Link to="/registroEquipo" className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 p-2 rounded-lg cursor-pointer">
+          <FaCog />
+          <span>Registro Equipos</span>
+        </Link>
 
-  <Link to="/ingresoPetroleo" className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 p-2 rounded-lg cursor-pointer">
-    <FaCog />
-    <span>Ingreso Petróleo</span>
-  </Link>
+        <Link to="/ingresoPetroleo" className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 p-2 rounded-lg cursor-pointer">
+          <FaCog />
+          <span>Ingreso Petróleo</span>
+        </Link>
 
-  <Link to="/turnos" className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 p-2 rounded-lg cursor-pointer">
-    <FaCog />
-    <span>Turnos de Guardia</span>
-  </Link>
+        <Link to="/turnos" className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 p-2 rounded-lg cursor-pointer">
+          <FaCog />
+          <span>Turnos de Guardia</span>
+        </Link>
 
-  <Link to="/reportes" className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 p-2 rounded-lg cursor-pointer">
-    <FaCog />
-    <span>Reportes</span>
-  </Link>
+        <Link to="/reportes" className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 p-2 rounded-lg cursor-pointer">
+          <FaCog />
+          <span>Reportes</span>
+        </Link>
 
-  <Link to="/configuracion" className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 p-2 rounded-lg cursor-pointer">
-    <FaCog />
-    <span>Configuración</span>
-  </Link>
-</nav>
+        <Link to="/configuracion" className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 p-2 rounded-lg cursor-pointer">
+          <FaCog />
+          <span>Configuración</span>
+        </Link>
+      </nav>
 
     </aside>
   );

@@ -1,3 +1,6 @@
+// BomberoNavigation.jsx
+// Componente que maneja la navegación entre los distintos pasos del formulario de Bombero
+
 import React, { useState } from "react";
 import Solicitante from "../components/templates/Bombero/BomberoSolicitante";
 import Maquinaria from "../components/templates/Bombero/BomberoMaquinaria";
@@ -6,29 +9,42 @@ import Consumo from "../components/templates/Bombero/BomberoConsumo";
 
 const BomberoNavigation = () => {
   const [currentStep, setCurrentStep] = useState(1);
+
+  // Estados para almacenar los datos ingresados en cada paso
+  const [solicitante, setSolicitante] = useState("");
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState("");
-  const [patenteSeleccionada, setPatenteSeleccionada] = useState(""); // Nuevo estado
+  const [patenteSeleccionada, setPatenteSeleccionada] = useState("");
 
+  // Maneja el paso siguiente y guarda el dato según el paso actual
   const handleNext = (value) => {
-    if (currentStep === 2) {
+    if (currentStep === 1) {
+      setSolicitante(value);
+    } else if (currentStep === 2) {
       setCategoriaSeleccionada(value);
+    } else if (currentStep === 3) {
+      setPatenteSeleccionada(value);
     }
-    if (currentStep === 3) {
-      setPatenteSeleccionada(value); // Guardamos la patente
-    }
-    setCurrentStep((prevStep) => prevStep + 1);
+    setCurrentStep((prev) => prev + 1);
   };
 
+  // Maneja el paso anterior
   const handlePrevious = () => {
-    setCurrentStep((prevStep) => prevStep - 1);
+    setCurrentStep((prev) => prev - 1);
   };
 
+  // Renderiza el paso correspondiente
   const renderStep = () => {
     switch (currentStep) {
       case 1:
         return <Solicitante onNext={handleNext} />;
       case 2:
-        return <Maquinaria onNext={handleNext} onPrevious={handlePrevious} />;
+        return (
+          <Maquinaria
+            onNext={handleNext}
+            onPrevious={handlePrevious}
+            solicitante={solicitante}
+          />
+        );
       case 3:
         return (
           <Patente
@@ -42,7 +58,8 @@ const BomberoNavigation = () => {
           <Consumo
             onPrevious={handlePrevious}
             categoriaSeleccionada={categoriaSeleccionada}
-            patenteSeleccionada={patenteSeleccionada} // Pasamos la patente
+            patenteSeleccionada={patenteSeleccionada}
+            solicitante={solicitante}
           />
         );
       default:
@@ -52,8 +69,5 @@ const BomberoNavigation = () => {
 
   return <>{renderStep()}</>;
 };
-
-
-
 
 export default BomberoNavigation;

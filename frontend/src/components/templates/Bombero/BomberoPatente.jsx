@@ -29,7 +29,6 @@ const Patente = ({ categoriaSeleccionada, onNext, onPrevious }) => {
   );
 
   const handleSelectPatente = (patente) => {
-    console.log("Patente seleccionada:", patente);
     setSeleccion(patente);
     onNext(patente); // Ir directamente a Consumo pasando la patente seleccionada
   };
@@ -55,7 +54,8 @@ const Patente = ({ categoriaSeleccionada, onNext, onPrevious }) => {
 
             <div className="bg-white rounded-3xl p-4">
               <List
-                items={filteredPatentes.map((patente) => ({
+                items={filteredPatentes.map((patente, index) => ({
+                  id: index,
                   nombre: patente
                 }))}
                 onItemSelect={(item) => handleSelectPatente(item.nombre)}

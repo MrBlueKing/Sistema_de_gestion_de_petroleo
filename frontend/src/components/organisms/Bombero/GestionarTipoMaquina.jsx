@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import InputField from "../../atoms/Inputs/InputField";
 import Button from "../../atoms/Button/Button";
 import RadioButton from "../../atoms/Button/RadioButton";
-import Header from "./Header";
+
 
 const GestionarTipoMaquina = () => {
   const [nombreCategoria, setNombreCategoria] = useState("");

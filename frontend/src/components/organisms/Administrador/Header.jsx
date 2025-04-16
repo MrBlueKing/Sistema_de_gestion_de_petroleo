@@ -1,67 +1,58 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { FaBars, FaHome, FaUser, FaCog } from "react-icons/fa";
 import NotificationDropdown from "../../molecules/NotificationDropdown";
 import UserProfileDropdown from "../../molecules/UserProfileDropdown";
 import IconButton from "../../atoms/Button/IconButton";
-import Sidebar from "../../molecules/SideBard"; // Asegúrate de importar correctamente el Sidebar
-import { useNavigate } from "react-router-dom"; // Para redirigir al login
+import Sidebar from "../../molecules/SideBard"; // ✅ Corrige el nombre del archivo importado (SideBard → Sidebar)
+import { useNavigate } from "react-router-dom";
+import { UserContext } from "../../../context/userContext"; // ✅ Asegúrate de importar el contexto
 
 const Header = () => {
   const [notifications] = useState([
-    { id: 1, message: 'Nuevo usuario registrado', time: '5 min' },
-    { id: 2, message: 'Ingreso Petróleo ', time: '10 min' },
+    { id: 1, message: "Nuevo usuario registrado", time: "5 min" },
+    { id: 2, message: "Ingreso Petróleo", time: "10 min" },
   ]);
-  // Lista de elementos del Sidebar
   const menuItems = [
     { name: "Inicio", link: "/inicio", icon: <FaHome /> },
     { name: "Registrar Usuarios", link: "/registroUsuario", icon: <FaUser /> },
     { name: "Configuración", link: "/configuracion", icon: <FaCog /> },
   ];
+
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);  // Estado para abrir/cerrar el Sidebar
-  const navigate = useNavigate(); // Hook para redirigir al login
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navigate = useNavigate();
+  const { setUser } = useContext(UserContext); // ✅ Obtener función para actualizar el usuario
 
-  // Función para abrir/cerrar el Sidebar
   const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);  // Cambiar el estado de visibilidad del Sidebar
+    setSidebarOpen(!sidebarOpen);
   };
 
-  // Función para cerrar sesión
   const handleLogout = () => {
-    localStorage.removeItem('authToken');  // Eliminar el token de localStorage
-    navigate('/');  // Redirigir al login utilizando useNavigate
+    localStorage.removeItem("authToken");
+    setUser(null); // ✅ Limpiar estado global
+    navigate("/");
   };
-    
-return (
+
+  return (
     <div className="flex">
-      {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} menuItems={menuItems} />
 
       <div className="flex flex-col flex-1">
-        {/* Header */}
         <header className="flex items-center justify-between bg-white shadow-md px-4 py-3">
-          {/* Botón hamburguesa para abrir el sidebar */}
           <div className="flex items-center gap-4">
-            <IconButton 
-              icono={<FaBars size={20} className="text-gray-600" />} 
-              onClick={toggleSidebar}  // Llamar a la función para abrir el Sidebar
+            <IconButton
+              icono={<FaBars size={20} className="text-gray-600" />}
+              onClick={toggleSidebar}
             />
-            <h1 className="text-xl font-bold text-gray-800">
-              Administrador
-            </h1>
+            <h1 className="text-xl font-bold text-gray-800">Administrador</h1>
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Notificaciones */}
-            <div className="flex items-center gap-4">
-              <NotificationDropdown notifications={notifications} />
-            </div>
-
-            {/* Dropdown de usuario */}
-            <UserProfileDropdown 
-              userMenuOpen={userMenuOpen} 
-              setUserMenuOpen={setUserMenuOpen} 
-              handleLogout={handleLogout}  // Pasamos la función de cerrar sesión
+            <NotificationDropdown notifications={notifications} />
+            <UserProfileDropdown
+              userMenuOpen={userMenuOpen}
+              setUserMenuOpen={setUserMenuOpen}
+              handleLogout={handleLogout}
             />
           </div>
         </header>
