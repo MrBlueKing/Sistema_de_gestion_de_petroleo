@@ -69,6 +69,15 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
+      {/* Ruta protegida para Administrador Gestionar Personal Interno */}
+      <Route
+        path="/GestionarPersonalInterno"
+        element={
+          <PrivateRoute requiredRole="admin">
+            <GestionarPersonal />
+          </PrivateRoute>
+        }
+      />
 
       {/* Ruta protegida para Consumo Bombero */}
       <Route
@@ -88,16 +97,6 @@ const AppRoutes = () => {
         element={
           <PrivateRoute requiredRole="admin">
             <GestionarMaquinaCategoria />
-          </PrivateRoute>
-        }
-      />
-
-      {/* Ruta protegida para Gestionar Personal Bombero */}
-      <Route
-        path="/GestionarPersonalInterno"
-        element={
-          <PrivateRoute requiredRole="admin">
-            <GestionarPersonal />
           </PrivateRoute>
         }
       />

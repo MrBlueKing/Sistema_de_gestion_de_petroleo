@@ -1,6 +1,6 @@
 import React from "react";
-import GestionarPersonal from "../../organisms/Bombero/GestionarPersonalExterno";
-import Header from "../../organisms/Bombero/Header";
+import GestionarPersonal from "../../organisms/Administrador/GestionarPersonalExterno";
+import Header from "../../organisms/Administrador/Header";
 
 const GestionarPersonalTemplate = () => {
   return (

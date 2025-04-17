@@ -17,7 +17,8 @@ Route::get('/user/{id}', [UserController::class, 'show']);
 
 Route::get('/maquinarias-bodega', [BodegaController::class, 'obtenerMaquinarias']);
 
-Route::get('/personal-bodega', [BodegaController::class, 'index']);
+Route::middleware('auth:sanctum')->get('/personal-bodega', [BodegaController::class, 'index']);
+
 
 Route::get('/test-bodega', function () {
     try {

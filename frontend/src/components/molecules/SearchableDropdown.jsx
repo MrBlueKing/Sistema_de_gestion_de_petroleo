@@ -5,7 +5,7 @@ const SearchableDropdown = ({ options, selected, onSelect, placeholder }) => {
   const [search, setSearch] = useState("");
   const wrapperRef = useRef(null);
 
-  // Cerrar si se hace clic fuera
+  // Cierra el dropdown si se hace clic fuera
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
@@ -18,6 +18,11 @@ const SearchableDropdown = ({ options, selected, onSelect, placeholder }) => {
     };
   }, []);
 
+  // 🔄 Actualiza el input si selected cambia desde el padre
+  useEffect(() => {
+    setSearch(selected);
+  }, [selected]);
+
   const filteredOptions = options.filter(opt =>
     opt.toLowerCase().includes(search.toLowerCase())
   );
@@ -28,7 +33,7 @@ const SearchableDropdown = ({ options, selected, onSelect, placeholder }) => {
         type="text"
         className="w-full border border-gray-300 rounded px-3 py-2"
         placeholder={placeholder}
-        value={search || selected}
+        value={search}
         onChange={(e) => {
           setSearch(e.target.value);
           setIsOpen(true);
@@ -44,7 +49,7 @@ const SearchableDropdown = ({ options, selected, onSelect, placeholder }) => {
                 className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
                 onClick={() => {
                   onSelect(opt);
-                  setSearch("");
+                  setSearch(opt); // actualiza visualmente
                   setIsOpen(false);
                 }}
               >
