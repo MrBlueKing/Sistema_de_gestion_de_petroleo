@@ -1,5 +1,5 @@
 import React from "react";
-import GestionarMaquinaCategoria from "../../organisms/Bombero/GestionarMaquinaCategoria";
+import GestionarMaquinaCategoria from "../../organisms/Administrador/GestionarMaquinaCategoria";
 import Header from "../../organisms/Bombero/Header";
 
 const GestionarTipoMaquinaTemplate = () => {

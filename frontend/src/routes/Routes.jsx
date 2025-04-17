@@ -3,15 +3,19 @@ import { Routes, Route } from "react-router-dom";
 import Home from "../pages/HomePage";
 import LoginPage from "../pages/LoginPage";
 import PrivateRoute from "./PrivateRoutes";
+
+import GerentePage from "../pages/Gerente/GerentePage";
+
 import AdministradorPage from "../pages/Administrador/AdministradorPage";
 import AdministradorUserRegister from "../components/templates/Administrador/AdministradorUserRegister";
+import GestionarTipoMaquina from "../pages/Administrador/GestionarTipoMaquina";
+import GestionarMaquinaCategoria from "../pages/Administrador/GestionarMaquinCategoriaPage";
+import GestionarPersonal from "../pages/Administrador/GestionarPersonalPage";
+
+import BomberoIngresoExterno from "../pages/Bombero/BomberoIngresoExterno";
 import BomberoPage from "../pages/Bombero/BomberoPage";
 import BomberoRecepcionPage from "../pages/Bombero/BomberoRecepcionPage";
-import GerentePage from "../pages/Gerente/GerentePage";
 import BomberoNavigation from "../pages/Bombero/BomberoNavigation";
-import GestionarTipoMaquina from "../pages/Bombero/GestionarTipoMaquina";
-import BomberoIngresoExterno from "../pages/Bombero/BomberoIngresoExterno";
-import GestionarMaquinaCategoria from "../pages/GestionarMaquinCategoriaPage";
 
 const AppRoutes = () => {
   return (
@@ -66,6 +70,38 @@ const AppRoutes = () => {
         }
       />
 
+      {/* Ruta protegida para Consumo Bombero */}
+      <Route
+        path="/GestionarTipoMaquina"
+        element={
+          <PrivateRoute requiredRole="admin">
+            {" "}
+            {/* Aquí asumo que el rol de "Bombero" es el que se asigna en tu backend */}
+            <GestionarTipoMaquina />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Ruta protegida para Categorizar Maquinas Bombero */}
+      <Route
+        path="/GestionarMaquinaCategoria"
+        element={
+          <PrivateRoute requiredRole="admin">
+            <GestionarMaquinaCategoria />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Ruta protegida para Gestionar Personal Bombero */}
+      <Route
+        path="/GestionarPersonalInterno"
+        element={
+          <PrivateRoute requiredRole="admin">
+            <GestionarPersonal />
+          </PrivateRoute>
+        }
+      />
+
       {/* Ruta protegida para Bombero */}
       <Route
         path="/bombero"
@@ -99,17 +135,7 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
-      {/* Ruta protegida para Consumo Bombero */}
-      <Route
-        path="/GestionarTipoMaquina"
-        element={
-          <PrivateRoute requiredRole="bombero">
-            {" "}
-            {/* Aquí asumo que el rol de "Bombero" es el que se asigna en tu backend */}
-            <GestionarTipoMaquina />
-          </PrivateRoute>
-        }
-      />
+
       {/* Ruta protegida para Consumo Bombero */}
       <Route
         path="/IngresoExterno"
@@ -118,18 +144,6 @@ const AppRoutes = () => {
             <BomberoIngresoExterno />
           </PrivateRoute>
         }
-        
-      />
-
-       {/* Ruta protegida para Categorizar Maquinas Bombero */}
-       <Route
-        path="/GestionarMaquinaCategoria"
-        element={
-          <PrivateRoute requiredRole="bombero">
-            <GestionarMaquinaCategoria />
-          </PrivateRoute>
-        }
-        
       />
     </Routes>
   );

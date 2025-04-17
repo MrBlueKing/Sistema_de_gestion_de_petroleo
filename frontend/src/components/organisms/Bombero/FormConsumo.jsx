@@ -1,4 +1,3 @@
-import React, { useEffect, useState } from "react";
 import InputField from "../../atoms/Inputs/InputField";
 import Button from "../../atoms/Button/Button";
 import DatePicker from "react-datepicker";
@@ -10,66 +9,10 @@ import es from "date-fns/locale/es"; // Para la localización en español
 registerLocale("es", es);
 
 const ConsumoForm = ({ formData, handleChange, handleSubmit }) => {
-  const [fechaHora, setFechaHora] = useState("");
-
-  // Establecer la hora actual como valor por defecto para el datetime-local
-  useEffect(() => {
-    const formatDateToLocalInput = (date) => {
-      const pad = (num) => String(num).padStart(2, "0");
-  
-      const year = date.getFullYear();
-      const month = pad(date.getMonth() + 1);
-      const day = pad(date.getDate());
-      const hours = pad(date.getHours());
-      const minutes = pad(date.getMinutes());
-  
-      return `${year}-${month}-${day}T${hours}:${minutes}`;
-    };
-  
-    let localFormatted;
-    if (!formData.fechaHora) {
-      const now = new Date();
-      localFormatted = formatDateToLocalInput(now);
-    } else {
-      const savedDate = new Date(formData.fechaHora);
-      localFormatted = formatDateToLocalInput(savedDate);
-    }
-  
-    setFechaHora(localFormatted);
-    handleChange("fechaHora", localFormatted); // <-- sincroniza el valor con formData
-  }, [formData.fechaHora]);
-
-  const handleFechaHoraChange = (date) => {
-    const pad = (num) => String(num).padStart(2, "0");
-    const year = date.getFullYear();
-    const month = pad(date.getMonth() + 1);
-    const day = pad(date.getDate());
-    const hours = pad(date.getHours());
-    const minutes = pad(date.getMinutes());
-  
-    const localFormatted = `${year}-${month}-${day}T${hours}:${minutes}`;
-  
-    setFechaHora(localFormatted);
-    handleChange("fechaHora", localFormatted);
-  };
-  
 
   return (
     <div className="flex flex-col space-y-3">
-      
-      <DatePicker
-  selected={fechaHora ? new Date(fechaHora) : null}
-  onChange={handleFechaHoraChange}
-  showTimeSelect
-  timeIntervals={1}
-  timeCaption="Hora"
-  dateFormat="dd/MM/yyyy HH:mm"
-  locale="es"
-  placeholderText="Selecciona una fecha"
-  className="w-full text-sm bg-white border border-gray-300 rounded-full px-4 py-2"
-  wrapperClassName="w-full"
-/>
-     
+                 
       <InputField
         placeholder="Horómetro"
         value={formData.horometro}

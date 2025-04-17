@@ -29,10 +29,7 @@ const Header = () => {
   // Lista de elementos del Sidebar
   const menuItems = [
     { name: "Inicio", link: "/bombero", icon: <FaHome /> },
-
-    { name: "Gestionar Tipo Maquina", link: "/GestionarTipoMaquina", icon: <FaWrench />,},
-    { name: "Categorización de Equipos", link: "/GestionarMaquinaCategoria", icon: <FaCogs />,},
-    { name: "Gestionar Personal", link: "/IngresoExterno", icon: <FaUserCog /> },
+    { name: "Gestionar Personal", link: "/GestionarPersonalInterno", icon: <FaUserCog /> },
 
   ];
 

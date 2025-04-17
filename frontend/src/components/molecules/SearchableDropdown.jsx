@@ -1,61 +1,60 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 
-const SearchableDropdown = ({
-  options = [],
-  selected,
-  onSelect,
-  placeholder = "Selecciona una opción",
-  labelKey = "nombre", // permite especificar la propiedad a mostrar
-}) => {
+const SearchableDropdown = ({ options, selected, onSelect, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [filter, setFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const wrapperRef = useRef(null);
 
-  const filteredOptions = options.filter((opt) => {
-    const label = typeof opt === "string" ? opt : opt[labelKey];
-    return label?.toLowerCase().includes(filter.toLowerCase());
-  });
+  // Cerrar si se hace clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
-  const getLabel = (opt) => (typeof opt === "string" ? opt : opt[labelKey]);
+  const filteredOptions = options.filter(opt =>
+    opt.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
-    <div className="relative w-full">
-      <div
-        className="border rounded-md p-2 bg-white cursor-pointer"
+    <div className="relative" ref={wrapperRef}>
+      <input
+        type="text"
+        className="w-full border border-gray-300 rounded px-3 py-2"
+        placeholder={placeholder}
+        value={search || selected}
+        onChange={(e) => {
+          setSearch(e.target.value);
+          setIsOpen(true);
+        }}
         onClick={() => setIsOpen(!isOpen)}
-      >
-        {selected || placeholder}
-      </div>
-
+      />
       {isOpen && (
-        <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
-          <input
-            type="text"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder="Filtrar..."
-            className="w-full p-2 border-b outline-none"
-          />
+        <ul className="absolute z-10 bg-white border border-gray-300 mt-1 max-h-60 w-full overflow-auto rounded shadow">
           {filteredOptions.length > 0 ? (
-            filteredOptions.map((opt, index) => (
-              <div
-                key={index}
-                className="p-2 hover:bg-gray-100 cursor-pointer"
+            filteredOptions.map((opt, idx) => (
+              <li
+                key={idx}
+                className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
                 onClick={() => {
-                  const value = getLabel(opt);
-                  onSelect(value);
+                  onSelect(opt);
+                  setSearch("");
                   setIsOpen(false);
-                  setFilter("");
                 }}
               >
-                {getLabel(opt)}
-              </div>
+                {opt}
+              </li>
             ))
           ) : (
-            <div className="p-2 text-gray-500 text-sm text-center">
-              Sin resultados
-            </div>
+            <li className="px-4 py-2 text-gray-400">No hay coincidencias</li>
           )}
-        </div>
+        </ul>
       )}
     </div>
   );

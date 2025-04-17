@@ -43,7 +43,7 @@ const GestionarMaquinaCategoria = () => {
 
   return (
     <div className="min-h-screen w-full bg-gray-50 flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-4xl bg-white shadow-md rounded-xl overflow-hidden flex flex-col h-full">
+            <div className="w-full max-w-4xl bg-white shadow-md rounded-xl overflow-hidden flex flex-col h-full">
         <div className="bg-orange-400 px-6 py-4">
           <h2 className="text-white text-2xl font-bold">
             Categorización de Equipos
@@ -144,6 +144,7 @@ const GestionarMaquinaCategoria = () => {
         </div>
       </div>
     </div>
+     
   );
 };
 

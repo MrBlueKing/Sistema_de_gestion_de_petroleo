@@ -1,5 +1,5 @@
 import React from "react";
-import GestionarTipoMaquina from "../../organisms/Bombero/GestionarTipoMaquina";
+import GestionarTipoMaquina from "../../organisms/Administrador/GestionarTipoMaquina";
 import Header from "../../organisms/Bombero/Header";
 
 const MenuPrincipalBombero = () => {

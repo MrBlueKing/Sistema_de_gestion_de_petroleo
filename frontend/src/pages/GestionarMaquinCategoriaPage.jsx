@@ -1,5 +1,5 @@
 import React from "react";
-import GestionarMaquinaCategoria from "../components/templates/Bombero/GestionarMaquinaCategoria";
+import GestionarMaquinaCategoria from "../components/templates/Administrador/GestionarMaquinaCategoria";
 
 const GestionarMaquinaCategoriaPage = () => {
   return (
