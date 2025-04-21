@@ -1,5 +1,8 @@
 import React, { useState, useContext } from "react";
-import { FaBars, FaHome, FaUser, FaCog, FaWrench, FaUserCog, FaCogs } from "react-icons/fa";
+import { FaBars, FaHome, FaUserCog } from "react-icons/fa";
+import { TbCategoryPlus } from "react-icons/tb";
+import { FaTruckDroplet } from "react-icons/fa6";
+import { HiUserAdd } from "react-icons/hi";
 import NotificationDropdown from "../../molecules/NotificationDropdown";
 import UserProfileDropdown from "../../molecules/UserProfileDropdown";
 import IconButton from "../../atoms/Button/IconButton";
@@ -14,12 +17,11 @@ const Header = () => {
   ]);
   
   const menuItems = [
-    { name: "Inicio", link: "/inicio", icon: <FaHome /> },
-    { name: "Registrar Usuarios", link: "/registroUsuario", icon: <FaUser /> },
-    { name: "Configuración", link: "/configuracion", icon: <FaCog /> },
-    { name: "Gestionar Tipo Maquina", link: "/GestionarTipoMaquina", icon: <FaWrench /> },
-    { name: "Categorización de Equipos", link: "/GestionarMaquinaCategoria", icon: <FaCogs /> },
-    { name: "Gestionar Personal", link: "/GestionarPersonalInterno", icon: <FaUserCog /> },
+    { name: "Inicio", link: "/inicio", icon: <FaHome size={30}/> },
+    { name: "Registrar Usuarios", link: "/registroUsuario", icon: <HiUserAdd size={30}/> },
+    { name: "Añadir Tipo Maquina", link: "/AñadirTipoMaquina", icon: <TbCategoryPlus size={30}/> },
+    { name: "Categorización de Equipos", link: "/GestionarMaquinaCategoria", icon: <FaTruckDroplet size={30}/> },
+    { name: "Gestionar Personal", link: "/GestionarPersonalInterno", icon: <FaUserCog size={30}/> },
   ];
   
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -39,13 +41,13 @@ const Header = () => {
 
   return (
     <div className="flex overflow-hidden">
-      <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} menuItems={menuItems} />
+      <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} menuItems={menuItems}/>
       
       <div className="flex flex-col flex-1 overflow-hidden">
         <header className="flex items-center justify-between bg-white shadow-md px-4 py-2 h-14 fixed top-0 left-0 right-0 z-10">
           <div className="flex items-center gap-2">
             <IconButton
-              icono={<FaBars size={18} className="text-gray-600" />}
+              icono={<FaBars size={24} className="text-gray-600" />}
               onClick={toggleSidebar}
             />
             <h1 className="text-lg font-bold text-gray-800">Administrador</h1>

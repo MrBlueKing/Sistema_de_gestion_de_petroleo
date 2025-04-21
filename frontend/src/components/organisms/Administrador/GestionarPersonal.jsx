@@ -19,7 +19,7 @@ const RegistrarSolicitante = () => {
     try {
       // Obtener los solicitantes desde la bodega
       const responseBodega = await axios.get("/api/personal-bodega");
-      const personas = responseBodega.data.data.filter(item => item.Cargo !== "Maquinaria");
+      const personas = responseBodega.data.data.filter(item => item.Rut !== "Maquinaria");
   
       // Obtener los solicitantes ya registrados en petroleo
       const responsePetroleo = await axios.get("/api/personal-internos");
@@ -51,7 +51,7 @@ const RegistrarSolicitante = () => {
       setSolicitantes(opcionesFormateadas);
     } catch (err) {
       console.error("Error al cargar solicitantes:", err);
-      setError("No se pudo cargar el personal desde la bodega.");
+      setError("No se pudo cargar el personal.");
     } finally {
       setLoading(false);
     }

@@ -82,7 +82,7 @@ const AppRoutes = () => {
 
       {/* Ruta protegida para Consumo Bombero */}
       <Route
-        path="/GestionarTipoMaquina"
+        path="/AñadirTipoMaquina"
         element={
           <PrivateRoute requiredRole="admin">
             <GestionarTipoMaquina />
