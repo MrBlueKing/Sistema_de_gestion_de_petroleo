@@ -8,7 +8,7 @@ registerLocale("es", es);
 
 const FormRecepcion = ({ formData, handleChange, handleSubmit }) => {
    return (
-    <div className="flex flex-col space-y-3">
+    <div className="flex flex-col space-y-8">
       
 
       <InputField

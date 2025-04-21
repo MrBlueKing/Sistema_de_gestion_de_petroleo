@@ -1,12 +1,13 @@
 import HeaderAdmin from '../../organisms/Administrador/Header';
 import MainUserRegister from '../../organisms/Administrador/MainUserRegister';
 
-export default function AdministradorUserRegister() {
-
+const AdministradorUserRegister = () => {
   return (
-    <>
+    <div>
       <HeaderAdmin />
       <MainUserRegister />
-    </>
+    </div>
   );
 }
+
+export default AdministradorUserRegister;
