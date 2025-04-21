@@ -42,29 +42,34 @@ const GestionarMaquinaCategoria = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gray-50 flex flex-col items-center justify-center p-4">
-            <div className="w-full max-w-4xl bg-white shadow-md rounded-xl overflow-hidden flex flex-col h-full">
+    <div className="flex flex-col min-h-screen bg-gray-100">
+      <main className="flex-1 w-full p-2 sm:p-3 md:p-4">
+        <div className="bg-white shadow-lg overflow-hidden max-w-4xl mx-auto w-full">
         <div className="bg-orange-400 px-6 py-4">
-          <h2 className="text-white text-2xl font-bold">
-            Categorización de Equipos
-          </h2>
-          <p className="text-orange-50 text-sm">
-            Registro y administración de maquinaria
-          </p>
+          <h2 className="text-white text-2xl font-bold">Categorización de Equipos</h2>
+          <p className="text-orange-50 text-sm">Registro y administración de maquinaria</p>
         </div>
-
-        <div className="p-6 flex-grow overflow-auto">
+  
+        <div className="p-6">
           {error && (
             <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded">
               <div className="flex items-center">
-                <svg className="h-5 w-5 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                <svg
+                  className="h-5 w-5 text-red-500 mr-2"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                    clipRule="evenodd"
+                  />
                 </svg>
                 <span className="text-red-700 font-medium">{error}</span>
               </div>
             </div>
           )}
-
+  
           <div className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -80,7 +85,7 @@ const GestionarMaquinaCategoria = () => {
                 placeholder="Selecciona categoría de máquina"
               />
             </div>
-
+  
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Nombre de Máquina
@@ -108,7 +113,7 @@ const GestionarMaquinaCategoria = () => {
                   </p>
                 )}
             </div>
-
+  
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Faena
@@ -121,7 +126,7 @@ const GestionarMaquinaCategoria = () => {
               />
             </div>
           </div>
-
+  
           <div className="mt-10 flex justify-end gap-3">
             <button
               onClick={() => {
@@ -130,22 +135,30 @@ const GestionarMaquinaCategoria = () => {
                 setFaenaSeleccionada("");
                 setError("");
               }}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-400"
             >
               Cancelar
             </button>
             <Button
               text="Registrar Máquina"
-              color="blue"
+              color="orange"
               onClick={handleGuardar}
               className="px-4 py-2 rounded-md text-sm font-medium text-white bg-orange-400 hover:bg-orange-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-400"
             />
           </div>
+
+          
+          </div>
+        {/* Footer */}
+        <div className="bg-gray-50 px-6 py-3 text-center text-xs text-gray-500">
+            Sistema de Gestión de Combustible • {new Date().getFullYear()}
+          </div>
         </div>
-      </div>
+        
+      </main>
     </div>
-     
+  
   );
-};
+    };
 
 export default GestionarMaquinaCategoria;

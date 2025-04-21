@@ -1,5 +1,5 @@
 import React, { useState, useContext } from "react";
-import { FaBars, FaHome, FaUser, FaCog, FaWrench, FaUserCog, FaCogs } from "react-icons/fa";
+import { FaBars, FaHome, FaUser, FaWrench, FaUserCog, FaCogs } from "react-icons/fa";
 import NotificationDropdown from "../../molecules/NotificationDropdown";
 import UserProfileDropdown from "../../molecules/UserProfileDropdown";
 import IconButton from "../../atoms/Button/IconButton";
@@ -16,7 +16,6 @@ const Header = () => {
   const menuItems = [
     { name: "Inicio", link: "/inicio", icon: <FaHome /> },
     { name: "Registrar Usuarios", link: "/registroUsuario", icon: <FaUser /> },
-    { name: "Configuración", link: "/configuracion", icon: <FaCog /> },
     { name: "Gestionar Tipo Maquina", link: "/GestionarTipoMaquina", icon: <FaWrench /> },
     { name: "Categorización de Equipos", link: "/GestionarMaquinaCategoria", icon: <FaCogs /> },
     { name: "Gestionar Personal", link: "/GestionarPersonalInterno", icon: <FaUserCog /> },

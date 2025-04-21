@@ -31,13 +31,6 @@ const UserRegister = () => {
 
   const alertRef = useRef(null);
 
-  // Scroll al mensaje
-  useEffect(() => {
-    if (alertRef.current) {
-      alertRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [error, successMessage]);
-
   // Auto-desvanecer mensajes
   useEffect(() => {
     if (successMessage) {
@@ -66,33 +59,30 @@ const UserRegister = () => {
       "The id_faena field is required.": "La ubicación es obligatoria.",
       "The selected id rol is invalid.": "El rol seleccionado no es válido.",
     };
-  
+
     if (typeof errors === "string") {
       return translations[errors] || errors;
     }
-  
+
     const translated = {};
     for (const key in errors) {
       translated[key] = errors[key].map((msg) => translations[msg] || msg);
     }
-  
+
     return translated;
   };
 
-  const isValidRutFormat = (rut) => {
-    return /^[0-9kK]+$/.test(rut);
-  };
+  const isValidRutFormat = (rut) => /^[0-9kK]+$/.test(rut);
 
   const handleRegister = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError({});
     setSuccessMessage("");
-  
-    // Validación de campos
+
     const errors = {};
-  
-    if (!rut){
+
+    if (!rut) {
       errors.rut = "El campo RUT es obligatorio.";
     } else if (!isValidRutFormat(rut)) {
       errors.rut = "El RUT no debe contener puntos, guiones ni espacios.";
@@ -102,13 +92,13 @@ const UserRegister = () => {
     if (!role) errors.role = "El campo rol es obligatorio.";
     if (!location) errors.location = "El campo ubicación es obligatorio.";
     if (!password) errors.password = "El campo contraseña es obligatorio.";
-  
+
     if (Object.keys(errors).length > 0) {
       setError(errors);
       setIsLoading(false);
       return;
     }
-  
+
     const userData = {
       rut,
       nombre: firstName,
@@ -117,16 +107,16 @@ const UserRegister = () => {
       id_faena: Number(location),
       password,
     };
-  
+
     try {
       const response = await fetch("http://localhost:8000/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(userData),
       });
-  
+
       const data = await response.json();
-  
+
       if (response.ok) {
         setSuccessMessage("Usuario registrado exitosamente.");
         setRut("");
@@ -136,7 +126,7 @@ const UserRegister = () => {
         setLocation("");
         setPassword("");
       } else {
-        setError(translateErrorMessages(data.errors || {})); 
+        setError(translateErrorMessages(data.errors || {}));
       }
     } catch (error) {
       setError({ global: "Error de conexión con el servidor." });
@@ -149,7 +139,7 @@ const UserRegister = () => {
   const formFields = [
     {
       id: "rut",
-      label: "Ingrese RUT",
+      label: "RUT",
       value: rut,
       icon: <FaIdCard />,
       tooltip: "Sin puntos ni guion",
@@ -157,21 +147,21 @@ const UserRegister = () => {
     },
     {
       id: "firstName",
-      label: "Ingrese Nombres",
+      label: "Nombres",
       value: firstName,
       icon: <FaUser />,
       required: true
     },
     {
       id: "lastName",
-      label: "Ingrese Apellidos",
+      label: "Apellidos",
       value: lastName,
       icon: <FaUser />,
       required: true
     },
     {
       id: "role",
-      label: "Ingrese rol del nuevo usuario",
+      label: "Rol del Usuario",
       value: role,
       icon: <FaUser />,
       options: [
@@ -182,7 +172,7 @@ const UserRegister = () => {
     },
     {
       id: "location",
-      label: "Ingrese ubicación del nuevo usuario",
+      label: "Ubicación",
       value: location,
       icon: <FaMapMarkerAlt />,
       options: [
@@ -194,7 +184,7 @@ const UserRegister = () => {
     },
     {
       id: "password",
-      label: "Ingrese contraseña",
+      label: "Contraseña",
       value: password,
       icon: <FaLock />,
       tooltip: "Mínimo 8 caracteres",
@@ -204,37 +194,28 @@ const UserRegister = () => {
   ];
 
   return (
-        
-      
-        <div className="container mx-auto py-4 px-4">
-          <div className="max-w-md mx-auto">
-            <div className="mb-4 text-center">
-              <h1 className="text-2xl font-bold text-gray-900">
-                Registro de Usuario
-              </h1>
-              <p className="text-sm text-gray-600">
-                Complete el formulario para crear su cuenta
-              </p>
+    <div className="flex flex-col min-h-screen bg-gray-100">
+      <main className="flex-1 w-full p-2 sm:p-3 md:p-4 text-center">
+        <div className="bg-white shadow-lg  overflow-hidden max-w-4xl mx-auto w-full">
+          {/* Encabezado naranja */}
+          <div className="bg-orange-400 px-6 py-4 text-left">
+            <h1 className="text-white text-2xl font-bold">Gestión de Usuarios</h1>
+            <p className="text-white text-sm">
+              Creación de nueva cuenta de usuario
+            </p>
+          </div>
+  
+          {/* Contenido del formulario */}
+          <div className="p-6">
+            <div ref={alertRef} className="mb-4">
+              {error && <Alert type="error" message={error} />}
+              {successMessage && <Alert type="success" message={successMessage} />}
             </div>
-
-            <div className="bg-white shadow-lg rounded-lg p-5">
-              <div ref={alertRef} className="mb-4">
-                {error && <Alert type="error" message={error} />}
-                {successMessage && <Alert type="success" message={successMessage} />}
-              </div>
-
-              <form onSubmit={handleRegister} className="space-y-3">
-                {formFields.map(({
-                  id,
-                  label,
-                  icon,
-                  value,
-                  tooltip,
-                  required,
-                  options,
-                  type
-                }) => (
-                  <div key={id}>
+  
+            <form onSubmit={handleRegister} className="space-y-4">
+              {formFields.map(
+                ({ id, label, icon, value, tooltip, required, options, type }) => (
+                  <div key={id} className="mb-1">
                     <Label
                       htmlFor={id}
                       label={label}
@@ -246,7 +227,7 @@ const UserRegister = () => {
                     <InputField
                       id={id}
                       type={type || "text"}
-                      placeholder={label}
+                      placeholder={`Ingrese ${label.toLowerCase()}`}
                       value={value}
                       onChange={(e) => {
                         const updater = {
@@ -263,19 +244,20 @@ const UserRegister = () => {
                       options={options}
                       disabled={isLoading}
                       showPassword={id === "password" ? showPassword : undefined}
-                      setShowPassword={
-                        id === "password" ? setShowPassword : undefined
-                      }
+                      setShowPassword={id === "password" ? setShowPassword : undefined}
                       onFocus={() =>
                         setFocusedFields({ ...focusedFields, [id]: true })
                       }
                       onBlur={() =>
                         setFocusedFields({ ...focusedFields, [id]: false })
                       }
+                      className="w-full"
                     />
                   </div>
-                ))}
-
+                )
+              )}
+  
+              <div className="mt-6 pt-4 border-t border-gray-100">
                 <Button
                   text={
                     isLoading ? (
@@ -284,21 +266,26 @@ const UserRegister = () => {
                         Procesando...
                       </span>
                     ) : (
-                      "Registrar"
+                      "Registrar Usuario"
                     )
                   }
                   color="orange"
-                  rounded="full"
-                  className="w-full text-white font-bold py-2 px-4 mt-4"
+                  rounded="md"
+                  className="w-full text-white font-medium py-2.5 px-4"
                   type="submit"
                   disabled={isLoading}
                 />
-              </form>
-            </div>
+              </div>
+            </form>
+          </div>
+  
+          {/* Footer */}
+          <div className="bg-gray-50 px-6 py-3 text-center text-xs text-gray-500">
+            Sistema de Gestión de Combustible • {new Date().getFullYear()}
           </div>
         </div>
-      
-    
+      </main>
+    </div>
   );
 };
 
