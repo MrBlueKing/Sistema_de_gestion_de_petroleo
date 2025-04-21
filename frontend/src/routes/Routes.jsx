@@ -8,6 +8,7 @@ import GerentePage from "../pages/Gerente/GerentePage";
 
 import AdministradorPage from "../pages/Administrador/AdministradorPage";
 import AdministradorUserRegister from "../components/templates/Administrador/AdministradorUserRegister";
+
 import GestionarTipoMaquina from "../pages/Administrador/GestionarTipoMaquina";
 import GestionarMaquinaCategoria from "../pages/Administrador/GestionarMaquinCategoriaPage";
 import GestionarPersonal from "../pages/Administrador/GestionarPersonalPage";
@@ -84,8 +85,6 @@ const AppRoutes = () => {
         path="/GestionarTipoMaquina"
         element={
           <PrivateRoute requiredRole="admin">
-            {" "}
-            {/* Aquí asumo que el rol de "Bombero" es el que se asigna en tu backend */}
             <GestionarTipoMaquina />
           </PrivateRoute>
         }

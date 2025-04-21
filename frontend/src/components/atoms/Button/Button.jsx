@@ -1,67 +1,73 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import clsx from "clsx";
 
-// Botón de la aplicación
 const Button = ({
   onClick,
   className = "",
-  color = "white",       // blanco por defecto
+  color = "gray", // colores soportados: gray, orange, red, green, blue, etc.
   text,
   to,
   rounded = "lg",
   icon,
-  iconClassName = "w-6 h-6",
+  iconClassName = "w-5 h-5",
   active = false,
-  type = "button",       // para permitir submit
-  disabled = false       // para desactivar el botón
+  type = "button",
+  disabled = false,
+  loading = false, // NUEVO: estado de carga
 }) => {
-  const baseClasses = `
-    inline-flex items-center justify-center gap-2
-    px-6 py-2 text-white font-medium transition duration-300 
-    rounded-${rounded} focus:outline-none
-  `;
+  const isLink = Boolean(to);
 
-  const bgColor =
-    disabled
-      ? "bg-gray-400 cursor-not-allowed"
-      : active
-      ? "bg-blue-800"
-      : `bg-${color}-500 hover:bg-${color}-600`;
+  const baseClasses = clsx(
+    "inline-flex items-center justify-center gap-2 px-5 py-2 text-sm font-medium transition duration-200 ease-in-out",
+    `rounded-${rounded}`,
+    "focus:outline-none focus:ring-2 focus:ring-offset-1",
+    {
+      "bg-gray-400 text-white cursor-not-allowed": disabled || loading,
+      "bg-blue-800 text-white": active && !disabled,
+      [`bg-${color}-500 hover:bg-${color}-600 text-white`]: !active && !disabled && !loading,
+    },
+    className
+  );
 
-  const buttonContent = (
+  const content = (
     <>
-      {icon && <span className={iconClassName}>{icon}</span>}
-      {text}
+      {loading && (
+        <svg
+          className="animate-spin h-4 w-4 text-white"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+          />
+        </svg>
+      )}
+      {icon && !loading && <span className={iconClassName}>{icon}</span>}
+      <span>{loading ? "Cargando..." : text}</span>
     </>
   );
 
-  const finalClass = `${baseClasses} ${bgColor} ${className}`.trim();
+  const sharedProps = {
+    className: baseClasses,
+    onClick,
+    type,
+    disabled: disabled || loading,
+  };
 
-  if (to) {
+  if (isLink) {
     return (
       <Link to={to}>
-        <button
-          className={finalClass}
-          onClick={onClick}
-          type={type}
-          disabled={disabled}
-        >
-          {buttonContent}
-        </button>
+        <button {...sharedProps}>{content}</button>
       </Link>
     );
   }
 
-  return (
-    <button
-      className={finalClass}
-      onClick={onClick}
-      type={type}
-      disabled={disabled}
-    >
-      {buttonContent}
-    </button>
-  );
+  return <button {...sharedProps}>{content}</button>;
 };
 
 export default Button;

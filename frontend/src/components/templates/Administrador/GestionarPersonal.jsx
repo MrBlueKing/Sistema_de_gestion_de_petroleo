@@ -1,5 +1,5 @@
 import React from "react";
-import GestionarPersonal from "../../organisms/Administrador/GestionarPersonalExterno";
+import GestionarPersonal from "../../organisms/Administrador/GestionarPersonal";
 import Header from "../../organisms/Administrador/Header";
 
 const GestionarPersonalTemplate = () => {

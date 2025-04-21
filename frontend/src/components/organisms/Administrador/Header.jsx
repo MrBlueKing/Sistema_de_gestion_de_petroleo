@@ -15,10 +15,9 @@ const Header = () => {
   const menuItems = [
     { name: "Inicio", link: "/inicio", icon: <FaHome /> },
     { name: "Registrar Usuarios", link: "/registroUsuario", icon: <FaUser /> },
-    { name: "Configuración", link: "/configuracion", icon: <FaCog /> },
     { name: "Gestionar Tipo Maquina", link: "/GestionarTipoMaquina", icon: <FaWrench />,},
     { name: "Categorización de Equipos", link: "/GestionarMaquinaCategoria", icon: <FaCogs />,},
-    { name: "Gestionar Personal", link: "/GestionarPersonalInterno", icon: <FaUserCog /> },
+    { name: "Gestionar Personal Interno", link: "/GestionarPersonalInterno", icon: <FaUserCog /> },
   ];
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);

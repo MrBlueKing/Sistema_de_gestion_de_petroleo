@@ -14,7 +14,6 @@ class BodegaController extends Controller
         $personal = Personal::all();
 
         return response()->json([
-            'success' => true,
             'data' => $personal
         ]);
     }

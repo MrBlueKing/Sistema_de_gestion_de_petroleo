@@ -1,11 +1,11 @@
 import React from "react";
 import GestionarTipoMaquina from "../../organisms/Administrador/GestionarTipoMaquina";
-import Header from "../../organisms/Bombero/Header";
+import Header from "../../organisms/Administrador/Header";
 
 const MenuPrincipalBombero = () => {
   return (
     <div >
-       <Header title="Opciones" />
+      <Header />
       <GestionarTipoMaquina />
     </div>
   );
