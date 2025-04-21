@@ -8,6 +8,7 @@ import Button from "../../atoms/Button/Button";
 import StepHeader from "../../molecules/StepHeader";
 import { FaHome } from "react-icons/fa";
 
+
 const StepSolicitante = ({ onNext }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
@@ -31,19 +32,25 @@ const StepSolicitante = ({ onNext }) => {
   );
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100">
+    <div className="flex flex-col min-h-screen bg-gray-100 pt-14">
       <Header />
       <main className="flex-1 w-full p-2 sm:p-3 md:p-4 text-center">
         <div className="bg-gray-200 py-3 sm:py-4 md:py-6 px-2 sm:px-3 md:px-4 rounded-2xl sm:rounded-3xl flex flex-col items-center space-y-3 sm:space-y-4 md:space-y-6 max-w-4xl mx-auto">
           <div className="w-full">
-            <StepHeader />
+            <StepHeader text= "Cargar Combustible"/>
           </div>
 
-          <h2 className="text-gray-700 font-medium text-sm sm:text-base md:text-lg">Solicitado Por</h2>
+          <h2 className="text-gray-700 font-medium text-sm sm:text-base md:text-lg">
+            Solicitado Por
+          </h2>
 
           <div className="bg-orange-500 w-full rounded-2xl sm:rounded-3xl md:rounded-[40px] py-3 sm:py-4 md:py-6 px-2 sm:px-3 md:px-4 space-y-2 sm:space-y-3 md:space-y-4">
             <TabProgressBar activeTab="solicitante" />
-            <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} placeholder="Buscar usuario" />
+            <SearchBar
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              placeholder="Buscar usuario"
+            />
 
             <div className="bg-white rounded-xl sm:rounded-2xl md:rounded-3xl p-2 sm:p-3 md:p-4">
               <List
@@ -55,17 +62,11 @@ const StepSolicitante = ({ onNext }) => {
 
           {/* Controles inferiores */}
           <div className="flex items-center w-full px-1 sm:px-2 md:px-4 py-1 sm:py-2">
-            <div className="w-8 sm:w-10">
-              <Button
-                to="/Bombero"
-                className="bg-orange-600 hover:bg-blue-600 text-white p-2 sm:p-3 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 transform hover:scale-105"
-                icon={<FaHome className="text-white w-5 h-5 sm:w-6 sm:h-6" />}
-                title="Volver al inicio"
-              >
-                <span className="ml-2 sm:ml-3 text-sm sm:text-base">Inicio</span>
-              </Button>
-
-            </div>
+          <Button
+            to="/Bombero"
+            className="bg-transparent hover:bg-transparent p-0 m-0 shadow-none flex items-center justify-center"
+            icon={<FaHome className="text-black w-6 h-6" />}
+          />
             <div className="flex-1 flex justify-center">
               <PageControl
                 currentPage={currentPage}
@@ -90,7 +91,9 @@ const StepSolicitante = ({ onNext }) => {
                   clipRule="evenodd"
                 ></path>
               </svg>
-              <span className="inline-block">Seleccione un usuario para continuar</span>
+              <span className="inline-block">
+                Seleccione un usuario para continuar
+              </span>
             </p>
           </div>
         </div>

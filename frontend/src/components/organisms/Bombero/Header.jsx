@@ -29,7 +29,7 @@ const Header = () => {
   // Lista de elementos del Sidebar
   const menuItems = [
     { name: "Inicio", link: "/bombero", icon: <FaHome /> },
-    { name: "Gestionar Personal", link: "/GestionarPersonalInterno", icon: <FaUserCog /> },
+       { name: "Gestionar Personal", link: "/IngresoExterno", icon: <FaUserCog /> },
 
   ];
 
@@ -43,7 +43,7 @@ const Header = () => {
       />
       <div className="flex flex-col flex-1">
         {/* Header */}
-        <header className="flex items-center justify-between bg-white shadow-md px-4 py-3">
+        <header className="flex items-center justify-between bg-white shadow-md px-4 py-2 h-14 fixed top-0 left-0 right-0 z-10">
           {/* Botón hamburguesa para abrir el sidebar */}
           <div className="flex items-center gap-4">
             <IconButton

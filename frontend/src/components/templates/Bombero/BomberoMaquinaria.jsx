@@ -32,7 +32,7 @@ const Maquinaria = ({ onNext, onPrevious }) => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100">
+    <div className="flex flex-col min-h-screen bg-gray-100 pt-14">
       <Header />
       <main className="flex-1 w-full p-2 sm:p-3 md:p-4 text-center">
         <div className="bg-gray-200 py-4 md:py-6 px-3 md:px-4 rounded-2xl md:rounded-3xl flex flex-col items-center space-y-4 md:space-y-6 max-w-4xl mx-auto">

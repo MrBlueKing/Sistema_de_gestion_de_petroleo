@@ -3,6 +3,7 @@ import Header from "../../organisms/Bombero/Header";
 import PageControl from "../../molecules/PageControl";
 import ConsumoForm from "../../organisms/Bombero/FormConsumo";
 import { FaArrowLeft, FaTags, FaCarSide, FaStar, FaUserAlt } from "react-icons/fa";
+import StepHeader from "../../molecules/StepHeader";
 
 const Consumo = ({ onPrevious, categoriaSeleccionada, patenteSeleccionada, solicitante }) => {
   const [currentPage, setCurrentPage] = useState(4);
@@ -27,25 +28,20 @@ const Consumo = ({ onPrevious, categoriaSeleccionada, patenteSeleccionada, solic
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100">
+    <div className="flex flex-col min-h-screen bg-gray-100 pt-14">
       <Header />
-      <main className="flex-1 p-4">
-        <div className="mt-4 bg-gray-200 rounded-xl p-4">
-          <div className="mb-3">
+      <main className="flex-1 w-full p-2 sm:p-3  text-center">
+      <div className="bg-gray-200 py-4 md:py-6 px-3  rounded-2xl md:rounded-3xl flex flex-col items-center space-y-4 md:space-y-6 max-w-4xl mx-auto">
+          <div className="w-full">
             {/* Header con efecto Glass */}
-            <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 p-3 mb-3 shadow-lg">
-              <div className="absolute inset-0 bg-white/20 backdrop-blur-sm rounded-xl" />
-              <div className="relative z-10 text-center">
-                <span className="inline-flex items-center px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-white text-sm font-medium mb-2">
-                  <span className="text-xl">⛽</span>
-                  <span className="text-base font-semibold">Cargar Combustible</span>
-                </span>
-                <h2 className="text-1xl font-extrabold text-white drop-shadow-sm mb-1">
-                  Formulario de Consumo
-                </h2>
-              </div>
+            <div className="relative rounded-xl   mb-3 ">
+              
+                
+              <StepHeader />
+
+           
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1 sm:px-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1 ">
               {/* Solicitante */}
               <div className="bg-white rounded-lg shadow p-2 sm:p-3 border-l-4 border-orange-500 hover:-translate-y-1 transition-transform duration-300">
                 <div className="flex items-start sm:items-center gap-2 mb-1 sm:mb-2">
@@ -92,7 +88,7 @@ const Consumo = ({ onPrevious, categoriaSeleccionada, patenteSeleccionada, solic
               </div>
             </div>
           </div>
-          <div className="bg-orange-500 rounded-3xl p-4 space-y-4">
+          <div className="bg-orange-500 rounded-3xl p-4 space-y-4 w-full">
             <div className="flex flex-col space-y-3">
               <ConsumoForm
                 formData={formData}
