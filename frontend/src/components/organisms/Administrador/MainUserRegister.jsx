@@ -1,12 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import { FaIdCard, FaUser, FaMapMarkerAlt, FaLock } from "react-icons/fa";
 import { IoReload } from "react-icons/io5";
-import Header from "../../organisms/Administrador/Header";
 import InputField from "../../atoms/Inputs/InputField";
 import Button from "../../atoms/Button/Button";
 import Label from "../../atoms/Typography/Label";
 import Alert from "../../atoms/FeedBack/Alert";
-import { UserContext } from "../../../context/userContext";
+import axios from "../../../lib/axios";
 
 const UserRegister = () => {
   const [rut, setRut] = useState("");
@@ -72,26 +71,66 @@ const UserRegister = () => {
     return translated;
   };
 
-  const isValidRutFormat = (rut) => /^[0-9kK]+$/.test(rut);
+  // Validación específica para RUT chileno
+  const validateRut = (rut) => {
+    // Eliminar cualquier carácter que no sea número o 'k'
+    const cleanRut = rut.toLowerCase().replace(/[^0-9k]/g, "");
+    
+    // Verificar longitud: RUT chileno típicamente tiene entre 7 y 9 dígitos más dígito verificador
+    if (cleanRut.length < 8 || cleanRut.length > 10) {
+      return "El RUT debe tener entre 8 y 10 caracteres";
+    }
+    
+    // Verificar que solo tenga un 'k' y que este al final (dígito verificador)
+    const kCount = (cleanRut.match(/k/g) || []).length;
+    if (kCount > 1 || (kCount === 1 && cleanRut.charAt(cleanRut.length - 1) !== 'k')) {
+      return "El formato del RUT no es válido";
+    }
+    
+    return null; // Si no hay errores
+  };
+
+  // Validación de seguridad para contraseña
+  const validatePassword = (password) => {
+    if (password.length < 8) {
+      return "La contraseña debe tener al menos 8 caracteres";
+    }
+    
+    // Verifica si tiene al menos una letra y un número
+    if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+      return "La contraseña debe contener al menos una letra y un número";
+    }
+    
+    return null; // Si no hay errores
+  };
 
   const handleRegister = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setError({});
-    setSuccessMessage("");
+    setError(null); // Limpiar errores previos
+    setSuccessMessage(""); // Limpiar mensajes de éxito previos
 
     const errors = {};
 
+    // Validaciones de campos
     if (!rut) {
       errors.rut = "El campo RUT es obligatorio.";
-    } else if (!isValidRutFormat(rut)) {
-      errors.rut = "El RUT no debe contener puntos, guiones ni espacios.";
+    } else {
+      const rutError = validateRut(rut);
+      if (rutError) errors.rut = rutError;
     }
+    
     if (!firstName) errors.firstName = "El campo nombre es obligatorio.";
     if (!lastName) errors.lastName = "El campo apellido es obligatorio.";
     if (!role) errors.role = "El campo rol es obligatorio.";
     if (!location) errors.location = "El campo ubicación es obligatorio.";
-    if (!password) errors.password = "El campo contraseña es obligatorio.";
+    
+    if (!password) {
+      errors.password = "El campo contraseña es obligatorio.";
+    } else {
+      const passwordError = validatePassword(password);
+      if (passwordError) errors.password = passwordError;
+    }
 
     if (Object.keys(errors).length > 0) {
       setError(errors);
@@ -99,8 +138,11 @@ const UserRegister = () => {
       return;
     }
 
+    // Limpieza del RUT antes de enviar al servidor
+    const cleanRut = rut.toLowerCase().replace(/[^0-9k]/g, "");
+
     const userData = {
-      rut,
+      rut: cleanRut,
       nombre: firstName,
       apellido: lastName,
       id_rol: Number(role),
@@ -109,31 +151,44 @@ const UserRegister = () => {
     };
 
     try {
-      const response = await fetch("http://localhost:8000/api/register", {
-        method: "POST",
+      const response = await axios.post("http://localhost:8000/api/register", userData, {
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(userData),
       });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setSuccessMessage("Usuario registrado exitosamente.");
-        setRut("");
-        setFirstName("");
-        setLastName("");
-        setRole("");
-        setLocation("");
-        setPassword("");
+      
+      // Limpiar formulario solo en caso de éxito
+      setRut("");
+      setFirstName("");
+      setLastName("");
+      setRole("");
+      setLocation("");
+      setPassword("");
+      
+      // Mostrar mensaje de éxito
+      setSuccessMessage(response.data.message || "Usuario registrado exitosamente.");
+    } catch (err) {
+      if (err.response?.data?.errors) {
+        setError(translateErrorMessages(err.response.data.errors));
+      } else if (err.response?.data?.message) {
+        setError({ global: translateErrorMessages(err.response.data.message) });
       } else {
-        setError(translateErrorMessages(data.errors || {}));
-      }
-    } catch (error) {
-      setError({ global: "Error de conexión con el servidor." });
-      console.error("Error:", error);
+        setError({ global: "Error de conexión con el servidor." });
+      }      
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Modificar el input de RUT para aplicar formato en tiempo real
+  const handleRutChange = (e) => {
+    // Solo permitir números y 'k'
+    let value = e.target.value.toLowerCase().replace(/[^0-9k]/g, "");
+    
+    // Limitar a máximo 10 caracteres
+    if (value.length > 10) {
+      value = value.slice(0, 10);
+    }
+    
+    setRut(value);
   };
 
   const formFields = [
@@ -142,8 +197,9 @@ const UserRegister = () => {
       label: "RUT",
       value: rut,
       icon: <FaIdCard />,
-      tooltip: "Sin puntos ni guion",
-      required: true
+      tooltip: "Sin puntos ni guion (ej: 12345678k)",
+      required: true,
+      customOnChange: handleRutChange
     },
     {
       id: "firstName",
@@ -187,16 +243,22 @@ const UserRegister = () => {
       label: "Contraseña",
       value: password,
       icon: <FaLock />,
-      tooltip: "Mínimo 8 caracteres",
+      tooltip: "Mínimo 8 caracteres, incluir letras y números",
       required: true,
       type: "password"
     }
   ];
 
+  // Renderizar mensajes de error específicos para cada campo
+  const getFieldError = (fieldId) => {
+    if (!error || typeof error !== 'object') return null;
+    return error[fieldId];
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
       <main className="flex-1 w-full p-2 sm:p-3 md:p-4 text-center">
-        <div className="bg-white shadow-lg  overflow-hidden max-w-4xl mx-auto w-full">
+        <div className="bg-white shadow-lg overflow-hidden max-w-4xl mx-auto w-full">
           {/* Encabezado naranja */}
           <div className="bg-orange-400 px-6 py-4 text-left">
             <h1 className="text-white text-2xl font-bold">Gestión de Usuarios</h1>
@@ -204,17 +266,21 @@ const UserRegister = () => {
               Creación de nueva cuenta de usuario
             </p>
           </div>
-  
+
           {/* Contenido del formulario */}
           <div className="p-6">
             <div ref={alertRef} className="mb-4">
-              {error && <Alert type="error" message={error} />}
-              {successMessage && <Alert type="success" message={successMessage} />}
+              {error && error.global && (
+                <Alert type="error" message={error.global} />
+              )}
+              {successMessage && (
+                <Alert type="success" message={successMessage} />
+              )}
             </div>
-  
+
             <form onSubmit={handleRegister} className="space-y-4">
               {formFields.map(
-                ({ id, label, icon, value, tooltip, required, options, type }) => (
+                ({ id, label, icon, value, tooltip, required, options, type, customOnChange }) => (
                   <div key={id} className="mb-1">
                     <Label
                       htmlFor={id}
@@ -230,15 +296,19 @@ const UserRegister = () => {
                       placeholder={`Ingrese ${label.toLowerCase()}`}
                       value={value}
                       onChange={(e) => {
-                        const updater = {
-                          rut: setRut,
-                          firstName: setFirstName,
-                          lastName: setLastName,
-                          role: setRole,
-                          location: setLocation,
-                          password: setPassword
-                        };
-                        updater[id](e.target.value);
+                        if (customOnChange) {
+                          customOnChange(e);
+                        } else {
+                          const updater = {
+                            rut: setRut,
+                            firstName: setFirstName,
+                            lastName: setLastName,
+                            role: setRole,
+                            location: setLocation,
+                            password: setPassword
+                          };
+                          updater[id](e.target.value);
+                        }
                       }}
                       icon={icon}
                       options={options}
@@ -251,12 +321,15 @@ const UserRegister = () => {
                       onBlur={() =>
                         setFocusedFields({ ...focusedFields, [id]: false })
                       }
-                      className="w-full"
+                      className={`w-full ${getFieldError(id) ? 'border-red-500' : ''}`}
                     />
+                    {getFieldError(id) && (
+                      <div className="text-red-500 text-xs mt-1 text-left">{getFieldError(id)}</div>
+                    )}
                   </div>
                 )
               )}
-  
+
               <div className="mt-6 pt-4 border-t border-gray-100">
                 <Button
                   text={
@@ -278,7 +351,7 @@ const UserRegister = () => {
               </div>
             </form>
           </div>
-  
+
           {/* Footer */}
           <div className="bg-gray-50 px-6 py-3 text-center text-xs text-gray-500">
             Sistema de Gestión de Combustible • {new Date().getFullYear()}

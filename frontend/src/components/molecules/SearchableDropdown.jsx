@@ -11,12 +11,16 @@ const SearchableDropdown = ({ options, selected, onSelect, placeholder, disabled
   useEffect(() => {
     if (selected) {
       const selectedOption = options.find(opt => 
-        (typeof selected === 'object' && opt.value?.rut === selected?.rut) || 
-        (typeof selected === 'string' && opt.value === selected)
+        (typeof opt.value === 'object' && typeof selected === 'object' && opt.value?.rut === selected?.rut) || 
+        (typeof opt.value !== 'object' && opt.value === selected) ||
+        (opt.label === selected) // Agregamos esta condición para manejar el caso donde se pasa el label
       );
       
       if (selectedOption) {
         setSearch(selectedOption.label);
+      } else if (typeof selected === 'string') {
+        // Si no encontramos una coincidencia exacta pero selected es string, asumimos que es un label
+        setSearch(selected);
       }
     } else if (!userTyping) {
       setSearch("");
@@ -32,12 +36,15 @@ const SearchableDropdown = ({ options, selected, onSelect, placeholder, disabled
         // Si se cierra sin seleccionar y hay un valor seleccionado, restaurar ese valor
         if (selected) {
           const selectedOption = options.find(opt => 
-            (typeof selected === 'object' && opt.value?.rut === selected?.rut) || 
-            (typeof selected === 'string' && opt.value === selected)
+            (typeof opt.value === 'object' && typeof selected === 'object' && opt.value?.rut === selected?.rut) || 
+            (typeof opt.value !== 'object' && opt.value === selected) ||
+            (opt.label === selected)
           );
           
           if (selectedOption) {
             setSearch(selectedOption.label);
+          } else if (typeof selected === 'string') {
+            setSearch(selected);
           }
         } else {
           setSearch("");
@@ -88,7 +95,7 @@ const SearchableDropdown = ({ options, selected, onSelect, placeholder, disabled
 
   const handleOptionSelect = (opt) => {
     if (!disabled) {
-      onSelect(opt.value);
+      onSelect(opt.label); // Enviamos el label en lugar del value
       setSearch(opt.label);
       setIsOpen(false);
       setUserTyping(false);

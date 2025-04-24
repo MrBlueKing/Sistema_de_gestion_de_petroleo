@@ -28,7 +28,7 @@ return new class extends Migration
             $table->primary('id_consumo');
 
             // Definición de claves foráneas
-            $table->foreign('id_dotacion')->references('id_dotacion')->on('solicitantes')->onDelete('cascade');
+            $table->foreign('id_dotacion')->references('id')->on('solicitantes')->onDelete('cascade');
             $table->foreign('id_equipo')->references('id_maquina')->on('maquinas')->onDelete('cascade');
             $table->foreign('id_usuario')->references('id')->on('users')->onDelete('cascade');
             $table->foreign('id_faena')->references('id_faena')->on('faenas')->onDelete('set null');

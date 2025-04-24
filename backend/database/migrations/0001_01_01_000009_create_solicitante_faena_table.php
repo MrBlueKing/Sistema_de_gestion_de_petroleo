@@ -20,10 +20,7 @@ return new class extends Migration
             $table->primary(['id_dotacion', 'id_faena']);
             
             // Definir las claves foráneas
-            $table->foreign('id_dotacion')
-                ->references('id_dotacion')
-                ->on('solicitantes')
-                ->onDelete('cascade');
+            $table->foreign('id_dotacion')->references('id')->on('solicitantes')->onDelete('cascade');
 
             $table->foreign('id_faena')
                 ->references('id_faena')

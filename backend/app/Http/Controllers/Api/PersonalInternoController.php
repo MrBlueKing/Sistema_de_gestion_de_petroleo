@@ -98,10 +98,11 @@ class PersonalInternoController extends Controller
             ]);
 
             return response()->json([
+                'success' => true,
                 'message' => 'Solicitante interno registrado correctamente',
                 'solicitante' => $solicitante,
                 'personal_interno' => $personal
-            ], 201);
+            ], 201);            
         } catch (\Exception $e) {
             // En caso de una excepción, puedes manejarla aquí
             return response()->json([

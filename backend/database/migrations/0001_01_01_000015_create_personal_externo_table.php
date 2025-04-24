@@ -20,7 +20,7 @@ return new class extends Migration
             $table->timestamps(); // Campos de created_at y updated_at
 
             // Definimos las claves foráneas
-            $table->foreign('id_dotacion')->references('id_dotacion')->on('solicitantes')->onDelete('cascade');
+            $table->foreign('rut')->references('rut')->on('solicitantes')->onDelete('cascade');
             $table->foreign('id_empresa')->references('id_empresa')->on('empresas_externas')->onDelete('cascade');
         });
     }

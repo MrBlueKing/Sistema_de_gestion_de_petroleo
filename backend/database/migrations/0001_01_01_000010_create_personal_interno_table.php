@@ -12,17 +12,16 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('personal_interno', function (Blueprint $table) {
-            $table->id('id_personal_interno'); // Esto es autoincremental
-            $table->unsignedBigInteger('id_dotacion'); // Relación con solicitantes
-            $table->string('nombre'); // Nombre del personal
-            $table->string('rut', 12)->unique()->nullable(); // RUT del personal
-            $table->string('apellido')->nullable(); // Apellido
-            $table->string('cargo')->nullable(); // Cargo
-            $table->string('ubicacion')->nullable(); // Ubicación
-            $table->timestamps(); // Campos de created_at y updated_at
+            $table->id('id_personal_interno'); // PK autoincremental
+            $table->string('rut', 12); // Relación con solicitantes por rut
+            $table->string('nombre');
+            $table->string('apellido')->nullable();
+            $table->string('cargo')->nullable();
+            $table->string('ubicacion')->nullable();
+            $table->timestamps();
 
-            // Definimos la clave foránea
-            $table->foreign('id_dotacion')->references('rut')->on('solicitantes')->onDelete('cascade');
+            $table->unique('rut'); // Asegura que rut sea único
+            $table->foreign('rut')->references('rut')->on('solicitantes')->onDelete('cascade');
         });
     }
 

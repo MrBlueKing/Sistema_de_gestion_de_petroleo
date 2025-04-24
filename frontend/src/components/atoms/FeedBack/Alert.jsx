@@ -45,7 +45,7 @@ export default function Alert({ type = "info", message }) {
       className={`flex items-start gap-3 p-4 text-sm rounded-md shadow-sm animate-fade-in ${colorMap[type]} transition-all duration-300`}
     >
       <div className="pt-1">{iconMap[type]}</div>
-      <div className="space-y-1">
+      <div className="space-y-1 text-left"> {/* Alineación a la izquierda */}
         {messagesArray().map((msg, idx) => (
           <p key={idx} className="leading-snug">
             {msg}

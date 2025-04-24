@@ -68,4 +68,18 @@ class BodegaController extends Controller
             'invalidos' => $personal
         ]);
     }
+
+    // ✅ Método que devuelve maquinarias diferenciando el rut por mas de una letra
+    public function getMaquinarias()
+    {
+        // Filtrar las maquinarias donde el campo 'Rut' contiene más de una letra
+        // y no solo números ni vacío. Excluye las letras "K" o "k"
+        $maquinarias = Personal::where('Rut', 'REGEXP', '^(?=(.*[A-Za-z]))(?!.*[Kk]$).*')->get();
+    
+        return response()->json([
+            'success' => true,
+            'data' => $maquinarias
+        ]);
+    }
+    
 }

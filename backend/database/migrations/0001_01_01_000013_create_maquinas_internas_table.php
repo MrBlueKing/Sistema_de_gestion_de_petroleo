@@ -12,13 +12,16 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('maquinas_internas', function (Blueprint $table) {
-            $table->unsignedBigInteger('id_maquina');  // Relación con la tabla maquinas
-            $table->string('patente', 15)->unique();   // Campo patente con restricción única
-            $table->primary('id_maquina');  // Definir la clave primaria
-
-            // Relación con la tabla maquinas
+            $table->id('id_maquina_interna'); // Clave primaria propia
+            $table->unsignedBigInteger('id_maquina');  // FK a la tabla maquinas
+            $table->string('patente', 15)->unique();   // Patente única
+            $table->string('nombre', 100);             // Nombre de la máquina
+            $table->string('categoria', 100);          // O puedes hacer FK si es tabla aparte
+            $table->timestamps();                      // created_at y updated_at
+        
+            // Foreign key
             $table->foreign('id_maquina')->references('id_maquina')->on('maquinas')->onDelete('cascade');
-        });
+        });        
     }
 
     /**

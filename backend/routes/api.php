@@ -7,8 +7,9 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\APi\BodegaController;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Api\CategoriaMaquinaController;
-
+use App\Http\Controllers\Api\FaenaController;
 use App\Http\Controllers\Api\PersonalInternoController;
+use App\Http\Controllers\Api\MaquinaInternaController;
 
 // Rutas públicas
 Route::post('/login', [AuthController::class, 'login']);
@@ -25,16 +26,27 @@ Route::get('/maquinarias-bodega', [BodegaController::class, 'obtenerMaquinarias'
 Route::middleware('auth:sanctum')->get('/personal-bodega', [BodegaController::class, 'index']);
 // Ruta para obtener solo el personal de bodega (personas y maquinarias mezcladas) con RUT inválido
 Route::get('/personal-bodega-invalidos', [BodegaController::class, 'rutInvalidos']);
+//Ruta para obtener las maquinarias de la bodega.
+Route::get('/maquinarias', [BodegaController::class, 'getMaquinarias']);
 
 
 //RUTAS DE MAQUINARIAS
 // Ruta para insertar una nueva maquinaria en la base de datos.
 Route::apiResource('categorias-maquinas', CategoriaMaquinaController::class);
+//Ruta para obtener todas las categorías de máquinas.
+Route::get('/categorias', [CategoriaMaquinaController::class, 'index']);
+//Ruta registro maquinas internas
+Route::post('/maquinas-internas', [MaquinaInternaController::class, 'store']);
 
 //RUTAS DE SOLICITANTES INTERNOS
 // Ruta para registrar un nuevo usuario interno en la base de datos.
 Route::post('/registrarUsuarioInterno', [PersonalInternoController::class, 'register']);
 Route::get('/personal-internos', [PersonalInternoController::class, 'index']);
+
+
+//RUTAS DE FAENAS
+// Ruta para obtener todas las faenas
+Route::get('/faenas', [FaenaController::class, 'index']);
 
 
 Route::get('/test-bodega', function () {

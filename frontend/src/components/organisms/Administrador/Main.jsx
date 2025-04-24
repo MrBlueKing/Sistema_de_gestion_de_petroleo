@@ -3,6 +3,9 @@ import { FaCar } from "react-icons/fa";
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import axios from '../../../lib/axios'; // Asegúrate de que la ruta sea correcta
+import { TbCategoryPlus } from "react-icons/tb";
+import { FaTruckDroplet } from "react-icons/fa6";
+import { FaUserCog } from "react-icons/fa";
 
 
 const DashboardCard = ({ title, value, icon, color }) => {
@@ -140,8 +143,15 @@ export default function Main() {
                 <h2 className="text-lg font-semibold text-gray-700 mb-3">Acceso rápido</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <QuickAccessButton icon={FiUserPlus} title="Agregar Usuario" to="/registroUsuario" />
-                    <QuickAccessButton icon={FiUsers} title="Editar Usuarios" to="/usuarios/editar" />
-                    <QuickAccessButton icon={FaCar} title="Editar Categoria Maquina" to="/" />
+                    <QuickAccessButton icon={TbCategoryPlus} title="Añadir Tipo Maquina" to="/AñadirTipoMaquina" />
+                    <QuickAccessButton icon={FaTruckDroplet} title="Categorización de Equipos" to="/GestionarMaquinaCategoria" />
+                    <QuickAccessButton icon={FaUserCog} title="Gestionar Personal" to="/GestionarPersonalInterno" />
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
+                    <QuickAccessButton icon={FiUserPlus} title="Ver Usuarios" to="/registroUsuario" />
+                    <QuickAccessButton icon={TbCategoryPlus} title="Ver Tipos de Maquinas" to="/AñadirTipoMaquina" />
+                    <QuickAccessButton icon={FaTruckDroplet} title="Ver Categorización de Equipos" to="/GestionarMaquinaCategoria" />
+                    <QuickAccessButton icon={FaUserCog} title="Ver Personal Interno" to="/GestionarPersonalInterno" />
                 </div>
             </div>
 
@@ -165,16 +175,6 @@ export default function Main() {
                         ))}
                     </div>
                 )}
-            </div>
-
-            {/* Actividad reciente */}
-            <div className="bg-white p-4 sm:p-6 rounded-xl shadow">
-                <h2 className="text-xl font-semibold text-gray-800 mb-4">Actividad reciente</h2>
-                <div className="divide-y divide-gray-100">
-                    <ActivityItem title="Inicio de sesión" time="hace 2h" status="Correcto" statusColor="bg-green-100 text-green-800" user="Juan Pérez" role="Administrador" />
-                    <ActivityItem title="Inicio de sesión" time="hace 2h" status="Correcto" statusColor="bg-green-100 text-green-800" user="Miguel roberto" role="Gerente" />
-                    <ActivityItem title="Actualización perfil" time="hace 5h" status="Correcto" statusColor="bg-green-100 text-green-800" user="María López" role="Bombero" />
-                </div>
             </div>
         </main>
     );

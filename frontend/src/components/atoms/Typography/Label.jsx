@@ -52,7 +52,7 @@ const Label = ({
             className={`font-semibold text-sm select-none transition-colors duration-200 
               ${active 
                 ? "text-blue-600 dark:text-blue-400" 
-                : "text-gray-800 dark:text-gray-200"}
+                : "text-gray-800 dark:text-gray-800"}
               ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
           >
             {label}
