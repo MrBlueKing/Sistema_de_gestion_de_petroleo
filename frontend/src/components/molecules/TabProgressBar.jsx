@@ -6,8 +6,8 @@ const TabProgressBar = ({ activeTab = "solicitante" }) => {
     { id: "solicitante", label: "Solicitante" },
     { id: "maquinaria", label: "Maquinaria/Vehículo" },
     { id: "patente", label: "N°/Patente" },
-    { id: "consumo", label: "Consumo" },
-    { id: "confirmarDatos", label: "Confirmar Datos" }
+    { id: "consumo", label: "Consumo" }
+    
   ];
 
   return (

@@ -1,11 +1,12 @@
-import React from "react";
-import MenuPrincipalAdministrador from "../../components/templates/Administrador/Administrador";
+import GerenteMenu from "../../components/templates/Gerente/Gerente";
+
 
 const Gerente = () => {
   return (
-    <div>
-      <MenuPrincipalAdministrador />
-    </div>   
+          <div >
+      <GerenteMenu />
+
+      </div>
   );
 };
 

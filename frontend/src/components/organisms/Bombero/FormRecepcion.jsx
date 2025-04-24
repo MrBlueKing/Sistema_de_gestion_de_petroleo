@@ -3,6 +3,7 @@ import Button from "../../atoms/Button/Button";
 import "react-datepicker/dist/react-datepicker.css";
 import { registerLocale } from "react-datepicker";
 import es from "date-fns/locale/es";
+import { FaHome } from "react-icons/fa";
 
 registerLocale("es", es);
 
@@ -40,14 +41,20 @@ const FormRecepcion = ({ formData, handleChange, handleSubmit }) => {
         className="bg-white rounded-3xl px-4 py-2 min-h-[80px]"
       />
 
-      <div className="flex justify-center mt-2">
-        <Button
-          text="Ingresar Recepción"
-          color="orange"
-          onClick={handleSubmit}
-          className="bg-orange-700 hover:bg-orange-600 text-white text-sm px-6 py-2 rounded-full"
-        />
-      </div>
+<div className="flex items-center mt-2">
+  <Button
+    to="/Bombero"
+    className="bg-transparent hover:bg-transparent p-0 m-0 shadow-none"
+    icon={<FaHome className="w-15 h-15 text-white" />}
+  />
+  <Button
+    text="Ingresar Recepción"
+    color="orange"
+    onClick={handleSubmit}
+    className="bg-orange-700 hover:bg-orange-700 text-white text-sm px-6 py-2 rounded-full ml-auto"
+  />
+</div>
+
     </div>
   );
 };
