@@ -12,18 +12,20 @@ const Main = () => {
       <div className="space-y-6 w-full">
         <Button
           to="/BomberoRecepcion"
-          className="flex items-center justify-center gap-3 bg-orange-500 hover:bg-orange-600 text-white font-medium py-3 px-4 rounded-md w-full shadow-md transition-colors duration-200 space-y-4 mb-6"
-          icon={<FaArrowCircleDown className="text-white w-5 h-5 sm:w-6 sm:h-6" />}
+          color="orange"
+          icon={<FaArrowCircleDown className="text-white"/>}
           text="Recepción de Combustible"
+          className="w-full mb-6 py-6"
         />
 
-            <Button
+        <Button
           to="/BomberoNavigation"
-          className="flex items-center justify-center gap-3 bg-orange-500 hover:bg-orange-600 text-white font-medium py-3 px-4 rounded-md w-full shadow-md transition-colors duration-200 space-y-4"
+          className="w-full mb-6 py-6"
           icon={<FaGasPump className="text-white w-5 h-5 sm:w-6 sm:h-6" />}
           text="Carga de Combustible"
-        />       
-      
+          color="orange"
+          
+        />
       </div>
 
       <p className="text-xs text-gray-500 mt-6 text-center">

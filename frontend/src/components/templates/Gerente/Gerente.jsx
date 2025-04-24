@@ -1,13 +1,16 @@
-import React from 'react';
-import Header from '../../organisms/Gerente/Header';
-import Main from '../../organisms/Gerente/Main';
 
-const Gerente = () => { 
-    return (
-      <>
-        <Header />
-        <Main />
-      </>
-    );
+import Main from "../../organisms/Gerente/MainKpi";
+import Header from "../../organisms/Gerente/Header";
+
+const DieselDashboard = () => {
+  return (
+    <div>
+      {/* Puedes meter KpiCards aquí */}
+      <Header />
+      <Main />
+     
+    </div>
+  );
 };
-export default Gerente;
+
+export default DieselDashboard;

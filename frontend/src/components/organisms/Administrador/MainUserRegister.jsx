@@ -7,6 +7,7 @@ import Label from "../../atoms/Typography/Label";
 import Alert from "../../atoms/FeedBack/Alert";
 import axios from "../../../lib/axios";
 
+
 const UserRegister = () => {
   const [rut, setRut] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -30,6 +31,7 @@ const UserRegister = () => {
 
   const alertRef = useRef(null);
 
+
   // Auto-desvanecer mensajes
   useEffect(() => {
     if (successMessage) {
@@ -39,11 +41,17 @@ const UserRegister = () => {
   }, [successMessage]);
 
   useEffect(() => {
-    if (error) {
+    if (error && alertRef.current) {
+      const offset = 100; // Puedes ajustar este valor para subir más o menos
+      const top = alertRef.current.getBoundingClientRect().top + window.pageYOffset - offset;
+      window.scrollTo({ top, behavior: "smooth" });
+  
       const timer = setTimeout(() => setError(null), 6000);
       return () => clearTimeout(timer);
     }
   }, [error]);
+  
+  
 
   const translateErrorMessages = (errors) => {
     const translations = {
@@ -257,8 +265,8 @@ const UserRegister = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
-      <main className="flex-1 w-full p-2 sm:p-3 md:p-4 text-center">
-        <div className="bg-white shadow-lg overflow-hidden max-w-4xl mx-auto w-full">
+      <main className="flex-1 w-full p-2 sm:p-3 md:p-4">
+        <div className="bg-white shadow-lg  overflow-hidden max-w-4xl mx-auto w-full">
           {/* Encabezado naranja */}
           <div className="bg-orange-400 px-6 py-4 text-left">
             <h1 className="text-white text-2xl font-bold">Gestión de Usuarios</h1>
