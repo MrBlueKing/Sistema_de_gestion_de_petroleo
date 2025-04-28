@@ -15,9 +15,9 @@ const COLORS = ["#f97316", "#fb923c", "#fdba74", "#fed7aa"];
 const FaenasChart = () => {
   const data = [
     { name: "Cabildo", value: 400 },
-    { name: "Catemu", value: 300 },
-    { name: "Til Til", value: 300 },
-    { name: "Oficina", value: 200 },
+    { name: "Catemu", value: 400 },
+    { name: "Til Til", value: 400 },
+    { name: "Oficina", value: 400 },
   ];
 
   return (
