@@ -20,4 +20,9 @@ class Faena extends Model
     {
         return $this->hasMany(permisos_maquinas_faenas::class, 'id_faena');
     }
+    // Relación inversa para recepción petróleo
+    public function ingresosPetroleo()
+    {
+        return $this->hasMany(IngresoPetroleo::class, 'id_faena');
+    }
 }

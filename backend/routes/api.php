@@ -10,6 +10,8 @@ use App\Http\Controllers\Api\CategoriaMaquinaController;
 use App\Http\Controllers\Api\FaenaController;
 use App\Http\Controllers\Api\PersonalInternoController;
 use App\Http\Controllers\Api\MaquinaInternaController;
+use App\Http\Controllers\Api\IngresoPetroleoController;
+use App\Http\Controllers\Api\EstanqueController;
 
 // Rutas públicas
 Route::post('/login', [AuthController::class, 'login']);
@@ -37,12 +39,23 @@ Route::apiResource('categorias-maquinas', CategoriaMaquinaController::class);
 Route::get('/categorias', [CategoriaMaquinaController::class, 'index']);
 //Ruta registro maquinas internas
 Route::post('/maquinas-internas', [MaquinaInternaController::class, 'store']);
+//Ruta para obtener todas las maquinas internas registradas
+Route::get('/maquinas-internas-registradas', [MaquinaInternaController::class, 'index']);
+
 
 //RUTAS DE SOLICITANTES INTERNOS
 // Ruta para registrar un nuevo usuario interno en la base de datos.
 Route::post('/registrarUsuarioInterno', [PersonalInternoController::class, 'register']);
 Route::get('/personal-internos', [PersonalInternoController::class, 'index']);
 
+
+//RUTAS RECEPCION PETROLEO
+Route::get('/ingresos-petroleo', [IngresoPetroleoController::class, 'index']);
+Route::post('/ingresos-petroleo', [IngresoPetroleoController::class, 'store']);
+
+//RUTAS ESTANQUES
+Route::get('/estanques/{id_faena}', [EstanqueController::class, 'estanquesPorFaena']);
+Route::post('/calcular-litros-petroleo', [EstanqueController::class, 'calcularLitrosPetroleo']);
 
 //RUTAS DE FAENAS
 // Ruta para obtener todas las faenas

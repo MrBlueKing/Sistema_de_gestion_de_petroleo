@@ -8,51 +8,142 @@ const GestionarMaquinaCategoria = () => {
   const [selectedCategoriaId, setSelectedCategoriaId] = useState("");
   const [selectedCategoriaLabel, setSelectedCategoriaLabel] = useState("");
   const [nombreMaquina, setNombreMaquina] = useState("");
-  const [patente, setPatente] = useState(""); // Cambiamos de rut a patente
+  const [patente, setPatente] = useState("");
   const [selectedFaenaId, setSelectedFaenaId] = useState("");
   const [selectedFaenaLabel, setSelectedFaenaLabel] = useState("");
-  const [maquinarias, setMaquinarias] = useState([]);
-
+  
   // Estados para los datos cargados
   const [categorias, setCategorias] = useState([]);
   const [faenas, setFaenas] = useState([]);
   const [maquinasOptions, setMaquinasOptions] = useState([]);
+  
+  // Estados para las fuentes de datos originales
+  const [maquinasInternas, setMaquinasInternas] = useState([]);
+  const [maquinasBodega, setMaquinasBodega] = useState([]);
 
-  // Estados para carga y errores
+  // Estados para carga y mensajes
   const [loading, setLoading] = useState({
     categorias: false,
     faenas: false,
     maquinasOptions: false,
+    maquinasInternas: false,
+    maquinasBodega: false,
     submit: false
   });
-  const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  const [status, setStatus] = useState({
+    type: "", // "error" o "success"
+    message: "",
+    visible: false
+  });
 
-  // Obtener maquinarias de la base de datos bodega
+  // Timer para los mensajes
+  const [messageTimeout, setMessageTimeout] = useState(null);
+
+  // Función para mostrar mensajes temporales
+  const showMessage = (type, message, duration = 5000) => {
+    // Limpiar cualquier timer existente
+    if (messageTimeout) {
+      clearTimeout(messageTimeout);
+    }
+    
+    // Mostrar el nuevo mensaje
+    setStatus({
+      type,
+      message,
+      visible: true
+    });
+    
+    // Configurar timer para ocultar el mensaje
+    const timer = setTimeout(() => {
+      setStatus(prev => ({ ...prev, visible: false }));
+    }, duration);
+    
+    setMessageTimeout(timer);
+  };
+
+  // Función principal para filtrar y actualizar las opciones disponibles
+  const actualizarMaquinasDisponibles = () => {
+    if (maquinasBodega.length === 0 || !Array.isArray(maquinasInternas)) {
+      return; // Si no tenemos datos, no hacemos nada
+    }
+
+    // Extraemos las patentes de las máquinas ya registradas
+    const patentesRegistradas = maquinasInternas.map(maquina => maquina.patente);
+    
+    // Filtramos las máquinas de bodega, excluyendo las que tienen patentes ya registradas
+    const maquinasNoRegistradas = maquinasBodega.filter(
+      maquina => !patentesRegistradas.includes(maquina.Rut)
+    );
+    
+    // Convertimos a formato para el dropdown
+    const options = maquinasNoRegistradas.map(maquina => ({
+      label: maquina.Nombre,
+      value: maquina.Nombre,
+      patente: maquina.Rut
+    }));
+    
+    setMaquinasOptions(options);
+
+    console.log('Máquinas disponibles actualizadas:', options.length);
+  };
+
+  // 1. Cargar máquinas internas (ya registradas)
   useEffect(() => {
-    const fetchMaquinarias = async () => {
+    const fetchMaquinasInternas = async () => {
       try {
-        const response = await axios.get("/api/maquinarias");
+        setLoading(prev => ({ ...prev, maquinasInternas: true }));
+        const response = await axios.get("/api/maquinas-internas-registradas");
         
         if (response.data && response.data.success) {
-          // Guardar los datos completos de las maquinarias
-          setMaquinarias(response.data.data);
-
-          // Crear opciones para el dropdown de máquinas
-          const options = response.data.data.map(maquina => ({
-            label: maquina.Nombre,
-            value: maquina.Nombre,
-            patente: maquina.Rut // Guardamos el Rut como patente
-          }));
-          setMaquinasOptions(options);
+          console.log('Máquinas internas cargadas:', response.data.data.length);
+          setMaquinasInternas(response.data.data);
+        } else {
+          showMessage("error", "Error al cargar maquinarias registradas");
         }
       } catch (error) {
-        console.error("Error al cargar maquinarias:", error);
+        console.error("Error al cargar maquinarias registradas:", error);
+        showMessage("error", "Error al cargar maquinarias registradas. Intente nuevamente.");
+      } finally {
+        setLoading(prev => ({ ...prev, maquinasInternas: false }));
       }
     };
 
-    fetchMaquinarias();
+    fetchMaquinasInternas();
   }, []);
+
+  // 2. Cargar máquinas de bodega
+  useEffect(() => {
+    const fetchMaquinasBodega = async () => {
+      try {
+        setLoading(prev => ({ ...prev, maquinasBodega: true }));
+        const response = await axios.get("/api/maquinarias");
+        
+        if (response.data && response.data.success) {
+          console.log('Máquinas bodega cargadas:', response.data.data.length);
+          setMaquinasBodega(response.data.data);
+        } else {
+          showMessage("error", "Error al cargar maquinarias de bodega");
+        }
+      } catch (error) {
+        console.error("Error al cargar maquinarias de bodega:", error);
+        showMessage("error", "Error al cargar maquinarias de bodega. Intente nuevamente.");
+      } finally {
+        setLoading(prev => ({ ...prev, maquinasBodega: false }));
+      }
+    };
+
+    fetchMaquinasBodega();
+  }, []);
+
+  // 3. Actualizar las opciones disponibles cuando cambien las fuentes de datos
+  useEffect(() => {
+    // Solo procesamos cuando ambas fuentes de datos están cargadas
+    if (!loading.maquinasInternas && !loading.maquinasBodega) {
+      setLoading(prev => ({ ...prev, maquinasOptions: true }));
+      actualizarMaquinasDisponibles();
+      setLoading(prev => ({ ...prev, maquinasOptions: false }));
+    }
+  }, [maquinasInternas, maquinasBodega]);
 
   // Cargar categorías al iniciar
   useEffect(() => {
@@ -67,11 +158,11 @@ const GestionarMaquinaCategoria = () => {
           }));
           setCategorias(categoriasOptions);
         } else {
-          setError("Error al cargar categorías");
+          showMessage("error", "Error al cargar categorías");
         }
       } catch (error) {
         console.error("Error al cargar categorías:", error);
-        setError("Error al cargar categorías. Intente nuevamente.");
+        showMessage("error", "Error al cargar categorías. Intente nuevamente.");
       } finally {
         setLoading(prev => ({ ...prev, categorias: false }));
       }
@@ -93,22 +184,28 @@ const GestionarMaquinaCategoria = () => {
           }));
           setFaenas(faenasOptions);
         } else {
-          setError("Error al cargar faenas");
+          showMessage("error", "Error al cargar faenas");
         }
       } catch (error) {
         console.error("Error al cargar faenas:", error);
-        setError("Error al cargar faenas. Intente nuevamente.");
+        showMessage("error", "Error al cargar faenas. Intente nuevamente.");
       } finally {
         setLoading(prev => ({ ...prev, faenas: false }));
       }
     };
 
     fetchFaenas();
+    
+    // Limpieza al desmontar
+    return () => {
+      if (messageTimeout) {
+        clearTimeout(messageTimeout);
+      }
+    };
   }, []);
 
   // Manejar selección de categoría
   const handleCategoriaSelect = (selectedValue) => {
-    // Buscar la categoría por su label
     const categoria = categorias.find(cat => cat.label === selectedValue);
     if (categoria) {
       setSelectedCategoriaId(categoria.value);
@@ -117,31 +214,26 @@ const GestionarMaquinaCategoria = () => {
       setSelectedCategoriaId("");
       setSelectedCategoriaLabel("");
     }
-    setError("");
-    setSuccessMessage("");
+    setStatus({ type: "", message: "", visible: false });
   };
 
   // Manejar selección de máquina
   const handleMaquinaSelect = (selectedValue) => {
-    // Encontramos la máquina seleccionada de las opciones
     const maquinaSeleccionada = maquinasOptions.find(maquina => maquina.label === selectedValue);
 
     if (maquinaSeleccionada) {
-      setNombreMaquina(maquinaSeleccionada.label);  // Guardamos el nombre
-      setPatente(maquinaSeleccionada.patente || ""); // Guardamos el rut como patente
-      console.log("Nombre:", maquinaSeleccionada.label, "Patente:", maquinaSeleccionada.patente);
+      setNombreMaquina(maquinaSeleccionada.label);
+      setPatente(maquinaSeleccionada.patente || "");
     } else {
       setNombreMaquina(selectedValue || "");
       setPatente("");
     }
 
-    setError("");
-    setSuccessMessage("");
+    setStatus({ type: "", message: "", visible: false });
   };
 
   // Manejar selección de faena
   const handleFaenaSelect = (selectedValue) => {
-    // Buscar la faena por su label
     const faena = faenas.find(f => f.label === selectedValue);
     if (faena) {
       setSelectedFaenaId(faena.value);
@@ -150,28 +242,28 @@ const GestionarMaquinaCategoria = () => {
       setSelectedFaenaId("");
       setSelectedFaenaLabel("");
     }
-    setError("");
-    setSuccessMessage("");
+    setStatus({ type: "", message: "", visible: false });
   };
 
   // Validar formulario
   const validateForm = () => {
     if (!selectedCategoriaId) {
-      setError("Por favor selecciona una categoría.");
+      showMessage("error", "Por favor selecciona una categoría.");
       return false;
     }
     if (!nombreMaquina.trim()) {
-      setError("Por favor ingresa un nombre de máquina.");
+      showMessage("error", "Por favor ingresa un nombre de máquina.");
       return false;
     }
     if (!patente.trim()) {
-      setError("Por favor selecciona una máquina con patente válida.");
+      showMessage("error", "Por favor selecciona una máquina con patente válida.");
       return false;
     }
     if (!selectedFaenaId) {
-      setError("Por favor selecciona una faena.");
+      showMessage("error", "Por favor selecciona una faena.");
       return false;
     }
+    
     return true;
   };
 
@@ -192,20 +284,69 @@ const GestionarMaquinaCategoria = () => {
         tipo_maquina: "Interno"
       };
   
-      console.log("Datos a enviar:", data);
-  
       // Llamada a la API de máquinas internas
       const response = await axios.post("/api/maquinas-internas", data);
   
-      if (response.data && response.data.success) {
-        setSuccessMessage("Máquina interna registrada correctamente");
+      // Verificar la respuesta
+      if (response.status === 201 && response.data?.maquina_interna) {
+        showMessage("success", "Máquina interna registrada exitosamente");
+        
+        // Actualizar la lista de máquinas registradas para que se actualice el filtro
+        const nuevaMaquina = {
+          patente: patente.trim(),
+          nombre_maquina: nombreMaquina.trim()
+        };
+        
+        setMaquinasInternas(prev => [...prev, nuevaMaquina]);
+        
+        // Volver a filtrar las opciones disponibles
+        actualizarMaquinasDisponibles();
+        
         resetForm();
       } else {
-        setError(response.data?.message || "Error al registrar la máquina");
+        const errorMsg = response.data?.error || response.data?.message || "Error al registrar la máquina";
+        showMessage("error", errorMsg);
       }
     } catch (error) {
       console.error("Error al guardar:", error);
-      setError("Ocurrió un error al guardar. Intente nuevamente.");
+      
+      // Manejar errores
+      if (error.response?.status === 422 && error.response?.data?.errors) {
+        const firstError = Object.values(error.response.data.errors)[0];
+        showMessage("error", Array.isArray(firstError) ? firstError[0] : "Error de validación");
+      } 
+      else if (error.response?.data?.error && error.response.data.error.includes("Duplicate entry") && 
+               error.response.data.error.includes("maquinas_internas_patente_unique")) {
+        showMessage("error", "La patente ingresada ya está registrada en el sistema. Por favor, utilice otra.");
+        
+        // Si hay un duplicado, actualizamos la lista de máquinas internas y volvemos a filtrar
+        const fetchMaquinasInternas = async () => {
+          try {
+            const response = await axios.get("/api/maquinas-internas-registradas");
+            if (response.data && response.data.success) {
+              setMaquinasInternas(response.data.data);
+              actualizarMaquinasDisponibles();
+            }
+          } catch (error) {
+            console.error("Error al actualizar máquinas registradas:", error);
+          }
+        };
+        
+        fetchMaquinasInternas();
+      } 
+      else {
+        let errorMsg = "Ocurrió un error al guardar. Intente nuevamente.";
+        
+        if (error.response?.data?.error) {
+          if (error.response.data.error.includes("SQLSTATE")) {
+            errorMsg = "Error en la base de datos. Por favor, contacte al administrador.";
+          } else {
+            errorMsg = error.response.data.error;
+          }
+        }
+        
+        showMessage("error", errorMsg);
+      }
     } finally {
       setLoading(prev => ({ ...prev, submit: false }));
     }
@@ -219,8 +360,6 @@ const GestionarMaquinaCategoria = () => {
     setPatente("");
     setSelectedFaenaId("");
     setSelectedFaenaLabel("");
-    setError("");
-    setSuccessMessage("");
   };
 
   return (
@@ -233,8 +372,8 @@ const GestionarMaquinaCategoria = () => {
           </div>
 
           <div className="p-8 z-10">
-            {error && (
-              <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded">
+            {status.visible && status.type === "error" && (
+              <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded transition-opacity duration-300">
                 <div className="flex items-center">
                   <svg
                     className="h-5 w-5 text-red-500 mr-2"
@@ -247,13 +386,13 @@ const GestionarMaquinaCategoria = () => {
                       clipRule="evenodd"
                     />
                   </svg>
-                  <span className="text-red-700 font-medium">{error}</span>
+                  <span className="text-red-700 font-medium">{status.message}</span>
                 </div>
               </div>
             )}
 
-            {successMessage && (
-              <div className="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded">
+            {status.visible && status.type === "success" && (
+              <div className="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded transition-opacity duration-300">
                 <div className="flex items-center">
                   <svg
                     className="h-5 w-5 text-green-500 mr-2"
@@ -266,7 +405,7 @@ const GestionarMaquinaCategoria = () => {
                       clipRule="evenodd"
                     />
                   </svg>
-                  <span className="text-green-700 font-medium">{successMessage}</span>
+                  <span className="text-green-700 font-medium">{status.message}</span>
                 </div>
               </div>
             )}
@@ -293,14 +432,23 @@ const GestionarMaquinaCategoria = () => {
                   options={maquinasOptions}
                   selected={nombreMaquina}
                   onSelect={handleMaquinaSelect}
-                  placeholder={loading.maquinasOptions ? "Cargando Nombres de Máquina..." : "Selecciona nombre de máquina"}
-                  disabled={loading.maquinasOptions}
+                  placeholder={
+                    loading.maquinasOptions || loading.maquinasInternas || loading.maquinasBodega
+                      ? "Cargando máquinas disponibles..."
+                      : "Selecciona nombre de máquina"
+                  }
+                  disabled={loading.maquinasOptions || loading.maquinasInternas || loading.maquinasBodega}
                 />
+                {!loading.maquinasOptions && !loading.maquinasInternas && !loading.maquinasBodega && maquinasOptions.length === 0 && (
+                  <p className="mt-1 text-xs text-amber-600">
+                    No hay máquinas disponibles para registrar. Todas las máquinas ya han sido registradas.
+                  </p>
+                )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Patente
+                  Patente <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -340,7 +488,7 @@ const GestionarMaquinaCategoria = () => {
                 text={loading.submit ? "Procesando..." : "Registrar Máquina"}
                 color="orange"
                 onClick={handleGuardar}
-                disabled={loading.submit}
+                disabled={loading.submit || maquinasOptions.length === 0}
                 className="px-4 py-2 rounded-md text-sm font-medium text-white bg-orange-400 hover:bg-orange-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-400 disabled:opacity-50"
               />
             </div>

@@ -15,7 +15,10 @@ return new class extends Migration
             $table->id('id_ingreso'); // AUTO_INCREMENT PRIMARY KEY
             $table->unsignedBigInteger('id_usuario'); // FK a usuarios
             $table->string('numero_guia'); // VARCHAR(255)
-            $table->decimal('litros_recibidos', 10, 2); // DECIMAL(10,2)
+            $table->decimal('litros_documentados', 10, 2); // según guía
+            $table->decimal('litros_recibidos', 10, 2); // verificados por medición
+            $table->decimal('precio', 10, 2); // Precio por litro
+            $table->decimal('precio_total', 12, 2)->nullable(); // Precio total (calculado)
             $table->boolean('recibo_conforme')->default(1); // TINYINT(1)
             $table->string('observacion', 255)->nullable(); // observación opcional
             $table->unsignedBigInteger('id_faena')->nullable(); // FK opcional a faenas

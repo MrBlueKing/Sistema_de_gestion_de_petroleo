@@ -49,4 +49,9 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Faena::class, 'id_faena'); // Relación con la tabla faena
     }
+    // Relación con Recepción Petróleo
+    public function ingresosPetroleo()
+    {
+        return $this->hasMany(IngresoPetroleo::class, 'id_usuario');
+    }
 }

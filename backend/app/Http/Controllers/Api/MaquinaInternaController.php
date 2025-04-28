@@ -17,8 +17,24 @@ class MaquinaInternaController extends Controller
      */
     public function index()
     {
-        //
+        try {
+            // Obtener directamente todas las máquinas internas sin relaciones
+            $maquinasInternas = MaquinaInterna::all();
+    
+            return response()->json([
+                'success' => true,
+                'data' => $maquinasInternas
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener máquinas internas', ['error' => $e->getMessage()]);
+    
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener las máquinas internas.'
+            ], 500);
+        }
     }
+    
 
     /**
      * Show the form for creating a new resource.

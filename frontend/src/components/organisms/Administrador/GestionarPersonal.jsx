@@ -333,7 +333,7 @@ const RegistrarSolicitante = () => {
                       setFaenaSeleccionada(value);
                       setError("");
                     }}
-                    placeholder="Seleccione la faena"
+                    placeholder={loading.fetchData ? "Cargando Ubicación..." : "Seleccionar Faena"}
                     disabled={!camposEditables || loading.fetchData}
                   />
                 </div>

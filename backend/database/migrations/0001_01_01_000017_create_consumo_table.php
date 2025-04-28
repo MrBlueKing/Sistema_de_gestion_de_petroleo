@@ -17,9 +17,10 @@ return new class extends Migration
             $table->unsignedBigInteger('id_dotacion'); // Relación con solicitante
             $table->unsignedBigInteger('id_equipo'); // Relación con Maquina
             $table->unsignedBigInteger('id_usuario'); // Relación con Usuario
-            $table->timestamp('fecha_consumo')->default(DB::raw('CURRENT_TIMESTAMP')); // Definimos la fecha con el valor por defecto
+            $table->timestamp('fecha_consumo')->default(DB::raw('CURRENT_TIMESTAMP')); // Fecha por defecto
             $table->decimal('litros_consumidos', 10, 2); // Litros consumidos
             $table->unsignedBigInteger('id_faena')->nullable(); // Relación con Faena
+            $table->unsignedBigInteger('id_estanque'); // Relación con Estanque
             $table->decimal('medicion', 10, 3)->nullable(); // Medición
             $table->decimal('numeral_inicial', 10, 3)->nullable(); // Numeral inicial
             $table->decimal('numeral_final', 10, 3)->nullable(); // Numeral final
@@ -32,6 +33,7 @@ return new class extends Migration
             $table->foreign('id_equipo')->references('id_maquina')->on('maquinas')->onDelete('cascade');
             $table->foreign('id_usuario')->references('id')->on('users')->onDelete('cascade');
             $table->foreign('id_faena')->references('id_faena')->on('faenas')->onDelete('set null');
+            $table->foreign('id_estanque')->references('id_estanque')->on('estanques')->onDelete('cascade');
 
             // Timestamps (created_at, updated_at)
             $table->timestamps();
