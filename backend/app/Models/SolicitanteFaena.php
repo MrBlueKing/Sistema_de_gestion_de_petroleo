@@ -2,44 +2,39 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\PersonalInterno;
+use App\Models\Faena;
 
 class SolicitanteFaena extends Model
 {
     use HasFactory;
 
-    /**
-     * Nombre de la tabla asociada al modelo.
-     *
-     * @var string
-     */
-    protected $table = 'solicitantefaena';
+    // Especificar el nombre real de la tabla
+    protected $table = 'solicitante_faena';
 
-    /**
-     * Los atributos que son asignables masivamente.
-     *
-     * @var array
-     */
+    // Clave primaria personalizada (si existe)
+    protected $primaryKey = 'id';
+
+    // Campos que se pueden asignar masivamente
     protected $fillable = [
-        'id_dotacion',
+        'id_dotacion',   // Este campo en realidad se refiere al id_personal_interno
         'id_faena',
     ];
 
-    /**
-     * Obtener la dotación (solicitante) asociada con esta relación.
-     */
-    public function dotacion(): BelongsTo
-    {
-        return $this->belongsTo(Dotacion::class, 'id_dotacion');
-    }
+    // Desactivar timestamps porque la tabla no tiene estas columnas
+    public $timestamps = false;
 
-    /**
-     * Obtener la faena asociada con esta relación.
-     */
-    public function faena(): BelongsTo
-    {
-        return $this->belongsTo(Faena::class, 'id_faena');
-    }
+   // Relación con Solicitante
+   public function solicitante()
+   {
+       return $this->belongsTo(Solicitante::class, 'id_dotacion', 'id');
+   }
+
+   // Relación con Faena
+   public function faena()
+   {
+       return $this->belongsTo(Faena::class, 'id_faena', 'id_faena');
+   }
 }

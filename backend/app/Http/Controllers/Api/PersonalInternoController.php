@@ -7,7 +7,6 @@ use Illuminate\Http\Request;
 use App\Models\PersonalInterno;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Solicitante;
-use App\Models\Dotacion;
 use App\Models\Faena;
 use App\Models\SolicitanteFaena;
 
@@ -95,27 +94,33 @@ class PersonalInternoController extends Controller
                 'ubicacion' => $request->ubicacion,
             ]);
 
-            // 3. Crear o buscar registro en dotación
-            $dotacion = Dotacion::create([
-                'rut' => $request->rut,
-                'nombre' => $nombre,
-                'apellido' => $apellido,
-                'cargo' => $request->cargo,
-                'empresa' => 'Interna',
-                'ubicacion' => $request->ubicacion,
-            ]);
+            // 3. Buscar o crear la faena
+            $faena = null;
+            if ($request->has('id_faena') && is_numeric($request->id_faena)) {
+                // Si se proporcionó un ID de faena específico
+                $faena = Faena::find($request->id_faena);
+                if (!$faena) {
+                    return response()->json([
+                        'error' => 'La faena con ID ' . $request->id_faena . ' no existe.'
+                    ], 404);
+                }
+            } else {
+                // Buscar o crear por ubicación
+                $nombreFaena = $request->ubicacion;
+                $faena = Faena::where('ubicacion', $nombreFaena)->first();
+                
+                if (!$faena) {
+                    // Si no existe la faena, la creamos
+                    $faena = Faena::create([
+                        'ubicacion' => $nombreFaena
+                    ]);
+                }
+            }
 
-            // 4. Buscar o crear la faena
-            $nombreFaena = $request->ubicacion; // En tu formulario, ubicacion es la faena
-            $faena = Faena::firstOrCreate(
-                ['nombre' => $nombreFaena],
-                ['ubicacion' => $nombreFaena] // Si necesitas más campos
-            );
-
-            // 5. Crear la relación en solicitantefaena
+            // 4. Crear la relación en solicitantefaena usando id_personal_interno como id_dotacion
             $solicitanteFaena = SolicitanteFaena::create([
-                'id_dotacion' => $dotacion->id,
-                'id_faena' => $faena->id,
+                'id_dotacion' => $personal->id_personal_interno, // Usamos el ID del personal interno
+                'id_faena' => $faena->id_faena,
             ]);
 
             return response()->json([
@@ -149,17 +154,26 @@ class PersonalInternoController extends Controller
 
             // Buscar el personal interno relacionado con el solicitante
             $personalInterno = PersonalInterno::where('rut', $rut)->first();
-
-            // Buscar la dotación relacionada
-            $dotacion = Dotacion::where('rut', $rut)->first();
             
-            // Buscar las faenas relacionadas si existe la dotación
+            if (!$personalInterno) {
+                return response()->json([
+                    'error' => 'Personal interno no encontrado.'
+                ], 404);
+            }
+
+            // Buscar las faenas relacionadas a través de SolicitanteFaena
+            $solicitanteFaenas = SolicitanteFaena::where('id_dotacion', $personalInterno->id_personal_interno)->get();
             $faenas = [];
-            if ($dotacion) {
-                $faenas = $dotacion->faenas()->get();
+            
+            foreach ($solicitanteFaenas as $sf) {
+                $faena = Faena::where('id_faena', $sf->id_faena)->first();
+                if ($faena) {
+                    $faenas[] = $faena;
+                }
             }
 
             return response()->json([
+                'success' => true,
                 'solicitante' => $solicitante,
                 'personal_interno' => $personalInterno,
                 'faenas' => $faenas
@@ -178,14 +192,59 @@ class PersonalInternoController extends Controller
         try {
             // Obtener todos los usuarios de la tabla 'personal_interno'
             $personalInterno = PersonalInterno::all();
+            
+            // Opcionalmente, podemos incluir información de las faenas relacionadas
+            $usuariosDetallados = [];
+            foreach ($personalInterno as $personal) {
+                $solicitanteFaenas = SolicitanteFaena::where('id_dotacion', $personal->id_personal_interno)->get();
+                
+                $faenas = [];
+                foreach ($solicitanteFaenas as $sf) {
+                    $faena = Faena::where('id_faena', $sf->id_faena)->first();
+                    if ($faena) {
+                        $faenas[] = $faena;
+                    }
+                }
+                
+                $usuariosDetallados[] = [
+                    'personal_interno' => $personal,
+                    'faenas' => $faenas
+                ];
+            }
 
             return response()->json([
-                'personal_interno' => $personalInterno
+                'success' => true,
+                'personal_interno' => $usuariosDetallados
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Hubo un error al obtener los usuarios.',
                 'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+    
+    // Nueva función para registrar usuario desde el frontend (ruta /api/registrarUsuarioInterno)
+    public function registrarUsuarioInterno(Request $request)
+    {
+        // Redirigimos al método register con los mismos parámetros
+        return $this->register($request);
+    }
+    
+    // Método para listar todas las faenas disponibles
+    public function listarFaenas()
+    {
+        try {
+            $faenas = Faena::select('id_faena', 'ubicacion')->get();
+            
+            return response()->json([
+                'success' => true,
+                'faenas' => $faenas
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hubo un error al obtener las faenas: ' . $e->getMessage(),
             ], 500);
         }
     }

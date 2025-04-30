@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Models\Solicitante;
+use App\Models\SolicitanteFaena;
+use App\Models\Faena;
 
 class PersonalInterno extends Model
 {
@@ -18,7 +20,6 @@ class PersonalInterno extends Model
 
     // Campos que se pueden asignar masivamente
     protected $fillable = [
-        'id_dotacion',
         'nombre',
         'rut',
         'apellido',
@@ -26,12 +27,15 @@ class PersonalInterno extends Model
         'ubicacion',
     ];
 
+    // Relación con Solicitante - Un personal interno pertenece a un solicitante
     public function solicitante()
     {
         return $this->belongsTo(Solicitante::class, 'rut', 'rut');
     }
-
-
-    // Si quieres desactivar timestamps, descomenta esto:
-    // public $timestamps = false;
+    
+    // Método de conveniencia para acceder a las faenas a través del solicitante
+    public function faenas()
+    {
+        return $this->solicitante ? $this->solicitante->faenas() : collect();
+    }
 }

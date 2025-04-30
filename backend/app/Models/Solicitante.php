@@ -10,25 +10,35 @@ class Solicitante extends Model
 {
     use HasFactory;
 
-
     // Tabla asociada
     protected $table = 'solicitantes';
 
-    // Clave primaria (si no es el ID autoincremental por defecto)
-    protected $primaryKey = 'id'; // Esto ya está configurado por defecto, solo es para claridad.
+    // Clave primaria
+    protected $primaryKey = 'id';
 
     // Los campos que se pueden asignar masivamente
     protected $fillable = ['rut', 'tipo_personal'];
 
-    // Relación con solicitantes internos
+    // Relación con personal interno - Un solicitante puede tener un personal interno
     public function personalInterno()
     {
         return $this->hasOne(PersonalInterno::class, 'rut', 'rut');
-    }    
-
-    // Relación con solicitantes externos
-    //public function solicitanteExterno()
-    //{
-    //    return $this->hasOne(SolicitanteExterno::class, 'id_dotacion');
-    //}
+    }
+    
+    // Relación con SolicitanteFaena - Un solicitante puede estar en múltiples SolicitanteFaena
+    public function solicitanteFaenas()
+    {
+        return $this->hasMany(SolicitanteFaena::class, 'id_dotacion', 'id');
+    }
+    
+    // Relación muchos a muchos con Faena a través de SolicitanteFaena
+    public function faenas()
+    {
+        return $this->belongsToMany(
+            Faena::class,
+            'solicitante_faena',
+            'id_dotacion',  // Clave del solicitante en la tabla pivot
+            'id_faena'      // Clave de la faena en la tabla pivot
+        );
+    }
 }

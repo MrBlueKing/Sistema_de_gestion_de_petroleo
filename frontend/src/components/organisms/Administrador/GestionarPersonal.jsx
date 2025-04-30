@@ -15,7 +15,7 @@ const RegistrarSolicitante = () => {
   });
   const [camposEditables, setCamposEditables] = useState(true);
 
-  const faenas = ["Catemu", "Cabildo", "Til Til"];
+  const faenas = ["Cabildo", "Catemu", "Chincolco", "Tiltil"];
 
   const fetchSolicitantes = async () => {
     setLoading(prev => ({ ...prev, fetchData: true }));
@@ -37,22 +37,42 @@ const RegistrarSolicitante = () => {
       }
 
       // Extraer el array correcto de la respuesta
-      const solicitantesRegistrados =
-        responsePetroleo.data?.personal_interno || [];
+      const solicitantesRegistrados = responsePetroleo.data?.personal_interno || [];
 
-      console.log("Solicitantes ya registrados:", solicitantesRegistrados);
+      //console.log("Solicitantes ya registrados:", solicitantesRegistrados);
+      //console.log("Solicitantes de bodega:", personas);
 
-      // Filtrar los solicitantes de la bodega que no estén ya registrados
+      // Corrigiendo la lógica de filtrado para manejar correctamente la estructura anidada
       const solicitantesDisponibles = personas.filter(
-        (item) =>
-          item.Rut && // Validar que existe un RUT
-          item.Nombre && // Validar que existe un Nombre
-          !solicitantesRegistrados.some(
-            (solicitante) =>
-              solicitante.rut?.trim().toLowerCase() ===
-              item.Rut?.trim().toLowerCase()
-          )
+        (itemBodega) => {
+          // Verificar que el RUT exista en el item de bodega
+          if (!itemBodega.Rut || !itemBodega.Nombre) {
+            return false;
+          }
+
+          // Formatear el RUT para comparación (limpiar espacios y convertir a minúsculas)
+          const rutBodega = itemBodega.Rut.trim().toLowerCase();
+          
+          // Verificar si este RUT ya existe en personal interno
+          // Nota: En solicitantesRegistrados, cada item tiene una propiedad 'personal_interno'
+          return !solicitantesRegistrados.some(
+            (solicitanteInterno) => {
+              // Verificar que exista el objeto personal_interno y su propiedad rut
+              if (!solicitanteInterno.personal_interno || !solicitanteInterno.personal_interno.rut) {
+                return false;
+              }
+              
+              // Formatear el RUT de personal interno para comparación
+              const rutInterno = solicitanteInterno.personal_interno.rut.trim().toLowerCase();
+              
+              // Comparar los RUTs
+              return rutInterno === rutBodega;
+            }
+          );
+        }
       );
+
+      //console.log("Solicitantes disponibles después del filtro:", solicitantesDisponibles);
 
       // Formatear las opciones para el dropdown
       const opcionesFormateadas = solicitantesDisponibles.map((item) => ({
@@ -66,7 +86,7 @@ const RegistrarSolicitante = () => {
 
       setSolicitantes(opcionesFormateadas);
     } catch (err) {
-      console.error("Error al cargar solicitantes:", err);
+      //console.error("Error al cargar solicitantes:", err);
       setError(`No se pudo cargar el personal: ${err.message || "Error desconocido"}`);
     } finally {
       setLoading(prev => ({ ...prev, fetchData: false }));
@@ -108,7 +128,7 @@ const RegistrarSolicitante = () => {
   };
 
   const handleSolicitanteSelect = (selectedLabel) => {
-    console.log("Valor seleccionado:", selectedLabel);
+    //console.log("Valor seleccionado:", selectedLabel);
 
     // Manejar explícitamente el caso cuando value es null (borrado completo)
     if (selectedLabel === null) {
@@ -164,8 +184,6 @@ const RegistrarSolicitante = () => {
     return true;
   };
 
-  // Cambios necesarios en el método handleGuardar de RegistrarSolicitante.jsx
-
   const handleGuardar = async () => {
     // Limpiar mensajes previos
     setError("");
@@ -176,7 +194,7 @@ const RegistrarSolicitante = () => {
     }
 
     setLoading(prev => ({ ...prev, submitForm: true }));
-    console.log("solicitante seleccionado:", solicitanteSeleccionado)
+    //console.log("solicitante seleccionado:", solicitanteSeleccionado)
     try {
       // Modificamos la ruta del API y aseguramos que enviamos la faena
       const response = await axios.post("/api/registrarUsuarioInterno", {
@@ -187,12 +205,12 @@ const RegistrarSolicitante = () => {
         faena: faenaSeleccionada,     // También la enviamos explícitamente como faena
       });
 
-      console.log("Respuesta del backend:", response.data);
+      //console.log("Respuesta del backend:", response.data);
       if (!response.data?.success) {
         throw new Error(response.data?.message || "Error al registrar solicitante");
       }
 
-      console.log("Solicitante registrado:", response.data);
+      //console.log("Solicitante registrado:", response.data);
       setSuccess("¡Solicitante registrado exitosamente y asignado a la faena!");
       setCamposEditables(false); // Bloquear campos después de guardar
 
@@ -203,7 +221,7 @@ const RegistrarSolicitante = () => {
         )
       );
     } catch (err) {
-      console.error("Error al guardar solicitante:", err);
+      //console.error("Error al guardar solicitante:", err);
       setError(
         err.response?.data?.message ||
         err.message ||

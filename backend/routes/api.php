@@ -84,3 +84,4 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 Route::middleware('auth:sanctum')->get('/usuarios/recientes', [UserController::class, 'recientes']);
 
+// Ruta para GERENTE
