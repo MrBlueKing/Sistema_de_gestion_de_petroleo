@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const instance = axios.create({
-  baseURL: "http://localhost:8000", // o usa import.meta.env si usas .env
+  baseURL: "http://127.0.0.1:8000", // o usa import.meta.env si usas .env
   headers: {
     Accept: "application/json",
   },

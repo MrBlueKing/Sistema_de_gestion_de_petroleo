@@ -7,6 +7,9 @@ use Illuminate\Http\Request;
 use App\Models\PersonalInterno;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Solicitante;
+use App\Models\Dotacion;
+use App\Models\Faena;
+use App\Models\SolicitanteFaena;
 
 class PersonalInternoController extends Controller
 {
@@ -15,9 +18,9 @@ class PersonalInternoController extends Controller
         // Validación de los datos
         $validator = Validator::make($request->all(), [
             'rut' => 'required|unique:personal_interno,rut|unique:solicitantes,rut',
-            'nombre_completo' => 'required|string',  // Cambié 'nombre' por 'nombre_completo'
+            'nombre_completo' => 'required|string',
             'cargo' => 'nullable|string',
-            'ubicacion' => 'nullable|string',
+            'ubicacion' => 'nullable|string', // Este campo contiene la faena
         ]);
 
         if ($validator->fails()) {
@@ -77,11 +80,6 @@ class PersonalInternoController extends Controller
                 ], 422);
             }
 
-            // Ahora puedes continuar con la creación de solicitante y personal
-
-
-            // Ahora puedes continuar con la creación de solicitante y personal
-
             // 1. Crear el solicitante (tabla 'solicitantes')
             $solicitante = Solicitante::create([
                 'rut' => $request->rut,
@@ -97,11 +95,35 @@ class PersonalInternoController extends Controller
                 'ubicacion' => $request->ubicacion,
             ]);
 
+            // 3. Crear o buscar registro en dotación
+            $dotacion = Dotacion::create([
+                'rut' => $request->rut,
+                'nombre' => $nombre,
+                'apellido' => $apellido,
+                'cargo' => $request->cargo,
+                'empresa' => 'Interna',
+                'ubicacion' => $request->ubicacion,
+            ]);
+
+            // 4. Buscar o crear la faena
+            $nombreFaena = $request->ubicacion; // En tu formulario, ubicacion es la faena
+            $faena = Faena::firstOrCreate(
+                ['nombre' => $nombreFaena],
+                ['ubicacion' => $nombreFaena] // Si necesitas más campos
+            );
+
+            // 5. Crear la relación en solicitantefaena
+            $solicitanteFaena = SolicitanteFaena::create([
+                'id_dotacion' => $dotacion->id,
+                'id_faena' => $faena->id,
+            ]);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Solicitante interno registrado correctamente',
                 'solicitante' => $solicitante,
-                'personal_interno' => $personal
+                'personal_interno' => $personal,
+                'solicitante_faena' => $solicitanteFaena
             ], 201);            
         } catch (\Exception $e) {
             // En caso de una excepción, puedes manejarla aquí
@@ -128,9 +150,19 @@ class PersonalInternoController extends Controller
             // Buscar el personal interno relacionado con el solicitante
             $personalInterno = PersonalInterno::where('rut', $rut)->first();
 
+            // Buscar la dotación relacionada
+            $dotacion = Dotacion::where('rut', $rut)->first();
+            
+            // Buscar las faenas relacionadas si existe la dotación
+            $faenas = [];
+            if ($dotacion) {
+                $faenas = $dotacion->faenas()->get();
+            }
+
             return response()->json([
                 'solicitante' => $solicitante,
-                'personal_interno' => $personalInterno
+                'personal_interno' => $personalInterno,
+                'faenas' => $faenas
             ], 200);
         } catch (\Exception $e) {
             return response()->json([

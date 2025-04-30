@@ -1,65 +1,24 @@
-import React, { useState, useEffect, useRef, useContext } from "react";
-import axios from "axios";
+import React, { useRef, useEffect, useContext } from "react";
 import { FaChevronDown } from "react-icons/fa";
 import { UserContext } from "../../context/userContext";
 
 const UserProfileDropdown = ({ userMenuOpen, setUserMenuOpen, handleLogout }) => {
-  const { user } = useContext(UserContext);
-  const [userData, setUserData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, loading } = useContext(UserContext);
   const dropdownRef = useRef(null);
-  
-  // Esta variable controla si ya se ha cargado el usuario
-  // para evitar sobreescribir datos después de la carga inicial
-  const dataInitializedRef = useRef(false);
 
-  useEffect(() => {
-    // Solo cargamos los datos si no se han inicializado previamente
-    if (!dataInitializedRef.current) {
-      const loadUserData = async () => {
-        setIsLoading(true);
-        try {
-          // Prioridad 1: Usar el contexto del usuario si está disponible
-          if (user) {
-            setUserData(user);
-          } else {
-            // Prioridad 2: Intentar obtener del localStorage
-            const sessionData = localStorage.getItem("authToken");
-            
-            if (sessionData) {
-              try {
-                const parsedData = JSON.parse(sessionData);
-                if (parsedData && parsedData.user) {
-                  setUserData(parsedData.user);
-                } else {
-                  // Prioridad 3: Si las anteriores fallan, hacer llamada a la API
-                  const response = await axios.get("http://127.0.0.1:8000/api/user");
-                  setUserData(response.data);
-                }
-              } catch (parseError) {
-                console.error("Error al analizar datos de sesión:", parseError);
-                // Si hay error de parseo, intentar la API
-                const response = await axios.get("http://127.0.0.1:8000/api/user");
-                setUserData(response.data);
-              }
-            } else {
-              // Si no hay datos en localStorage, llamar a la API
-              const response = await axios.get("http://127.0.0.1:8000/api/user");
-              setUserData(response.data);
-            }
-          }
-          // Marcar que los datos ya se han inicializado
-          dataInitializedRef.current = true;
-        } catch (error) {
-          console.error("Error al obtener los datos del usuario:", error);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-      loadUserData();
-    }
-  }, [user]); // Solo depender de user para la carga inicial
+  // Función para mapear el ID de rol a su nombre descriptivo
+  const getRoleName = (idRol) => {
+    // Mapeo de ID de rol a nombre descriptivo
+    const roles = {
+      1: "Bombero",
+      2: "Gerente",
+      3: "Administrador"
+    };
+    
+    // Si el ID existe en nuestro mapeo, devolvemos el nombre del rol
+    // Si no, mostramos el ID como fallback
+    return roles[idRol] || `Rol ${idRol}`;
+  };
 
   // Manejador para clics fuera del dropdown
   useEffect(() => {
@@ -82,17 +41,17 @@ const UserProfileDropdown = ({ userMenuOpen, setUserMenuOpen, handleLogout }) =>
 
   // Renderizado condicional para las iniciales
   const renderInitials = () => {
-    if (isLoading) {
+    if (loading) {
       return <span className="font-semibold text-white">...</span>;
     }
     
-    if (!userData || !userData.nombre || !userData.apellido) {
+    if (!user || !user.nombre || !user.apellido) {
       return <span className="font-semibold text-white">N/A</span>;
     }
     
     return (
       <span className="font-semibold text-white">
-        {userData.nombre.charAt(0)}{userData.apellido.charAt(0)}
+        {user.nombre.charAt(0)}{user.apellido.charAt(0)}
       </span>
     );
   };
@@ -107,16 +66,16 @@ const UserProfileDropdown = ({ userMenuOpen, setUserMenuOpen, handleLogout }) =>
           {renderInitials()}
         </div>
         <div className="hidden md:block text-left">
-          {isLoading ? (
+          {loading ? (
             <p className="text-xs text-gray-500">Cargando...</p>
           ) : (
-            userData && (
+            user && (
               <>
                 <h3 className="font-medium text-gray-800">
-                  {userData.nombre || 'Usuario'} {userData.apellido || ''}
+                  {user.nombre || 'Usuario'} {user.apellido || ''}
                 </h3>
                 <p className="text-xs text-gray-500">
-                  {userData.rol || "Rol desconocido"}
+                  {user.id_rol ? getRoleName(user.id_rol) : "Rol desconocido"}
                 </p>
               </>
             )

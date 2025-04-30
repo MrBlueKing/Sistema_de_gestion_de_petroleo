@@ -25,11 +25,11 @@ const RegistrarSolicitante = () => {
       if (!responseBodega.data?.data) {
         throw new Error("Formato de respuesta inválido desde la API de bodega");
       }
-      
+
       const personas = responseBodega.data.data.filter(
         (item) => item.Cargo !== "Maquinaria"
       );
-      
+
       // Obtener los solicitantes ya registrados en petroleo
       const responsePetroleo = await axios.get("/api/personal-internos");
       if (!responsePetroleo.data) {
@@ -80,51 +80,51 @@ const RegistrarSolicitante = () => {
   // Validar formato de RUT chileno (XX.XXX.XXX-X o XXXXXXXX-X)
   const validarRut = (rut) => {
     if (!rut) return false;
-    
+
     // Eliminar puntos y guión
     const rutLimpio = rut.replace(/\./g, "").replace("-", "");
-    
+
     // Verificar formato básico
     if (!/^[0-9]{7,8}[0-9kK]$/.test(rutLimpio)) return false;
-    
+
     // Validación del dígito verificador (algoritmo módulo 11)
     const rutSinDv = rutLimpio.slice(0, -1);
     const dv = rutLimpio.slice(-1).toLowerCase();
-    
+
     let suma = 0;
     let multiplicador = 2;
-    
+
     // Suma ponderada
     for (let i = rutSinDv.length - 1; i >= 0; i--) {
       suma += parseInt(rutSinDv[i]) * multiplicador;
       multiplicador = multiplicador === 7 ? 2 : multiplicador + 1;
     }
-    
+
     // Cálculo del dígito verificador
     const dvEsperado = 11 - (suma % 11);
     const dvCalculado = dvEsperado === 11 ? '0' : dvEsperado === 10 ? 'k' : dvEsperado.toString();
-    
+
     return dvCalculado === dv;
   };
 
   const handleSolicitanteSelect = (selectedLabel) => {
     console.log("Valor seleccionado:", selectedLabel);
-    
+
     // Manejar explícitamente el caso cuando value es null (borrado completo)
     if (selectedLabel === null) {
       setSolicitanteSeleccionado(null);
       setError("");
       return;
     }
-    
+
     // Buscar el objeto solicitante basado en el label seleccionado
     const opcionSeleccionada = solicitantes.find(opt => opt.label === selectedLabel);
-    
+
     if (!opcionSeleccionada) {
       setError("Solicitante no encontrado en la lista.");
       return;
     }
-    
+
     const solicitanteObj = opcionSeleccionada.value;
     if (!validarRut(solicitanteObj.rut)) {
       setError("El RUT seleccionado no es válido.");
@@ -145,7 +145,7 @@ const RegistrarSolicitante = () => {
       setError("El RUT del solicitante es requerido.");
       return false;
     }
-    
+
     if (!validarRut(solicitanteSeleccionado.rut)) {
       setError("El formato del RUT no es válido o el dígito verificador es incorrecto.");
       return false;
@@ -164,6 +164,8 @@ const RegistrarSolicitante = () => {
     return true;
   };
 
+  // Cambios necesarios en el método handleGuardar de RegistrarSolicitante.jsx
+
   const handleGuardar = async () => {
     // Limpiar mensajes previos
     setError("");
@@ -176,19 +178,22 @@ const RegistrarSolicitante = () => {
     setLoading(prev => ({ ...prev, submitForm: true }));
     console.log("solicitante seleccionado:", solicitanteSeleccionado)
     try {
+      // Modificamos la ruta del API y aseguramos que enviamos la faena
       const response = await axios.post("/api/registrarUsuarioInterno", {
         rut: solicitanteSeleccionado.rut,
         nombre_completo: solicitanteSeleccionado.nombre,
         cargo: solicitanteSeleccionado.cargo,
-        ubicacion: faenaSeleccionada,
+        ubicacion: faenaSeleccionada, // La faena se envía en el campo ubicacion
+        faena: faenaSeleccionada,     // También la enviamos explícitamente como faena
       });
+
       console.log("Respuesta del backend:", response.data);
       if (!response.data?.success) {
         throw new Error(response.data?.message || "Error al registrar solicitante");
       }
 
       console.log("Solicitante registrado:", response.data);
-      setSuccess("¡Solicitante registrado exitosamente!");
+      setSuccess("¡Solicitante registrado exitosamente y asignado a la faena!");
       setCamposEditables(false); // Bloquear campos después de guardar
 
       // Eliminar el solicitante recién registrado de la lista
@@ -223,21 +228,21 @@ const RegistrarSolicitante = () => {
   // Determinar el valor a mostrar en el dropdown de solicitantes
   const getSelectedSolicitanteLabel = () => {
     if (!solicitanteSeleccionado) return "";
-    
+
     // Buscar el label completo basado en el objeto seleccionado
     const foundOption = solicitantes.find(
       s => s.value.rut === solicitanteSeleccionado.rut
     );
-    
+
     return foundOption ? foundOption.label : "";
   };
 
   // Verificar si el botón debe estar deshabilitado
   const isSubmitDisabled = () => {
     return (
-      loading.submitForm || 
-      loading.fetchData || 
-      !solicitanteSeleccionado || 
+      loading.submitForm ||
+      loading.fetchData ||
+      !solicitanteSeleccionado ||
       !faenaSeleccionada
     );
   };

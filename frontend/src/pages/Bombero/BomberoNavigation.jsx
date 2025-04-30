@@ -1,7 +1,5 @@
-// BomberoNavigation.jsx
-// Componente que maneja la navegación entre los distintos pasos del formulario de Bombero
-
 import React, { useState } from "react";
+import TipoSolicitante from "../../components/templates/Bombero/BomberoTipoSolicitante";
 import Solicitante from "../../components/templates/Bombero/BomberoSolicitante";
 import Maquinaria from "../../components/templates/Bombero/BomberoMaquinaria";
 import Patente from "../../components/templates/Bombero/BomberoPatente";
@@ -9,43 +7,55 @@ import Consumo from "../../components/templates/Bombero/BomberoConsumo";
 
 const BomberoNavigation = () => {
   const [currentStep, setCurrentStep] = useState(1);
-
+  
   // Estados para almacenar los datos ingresados en cada paso
-  const [solicitante, setSolicitante] = useState("");
+  const [tipoSolicitante, setTipoSolicitante] = useState("");
+  const [solicitante, setSolicitante] = useState(null); // Ahora almacenamos el objeto completo
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState("");
   const [patenteSeleccionada, setPatenteSeleccionada] = useState("");
-
+  
   // Maneja el paso siguiente y guarda el dato según el paso actual
   const handleNext = (value) => {
     if (currentStep === 1) {
-      setSolicitante(value);
+      setTipoSolicitante(value); // Guarda el tipo de solicitante (string)
     } else if (currentStep === 2) {
-      setCategoriaSeleccionada(value);
+      setSolicitante(value); // Guarda el objeto solicitante completo
     } else if (currentStep === 3) {
+      setCategoriaSeleccionada(value);
+    } else if (currentStep === 4) {
       setPatenteSeleccionada(value);
     }
     setCurrentStep((prev) => prev + 1);
   };
-
+  
   // Maneja el paso anterior
   const handlePrevious = () => {
     setCurrentStep((prev) => prev - 1);
   };
-
+  
   // Renderiza el paso correspondiente
   const renderStep = () => {
     switch (currentStep) {
       case 1:
-        return <Solicitante onNext={handleNext} />;
+        return <TipoSolicitante onNext={handleNext} />;
       case 2:
+        return (
+          <Solicitante
+            onNext={handleNext}
+            onPrevious={handlePrevious}
+            tipoSolicitante={tipoSolicitante}
+          />
+        );
+      case 3:
         return (
           <Maquinaria
             onNext={handleNext}
             onPrevious={handlePrevious}
-            solicitante={solicitante}
+            solicitante={solicitante} // Pasamos el objeto completo
+            tipoSolicitante={tipoSolicitante}
           />
         );
-      case 3:
+      case 4:
         return (
           <Patente
             categoriaSeleccionada={categoriaSeleccionada}
@@ -53,20 +63,21 @@ const BomberoNavigation = () => {
             onNext={handleNext}
           />
         );
-      case 4:
+      case 5:
         return (
           <Consumo
             onPrevious={handlePrevious}
             categoriaSeleccionada={categoriaSeleccionada}
             patenteSeleccionada={patenteSeleccionada}
-            solicitante={solicitante}
+            solicitante={solicitante} // Pasamos el objeto completo
+            tipoSolicitante={tipoSolicitante}
           />
         );
       default:
-        return <Solicitante onNext={handleNext} />;
+        return <TipoSolicitante onNext={handleNext} />;
     }
   };
-
+  
   return <>{renderStep()}</>;
 };
 

@@ -1,6 +1,7 @@
 import React, { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { login } from "../../../Api/authApi";
+import axios from "../../../lib/axios";
 import { storeSession } from "../../../utils/session";
 import Icon from "../../atoms/Icons/Icon3h";
 import InputField from "../../atoms/Inputs/InputField";
@@ -9,7 +10,7 @@ import LoadingOverlay from "../../atoms/FeedBack/Loading";
 import ErrorMessage from "../../atoms/FeedBack/ErrorMessage";
 import icono from "../../../assets/icono.png";
 import { FaUser, FaLock } from "react-icons/fa";
-import { UserContext } from "../../../context/userContext"; // ✅ Importar contexto
+import { UserContext } from "../../../context/userContext";
 
 const LoginScreen = () => {
   const [rut, setRut] = useState("");
@@ -18,7 +19,7 @@ const LoginScreen = () => {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { setUser } = useContext(UserContext); // ✅ Obtener función del contexto
+  const { setUser } = useContext(UserContext);
 
   const redirectByRole = (rol) => {
     switch (rol) {
@@ -42,10 +43,34 @@ const LoginScreen = () => {
     setIsLoading(true);
 
     try {
+      // Login inicial para obtener el token
       const { token, user } = await login({ rut, password });
+      
+      // Guarda el token, expiración y rol (pero no los datos completos del usuario)
       storeSession({ token, user });
-      setUser(user); // ✅ Actualizar el contexto con los datos del usuario
-      redirectByRole(user.rol || "desconocido");
+      
+      try {
+        // Ahora obtenemos los datos completos y actualizados del usuario
+        console.log("Obteniendo datos completos del usuario...");
+        const response = await axios.get("/api/user", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        
+        console.log("Datos obtenidos de /api/user:", response.data);
+        
+        // Actualizamos el contexto con los datos completos
+        setUser(response.data);
+        
+        // Redirigimos basándonos en el rol
+        redirectByRole(response.data.rol || user.rol || "desconocido");
+      } catch (userDataError) {
+        console.error("Error al obtener datos completos del usuario:", userDataError);
+        // Si falla la obtención de datos completos, usamos los datos básicos
+        setUser(user);
+        redirectByRole(user.rol || "desconocido");
+      }
     } catch (err) {
       console.error("Login error:", err);
       setError("RUT o contraseña incorrectos.");
