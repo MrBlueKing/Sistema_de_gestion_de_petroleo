@@ -49,7 +49,11 @@ Route::get('/maquinas-internas-registradas', [MaquinaInternaController::class, '
 // Ruta para registrar un nuevo usuario interno en la base de datos.
 Route::post('/registrarUsuarioInterno', [PersonalInternoController::class, 'register']);
 Route::get('/personal-internos', [PersonalInternoController::class, 'index']);
-
+Route::get('/faenas-disponibles/{id_solicitante}', [FaenaController::class, 'faenasDisponibles']);
+Route::post('/asignarPermisoSolicitante', [PersonalInternoController::class, 'asignarPermisoSolicitante']);
+Route::get('/permisosFaenas', [FaenaController::class, 'getPermisosFaenas']);
+Route::get('/verificarPermiso', [FaenaController::class, 'verificarPermiso']);
+Route::get('/faenasDisponibles', [FaenaController::class, 'getFaenasDisponibles']);
 
 //RUTAS RECEPCION PETROLEO
 Route::get('/ingresos-petroleo', [IngresoPetroleoController::class, 'index']);

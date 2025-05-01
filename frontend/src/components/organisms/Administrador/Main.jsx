@@ -151,7 +151,7 @@ export default function Main() {
                     <QuickAccessButton icon={FiUserPlus} title="Ver Usuarios" to="/registroUsuario" />
                     <QuickAccessButton icon={TbCategoryPlus} title="Ver Tipos de Maquinas" to="/AñadirTipoMaquina" />
                     <QuickAccessButton icon={FaTruckDroplet} title="Ver Categorización de Equipos" to="/GestionarMaquinaCategoria" />
-                    <QuickAccessButton icon={FaUserCog} title="Ver Personal Interno" to="/GestionarPersonalInterno" />
+                    <QuickAccessButton icon={FaUserCog} title="Gertionar Permisos Personal Interno" to="/GestionarPermisoPersonalInterno" />
                 </div>
             </div>
 

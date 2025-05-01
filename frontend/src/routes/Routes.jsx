@@ -8,10 +8,10 @@ import GerentePage from "../pages/Gerente/GerentePage";
 
 import AdministradorPage from "../pages/Administrador/AdministradorPage";
 import AdministradorUserRegister from "../components/templates/Administrador/AdministradorUserRegister";
-
 import GestionarTipoMaquina from "../pages/Administrador/GestionarTipoMaquina";
 import GestionarMaquinaCategoria from "../pages/Administrador/GestionarMaquinCategoriaPage";
 import GestionarPersonal from "../pages/Administrador/GestionarPersonalPage";
+import GestionarPermisoPersonalInterno from "../pages/Administrador/GestionarPermisoPersonalPage";
 
 import BomberoIngresoExterno from "../pages/Bombero/BomberoIngresoExterno";
 import BomberoPage from "../pages/Bombero/BomberoPage";
@@ -76,6 +76,16 @@ const AppRoutes = () => {
         element={
           <PrivateRoute requiredRole="admin">
             <GestionarPersonal />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Ruta protegida para Administrador Gestionar Permiso Personal Interno */}
+      <Route
+        path="/GestionarPermisoPersonalInterno"
+        element={
+          <PrivateRoute requiredRole="admin">
+            <GestionarPermisoPersonalInterno />
           </PrivateRoute>
         }
       />

@@ -108,7 +108,7 @@ class PersonalInternoController extends Controller
                 // Buscar o crear por ubicación
                 $nombreFaena = $request->ubicacion;
                 $faena = Faena::where('ubicacion', $nombreFaena)->first();
-                
+
                 if (!$faena) {
                     // Si no existe la faena, la creamos
                     $faena = Faena::create([
@@ -129,7 +129,7 @@ class PersonalInternoController extends Controller
                 'solicitante' => $solicitante,
                 'personal_interno' => $personal,
                 'solicitante_faena' => $solicitanteFaena
-            ], 201);            
+            ], 201);
         } catch (\Exception $e) {
             // En caso de una excepción, puedes manejarla aquí
             return response()->json([
@@ -154,7 +154,7 @@ class PersonalInternoController extends Controller
 
             // Buscar el personal interno relacionado con el solicitante
             $personalInterno = PersonalInterno::where('rut', $rut)->first();
-            
+
             if (!$personalInterno) {
                 return response()->json([
                     'error' => 'Personal interno no encontrado.'
@@ -164,7 +164,7 @@ class PersonalInternoController extends Controller
             // Buscar las faenas relacionadas a través de SolicitanteFaena
             $solicitanteFaenas = SolicitanteFaena::where('id_dotacion', $personalInterno->id_personal_interno)->get();
             $faenas = [];
-            
+
             foreach ($solicitanteFaenas as $sf) {
                 $faena = Faena::where('id_faena', $sf->id_faena)->first();
                 if ($faena) {
@@ -192,12 +192,12 @@ class PersonalInternoController extends Controller
         try {
             // Obtener todos los usuarios de la tabla 'personal_interno'
             $personalInterno = PersonalInterno::all();
-            
+
             // Opcionalmente, podemos incluir información de las faenas relacionadas
             $usuariosDetallados = [];
             foreach ($personalInterno as $personal) {
                 $solicitanteFaenas = SolicitanteFaena::where('id_dotacion', $personal->id_personal_interno)->get();
-                
+
                 $faenas = [];
                 foreach ($solicitanteFaenas as $sf) {
                     $faena = Faena::where('id_faena', $sf->id_faena)->first();
@@ -205,7 +205,7 @@ class PersonalInternoController extends Controller
                         $faenas[] = $faena;
                     }
                 }
-                
+
                 $usuariosDetallados[] = [
                     'personal_interno' => $personal,
                     'faenas' => $faenas
@@ -222,20 +222,20 @@ class PersonalInternoController extends Controller
             ], 500);
         }
     }
-    
+
     // Nueva función para registrar usuario desde el frontend (ruta /api/registrarUsuarioInterno)
     public function registrarUsuarioInterno(Request $request)
     {
         // Redirigimos al método register con los mismos parámetros
         return $this->register($request);
     }
-    
+
     // Método para listar todas las faenas disponibles
     public function listarFaenas()
     {
         try {
             $faenas = Faena::select('id_faena', 'ubicacion')->get();
-            
+
             return response()->json([
                 'success' => true,
                 'faenas' => $faenas
@@ -244,6 +244,53 @@ class PersonalInternoController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Hubo un error al obtener las faenas: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+   
+
+    public function asignarPermisoSolicitante(Request $request)
+    {
+        // Validar los datos recibidos
+        $validator = Validator::make($request->all(), [
+            'id_dotacion' => 'required|exists:personal_interno,id_personal_interno',
+            'id_faena' => 'required|exists:faenas,id_faena',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            // Verificar si ya existe esta relación para evitar duplicados
+            $existe = SolicitanteFaena::where('id_dotacion', $request->id_dotacion)
+                ->where('id_faena', $request->id_faena)
+                ->first();
+
+            if ($existe) {
+                return response()->json([
+                    'message' => 'Este solicitante ya tiene un permiso asignado para esta faena.'
+                ], 409);
+            }
+
+            // Crear la relación
+            $solicitanteFaena = SolicitanteFaena::create([
+                'id_dotacion' => $request->id_dotacion,
+                'id_faena' => $request->id_faena,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Permiso asignado correctamente al solicitante.',
+                'solicitante_faena' => $solicitanteFaena
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Hubo un error al asignar el permiso.',
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
