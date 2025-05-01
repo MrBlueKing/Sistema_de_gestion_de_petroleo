@@ -281,7 +281,8 @@ const GestionarMaquinaCategoria = () => {
         patente: patente.trim(),
         categoria: selectedCategoriaId,
         nombre_maquina: nombreMaquina.trim(),
-        tipo_maquina: "Interno"
+        tipo_maquina: "Interno",
+        id_faena: selectedFaenaId // Añadimos el id_faena para el permiso
       };
   
       // Llamada a la API de máquinas internas
@@ -473,6 +474,9 @@ const GestionarMaquinaCategoria = () => {
                   placeholder={loading.faenas ? "Cargando faenas..." : "Selecciona faena"}
                   disabled={loading.faenas}
                 />
+                <p className="mt-1 text-xs text-gray-500">
+                  La máquina será asignada a esta faena
+                </p>
               </div>
             </div>
 

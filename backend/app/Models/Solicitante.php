@@ -8,7 +8,7 @@ use App\Models\PersonalInterno;
 
 class Solicitante extends Model
 {
-    use HasFactory;
+   use HasFactory;
 
     // Tabla asociada
     protected $table = 'solicitantes';

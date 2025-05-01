@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useCallback } from "react";
 import { UserContext } from "../../../context/userContext";
 import SearchBar from "../../molecules/SearchBar";
 import Header from "../../organisms/Bombero/Header";
 import TabProgressBar from "../../molecules/TabProgressBar";
-import List from "../../molecules/List";
+import List from "../../molecules/OptionsFormBombero";
 import PageControl from "../../molecules/PageControl";
 import Button from "../../atoms/Button/Button";
 import StepHeader from "../../molecules/StepHeader";
@@ -20,146 +20,136 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [todosLosUsuarios, setTodosLosUsuarios] = useState([]);
-  const usersPerPage = 5;
+  const [ubicacionUsuario, setUbicacionUsuario] = useState("");
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [showUserDetails, setShowUserDetails] = useState(false);
+  const usersPerPage = 8;
 
-  // Obtener la faena del usuario del contexto
-  const faenaId = user?.id_faena;
-  const faenaNombre = user?.faena || user?.nombre_faena;
+  // Función para filtrar usuarios por término de búsqueda
+  const filtrarUsuarios = useCallback((usuarios, termino) => {
+    if (!termino || !termino.trim()) return usuarios;
+    return bomberoService.buscarPersonal(usuarios, termino);
+  }, []);
 
-  // Cargar usuarios según el tipo de solicitante seleccionado, ya filtrados por faena
+  // Cargar faenas y usuarios en un solo useEffect para reducir recargas
   useEffect(() => {
-    const cargarUsuarios = async () => {
-      setLoading(true);
+    let isMounted = true;
+    
+    const inicializarDatos = async () => {
       try {
-        // Siempre filtrar por faena
-        const data = await bomberoService.getPersonalPorTipo(tipoSolicitante, null);
+        setLoading(true);
         
-        // Verificar que data sea un array
-        if (Array.isArray(data)) {
-          // Filtrar por id_faena si existe, de lo contrario por nombre de faena
-          let usuariosFiltrados;
-          
-          if (faenaId) {
-            // Filtrar por id_faena (prioridad)
-            usuariosFiltrados = data.filter(usuario => 
-              usuario.id_faena === faenaId
-            );
-          } else if (faenaNombre) {
-            // Filtrar por nombre de faena como respaldo
-            usuariosFiltrados = data.filter(usuario => 
-              usuario.faena && usuario.faena.toLowerCase() === faenaNombre.toLowerCase()
-            );
-          } else {
-            // Si no hay información de faena, mostrar todos
-            usuariosFiltrados = data;
+        // 1. Primero obtener todas las faenas
+        const faenas = await bomberoService.getAllFaenas();
+        
+        let ubicacion = "";
+        
+        // 2. Identificar la ubicación del usuario actual si tiene faena asignada
+        if (user && user.id_faena) {
+          const faenaUsuario = faenas.find(f => f.id_faena === user.id_faena);
+          if (faenaUsuario) {
+            ubicacion = faenaUsuario.ubicacion;
+            if (isMounted) setUbicacionUsuario(ubicacion);
           }
+        }
+        
+        // 3. Obtener los usuarios del tipo seleccionado
+        if (isMounted) {
+          const todosUsuarios = await bomberoService.getPersonalPorTipo(tipoSolicitante);
           
-          setUsuarios(usuariosFiltrados);
+          // 4. Filtrar por ubicación si es necesario
+          const usuariosFiltrados = ubicacion 
+            ? bomberoService.filtrarPersonalPorUbicacion(todosUsuarios, ubicacion)
+            : todosUsuarios;
+          
+          // 5. Establecer los estados de usuarios
           setTodosLosUsuarios(usuariosFiltrados);
-        } else {
-          console.error("La respuesta de la API no es un array:", data);
-          setUsuarios([]);
-          setTodosLosUsuarios([]);
-          setError("Formato de datos no válido recibido de la API");
-        }
-      } catch (error) {
-        console.error("Error al cargar usuarios:", error);
-        setError("No se pudieron cargar los usuarios. Intente nuevamente.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    cargarUsuarios();
-  }, [tipoSolicitante, faenaId, faenaNombre]);
-
-  // Manejo del término de búsqueda
-  useEffect(() => {
-    // Si el campo de búsqueda está vacío, restauramos la lista original
-    if (!searchTerm.trim()) {
-      setUsuarios(todosLosUsuarios);
-      return;
-    }
-
-    const buscarUsuarios = async () => {
-      setLoading(true);
-      try {
-        // Primero intentamos buscar a través de la API
-        const data = await bomberoService.buscarPersonal(tipoSolicitante, searchTerm, null);
-        
-        if (Array.isArray(data)) {
-          // Filtrar por id_faena si existe, de lo contrario por nombre de faena
-          let usuariosFiltrados;
-          
-          if (faenaId) {
-            // Filtrar por id_faena (prioridad)
-            usuariosFiltrados = data.filter(usuario => 
-              usuario.id_faena === faenaId
-            );
-          } else if (faenaNombre) {
-            // Filtrar por nombre de faena como respaldo
-            usuariosFiltrados = data.filter(usuario => 
-              usuario.faena && usuario.faena.toLowerCase() === faenaNombre.toLowerCase()
-            );
-          } else {
-            // Si no hay información de faena, mostrar todos
-            usuariosFiltrados = data;
-          }
-          
           setUsuarios(usuariosFiltrados);
-        } else {
-          // Fallback a búsqueda local si la API falla
-          realizarBusquedaLocal();
         }
-      } catch (error) {
-        console.error("Error al buscar usuarios:", error);
-        // Fallback a búsqueda local en caso de error
-        realizarBusquedaLocal();
+      } catch (err) {
+        console.error("Error al inicializar datos:", err);
+        if (isMounted) {
+          setError("No se pudieron cargar los datos. Intente nuevamente.");
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
-
-    const realizarBusquedaLocal = () => {
-      const searchTermLower = searchTerm.toLowerCase();
-      const resultadosFiltrados = todosLosUsuarios.filter(user => 
-        (user.nombre && user.nombre.toLowerCase().includes(searchTermLower)) ||
-        (user.apellido && user.apellido.toLowerCase().includes(searchTermLower)) ||
-        (user.rut && user.rut.toLowerCase().includes(searchTermLower))
-      );
-      
-      setUsuarios(resultadosFiltrados);
+    
+    inicializarDatos();
+    
+    // Limpieza al desmontar
+    return () => {
+      isMounted = false;
     };
+  }, [user, tipoSolicitante]); // Solo se ejecuta cuando cambia el usuario o tipo de solicitante
 
-    const timeoutId = setTimeout(() => {
-      buscarUsuarios();
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm, tipoSolicitante, todosLosUsuarios, faenaId, faenaNombre]);
-
-  // Filtrar por término de búsqueda
-  const filteredUsers = Array.isArray(usuarios) ? usuarios : [];
-
-  // Calcula totalPages
-  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / usersPerPage));
-
-  // Calcula paginatedUsers
-  const paginatedUsers = filteredUsers.slice(
-    (currentPage - 1) * usersPerPage,
-    currentPage * usersPerPage
-  );
-
-  // Reset a la página 1 cuando cambia el filtro
+  // Manejar búsqueda - separado para evitar recargas innecesarias
   useEffect(() => {
+    const usuariosFiltrados = filtrarUsuarios(todosLosUsuarios, searchTerm);
+    setUsuarios(usuariosFiltrados);
+    // Resetear a la primera página cuando cambia la búsqueda
     setCurrentPage(1);
-  }, [searchTerm, tipoSolicitante]);
+  }, [searchTerm, todosLosUsuarios, filtrarUsuarios]);
+
+  // Formatear usuario para pasarlo al siguiente paso
+  const formatearUsuarioParaSiguiente = (usuario) => {
+    const personalData = usuario.personal_interno || usuario.personal_externo;
+    
+    return {
+      id: personalData.id_personal_interno || personalData.id_personal_externo,
+      nombre: personalData.nombre || "",
+      apellido: personalData.apellido || "",
+      rut: personalData.rut || "",
+      cargo: personalData.cargo || "",
+      ubicacion: personalData.ubicacion || "",
+      faena: personalData.ubicacion || "", // Usamos ubicación como faena
+      id_faena: user?.id_faena || null,
+      tipo: tipoSolicitante,
+      original: usuario
+    };
+  };
 
   // Manejar la limpieza del campo de búsqueda
   const handleClearSearch = () => {
     setSearchTerm("");
-    setUsuarios(todosLosUsuarios);
   };
+
+  // Manejar la selección de un usuario
+  const handleSelectUser = (usuario) => {
+    setSelectedUser(usuario);
+    setShowUserDetails(true);
+    
+    const usuarioFormateado = formatearUsuarioParaSiguiente(usuario._original);
+    onNext(usuarioFormateado);
+  };
+
+  // Preparar items para el componente List (memoizado para evitar recálculos innecesarios)
+  const prepareItems = useCallback(() => {
+    if (!Array.isArray(usuarios)) return [];
+    
+    return usuarios.slice(
+      (currentPage - 1) * usersPerPage,
+      currentPage * usersPerPage
+    ).map(item => {
+      const personalData = item.personal_interno || item.personal_externo;
+      return {
+        id: personalData.id_personal_interno || personalData.id_personal_externo,
+        nombre: `${personalData.nombre || ""} ${personalData.apellido || ""}`,
+        descripcion: `${personalData.cargo || ""} - ${personalData.rut || ""}`,
+        ubicacion: personalData.ubicacion || "",
+        rut: personalData.rut || "",
+        cargo: personalData.cargo || "",
+        _original: item
+      };
+    });
+  }, [usuarios, currentPage, usersPerPage]);
+
+  // Calcular total de páginas
+  const totalPages = Math.max(1, Math.ceil(usuarios.length / usersPerPage));
+  const formattedItems = prepareItems();
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 pt-14">
@@ -173,18 +163,18 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
           {/* Título con indicador de tipo */}
           <div className="w-full flex justify-center items-center">
             <h2 className="text-gray-700 font-medium text-sm sm:text-base md:text-lg">
-              Solicitado Por Personal:{" "}
+              Seleccione Personal:{" "}
               <span className={`${tipoSolicitante === "interno" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"} rounded-full px-2 py-1 text-xs uppercase ml-1`}>
                 {tipoSolicitante}
               </span>
             </h2>
           </div>
 
-          {/* Indicador de filtro activo por faena */}
-          {faenaNombre && (
+          {/* Indicador de filtro activo por ubicación */}
+          {ubicacionUsuario && (
             <div className="bg-blue-100 text-blue-800 text-xs rounded-lg py-1 px-3 flex items-center">
-              <span className="mr-1">Mostrando personal de la faena:</span>
-              <span className="font-medium">{faenaNombre}</span>
+              <span className="mr-1">Mostrando personal de la ubicación:</span>
+              <span className="font-medium">{ubicacionUsuario}</span>
             </div>
           )}
 
@@ -220,13 +210,12 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
                   </svg>
                   {error}
                 </div>
-              ) : filteredUsers.length > 0 ? (
+              ) : formattedItems.length > 0 ? (
                 <List
-                  items={paginatedUsers}
-                  onItemSelect={(user) => onNext(user)}
+                  items={formattedItems}
+                  onItemSelect={handleSelectUser}
                   buttonStyle={true}
-                  mostrarApellido={true}
-                  tipoElemento="personal" // Especificamos que son elementos de personal
+                  tipoElemento="personal" // Indicamos que son usuarios para mostrar iconos adecuados
                 />
               ) : (
                 <div className="py-4 text-gray-500 flex-grow flex items-center justify-center">
@@ -234,7 +223,7 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
                     <svg className="w-10 h-10 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
-                    <p>No se encontraron usuarios {tipoSolicitante}s {faenaNombre ? `en la faena ${faenaNombre}` : ""}</p>
+                    <p>No se encontraron usuarios {tipoSolicitante}s {ubicacionUsuario ? `en la ubicación ${ubicacionUsuario}` : ""}</p>
                     {searchTerm && (
                       <button 
                         onClick={handleClearSearch}
@@ -258,7 +247,7 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
             />
 
             <div className="flex-1 flex justify-center">
-              {!loading && !error && filteredUsers.length > 0 && (
+              {!loading && !error && usuarios.length > 0 && (
                 <PageControl
                   currentPage={currentPage}
                   totalPages={totalPages}
@@ -269,6 +258,47 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
             
             <div className="w-5 h-5 md:w-6 md:h-6"></div>
           </div>
+
+          {/* Modal para mostrar detalles del usuario seleccionado */}
+          {showUserDetails && selectedUser && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-xl p-4 max-w-md w-full mx-4">
+                <h3 className="text-lg font-semibold text-gray-800 mb-3">Detalles del personal seleccionado</h3>
+                
+                <div className="bg-gray-100 rounded-lg p-3 mb-4">
+                  <div className="flex items-center mb-2">
+                    <svg className="w-6 h-6 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"></path>
+                    </svg>
+                    <span className="font-medium text-gray-700">{selectedUser.nombre}</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="text-gray-600">RUT:</div>
+                    <div className="text-gray-800 font-medium">{selectedUser.rut}</div>
+                    
+                    <div className="text-gray-600">Cargo:</div>
+                    <div className="text-gray-800 font-medium">{selectedUser.cargo}</div>
+                    
+                    <div className="text-gray-600">Ubicación:</div>
+                    <div className="text-gray-800 font-medium">{selectedUser.ubicacion}</div>
+                    
+                    <div className="text-gray-600">Tipo:</div>
+                    <div className="text-gray-800 font-medium capitalize">{tipoSolicitante}</div>
+                  </div>
+                </div>
+                
+                <div className="flex justify-end space-x-2">
+                  <button 
+                    onClick={() => setShowUserDetails(false)}
+                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Ayuda */}
           <div className="bg-blue-50 text-blue-800 rounded-lg sm:rounded-xl px-2 sm:px-3 md:px-4 py-1 sm:py-2 text-xs sm:text-sm w-full max-w-xs sm:max-w-sm">
@@ -286,8 +316,8 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
               </svg>
               <span className="inline-block">
                 Seleccione un usuario para continuar
-                {faenaNombre && (
-                  <> (Solo se muestran usuarios de la faena {faenaNombre})</>
+                {ubicacionUsuario && (
+                  <> (Solo se muestran usuarios de la ubicación {ubicacionUsuario})</>
                 )}
               </span>
             </p>

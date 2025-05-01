@@ -211,7 +211,6 @@ class PersonalInternoController extends Controller
                     'faenas' => $faenas
                 ];
             }
-
             return response()->json([
                 'success' => true,
                 'personal_interno' => $usuariosDetallados

@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\APi\BodegaController;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Api\CategoriaMaquinaController;
+use App\Http\Controllers\Api\ConsumoController;
 use App\Http\Controllers\Api\FaenaController;
 use App\Http\Controllers\Api\PersonalInternoController;
 use App\Http\Controllers\Api\MaquinaInternaController;
@@ -43,6 +44,7 @@ Route::post('/maquinas-internas', [MaquinaInternaController::class, 'store']);
 Route::get('/maquinas-internas-registradas', [MaquinaInternaController::class, 'index']);
 
 
+
 //RUTAS DE SOLICITANTES INTERNOS
 // Ruta para registrar un nuevo usuario interno en la base de datos.
 Route::post('/registrarUsuarioInterno', [PersonalInternoController::class, 'register']);
@@ -61,6 +63,9 @@ Route::post('/calcular-litros-petroleo', [EstanqueController::class, 'calcularLi
 // Ruta para obtener todas las faenas
 Route::get('/faenas', [FaenaController::class, 'index']);
 
+
+//RUTAS PARA EL CONSUMO
+Route::post('/consumos', [ConsumoController::class, 'store']);
 
 Route::get('/test-bodega', function () {
     try {

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Header from "../../organisms/Bombero/Header";
 import SearchBar from "../../molecules/SearchBar";
 import TabProgressBar from "../../molecules/TabProgressBar";
@@ -7,29 +7,53 @@ import PageControl from "../../molecules/PageControl";
 import Button from "../../atoms/Button/Button";
 import { FaArrowLeft } from "react-icons/fa";
 import StepHeader from "../../molecules/StepHeader";
+import axios from "../../../lib/axios"; // Asegúrate de tener axios instalado
 
 const Maquinaria = ({ onNext, onPrevious }) => {
   const [currentPage, setCurrentPage] = useState(2);
   const [searchTerm, setSearchTerm] = useState("");
   const [seleccion, setSeleccion] = useState(null);
+  const [categorias, setCategorias] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const totalPages = 4;
 
-  // Datos de ejemplo para maquinaria con descripciones
-  const maquinas = [
-    { id: 1, nombre: "Dumper", descripcion: "Vehículo de descarga" },
-    { id: 2, nombre: "Cargador Frontal", descripcion: "Equipo para movimiento de tierra" },
-    { id: 3, nombre: "Camioneta", descripcion: "Vehículo de transporte ligero" },
-    { id: 4, nombre: "Camión", descripcion: "Vehículo de carga pesada" },
-    { id: 5, nombre: "Compresor", descripcion: "Equipo para generación de aire comprimido" }
-  ];
+  // Cargar categorías de máquinas desde la API
+  useEffect(() => {
+    const fetchCategorias = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get('/api/categorias');
+        if (response.data.success) {
+          // Transformamos los datos para que coincidan con la estructura esperada por el componente List
+          const categoriasFormateadas = response.data.data.map(categoria => ({
+            id: categoria.id_categoria,
+            nombre: categoria.nombre_categoria,
+            descripcion: `Medición: ${categoria.tipo_medicion}`,
+            tipo_medicion: categoria.tipo_medicion
+          }));
+          setCategorias(categoriasFormateadas);
+        } else {
+          setError("No se pudieron cargar las categorías");
+        }
+      } catch (err) {
+        console.error("Error al cargar categorías:", err);
+        setError("Error al conectar con el servidor");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const filteredMachines = maquinas.filter((machine) =>
-    machine.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+    fetchCategorias();
+  }, []);
+
+  const filteredCategorias = categorias.filter((categoria) =>
+    categoria.nombre.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleMaquinaSelect = (maquina) => {
-    setSeleccion(maquina.nombre);
-    onNext(maquina);
+  const handleCategoriaSelect = (categoria) => {
+    setSeleccion(categoria.nombre);
+    onNext(categoria);
   };
 
   // Función para limpiar la búsqueda
@@ -54,15 +78,37 @@ const Maquinaria = ({ onNext, onPrevious }) => {
             <SearchBar
               searchTerm={searchTerm}
               setSearchTerm={setSearchTerm}
-              placeholder="Buscar máquina"
+              placeholder="Buscar categoría de máquina"
               onClear={handleClearSearch}
             />
 
             <div className="bg-white rounded-xl sm:rounded-2xl md:rounded-3xl p-2 sm:p-3 md:p-4 flex-grow flex flex-col justify-center">
-              {filteredMachines.length > 0 ? (
+              {loading ? (
+                <div className="py-4 text-gray-500 flex-grow flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-10 h-10 mx-auto mb-2 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                    <p>Cargando categorías...</p>
+                  </div>
+                </div>
+              ) : error ? (
+                <div className="py-4 text-red-500 flex-grow flex items-center justify-center">
+                  <div className="text-center">
+                    <svg className="w-10 h-10 mx-auto mb-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p>{error}</p>
+                    <button 
+                      onClick={() => window.location.reload()}
+                      className="mt-2 text-orange-500 hover:text-orange-700 font-medium"
+                    >
+                      Reintentar
+                    </button>
+                  </div>
+                </div>
+              ) : filteredCategorias.length > 0 ? (
                 <List
-                  items={filteredMachines}
-                  onItemSelect={handleMaquinaSelect}
+                  items={filteredCategorias}
+                  onItemSelect={handleCategoriaSelect}
                   buttonStyle={true} 
                   tipoElemento="maquinaria" // Indicamos que son máquinas para mostrar iconos adecuados
                 />
@@ -72,7 +118,7 @@ const Maquinaria = ({ onNext, onPrevious }) => {
                     <svg className="w-10 h-10 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
-                    <p>No se encontraron máquinas</p>
+                    <p>No se encontraron categorías</p>
                     {searchTerm && (
                       <button 
                         onClick={handleClearSearch}
@@ -122,7 +168,7 @@ const Maquinaria = ({ onNext, onPrevious }) => {
                 ></path>
               </svg>
               <span className="inline-block">
-                Seleccione una máquina para continuar
+                Seleccione una categoría de máquina para continuar
               </span>
             </p>
           </div>

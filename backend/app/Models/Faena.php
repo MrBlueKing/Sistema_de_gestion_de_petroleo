@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Models\permisos_maquinas_faenas;
+use App\Models\PermisosMaquinasFaenas;
 use App\Models\SolicitanteFaena;
 use App\Models\PersonalInterno;
 use App\Models\IngresoPetroleo;
@@ -30,7 +30,7 @@ class Faena extends Model
     // Relación con permisos de faena
     public function permisos()
     {
-        return $this->hasMany(permisos_maquinas_faenas::class, 'id_faena');
+        return $this->hasMany(PermisosMaquinasFaenas::class, 'id_faena');
     }
 
     // Relación con ingresos de petróleo

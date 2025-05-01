@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
+import { UserContext } from "../../context/userContext"; // Import UserContext
 import TipoSolicitante from "../../components/templates/Bombero/BomberoTipoSolicitante";
 import Solicitante from "../../components/templates/Bombero/BomberoSolicitante";
 import Maquinaria from "../../components/templates/Bombero/BomberoMaquinaria";
@@ -6,6 +7,8 @@ import Patente from "../../components/templates/Bombero/BomberoPatente";
 import Consumo from "../../components/templates/Bombero/BomberoConsumo";
 
 const BomberoNavigation = () => {
+  // Get user from context
+  const { user } = useContext(UserContext);
   const [currentStep, setCurrentStep] = useState(1);
   
   // Estados para almacenar los datos ingresados en cada paso
@@ -13,6 +16,11 @@ const BomberoNavigation = () => {
   const [solicitante, setSolicitante] = useState(null); // Ahora almacenamos el objeto completo
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState("");
   const [patenteSeleccionada, setPatenteSeleccionada] = useState("");
+  const [estanqueSeleccionado, setEstanqueSeleccionado] = useState({
+    id_estanque: 1, // Default value, ideally you'd fetch this from an API
+    nombre: "Estanque Principal",
+    capacidad: 10000
+  });
   
   // Maneja el paso siguiente y guarda el dato según el paso actual
   const handleNext = (value) => {
@@ -71,6 +79,9 @@ const BomberoNavigation = () => {
             patenteSeleccionada={patenteSeleccionada}
             solicitante={solicitante} // Pasamos el objeto completo
             tipoSolicitante={tipoSolicitante}
+            usuarioActual={user} // Pass the user from context
+            faenaActual={user ? { id_faena: user.id_faena } : null} // Pass faena data
+            estanqueSeleccionado={estanqueSeleccionado} // Pass selected tank
           />
         );
       default:
