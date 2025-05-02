@@ -5,7 +5,7 @@ import TabProgressBar from "../../molecules/TabProgressBar";
 import List from "../../molecules/OptionsFormBombero"; // Componente compartido
 import PageControl from "../../molecules/PageControl";
 import Button from "../../atoms/Button/Button";
-import { FaArrowLeft } from "react-icons/fa";
+import { FaArrowLeft, FaTools } from "react-icons/fa";
 import StepHeader from "../../molecules/StepHeader";
 import axios from "../../../lib/axios"; // Asegúrate de tener axios instalado
 
@@ -70,9 +70,15 @@ const Maquinaria = ({ onNext, onPrevious }) => {
             <StepHeader text="Cargar Combustible" />
           </div>
           
-          <h2 className="text-gray-700 font-medium text-sm sm:text-base md:text-lg">Seleccione Tipo de Máquina</h2>
+          {/* Título con ícono descriptivo */}
+          <div className="w-full flex justify-center items-center">
+            <h2 className="text-gray-700 font-medium text-sm sm:text-base md:text-lg flex items-center">
+              <FaTools className="mr-2 text-orange-500" /> 
+              Seleccione Tipo de Máquina
+            </h2>
+          </div>
 
-          <div className="bg-orange-500 w-full rounded-2xl sm:rounded-3xl md:rounded-[40px] py-3 sm:py-4 md:py-6 px-2 sm:px-3 md:px-4 space-y-2 sm:space-y-3 md:space-y-4 min-h-[300px] md:min-h-[350px] flex flex-col">
+          <div className="bg-orange-500 w-full rounded-2xl sm:rounded-3xl md:rounded-[40px] py-3 sm:py-4 md:py-6 px-2 sm:px-3 md:px-4 space-y-2 sm:space-y-3 md:space-y-4 min-h-[400px] md:min-h-[450px] flex flex-col">
             <TabProgressBar activeTab="maquinaria" />
             
             <SearchBar
@@ -82,53 +88,40 @@ const Maquinaria = ({ onNext, onPrevious }) => {
               onClear={handleClearSearch}
             />
 
-            <div className="bg-white rounded-xl sm:rounded-2xl md:rounded-3xl p-2 sm:p-3 md:p-4 flex-grow flex flex-col justify-center">
+            <div className="bg-white rounded-xl sm:rounded-2xl md:rounded-3xl p-2 sm:p-3 md:p-4 flex-grow flex flex-col">
               {loading ? (
-                <div className="py-4 text-gray-500 flex-grow flex items-center justify-center">
+                <div className="h-full flex items-center justify-center">
                   <div className="text-center">
-                    <div className="w-10 h-10 mx-auto mb-2 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                    <p>Cargando categorías...</p>
+                    <svg className="animate-spin h-10 w-10 text-orange-500 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p className="text-gray-500">Cargando categorías...</p>
                   </div>
                 </div>
               ) : error ? (
-                <div className="py-4 text-red-500 flex-grow flex items-center justify-center">
+                <div className="h-full flex items-center justify-center">
                   <div className="text-center">
-                    <svg className="w-10 h-10 mx-auto mb-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    <svg className="w-10 h-10 text-red-500 mx-auto mb-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"></path>
                     </svg>
-                    <p>{error}</p>
+                    <p className="text-red-500">{error}</p>
                     <button 
                       onClick={() => window.location.reload()}
-                      className="mt-2 text-orange-500 hover:text-orange-700 font-medium"
+                      className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
                     >
                       Reintentar
                     </button>
                   </div>
                 </div>
-              ) : filteredCategorias.length > 0 ? (
+              ) : (
                 <List
                   items={filteredCategorias}
                   onItemSelect={handleCategoriaSelect}
                   buttonStyle={true} 
-                  tipoElemento="maquinaria" // Indicamos que son máquinas para mostrar iconos adecuados
+                  tipoElemento="maquinaria"
+                  maxHeight="350px" // Altura fija para el contenedor de la lista
                 />
-              ) : (
-                <div className="py-4 text-gray-500 flex-grow flex items-center justify-center">
-                  <div className="text-center">
-                    <svg className="w-10 h-10 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <p>No se encontraron categorías</p>
-                    {searchTerm && (
-                      <button 
-                        onClick={handleClearSearch}
-                        className="mt-2 text-orange-500 hover:text-orange-700 font-medium"
-                      >
-                        Limpiar búsqueda
-                      </button>
-                    )}
-                  </div>
-                </div>
               )}
             </div>
           </div>

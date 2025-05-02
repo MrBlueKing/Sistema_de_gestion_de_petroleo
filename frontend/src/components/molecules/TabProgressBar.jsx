@@ -1,13 +1,22 @@
 import React from "react";
+// Importamos los iconos relevantes para industria minera/petróleo
+import { 
+  FaHardHat, // Para tipo de solicitante (trabajador con casco)
+  FaUsers, // Para solicitante (grupo de usuarios)
+  FaTruck, // Para maquinaria (camión minero)
+  FaIdCard, // Para patente (identificación)
+  FaGasPump, // Para consumo (bomba de combustible)
+  FaCheck // Para pasos completados
+} from "react-icons/fa";
 
 const TabProgressBar = ({ activeTab }) => {
-  // Definimos los tabs en orden
+  // Definimos los tabs en orden con iconos más contextualizados
   const tabs = [
-    { id: "tipoSolicitante", name: "Tipo", icon: "👤" },
-    { id: "solicitante", name: "Solicitante", icon: "👥" },
-    { id: "maquinaria", name: "Maquinaria", icon: "🚜" },
-    { id: "patente", name: "Patente", icon: "🔢" },
-    { id: "consumo", name: "Consumo", icon: "⛽" },
+    { id: "tipoSolicitante", name: "Tipo", icon: <FaHardHat /> },
+    { id: "solicitante", name: "Solicitante", icon: <FaUsers /> },
+    { id: "maquinaria", name: "Maquinaria", icon: <FaTruck /> },
+    { id: "patente", name: "Patente", icon: <FaIdCard /> },
+    { id: "consumo", name: "Consumo", icon: <FaGasPump /> },
   ];
 
   // Encontrar el índice del tab activo
@@ -57,7 +66,7 @@ const TabProgressBar = ({ activeTab }) => {
               {/* Estado completado (check) o icono normal */}
               {index < activeIndex ? (
                 <div className="text-orange-500 text-base xs:text-lg sm:text-xl md:text-2xl transition-all font-bold">
-                  ✓
+                  <FaCheck />
                 </div>
               ) : (
                 <div className={`text-lg xs:text-xl sm:text-2xl md:text-3xl ${index === activeIndex ? "scale-105" : "opacity-70"} transition-all`}>
