@@ -13,6 +13,8 @@ use App\Http\Controllers\Api\PersonalInternoController;
 use App\Http\Controllers\Api\MaquinaInternaController;
 use App\Http\Controllers\Api\IngresoPetroleoController;
 use App\Http\Controllers\Api\EstanqueController;
+use App\Http\Controllers\Api\InformeKpiController;
+use App\Http\Controllers\Api\KpiValoresEntradaController;
 
 // Rutas públicas
 Route::post('/login', [AuthController::class, 'login']);
@@ -42,6 +44,9 @@ Route::get('/categorias', [CategoriaMaquinaController::class, 'index']);
 Route::post('/maquinas-internas', [MaquinaInternaController::class, 'store']);
 //Ruta para obtener todas las maquinas internas registradas
 Route::get('/maquinas-internas-registradas', [MaquinaInternaController::class, 'index']);
+//Ruta para obtener todas las maquinas internas registradas con permisos dadas por el administrador
+Route::get('/maquinas-internas-permiso', [MaquinaInternaController::class, 'indexConPermisos']);
+
 
 
 
@@ -62,6 +67,7 @@ Route::post('/ingresos-petroleo', [IngresoPetroleoController::class, 'store']);
 //RUTAS ESTANQUES
 Route::get('/estanques/{id_faena}', [EstanqueController::class, 'estanquesPorFaena']);
 Route::post('/calcular-litros-petroleo', [EstanqueController::class, 'calcularLitrosPetroleo']);
+Route::get('/capacidad-disponible/{id_faena}', [EstanqueController::class, 'capacidadDisponible']);
 
 //RUTAS DE FAENAS
 // Ruta para obtener todas las faenas
@@ -94,3 +100,5 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 Route::middleware('auth:sanctum')->get('/usuarios/recientes', [UserController::class, 'recientes']);
 
 // Ruta para GERENTE
+Route::apiResource('kpi-valores-entrada', KpiValoresEntradaController::class);
+Route::apiResource('informes-kpi', InformeKpiController::class);

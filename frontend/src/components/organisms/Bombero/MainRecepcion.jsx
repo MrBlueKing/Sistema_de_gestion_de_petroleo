@@ -27,20 +27,13 @@ const Main = () => {
 
   return (
     <main className="flex-1 w-full p-2 sm:p-3  text-center">
-      
-        <div className="bg-orange-500 p-4 rounded-3xl w-full">
-
-
-          <FormRecepcion
-            formData={formData}
-            handleChange={handleChange}
-            handleSubmit={handleSubmit}
-          />
-        </div>
-
-        
-          
-        
+      <div className="bg-orange-500 p-4 rounded-3xl w-full">
+        <FormRecepcion
+          formData={formData}
+          handleChange={handleChange}
+          handleSubmit={handleSubmit}
+        />
+      </div>
     </main>
   );
 };

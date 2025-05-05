@@ -14,10 +14,12 @@ const FormRecepcion = () => {
   // Acceder al contexto de usuario
   const { user, loading } = useContext(UserContext);
 
-  // Añade este estado junto a los otros estados al principio del componente
+  // Estado para capacidad disponible
+  const [capacidadDisponible, setCapacidadDisponible] = useState();
+
+  // Estado para alertas del modal
   const [modalAlert, setModalAlert] = useState({ show: false, message: "", type: "" });
 
-  //console.log("datos usuario primero:", user);
   // Estado local para los datos del formulario
   const [formData, setFormData] = useState({
     numeroGuia: "",
@@ -56,8 +58,6 @@ const FormRecepcion = () => {
 
   // Actualizar la faena cuando el usuario cambie
   useEffect(() => {
-    //console.log("Usuario:", user);
-    //console.log("ID Faena del usuario:", user?.id_faena);
     if (user?.id_faena) {
       // Eliminamos la condición !formData.id_faena para que siempre actualice
       setFormData(prev => ({
@@ -66,6 +66,33 @@ const FormRecepcion = () => {
       }));
     }
   }, [user]);
+
+  // Agregar este efecto para cargar la capacidad disponible cuando se abra el modal
+  useEffect(() => {
+    if (showEstanquesModal && formData.id_faena) {
+      const cargarCapacidadDisponible = async () => {
+        try {
+          const token = JSON.parse(localStorage.getItem("authToken"))?.token;
+          const response = await axios.get(
+            `/api/capacidad-disponible/${formData.id_faena}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              }
+            }
+          );
+
+          if (response.data.success) {
+            setCapacidadDisponible(response.data.capacidad_disponible);
+          }
+        } catch (error) {
+          console.error("Error al cargar capacidad disponible:", error);
+        }
+      };
+
+      cargarCapacidadDisponible();
+    }
+  }, [showEstanquesModal, formData.id_faena]);
 
   // Cargar estanques de la faena cuando cambie la faena seleccionada
   useEffect(() => {
@@ -77,10 +104,9 @@ const FormRecepcion = () => {
   // Función para cargar los estanques de una faena
   const cargarEstanques = async (idFaena) => {
     try {
-      //console.log("Estanques faena:", idFaena);
       const token = JSON.parse(localStorage.getItem("authToken"))?.token;
       const response = await axios.get(
-        `/api/estanques/${idFaena}`, // <-- usar el id de la faena dinámicamente
+        `/api/estanques/${idFaena}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -90,7 +116,6 @@ const FormRecepcion = () => {
 
       // Guardar solo los datos de los estanques
       setEstanques(response.data.data);
-      // añadir o setear el id_faena
 
       // Inicializar el estado de alturas con los estanques cargados
       const initialAlturas = {};
@@ -197,9 +222,11 @@ const FormRecepcion = () => {
         altura: parseFloat(alturasEstanques[estanqueId])
       }));
 
-      //console.log("Datos de la altura a calcular:", datosAlturas);
-
-      const alturasIncompletas = datosAlturas.filter(item => isNaN(item.altura));
+      const alturasIncompletas = datosAlturas.filter(item => {
+        // Solo considera incompleto si el valor es NaN o no está definido
+        // Esto permite que 0 sea un valor válido
+        return item.altura === undefined || item.altura === null || Number.isNaN(item.altura);
+      });
       if (alturasIncompletas.length > 0) {
         setModalAlert({
           show: true,
@@ -218,8 +245,6 @@ const FormRecepcion = () => {
         alturas: datosAlturas
       };
 
-      //console.log("Datos a enviar para cálculo:", datosCalcular);
-
       const response = await axios.post(
         "/api/calcular-litros-petroleo",
         datosCalcular,
@@ -230,33 +255,48 @@ const FormRecepcion = () => {
         }
       );
 
-      //console.log("Respuesta del cálculo:", response.data);
-
       if (!response.data.success) {
         throw new Error(response.data.message || "Error al calcular los litros");
       }
 
+      // Validación después de recibir la respuesta
+      if (response.data.detalle_estanques) {
+        const excedienteCapacidad = response.data.detalle_estanques.some(estanque => {
+          return estanque.litros_calculados > estanque.capacidad;
+        });
+
+        if (excedienteCapacidad) {
+          setModalAlert({
+            show: true,
+            type: "error",
+            message: "La cantidad de combustible excede la capacidad de uno o más estanques."
+          });
+          return;
+        }
+      }
+
       const litrosGuia = parseFloat(formData.litrosRecibidos);
-      const litrosCalculados = response.data.litros_totales;
+      // CAMBIO: Usar litros_ingresados en lugar de litros_totales
+      const litrosIngresados = response.data.litros_ingresados || 
+                               (response.data.litros_totales - response.data.stock_anterior_total);
 
       setCalculoPetroleo({
-        litrosCalculados,
-        diferencia: litrosGuia - litrosCalculados
+        litrosCalculados: litrosIngresados, // Cambiamos a litros ingresados en lugar del total
+        diferencia: litrosGuia - litrosIngresados
       });
 
       setShowEstanquesModal(false);
 
-      if (isNaN(litrosGuia) || isNaN(litrosCalculados)) {
-        console.error('Uno o ambos valores no son números válidos:', litrosGuia, litrosCalculados);
-        // Asignar valores predeterminados si es necesario
+      if (isNaN(litrosGuia) || isNaN(litrosIngresados)) {
+        console.error('Uno o ambos valores no son números válidos:', litrosGuia, litrosIngresados);
         return;
       }
 
+      // Actualizar observación con los valores corregidos
       setFormData({
         ...formData,
-        observacion: `Según cálculo de alturas, se detecta una diferencia de ${Math.abs(litrosGuia - litrosCalculados).toFixed(2)} litros ${litrosGuia > litrosCalculados ? 'de menos' : 'de más'} en la recepción. Litros según guía: ${litrosGuia}. Litros calculados: ${litrosCalculados.toFixed(2)}.`
+        observacion: `Según cálculo de alturas, se detecta una diferencia de ${Math.abs(litrosGuia - litrosIngresados).toFixed(2)} litros ${litrosGuia > litrosIngresados ? 'de menos' : 'de más'} en la recepción. Litros según guía: ${litrosGuia}. Litros calculados: ${litrosIngresados.toFixed(2)}.`
       });
-
 
     } catch (error) {
       console.error("Error al calcular litros de petróleo:", error);
@@ -278,9 +318,7 @@ const FormRecepcion = () => {
     }
   };
 
-
   // Manejar el envío del formulario
-  // Modificación de la función handleSubmit en FormRecepcion.jsx
   const handleSubmit = async () => {
     // Marcar todos los campos como tocados para validar
     const allFields = {
@@ -342,6 +380,39 @@ const FormRecepcion = () => {
       return;
     }
 
+    // Verificar capacidad disponible
+    try {
+      const token = JSON.parse(localStorage.getItem("authToken"))?.token;
+
+      // Consultar la capacidad disponible en los estanques
+      const capacidadResponse = await axios.get(
+        `/api/capacidad-disponible/${formData.id_faena}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          }
+        }
+      );
+
+      if (capacidadResponse.data.success) {
+        const capacidadDisponible = capacidadResponse.data.capacidad_disponible;
+
+        // Verificar si los litros recibidos exceden la capacidad disponible
+        if (parseFloat(formData.litrosRecibidos) > capacidadDisponible) {
+          setAlert({
+            show: true,
+            type: "error",
+            message: `No hay capacidad suficiente en los estanques. Capacidad disponible: ${capacidadDisponible.toFixed(2)} litros.`
+          });
+          setTimeout(() => setAlert({ show: false, message: "", type: "" }), 5000);
+          return;
+        }
+      }
+    } catch (error) {
+      console.error("Error al verificar capacidad disponible:", error);
+      // Continuar con el proceso, pero registrar el error
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -355,7 +426,7 @@ const FormRecepcion = () => {
       const dataToSend = {
         id_usuario: user.id,
         numero_guia: formData.numeroGuia,
-        litros_documentados: calculoPetroleo.litrosCalculados, // Litros calculados internamente
+        litros_documentados: calculoPetroleo.litrosCalculados, // Ahora son los litros ingresados, no el total
         litros_recibidos: parseFloat(formData.litrosRecibidos), // Litros declarados
         precio: parseFloat(formData.precio), // Precio unitario
         precio_total: precioTotal, // Cálculo de precio total
@@ -370,8 +441,6 @@ const FormRecepcion = () => {
         }))
       };
 
-      //console.log("Datos a enviar:", dataToSend);
-
       // Obtener el token de autenticación
       const token = JSON.parse(localStorage.getItem("authToken"))?.token;
 
@@ -385,8 +454,6 @@ const FormRecepcion = () => {
           },
         }
       );
-
-      //console.log("Respuesta de la API:", response.data);
 
       // Mostrar mensaje de éxito
       setAlert({
@@ -548,7 +615,7 @@ const FormRecepcion = () => {
           </p>
           <div className="font-medium text-gray-800">
             <p>Litros según guía: {parseFloat(formData.litrosRecibidos).toFixed(2)}</p>
-            <p>Litros calculados: {calculoPetroleo.litrosCalculados.toFixed(2)}</p>
+            <p>Litros ingresados calculados: {calculoPetroleo.litrosCalculados.toFixed(2)}</p>
             <p className={`font-bold ${Math.abs(calculoPetroleo.diferencia) > 50 ? 'text-red-600' : 'text-green-600'}`}>
               Diferencia: {Math.abs(calculoPetroleo.diferencia).toFixed(2)} litros {calculoPetroleo.diferencia > 0 ? 'de más' : 'de menos'}
             </p>
@@ -603,12 +670,19 @@ const FormRecepcion = () => {
             </div>
 
             <div className="p-4">
-              {/* Alerta del modal - NUEVO */}
+              {/* Mostrar capacidad disponible */}
+              {capacidadDisponible !== undefined && (
+                <div className="bg-blue-50 p-2 rounded text-center text-sm mb-4">
+                  <p>Capacidad disponible: <span className="font-medium">{capacidadDisponible.toFixed(2)} litros</span></p>
+                </div>
+              )}
+            
+              {/* Alerta del modal */}
               {modalAlert.show && (
                 <div
                   className={`flex items-center p-3 rounded-lg mb-4 ${modalAlert.type === 'success'
-                      ? 'bg-green-100 text-green-800 border-l-4 border-green-500'
-                      : 'bg-red-100 text-red-800 border-l-4 border-red-500'
+                    ? 'bg-green-100 text-green-800 border-l-4 border-green-500'
+                    : 'bg-red-100 text-red-800 border-l-4 border-red-500'
                     }`}
                 >
                   {modalAlert.type === 'error' && <FaExclamationTriangle className="mr-2" />}

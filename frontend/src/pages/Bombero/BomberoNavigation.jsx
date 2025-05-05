@@ -1,5 +1,5 @@
 import React, { useState, useContext } from "react";
-import { UserContext } from "../../context/userContext"; // Import UserContext
+import { UserContext } from "../../context/userContext";
 import TipoSolicitante from "../../components/templates/Bombero/BomberoTipoSolicitante";
 import Solicitante from "../../components/templates/Bombero/BomberoSolicitante";
 import Maquinaria from "../../components/templates/Bombero/BomberoMaquinaria";
@@ -7,27 +7,35 @@ import Patente from "../../components/templates/Bombero/BomberoPatente";
 import Consumo from "../../components/templates/Bombero/BomberoConsumo";
 
 const BomberoNavigation = () => {
-  // Get user from context
-  const { user } = useContext(UserContext);
+  // No necesitamos obtener user aquí, el componente Consumo lo obtendrá directamente
   const [currentStep, setCurrentStep] = useState(1);
   
   // Estados para almacenar los datos ingresados en cada paso
   const [tipoSolicitante, setTipoSolicitante] = useState("");
-  const [solicitante, setSolicitante] = useState(null); // Ahora almacenamos el objeto completo
+  const [solicitante, setSolicitante] = useState(null);
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState("");
   const [patenteSeleccionada, setPatenteSeleccionada] = useState("");
   const [estanqueSeleccionado, setEstanqueSeleccionado] = useState({
-    id_estanque: 1, // Default value, ideally you'd fetch this from an API
+    id_estanque: 1,
     nombre: "Estanque Principal",
     capacidad: 10000
   });
   
+  // Función para reiniciar todo el flujo
+  const resetFlow = () => {
+    setCurrentStep(1);
+    setTipoSolicitante("");
+    setSolicitante(null);
+    setCategoriaSeleccionada("");
+    setPatenteSeleccionada("");
+  };
+  
   // Maneja el paso siguiente y guarda el dato según el paso actual
   const handleNext = (value) => {
     if (currentStep === 1) {
-      setTipoSolicitante(value); // Guarda el tipo de solicitante (string)
+      setTipoSolicitante(value);
     } else if (currentStep === 2) {
-      setSolicitante(value); // Guarda el objeto solicitante completo
+      setSolicitante(value);
     } else if (currentStep === 3) {
       setCategoriaSeleccionada(value);
     } else if (currentStep === 4) {
@@ -59,7 +67,7 @@ const BomberoNavigation = () => {
           <Maquinaria
             onNext={handleNext}
             onPrevious={handlePrevious}
-            solicitante={solicitante} // Pasamos el objeto completo
+            solicitante={solicitante}
             tipoSolicitante={tipoSolicitante}
           />
         );
@@ -77,11 +85,10 @@ const BomberoNavigation = () => {
             onPrevious={handlePrevious}
             categoriaSeleccionada={categoriaSeleccionada}
             patenteSeleccionada={patenteSeleccionada}
-            solicitante={solicitante} // Pasamos el objeto completo
+            solicitante={solicitante}
             tipoSolicitante={tipoSolicitante}
-            usuarioActual={user} // Pass the user from context
-            faenaActual={user ? { id_faena: user.id_faena } : null} // Pass faena data
-            estanqueSeleccionado={estanqueSeleccionado} // Pass selected tank
+            estanqueSeleccionado={estanqueSeleccionado}
+            resetFlow={resetFlow}
           />
         );
       default:

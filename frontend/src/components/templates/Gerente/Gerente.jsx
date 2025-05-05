@@ -8,7 +8,6 @@ const DieselDashboard = () => {
       {/* Puedes meter KpiCards aquí */}
       <Header />
       <Main />
-     
     </div>
   );
 };

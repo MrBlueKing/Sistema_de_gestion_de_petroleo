@@ -200,4 +200,38 @@ class MaquinaInternaController extends Controller
     {
         //
     }
+ /**
+     * Devuelve las máquinas internas que tengan permisos en faenas específicas.
+     */
+    public function indexConPermisos(Request $request)
+    {
+        $idFaena = $request->input('id_faena'); // id de faena opcional
+
+        $query = MaquinaInterna::query()
+            ->join('maquinas', 'maquinas_internas.id_maquina', '=', 'maquinas.id_maquina')
+            ->join('permisos_maquinas_faenas', 'maquinas.id_maquina', '=', 'permisos_maquinas_faenas.id_maquina')
+            ->where('maquinas.tipo_maquina', 'Interno');
+
+        if ($idFaena) {
+            $query->where('permisos_maquinas_faenas.id_faena', $idFaena);
+        }
+
+        $maquinas = $query->select(
+            'maquinas_internas.id_maquina_interna',
+            'maquinas_internas.patente',
+            'maquinas_internas.nombre',
+            'maquinas_internas.categoria',
+            'maquinas.id_maquina',
+            'maquinas.estado',
+            'permisos_maquinas_faenas.id_faena'
+        )
+        ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $maquinas
+        ]);
+        
+    }
+
 }

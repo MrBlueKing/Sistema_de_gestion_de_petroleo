@@ -1,5 +1,7 @@
 import { FiUsers, FiUserPlus, FiUser, FiSettings } from 'react-icons/fi';
 import { FaCar } from "react-icons/fa";
+import { MdCarRental } from "react-icons/md";
+import { GrLicense } from "react-icons/gr";
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import axios from '../../../lib/axios'; // Asegúrate de que la ruta sea correcta
@@ -48,7 +50,7 @@ const QuickAccessButton = ({ icon, title, to }) => {
     const Icon = icon;
     return (
         <Link to={to} className="flex flex-col items-center justify-center bg-white shadow rounded-lg p-3 sm:p-4 hover:bg-gray-50 transition-colors">
-            <Icon size={24} className="mb-2 text-blue-600" />
+            <Icon size={40} className="mb-2 text-blue-600" />
             <span className="text-sm font-medium text-center">{title}</span>
         </Link>
     );
@@ -148,10 +150,8 @@ export default function Main() {
                     <QuickAccessButton icon={FaUserCog} title="Gestionar Personal" to="/GestionarPersonalInterno" />
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
-                    <QuickAccessButton icon={FiUserPlus} title="Ver Usuarios" to="/registroUsuario" />
-                    <QuickAccessButton icon={TbCategoryPlus} title="Ver Tipos de Maquinas" to="/AñadirTipoMaquina" />
-                    <QuickAccessButton icon={FaTruckDroplet} title="Ver Categorización de Equipos" to="/GestionarMaquinaCategoria" />
-                    <QuickAccessButton icon={FaUserCog} title="Gertionar Permisos Personal Interno" to="/GestionarPermisoPersonalInterno" />
+                    <QuickAccessButton icon={GrLicense} title="Gertionar Permisos Personal Interno" to="/GestionarPermisoPersonalInterno" />
+                    <QuickAccessButton icon={MdCarRental} title="Gertionar Permisos maquinas Internas" to="/" />
                 </div>
             </div>
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useContext } from "react";
 import Header from "../../organisms/Bombero/Header";
 import StepHeader from "../../molecules/StepHeader";
 import TabProgressBar from "../../molecules/TabProgressBar";
@@ -8,6 +8,8 @@ import Button from "../../atoms/Button/Button";
 import PageControl from "../../molecules/PageControl";
 import { FaArrowLeft } from "react-icons/fa";
 import axios from "../../../lib/axios"; // Asegúrate de tener axios disponible
+import { UserContext } from "../../../context/userContext";
+
 
 const Patente = ({ categoriaSeleccionada, onNext, onPrevious }) => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -17,35 +19,38 @@ const Patente = ({ categoriaSeleccionada, onNext, onPrevious }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const totalPages = 4;
+  const { user } = useContext(UserContext);
 
   // Cargar maquinas desde la API
   useEffect(() => {
     let isMounted = true;
-    
+
     const cargarMaquinas = async () => {
       try {
         setLoading(true);
-        const response = await axios.get("/api/maquinas-internas-registradas");
-        
+
+        // Supón que tienes el id_faena disponible
+        const idFaena = user?.id_faena; // o desde contexto, auth, etc.
+
+        const response = await axios.get("/api/maquinas-internas-permiso", {
+          params: { id_faena: idFaena }
+        });
+
         if (response.data && response.data.success && Array.isArray(response.data.data)) {
-          // Filtrar por categoría si es necesario
           let maquinasFiltradas = response.data.data;
-          
+
           if (categoriaSeleccionada) {
-            // Si categoriaSeleccionada es un ID (número), comparamos con el campo categoria
-            // Si es un nombre (string), podríamos necesitar otra lógica dependiendo de tu API
             if (!isNaN(categoriaSeleccionada)) {
               maquinasFiltradas = maquinasFiltradas.filter(
                 m => m.categoria === categoriaSeleccionada.toString()
               );
             } else if (typeof categoriaSeleccionada === 'object' && categoriaSeleccionada.id) {
-              // Si es un objeto con ID (como cuando se pasa desde otro componente)
               maquinasFiltradas = maquinasFiltradas.filter(
                 m => m.categoria === categoriaSeleccionada.id.toString()
               );
             }
           }
-          
+
           if (isMounted) {
             setMaquinas(maquinasFiltradas);
             setError(null);
@@ -66,9 +71,10 @@ const Patente = ({ categoriaSeleccionada, onNext, onPrevious }) => {
         }
       }
     };
-    
+
+
     cargarMaquinas();
-    
+
     return () => {
       isMounted = false;
     };
@@ -77,8 +83,8 @@ const Patente = ({ categoriaSeleccionada, onNext, onPrevious }) => {
   // Filtrar maquinas por término de búsqueda
   const maquinasFiltradas = useCallback(() => {
     if (!searchTerm.trim()) return maquinas;
-    
-    return maquinas.filter(maquina => 
+
+    return maquinas.filter(maquina =>
       maquina.patente.toLowerCase().includes(searchTerm.toLowerCase()) ||
       maquina.nombre.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -113,7 +119,7 @@ const Patente = ({ categoriaSeleccionada, onNext, onPrevious }) => {
           <div className="w-full">
             <StepHeader text="Cargar Combustible" />
           </div>
-          
+
           <h2 className="text-gray-700 font-medium text-sm sm:text-base md:text-lg">
             Selecciona una Máquina
             {categoriaSeleccionada && typeof categoriaSeleccionada === 'object' && categoriaSeleccionada.nombre && (
@@ -123,7 +129,7 @@ const Patente = ({ categoriaSeleccionada, onNext, onPrevious }) => {
 
           <div className="bg-orange-500 w-full rounded-2xl sm:rounded-3xl md:rounded-[40px] py-3 sm:py-4 md:py-6 px-2 sm:px-3 md:px-4 space-y-2 sm:space-y-3 md:space-y-4 min-h-[300px] md:min-h-[350px] flex flex-col">
             <TabProgressBar activeTab="patente" />
-            
+
             <SearchBar
               searchTerm={searchTerm}
               setSearchTerm={setSearchTerm}
@@ -146,7 +152,7 @@ const Patente = ({ categoriaSeleccionada, onNext, onPrevious }) => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
                     <p>{error}</p>
-                    <button 
+                    <button
                       onClick={() => window.location.reload()}
                       className="mt-2 text-orange-500 hover:text-orange-700 font-medium"
                     >
@@ -169,7 +175,7 @@ const Patente = ({ categoriaSeleccionada, onNext, onPrevious }) => {
                     </svg>
                     <p>No se encontraron máquinas</p>
                     {searchTerm && (
-                      <button 
+                      <button
                         onClick={handleClearSearch}
                         className="mt-2 text-orange-500 hover:text-orange-700 font-medium"
                       >
@@ -181,7 +187,7 @@ const Patente = ({ categoriaSeleccionada, onNext, onPrevious }) => {
               )}
             </div>
           </div>
-          
+
           {/* Controles inferiores */}
           <div className="flex items-center w-full px-1 sm:px-2 md:px-4 py-1 sm:py-2">
             <Button
@@ -189,7 +195,7 @@ const Patente = ({ categoriaSeleccionada, onNext, onPrevious }) => {
               className="bg-transparent hover:bg-transparent p-0 m-0 shadow-none flex items-center justify-center"
               icon={<FaArrowLeft className="text-black w-5 h-5 md:w-6 md:h-6" />}
             />
-            
+
             <div className="flex-1 flex justify-center">
               <PageControl
                 currentPage={currentPage}
@@ -197,7 +203,7 @@ const Patente = ({ categoriaSeleccionada, onNext, onPrevious }) => {
                 onPageChange={setCurrentPage}
               />
             </div>
-            
+
             <div className="w-5 h-5 md:w-6 md:h-6"></div>
           </div>
 

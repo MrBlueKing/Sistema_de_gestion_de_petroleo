@@ -3,10 +3,9 @@ import GerenteMenu from "../../components/templates/Gerente/Gerente";
 
 const Gerente = () => {
   return (
-          <div >
+    <div >
       <GerenteMenu />
-
-      </div>
+    </div>
   );
 };
 

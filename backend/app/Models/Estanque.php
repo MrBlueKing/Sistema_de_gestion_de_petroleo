@@ -33,4 +33,17 @@ class Estanque extends Model
     {
         return $this->hasOne(EstanqueStock::class, 'id_estanque', 'id_estanque');
     }
+    // Validación de capacidad al establecer stock_actual
+    public function setStockActualAttribute($value)
+    {
+        // Obtener el estanque relacionado
+        $estanque = $this->estanque;
+
+        // Validar que no exceda la capacidad
+        if ($estanque && $value > $estanque->capacidad) {
+            throw new \Exception("El stock no puede exceder la capacidad del estanque ({$estanque->capacidad} litros)");
+        }
+
+        $this->attributes['stock_actual'] = $value;
+    }
 }
