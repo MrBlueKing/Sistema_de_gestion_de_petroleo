@@ -12,6 +12,7 @@ import GestionarTipoMaquina from "../pages/Administrador/GestionarTipoMaquina";
 import GestionarMaquinaCategoria from "../pages/Administrador/GestionarMaquinCategoriaPage";
 import GestionarPersonal from "../pages/Administrador/GestionarPersonalPage";
 import GestionarPermisoPersonalInterno from "../pages/Administrador/GestionarPermisoPersonalPage";
+import GestionarPersonalExternoPersonalPage from "../pages/Administrador/GestionarPersonalExternoPage";
 
 import BomberoIngresoExterno from "../pages/Bombero/BomberoIngresoExterno";
 import BomberoPage from "../pages/Bombero/BomberoPage";
@@ -86,6 +87,16 @@ const AppRoutes = () => {
         element={
           <PrivateRoute requiredRole="admin">
             <GestionarPermisoPersonalInterno />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Ruta protegida para Administrador Gestionar Permiso Personal Interno */}
+      <Route
+        path="/GestionarPersonalExterno"
+        element={
+          <PrivateRoute requiredRole="admin">
+            <GestionarPersonalExternoPersonalPage />
           </PrivateRoute>
         }
       />
