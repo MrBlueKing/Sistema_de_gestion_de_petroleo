@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\MaquinaInternaController;
 use App\Http\Controllers\Api\IngresoPetroleoController;
 use App\Http\Controllers\Api\EstanqueController;
 use App\Http\Controllers\Api\InformeKpiController;
+use App\Http\Controllers\Api\InformesController;
 use App\Http\Controllers\Api\KpiValoresEntradaController;
 use App\Http\Controllers\Api\PersonalExternoController;
 
@@ -108,8 +109,7 @@ Route::middleware('auth:sanctum')->get('/usuarios/recientes', [UserController::c
 
 // Ruta para GERENTE
 Route::apiResource('kpi-valores-entrada', KpiValoresEntradaController::class);
-Route::apiResource('informes-kpi', InformeKpiController::class);
-// Agregar esta ruta a tu archivo routes/api.php
+Route::apiResource('informes-kpi', InformeKpiController::class)->except(['show']); // Excluir método show
 Route::get('/test-informes-kpi', [InformeKpiController::class, 'test']);
 Route::post('/calcular-kpis', [App\Http\Controllers\Api\KpiCalculadoraController::class, 'calcular']);
 // Rutas para KPIs mineros
@@ -118,4 +118,7 @@ Route::post('/calcular-kpis-sin-guardar', [App\Http\Controllers\Api\KpiCalculoCo
 // Rutas para valores de entrada
 Route::get('/kpi-valores-entrada/verificar-permiso', [App\Http\Controllers\Api\KpiValoresEntradaController::class, 'verificarPermiso']);
 Route::get('/kpi-valores-entrada/historial', [App\Http\Controllers\Api\KpiValoresEntradaController::class, 'obtenerHistorial']);
-Route::apiResource('kpi-valores-entrada', App\Http\Controllers\Api\KpiValoresEntradaController::class);
+
+// Rutas específicas para informes
+Route::get('/informes-kpi/consumo-maquinas', [App\Http\Controllers\Api\InformesController::class, 'getConsumoMaquinas']);
+Route::get('/informes-kpi/balance-combustible', [App\Http\Controllers\Api\InformesController::class, 'getBalanceCombustible']);

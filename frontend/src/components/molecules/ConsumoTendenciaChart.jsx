@@ -39,10 +39,44 @@ const ConsumoTendenciaChart = ({ data = [], faenaSeleccionada = 'todas' }) => {
   
   const NARANJA_PRINCIPAL = "#ff7b00";
   
+  // Mapeo de números de mes a nombres abreviados
+  const nombresMeses = {
+    1: 'Ene',
+    2: 'Feb',
+    3: 'Mar',
+    4: 'Abr',
+    5: 'May',
+    6: 'Jun',
+    7: 'Jul',
+    8: 'Ago',
+    9: 'Sep',
+    10: 'Oct',
+    11: 'Nov',
+    12: 'Dic'
+  };
+  
   useEffect(() => {
     // Si hay datos pasados como prop, usarlos
     if (data && data.length > 0) {
-      setConsumoMensual(data);
+      const formattedData = data.map(item => {
+        // Asegurarnos de que el mes tenga el formato correcto
+        let monthName = item.month;
+        
+        // Si el mes viene como número, convertirlo a nombre
+        if (!isNaN(item.month)) {
+          monthName = nombresMeses[parseInt(item.month)] || item.month;
+        } else if (item.month && item.month.length === 1 || item.month.length === 2) {
+          // Si es "11" o "1", convertirlo a "Nov" o "Ene"
+          monthName = nombresMeses[parseInt(item.month)] || item.month;
+        }
+        
+        return {
+          ...item,
+          month: monthName
+        };
+      });
+      
+      setConsumoMensual(formattedData);
       setLoading(false);
       return;
     }
@@ -55,10 +89,21 @@ const ConsumoTendenciaChart = ({ data = [], faenaSeleccionada = 'todas' }) => {
         // Verificar si hay datos
         if (fetchedData && fetchedData.length > 0) {
           // Formatear los datos si es necesario (adaptar nombres de propiedades)
-          const formattedData = fetchedData.map(item => ({
-            month: item.month || (item.mes || 'Sin mes'),
-            consumo: item.consumo || (item.valor || 0)
-          }));
+          const formattedData = fetchedData.map(item => {
+            // Obtener el valor del mes (podría ser un número o ya un nombre)
+            const monthValue = item.month || item.mes || 'Sin mes';
+            
+            // Convertir números de mes a nombres
+            let monthName = monthValue;
+            if (!isNaN(monthValue)) {
+              monthName = nombresMeses[parseInt(monthValue)] || monthValue;
+            }
+            
+            return {
+              month: monthName,
+              consumo: item.consumo || (item.valor || 0)
+            };
+          });
           
           setConsumoMensual(formattedData);
           setError(null);
@@ -70,7 +115,12 @@ const ConsumoTendenciaChart = ({ data = [], faenaSeleccionada = 'todas' }) => {
             { month: 'Mar', consumo: 13800 },
             { month: 'Abr', consumo: 15300 },
             { month: 'May', consumo: 16200 },
-            { month: 'Jun', consumo: 14900 }
+            { month: 'Jun', consumo: 14900 },
+            { month: 'Jul', consumo: 15600 },
+            { month: 'Ago', consumo: 16500 },
+            { month: 'Sep', consumo: 15800 },
+            { month: 'Oct', consumo: 16300 },
+            { month: 'Nov', consumo: 15900 } // Añadido noviembre
           ];
           setConsumoMensual(demoData);
         }
@@ -83,7 +133,12 @@ const ConsumoTendenciaChart = ({ data = [], faenaSeleccionada = 'todas' }) => {
           { month: 'Mar', consumo: 13800 },
           { month: 'Abr', consumo: 15300 },
           { month: 'May', consumo: 16200 },
-          { month: 'Jun', consumo: 14900 }
+          { month: 'Jun', consumo: 14900 },
+          { month: 'Jul', consumo: 15600 },
+          { month: 'Ago', consumo: 16500 },
+          { month: 'Sep', consumo: 15800 },
+          { month: 'Oct', consumo: 16300 },
+          { month: 'Nov', consumo: 15900 } // Añadido noviembre
         ];
         setConsumoMensual(demoData);
       } finally {
@@ -123,6 +178,32 @@ const ConsumoTendenciaChart = ({ data = [], faenaSeleccionada = 'todas' }) => {
       avgValue: avg,
       hasExtremeValues: isExtremeMax
     };
+  }, [consumoMensual]);
+
+  // Asegurar que los meses se muestren en orden cronológico
+  const sortedData = useMemo(() => {
+    if (!consumoMensual || consumoMensual.length === 0) return [];
+    
+    // Orden de los meses para ordenar correctamente
+    const ordenMeses = {
+      'Ene': 1, 'Feb': 2, 'Mar': 3, 'Abr': 4, 'May': 5, 'Jun': 6,
+      'Jul': 7, 'Ago': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dic': 12
+    };
+    
+    return [...consumoMensual].sort((a, b) => {
+      // Si los meses ya están como abreviaturas, usamos el orden predefinido
+      if (ordenMeses[a.month] && ordenMeses[b.month]) {
+        return ordenMeses[a.month] - ordenMeses[b.month];
+      }
+      
+      // Si son números, ordenar numéricamente
+      if (!isNaN(a.month) && !isNaN(b.month)) {
+        return parseInt(a.month) - parseInt(b.month);
+      }
+      
+      // Si no podemos determinar el orden, mantener el orden original
+      return 0;
+    });
   }, [consumoMensual]);
 
   // Personalizar el tooltip para mostrar valores exactos
@@ -184,7 +265,7 @@ const ConsumoTendenciaChart = ({ data = [], faenaSeleccionada = 'todas' }) => {
             Reintentar
           </button>
         </div>
-      ) : consumoMensual.length === 0 ? (
+      ) : sortedData.length === 0 ? (
         <div className="h-64 flex items-center justify-center">
           <div className="text-gray-500">No hay datos disponibles</div>
         </div>
@@ -198,9 +279,12 @@ const ConsumoTendenciaChart = ({ data = [], faenaSeleccionada = 'todas' }) => {
           )}
           
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={consumoMensual}>
+            <LineChart data={sortedData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
+              <XAxis 
+                dataKey="month" 
+                tickFormatter={(value) => value}
+              />
               <YAxis 
                 domain={[minValue, maxValue]} 
                 tickFormatter={(value) => value.toLocaleString('es-CL')}

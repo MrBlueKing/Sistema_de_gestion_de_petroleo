@@ -83,20 +83,20 @@ const consumoService = {
   // NUEVO: Obtiene datos de horas de trabajo y mantenimiento
   getHorasTrabajo: async (faena = 'todas') => {
     try {
-      console.log("ApiService: Requesting horas_trabajo for faena:", faena);
+      //console.log("ApiService: Requesting horas_trabajo for faena:", faena);
       
       // VERIFICACIÓN DEL ENDPOINT: Primero comprobamos si el endpoint existe y maneja este tipo
       const response = await axios.get(`/api/informes-kpi?tipo=horas_trabajo&faena=${faena}`);
-      console.log("Response status:", response.status);
-      console.log("Response data:", response.data);
+      //console.log("Response status:", response.status);
+      //console.log("Response data:", response.data);
       
       // Verificamos que tengamos la estructura esperada (data.status === 'success' y data.data sea un array)
       if (response.data && response.data.status === 'success' && Array.isArray(response.data.data)) {
-        console.log("ApiService: Data received from API:", response.data.data);
+        //console.log("ApiService: Data received from API:", response.data.data);
         return response.data.data;
       } else if (response.data && Array.isArray(response.data)) {
         // Alternativa: la API podría estar devolviendo el array directamente
-        console.log("ApiService: Direct array received from API:", response.data);
+        //console.log("ApiService: Direct array received from API:", response.data);
         return response.data;
       } else {
         console.warn('La respuesta de la API no tiene el formato esperado para horas_trabajo');
@@ -113,7 +113,7 @@ const consumoService = {
       }
       
       // Retornamos datos de ejemplo en formato compatible
-      console.log("ApiService: Using mock data after error:");
+      //console.log("ApiService: Using mock data after error:");
     }
   }
 };

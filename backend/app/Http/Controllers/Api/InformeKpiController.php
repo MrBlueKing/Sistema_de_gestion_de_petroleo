@@ -96,9 +96,10 @@ class InformeKpiController extends Controller
                 ->select(
                     'maquinas_internas.id_maquina_interna as id',
                     'maquinas_internas.nombre',
+                    'maquinas_internas.patente', // Agregado el campo patente
                     DB::raw('SUM(consumos.litros_consumidos) as consumo')
                 )
-                ->groupBy('maquinas_internas.id_maquina_interna', 'maquinas_internas.nombre')
+                ->groupBy('maquinas_internas.id_maquina_interna', 'maquinas_internas.nombre', 'maquinas_internas.patente') // Importante agregar al group by
                 ->orderBy('consumo', 'desc')
                 ->limit(5);
 

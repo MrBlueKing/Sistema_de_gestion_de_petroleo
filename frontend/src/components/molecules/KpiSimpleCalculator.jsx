@@ -1,175 +1,140 @@
 import React, { useState, useEffect } from "react";
 import { FaCalculator, FaHistory } from "react-icons/fa";
-import { FiAlertCircle, FiCheckCircle, FiInfo } from "react-icons/fi";
+import { FiCheckCircle, FiInfo, FiAlertCircle } from "react-icons/fi";
 import { gerenteService } from "../../context/apiService";
 
-const SimpleKpiCalculator = ({ 
+const SimpleKpiCalculator = ({
   onCalculate,
-  periodo = "mensual", 
+  periodo = "mensual",
   faena = "todas",
   setPeriodo,
   setFaena
 }) => {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [error, setError] = useState(null);
+
+  // Estado para los campos de entrada
   const [valores, setValores] = useState({
     toneladas: "",
     camionadas: "",
-    // Estos valores se mantienen pero no se muestran al usuario
-    litros_petroleo: 12500,
-    horas: 720,
-    kilometros: 8500,
-    concentracion: 1.23,
-    costo_litro: 850,
+    litros_petroleo: "",
+    horas: "",
+    kilometros: "",
+    concentracion: "",
+    costo_litro: "",
   });
 
-  // Estado para controlar actualizaciones
-  const [ultimaActualizacion, setUltimaActualizacion] = useState(null);
-  const [puedeActualizar, setPuedeActualizar] = useState(true);
-  const [tiempoRestante, setTiempoRestante] = useState(0);
+  // Estado para controlar el historial
   const [historialVisible, setHistorialVisible] = useState(false);
   const [historialActualizaciones, setHistorialActualizaciones] = useState([]);
 
-  // Verificar si puede actualizar
+  // Cargar historial de actualizaciones desde la API
   useEffect(() => {
-    const verificarPermisoActualizacion = async () => {
+    const cargarHistorial = async () => {
+      setLoading(true);
       try {
-        const response = await gerenteService.verificarPermisoActualizacion();
-        setPuedeActualizar(response.puedeActualizar);
-        setUltimaActualizacion(response.ultimaActualizacion);
-        setTiempoRestante(response.tiempoRestante || 0);
+        // Intentar obtener el historial real desde la API
+        const historialRes = await gerenteService.obtenerHistorialActualizaciones({
+          faena,
+          periodo,
+          limite: 5 // últimas 5 actualizaciones
+        });
         
-        // Si hay historial disponible en la respuesta
-        if (response.historial) {
-          setHistorialActualizaciones(response.historial);
+        if (historialRes && historialRes.data) {
+          setHistorialActualizaciones(historialRes.data);
         } else {
-          // Cargar historial por separado
-          try {
-            const historialRes = await gerenteService.obtenerHistorialActualizaciones({
-              faena,
-              periodo,
-              limite: 5 // últimas 5 actualizaciones
-            });
-            if (historialRes && historialRes.data) {
-              setHistorialActualizaciones(historialRes.data);
-            }
-          } catch (histErr) {
-            console.error('Error al obtener historial:', histErr);
-          }
+          // Si la API responde pero no hay datos
+          setHistorialActualizaciones([]);
         }
-      } catch (error) {
-        console.error('Error al verificar permisos de actualización:', error);
+      } catch (histErr) {
+        console.error('Error al obtener historial:', histErr);
+        // Si falla la petición, simplemente mostrar un array vacío
+        setHistorialActualizaciones([]);
+        setError("No se pudo cargar el historial de actualizaciones. Verifique la conexión.");
+      } finally {
+        setLoading(false);
       }
     };
 
-    verificarPermisoActualizacion();
-    
-    // Actualizar el contador cada segundo
-    const interval = setInterval(() => {
-      setTiempoRestante(prev => {
-        if (prev <= 0) {
-          clearInterval(interval);
-          setPuedeActualizar(true);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
+    // Cargar historial
+    cargarHistorial();
   }, [faena, periodo]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    // Convertir a número si es un campo numérico
-    const parsedValue = !isNaN(value) && value !== "" ? parseFloat(value) : value;
+    // Convertir a número si es un campo numérico y no está vacío
+    const parsedValue = value !== "" ? parseFloat(value) : value;
     setValores({ ...valores, [name]: parsedValue });
-    
-    // Limpiar mensajes de error cuando el usuario comienza a escribir
-    if (error) {
-      setError(null);
-    }
-  };
-
-  const formatearTiempoRestante = (segundos) => {
-    const horas = Math.floor(segundos / 3600);
-    const minutos = Math.floor((segundos % 3600) / 60);
-    const segs = segundos % 60;
-    
-    return `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segs.toString().padStart(2, '0')}`;
   };
 
   const resetForm = () => {
     setValores({
-      ...valores,
       toneladas: "",
-      camionadas: ""
+      camionadas: "",
+      litros_petroleo: "",
+      horas: "",
+      kilometros: "",
+      concentracion: "",
+      costo_litro: ""
     });
-    setError(null);
     setSuccess(null);
+    setError(null);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validar que se hayan ingresado los datos requeridos
+    // Validar que haya al menos un dato
     if (!valores.toneladas && !valores.camionadas) {
-      setError("Debe ingresar al menos las toneladas extraídas o el número de camionadas.");
+      setError("Ingrese al menos un valor (toneladas o camionadas)");
       return;
     }
 
     try {
       setLoading(true);
-      setError(null);
       setSuccess(null);
+      setError(null);
 
-      // Verificar si puede actualizar
-      if (!puedeActualizar) {
-        setError(`No puede actualizar hasta dentro de ${formatearTiempoRestante(tiempoRestante)}`);
-        setLoading(false);
-        return;
-      }
-
-      // Llamar a la API para calcular los KPIs
-      const kpisCalculados = await gerenteService.calcularKpis({
+      // Intentar llamar a la API para cálculos reales
+      const resultadoAPI = await gerenteService.calcularKpis({
         valores_entrada: valores,
         periodo,
         faena
       });
 
-      // Mostrar mensaje de éxito
-      setSuccess("KPIs calculados correctamente");
-      setTimeout(() => setSuccess(null), 3000);
-
-      // Notificar al componente padre sobre los KPIs calculados
-      if (onCalculate && typeof onCalculate === 'function') {
-        onCalculate(kpisCalculados);
-      }
-
-      // Actualizar estado después de una actualización exitosa
-      if (kpisCalculados.status === 'success' && kpisCalculados.proximaActualizacion) {
-        setPuedeActualizar(false);
-        setUltimaActualizacion(new Date());
-        const proxActualiza = new Date(kpisCalculados.proximaActualizacion);
-        const tiempoRestanteMs = Math.max(0, proxActualiza - new Date());
-        setTiempoRestante(Math.floor(tiempoRestanteMs / 1000));
+      // Verificar si la API respondió correctamente
+      if (resultadoAPI && resultadoAPI.status === 'success') {
+        // Usar los datos reales de la API
+        setSuccess("KPIs calculados correctamente");
         
-        // Actualizar historial con la nueva entrada
-        if (kpisCalculados.actualizacion) {
-          setHistorialActualizaciones([
-            kpisCalculados.actualizacion,
-            ...historialActualizaciones.slice(0, 4) // Mantener solo los últimos 5
-          ]);
+        // Notificar al componente padre con los datos reales de la API
+        if (onCalculate && typeof onCalculate === 'function') {
+          onCalculate(resultadoAPI);
         }
-        
+
+        // Actualizar historial con la nueva entrada (solo si es exitoso)
+        const nuevaEntrada = {
+          fecha: new Date().toISOString(),
+          faena: faena,
+          toneladas: valores.toneladas || 0,
+          camionadas: valores.camionadas || 0
+        };
+
+        setHistorialActualizaciones([
+          nuevaEntrada,
+          ...historialActualizaciones.slice(0, 4) // Mantener solo los últimos 5
+        ]);
+
         // Limpiar formulario tras éxito
         resetForm();
+      } else {
+        // Si la API respondió pero con errores
+        setError(resultadoAPI.message || "Error en el cálculo de KPIs. Intente nuevamente.");
       }
-
     } catch (err) {
       console.error("Error al calcular KPIs:", err);
-      setError("No se pudieron calcular los KPIs. Intente nuevamente.");
+      setError("No se pudieron calcular los KPIs. Verifique la conexión con el servidor.");
     } finally {
       setLoading(false);
     }
@@ -182,15 +147,22 @@ const SimpleKpiCalculator = ({
           <FaCalculator className="text-orange-500 mr-2" size={24} />
           <h3 className="text-xl font-semibold">Calculadora de KPIs</h3>
         </div>
-        
-        <button 
+
+        <button
           type="button"
           onClick={() => setHistorialVisible(!historialVisible)}
           className="flex items-center text-sm text-blue-600 hover:text-blue-800"
+          disabled={historialActualizaciones.length === 0}
         >
           <FaHistory className="mr-1" />
           {historialVisible ? 'Ocultar historial' : 'Ver historial'}
         </button>
+      </div>
+
+      {/* Información sobre la calculadora */}
+      <div className="mb-4 p-3 bg-blue-50 rounded-md border border-blue-200 text-blue-800 text-sm">
+        <FiInfo className="inline-block mr-2" />
+        Esta calculadora permite actualizar los KPIs con valores reales. Los datos ingresados se procesarán en el servidor para calcular los indicadores en el dashboard.
       </div>
 
       {/* Historial de actualizaciones */}
@@ -213,11 +185,11 @@ const SimpleKpiCalculator = ({
                 {historialActualizaciones.map((item, index) => (
                   <tr key={index} className="border-b border-gray-100 hover:bg-gray-100">
                     <td className="py-1">{new Date(item.fecha).toLocaleString()}</td>
-                    <td className="py-1">{item.faena === 'todas' ? 'Todas' : 
-                        item.faena === '1' ? 'Cabildo' : 
-                        item.faena === '2' ? 'Catemu' : 
-                        item.faena === '3' ? 'Chincolco' : 
-                        item.faena === '4' ? 'Tiltil' : item.faena}</td>
+                    <td className="py-1">{item.faena === 'todas' ? 'Todas' :
+                      item.faena === '1' ? 'Cabildo' :
+                        item.faena === '2' ? 'Catemu' :
+                          item.faena === '3' ? 'Chincolco' :
+                            item.faena === '4' ? 'Tiltil' : item.faena}</td>
                     <td className="py-1 text-right">{item.toneladas?.toLocaleString() || '-'}</td>
                     <td className="py-1 text-right">{item.camionadas?.toLocaleString() || '-'}</td>
                   </tr>
@@ -228,37 +200,14 @@ const SimpleKpiCalculator = ({
         </div>
       )}
 
-      {/* Estado de actualización */}
-      {!puedeActualizar && tiempoRestante > 0 && (
-        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-md flex items-start">
-          <FiAlertCircle className="mt-0.5 mr-2 flex-shrink-0" />
-          <div>
-            <p className="font-medium">Límite de actualización</p>
-            <p className="text-sm">
-              La próxima actualización estará disponible en: {formatearTiempoRestante(tiempoRestante)}
-            </p>
-          </div>
+      {/* Mostrar un mensaje cuando no hay historial */}
+      {historialVisible && historialActualizaciones.length === 0 && (
+        <div className="mb-4 p-3 bg-gray-50 rounded-md border border-gray-200 text-center text-gray-500">
+          No hay actualizaciones recientes en el historial.
         </div>
       )}
 
-      {ultimaActualizacion && puedeActualizar && (
-        <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-md flex items-start">
-          <FiCheckCircle className="mt-0.5 mr-2 flex-shrink-0" />
-          <div>
-            <p className="font-medium">Actualización disponible</p>
-            <p className="text-sm">
-              Última actualización: {new Date(ultimaActualizacion).toLocaleString()}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {error && (
-        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
-          {error}
-        </div>
-      )}
-
+      {/* Mensajes de éxito y error */}
       {success && (
         <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-md flex items-center">
           <FiCheckCircle className="mr-2" />
@@ -266,51 +215,16 @@ const SimpleKpiCalculator = ({
         </div>
       )}
 
+      {error && (
+        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md flex items-center">
+          <FiAlertCircle className="mr-2" />
+          {error}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          {/* Configuración general - Usando los props del componente padre */}
-          <div className="md:col-span-2 p-4 bg-gray-50 rounded-md mb-2">
-            <h4 className="font-medium mb-2">Configuración</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Período
-                </label>
-                <select
-                  name="periodo"
-                  value={periodo}
-                  onChange={(e) => setPeriodo(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500"
-                >
-                  <option value="diario">Diario</option>
-                  <option value="semanal">Semanal</option>
-                  <option value="mensual">Mensual</option>
-                  <option value="trimestral">Trimestral</option>
-                  <option value="anual">Anual</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Faena
-                </label>
-                <select
-                  name="faena"
-                  value={faena}
-                  onChange={(e) => setFaena(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500"
-                >
-                  <option value="todas">Todas las faenas</option>
-                  <option value="1">Cabildo</option>
-                  <option value="2">Catemu</option>
-                  <option value="3">Chincolco</option>
-                  <option value="4">Tiltil</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Solo los inputs de toneladas y camionadas */}
+          {/* Toneladas y camionadas */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Toneladas Extraídas
@@ -321,9 +235,7 @@ const SimpleKpiCalculator = ({
               value={valores.toneladas || ""}
               onChange={handleInputChange}
               className="w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500"
-              min="0"
-              step="100"
-              placeholder="Ej: 45200"
+              placeholder="Toneladas"
             />
           </div>
 
@@ -337,11 +249,88 @@ const SimpleKpiCalculator = ({
               value={valores.camionadas || ""}
               onChange={handleInputChange}
               className="w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500"
-              min="0"
-              step="1"
-              placeholder="Ej: 820"
+              placeholder="Camionadas"
             />
           </div>
+        </div>
+
+        {/* Campos adicionales (opcionales) */}
+        <div className="mb-4">
+          <details className="text-sm text-gray-600">
+            <summary className="cursor-pointer font-medium mb-2">Datos adicionales (opcionales)</summary>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3 p-3 bg-gray-50 rounded-md">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Litros de Petróleo
+                </label>
+                <input
+                  type="number"
+                  name="litros_petroleo"
+                  value={valores.litros_petroleo || ""}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="Litros totales"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Horas Trabajadas
+                </label>
+                <input
+                  type="number"
+                  name="horas"
+                  value={valores.horas || ""}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="Horas"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Kilómetros Recorridos
+                </label>
+                <input
+                  type="number"
+                  name="kilometros"
+                  value={valores.kilometros || ""}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="Kilómetros"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Concentración Mineral
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  name="concentracion"
+                  value={valores.concentracion || ""}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="Ley mineral"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Costo por Litro
+                </label>
+                <input
+                  type="number"
+                  name="costo_litro"
+                  value={valores.costo_litro || ""}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="$ por litro"
+                />
+              </div>
+            </div>
+          </details>
         </div>
 
         <div className="flex justify-end gap-2">
@@ -352,21 +341,16 @@ const SimpleKpiCalculator = ({
           >
             Limpiar
           </button>
-          
+
           <button
             type="submit"
-            className={`px-4 py-2 ${!puedeActualizar ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600'} text-white rounded-md transition-colors flex items-center`}
-            disabled={loading || !puedeActualizar}
+            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-md transition-colors flex items-center"
+            disabled={loading}
           >
             {loading ? (
               <>
                 <span className="animate-spin inline-block h-4 w-4 mr-2 border-t-2 border-white rounded-full"></span>
                 Calculando...
-              </>
-            ) : !puedeActualizar ? (
-              <>
-                <FaCalculator className="mr-2" />
-                Espere {formatearTiempoRestante(tiempoRestante)}
               </>
             ) : (
               <>

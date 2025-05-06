@@ -135,12 +135,26 @@ const FaenasChart = ({ data = [], faenaSeleccionada = 'todas' }) => {
     }
   }, [faenasData, faenaSeleccionada, loading]);
 
+  // Calcular el total de los valores para el porcentaje
+  const totalValue = filteredData.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
+  
+  // Preparar los datos con porcentajes precalculados
+  const dataWithPercentages = filteredData.map(item => {
+    const value = Number(item.value) || 0;
+    const percentage = totalValue > 0 ? (value / totalValue) : 0;
+    return {
+      ...item,
+      value,
+      percentage
+    };
+  });
+
   // Función para renderizar el sector activo con animación
   const renderActiveShape = (props) => {
     const RADIAN = Math.PI / 180;
     const { 
       cx, cy, midAngle, innerRadius, outerRadius, startAngle, endAngle,
-      fill, payload, percent, value 
+      fill, payload, value 
     } = props;
     
     const sin = Math.sin(-RADIAN * midAngle);
@@ -152,6 +166,10 @@ const FaenasChart = ({ data = [], faenaSeleccionada = 'todas' }) => {
     const ex = mx + (cos >= 0 ? 1 : -1) * 22;
     const ey = my;
     const textAnchor = cos >= 0 ? 'start' : 'end';
+    
+    // Encontrar el ítem original con los datos de porcentaje
+    const originalItem = dataWithPercentages.find(item => item.name === payload.name);
+    const percent = originalItem ? originalItem.percentage : 0;
   
     return (
       <g>
@@ -209,14 +227,19 @@ const FaenasChart = ({ data = [], faenaSeleccionada = 'todas' }) => {
   // Personalizar tooltip
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
+      // Buscar el porcentaje en nuestros datos precalculados
+      const itemName = payload[0].name;
+      const originalItem = dataWithPercentages.find(item => item.name === itemName);
+      const percent = originalItem ? originalItem.percentage : 0;
+      
       return (
         <div className="bg-white p-3 border border-gray-200 shadow-md rounded-md">
-          <p className="font-medium">{payload[0].name}</p>
+          <p className="font-medium">{itemName}</p>
           <p className="text-sm text-gray-600">
-            <span className="font-medium">Consumo:</span> {payload[0].value.toLocaleString('es-CL')} litros
+            <span className="font-medium">Consumo:</span> {Number(payload[0].value).toLocaleString('es-CL')} litros
           </p>
           <p className="text-sm text-gray-600">
-            <span className="font-medium">Porcentaje:</span> {(payload[0].percent * 100).toFixed(1)}%
+            <span className="font-medium">Porcentaje:</span> {(percent * 100).toFixed(1)}%
           </p>
         </div>
       );
@@ -228,9 +251,6 @@ const FaenasChart = ({ data = [], faenaSeleccionada = 'todas' }) => {
   const onPieEnter = (_, index) => {
     setActiveIndex(index);
   };
-
-  // Calcular el total de los valores para el porcentaje
-  const totalValue = filteredData.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
 
   if (loading) {
     return (
@@ -285,7 +305,7 @@ const FaenasChart = ({ data = [], faenaSeleccionada = 'todas' }) => {
               <Pie
                 activeIndex={activeIndex}
                 activeShape={renderActiveShape}
-                data={filteredData}
+                data={dataWithPercentages}
                 cx="50%"
                 cy="50%"
                 innerRadius={faenaSeleccionada !== 'todas' ? 0 : 30} // Sin hueco central si solo hay una faena
@@ -295,7 +315,7 @@ const FaenasChart = ({ data = [], faenaSeleccionada = 'todas' }) => {
                 onMouseEnter={onPieEnter}
                 isAnimationActive={true}
               >
-                {filteredData.map((entry, index) => (
+                {dataWithPercentages.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}
                     fill={COLORS[index % COLORS.length]}
@@ -309,12 +329,9 @@ const FaenasChart = ({ data = [], faenaSeleccionada = 'todas' }) => {
                 align="right"
                 formatter={(value, entry, index) => {
                   // Formatear la leyenda para mostrar valor y porcentaje
-                  if (index < filteredData.length) {
-                    const item = filteredData[index];
-                    // Asegurarse de que item.value sea un número para evitar NaN
-                    const itemValue = Number(item.value) || 0;
-                    // Calcular porcentaje solo si el total es mayor que 0
-                    const percent = totalValue > 0 ? ((itemValue / totalValue) * 100).toFixed(1) : '0.0';
+                  if (index < dataWithPercentages.length) {
+                    const item = dataWithPercentages[index];
+                    const percent = (item.percentage * 100).toFixed(1);
                     return `${value} (${percent}%)`;
                   }
                   return value;

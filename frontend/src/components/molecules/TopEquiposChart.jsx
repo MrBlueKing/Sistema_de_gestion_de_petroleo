@@ -45,6 +45,7 @@ const TopEquiposChart = ({ faenaSeleccionada = 'todas' }) => {
         // Usamos el parámetro faenaSeleccionada para filtrar los datos
         const data = await consumoService.getTopEquipos(faenaSeleccionada);
         
+        console.log("datos de maquina:", data)
         // Verificar si hay datos
         if (data && data.length > 0) {
           // Formatear los datos (ajuste de nombre de propiedades si es necesario)
@@ -162,4 +163,4 @@ const TopEquiposChart = ({ faenaSeleccionada = 'todas' }) => {
   );
 };
 
-export default TopEquiposChart; 
+export default TopEquiposChart;

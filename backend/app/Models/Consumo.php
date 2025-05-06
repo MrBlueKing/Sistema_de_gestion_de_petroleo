@@ -31,7 +31,8 @@ class Consumo extends Model
         'id_estanque',
         'medicion',
         'numeral_inicial',
-        'numeral_final'
+        'numeral_final',
+        'precio_litro',
     ];
 
     // Relaciones

@@ -10,7 +10,7 @@ import { FaArrowLeft, FaCarSide, FaUserAlt, FaCheck, FaHome, FaPlus, FaInfoCircl
 import StepHeader from "../../molecules/StepHeader";
 import Button from "../../atoms/Button/Button";
 
-const Consumo = ({
+const   Consumo = ({
   onPrevious,
   categoriaSeleccionada,
   patenteSeleccionada,
