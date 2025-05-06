@@ -8,6 +8,7 @@ use App\Http\Controllers\APi\BodegaController;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Api\CategoriaMaquinaController;
 use App\Http\Controllers\Api\ConsumoController;
+use App\Http\Controllers\Api\EmpresaExternaController;
 use App\Http\Controllers\Api\FaenaController;
 use App\Http\Controllers\Api\PersonalInternoController;
 use App\Http\Controllers\Api\MaquinaInternaController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\Api\IngresoPetroleoController;
 use App\Http\Controllers\Api\EstanqueController;
 use App\Http\Controllers\Api\InformeKpiController;
 use App\Http\Controllers\Api\KpiValoresEntradaController;
+use App\Http\Controllers\Api\PersonalExternoController;
 
 // Rutas públicas
 Route::post('/login', [AuthController::class, 'login']);
@@ -48,6 +50,11 @@ Route::get('/maquinas-internas-registradas', [MaquinaInternaController::class, '
 Route::get('/maquinas-internas-permiso', [MaquinaInternaController::class, 'indexConPermisos']);
 
 
+
+//RUTAS DE Entidades EXTERNAS
+Route::post('/ingresos-empresas-externas', [EmpresaExternaController::class, 'store']);
+Route::get('/empresas-disponibles', [EmpresaExternaController::class, 'index']);
+Route::post('/registrar-personal-externo', [PersonalExternoController::class, 'store']);
 
 
 //RUTAS DE SOLICITANTES INTERNOS
