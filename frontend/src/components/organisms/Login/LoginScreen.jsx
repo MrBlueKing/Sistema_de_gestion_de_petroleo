@@ -45,10 +45,10 @@ const LoginScreen = () => {
     try {
       // Login inicial para obtener el token
       const { token, user } = await login({ rut, password });
-      
+
       // Guarda el token, expiración y rol (pero no los datos completos del usuario)
       storeSession({ token, user });
-      
+
       try {
         // Ahora obtenemos los datos completos y actualizados del usuario
         console.log("Obteniendo datos completos del usuario...");
@@ -57,12 +57,12 @@ const LoginScreen = () => {
             Authorization: `Bearer ${token}`,
           },
         });
-        
+
         console.log("Datos obtenidos de /api/user:", response.data);
-        
+
         // Actualizamos el contexto con los datos completos
         setUser(response.data);
-        
+
         // Redirigimos basándonos en el rol
         redirectByRole(response.data.rol || user.rol || "desconocido");
       } catch (userDataError) {
@@ -110,10 +110,10 @@ const LoginScreen = () => {
           disabled={isLoading}
         />
         <Button
-          text={isLoading ? "Cargando..." : "Ingresar"}
+          text={<span className="text-white">{isLoading ? "Cargando..." : "Ingresar"}</span>}
           color="orange"
           rounded="full"
-          className="w-full text-white font-bold py-3 px-4"
+          className="w-full font-bold py-3 px-4"
           type="submit"
           disabled={isLoading}
         />

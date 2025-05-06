@@ -95,7 +95,7 @@ const TabProgressBar = ({ activeTab }) => {
             <div className="mt-2 w-full flex flex-col items-center">
               <span 
                 className={`
-                  text-[10px] xs:text-xs sm:text-sm md:text-base 
+                   text-sm sm:text-base md:text-lg 
                   transition-all duration-300 drop-shadow-sm 
                   font-medium text-center leading-tight
                   mx-auto px-1

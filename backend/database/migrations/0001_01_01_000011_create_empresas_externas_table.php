@@ -17,6 +17,8 @@ return new class extends Migration
             $table->string('rut', 12)->unique()->nullable(); // RUT de la empresa
             $table->string('contacto', 150)->nullable(); // Información de contacto
             $table->timestamps(); // Campos de created_at y updated_at
+
+            
         });
     }
 

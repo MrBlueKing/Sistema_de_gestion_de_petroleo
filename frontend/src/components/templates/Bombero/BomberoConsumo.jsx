@@ -529,6 +529,7 @@ const Consumo = ({
                 onClick={onPrevious}
                 className="bg-transparent hover:bg-transparent p-0 m-0 shadow-none flex items-center justify-center"
                 icon={<FaArrowLeft className="text-black w-5 h-5 md:w-6 md:h-6" />}
+                textColor="orange-500"
               />
 
               <div className="flex-1 flex justify-center">

@@ -7,6 +7,7 @@ import axios from "../../../lib/axios";
 const GestionarTipoMaquina = () => {
   const [nombreCategoria, setNombreCategoria] = useState("");
   const [tipoMedicion, setTipoMedicion] = useState("");
+  const [horasMantencion, setHorasMantencion] = useState("");
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -37,13 +38,18 @@ const GestionarTipoMaquina = () => {
 
   const validarCampos = () => {
     const nombreFormateado = formatNombreCategoria(nombreCategoria);
-    if (!nombreFormateado || !tipoMedicion) {
+    if (!nombreFormateado || !tipoMedicion || !horasMantencion) {
       mostrarError("Por favor completa todos los campos.");
       return false;
     }
 
     if (nombreFormateado.length < 3) {
       mostrarError("El nombre de categoría debe tener al menos 3 letras.");
+      return false;
+    }
+
+    if (isNaN(horasMantencion) || parseFloat(horasMantencion) < 0) {
+      mostrarError("Las horas de mantención deben ser un número positivo.");
       return false;
     }
 
@@ -59,6 +65,7 @@ const GestionarTipoMaquina = () => {
       const response = await axios.post("/api/categorias-maquinas", {
         nombre_categoria: nombreFormateado,
         tipo_medicion: tipoMedicion,
+        horas_mantencion: parseFloat(horasMantencion)
       });
 
       if (response.status === 201) {
@@ -78,6 +85,7 @@ const GestionarTipoMaquina = () => {
   const handleReset = (clearMessages = true) => {
     setNombreCategoria("");
     setTipoMedicion("");
+    setHorasMantencion("");
     if (clearMessages) {
       setError("");
       setSuccessMessage("");
@@ -146,6 +154,28 @@ const GestionarTipoMaquina = () => {
                     Seleccione el tipo de medición apropiado para esta categoría de máquina
                   </p>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Horas/Km de Mantención
+                </label>
+                <InputField
+                  type="number"
+                  placeholder={tipoMedicion === "Horometro" ? "Ingrese horas para mantención" : "Ingrese kilómetros para mantención"}
+                  value={horasMantencion}
+                  onChange={(e) => setHorasMantencion(e.target.value)}
+                  className="w-full border-gray-300 focus:ring-orange-400 focus:border-orange-400"
+                  min="0"
+                  step="0.01"
+                />
+                <p className="mt-2 text-xs text-gray-500 text-left">
+                  {tipoMedicion === "Horometro" 
+                    ? "Indique cada cuántas horas debe realizarse el mantenimiento" 
+                    : tipoMedicion === "Kilometraje" 
+                      ? "Indique cada cuántos kilómetros debe realizarse el mantenimiento"
+                      : "Seleccione primero un tipo de medición"}
+                </p>
               </div>
 
               <div className="mt-8 flex justify-end">

@@ -5,7 +5,8 @@ import clsx from "clsx";
 const Button = ({
   onClick,
   className = "",
-  color, // colores soportados: gray, orange, red, green, blue, etc.
+  color = "white", // ← blanco por defecto
+  textColor = "", // Nuevo prop para controlar específicamente el color del texto
   text,
   to,
   rounded = "lg",
@@ -14,12 +15,15 @@ const Button = ({
   active = false,
   type = "button",
   disabled = false,
-  loading = false, // NUEVO: estado de carga
+  loading = false,
 }) => {
   const isLink = Boolean(to);
 
   // Determinar color de texto e icono
-  const textColorClass = color === "gray" ? "text-white" : `text-${color}-700`;
+  // Si se proporciona textColor, úsalo; si no, usa la lógica basada en el color de fondo
+  const textColorClass = textColor 
+    ? `text-${textColor}` 
+    : (color === "white" ? "text-white" : "text-white"); // Modificado: para botones de colores, texto blanco por defecto
 
   const baseClasses = clsx(
     "inline-flex items-center justify-center gap-2 px-5 py-2 text-sm font-medium transition duration-200 ease-in-out",
@@ -29,8 +33,8 @@ const Button = ({
       "bg-gray-400 text-white cursor-not-allowed": disabled || loading,
       "bg-blue-800 text-white": active && !disabled,
       [`bg-${color}-500 hover:bg-${
-        color === "orange" ? "700" : `${color}-600`
-      } text-white`]: !active && !disabled && !loading,
+        color === "orange" ? "orange-700" : `${color}-600`
+      }`]: !active && !disabled && !loading,
     },
     className
   );
@@ -62,7 +66,7 @@ const Button = ({
         <>
           {icon && (
             <span
-              className={`flex items-center justify-center ${iconClassName} ${textColorClass}`}
+              className={`flex items-center justify-center ${iconClassName}`}
             >
               {React.cloneElement(icon, {
                 className: clsx(

@@ -13,7 +13,7 @@ import bomberoService from "../../../context/bomberoService";
 const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
   // Obtener usuario del contexto
   const { user } = useContext(UserContext);
-  
+
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [usuarios, setUsuarios] = useState([]);
@@ -23,7 +23,7 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
   const [ubicacionUsuario, setUbicacionUsuario] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
   const [showUserDetails, setShowUserDetails] = useState(false);
-  
+
   // Usamos un valor dinámico para usersPerPage basado en la altura de la pantalla
   const [usersPerPage, setUsersPerPage] = useState(8);
 
@@ -34,7 +34,7 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
       if (window.innerWidth < 640) {
         setUsersPerPage(4);
       } else if (window.innerWidth < 768) {
-        setUsersPerPage(6); 
+        setUsersPerPage(6);
       } else {
         setUsersPerPage(8);
       }
@@ -42,7 +42,7 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
 
     calcularElementosPorPagina();
     window.addEventListener('resize', calcularElementosPorPagina);
-    
+
     return () => {
       window.removeEventListener('resize', calcularElementosPorPagina);
     };
@@ -57,16 +57,16 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
   // Cargar faenas y usuarios en un solo useEffect para reducir recargas
   useEffect(() => {
     let isMounted = true;
-    
+
     const inicializarDatos = async () => {
       try {
         setLoading(true);
-        
+
         // 1. Primero obtener todas las faenas
         const faenas = await bomberoService.getAllFaenas();
-        
+
         let ubicacion = "";
-        
+
         // 2. Identificar la ubicación del usuario actual si tiene faena asignada
         if (user && user.id_faena) {
           const faenaUsuario = faenas.find(f => f.id_faena === user.id_faena);
@@ -75,16 +75,16 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
             if (isMounted) setUbicacionUsuario(ubicacion);
           }
         }
-        
+
         // 3. Obtener los usuarios del tipo seleccionado
         if (isMounted) {
           const todosUsuarios = await bomberoService.getPersonalPorTipo(tipoSolicitante);
-          
+
           // 4. Filtrar por ubicación si es necesario
-          const usuariosFiltrados = ubicacion 
+          const usuariosFiltrados = ubicacion
             ? bomberoService.filtrarPersonalPorUbicacion(todosUsuarios, ubicacion)
             : todosUsuarios;
-          
+
           // 5. Establecer los estados de usuarios
           setTodosLosUsuarios(usuariosFiltrados);
           setUsuarios(usuariosFiltrados);
@@ -100,9 +100,9 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
         }
       }
     };
-    
+
     inicializarDatos();
-    
+
     // Limpieza al desmontar
     return () => {
       isMounted = false;
@@ -120,7 +120,7 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
   // Formatear usuario para pasarlo al siguiente paso
   const formatearUsuarioParaSiguiente = (usuario) => {
     const personalData = usuario.personal_interno || usuario.personal_externo;
-    
+
     return {
       id: personalData.id_personal_interno || personalData.id_personal_externo,
       nombre: personalData.nombre || "",
@@ -144,7 +144,7 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
   const handleSelectUser = (usuario) => {
     setSelectedUser(usuario);
     setShowUserDetails(true);
-    
+
     const usuarioFormateado = formatearUsuarioParaSiguiente(usuario._original);
     onNext(usuarioFormateado);
   };
@@ -152,7 +152,7 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
   // Preparar items para el componente List
   const prepareItems = useCallback(() => {
     if (!Array.isArray(usuarios)) return [];
-    
+
     return usuarios.slice(
       (currentPage - 1) * usersPerPage,
       currentPage * usersPerPage
@@ -205,7 +205,7 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
           {/* Contenedor principal con altura fija para evitar saltos */}
           <div className="bg-orange-500 w-full rounded-2xl sm:rounded-3xl md:rounded-[40px] py-3 sm:py-4 md:py-6 px-2 sm:px-3 md:px-4 space-y-2 sm:space-y-3 md:space-y-4 min-h-[400px] md:min-h-[450px] flex flex-col relative z-0">
             <TabProgressBar activeTab="solicitante" />
-            
+
             {/* Barra de búsqueda */}
             <div className="flex items-center space-x-2">
               <div className="flex-grow">
@@ -236,7 +236,7 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"></path>
                     </svg>
                     <p className="text-red-500">{error}</p>
-                    <button 
+                    <button
                       onClick={() => window.location.reload()}
                       className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
                     >
@@ -261,9 +261,9 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
             <Button
               onClick={onPrevious}
               className="bg-transparent hover:bg-transparent p-0 m-0 shadow-none flex items-center justify-center"
-              icon={<FaArrowLeft className="text-black w-5 h-5 md:w-6 md:h-6" />}
+              icon={<FaArrowLeft className="w-5 h-5 md:w-6 md:h-6" />}
+              textColor="orange-500"
             />
-
             <div className="flex-1 flex justify-center">
               {!loading && !error && usuarios.length > 0 && (
                 <PageControl
@@ -273,7 +273,7 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
                 />
               )}
             </div>
-            
+
             <div className="w-5 h-5 md:w-6 md:h-6"></div>
           </div>
 
@@ -282,7 +282,7 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-xl p-4 max-w-md w-full mx-4">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3">Detalles del personal seleccionado</h3>
-                
+
                 <div className="bg-gray-100 rounded-lg p-3 mb-4">
                   <div className="flex items-center mb-2">
                     <svg className="w-6 h-6 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
@@ -290,24 +290,24 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
                     </svg>
                     <span className="font-medium text-gray-700">{selectedUser.nombre}</span>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className="text-gray-600">RUT:</div>
                     <div className="text-gray-800 font-medium">{selectedUser.rut}</div>
-                    
+
                     <div className="text-gray-600">Cargo:</div>
                     <div className="text-gray-800 font-medium">{selectedUser.cargo}</div>
-                    
+
                     <div className="text-gray-600">Ubicación:</div>
                     <div className="text-gray-800 font-medium">{selectedUser.ubicacion}</div>
-                    
+
                     <div className="text-gray-600">Tipo:</div>
                     <div className="text-gray-800 font-medium capitalize">{tipoSolicitante}</div>
                   </div>
                 </div>
-                
+
                 <div className="flex justify-end space-x-2">
-                  <button 
+                  <button
                     onClick={() => setShowUserDetails(false)}
                     className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
                   >

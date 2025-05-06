@@ -5,7 +5,6 @@ import Header from "../../organisms/Gerente/Header";
 const DieselDashboard = () => {
   return (
     <div>
-      {/* Puedes meter KpiCards aquí */}
       <Header />
       <Main />
     </div>

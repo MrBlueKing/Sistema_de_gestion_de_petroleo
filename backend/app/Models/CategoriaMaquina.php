@@ -14,9 +14,11 @@ class CategoriaMaquina extends Model
 
     protected $primaryKey = 'id_categoria'; // Clave primaria personalizada
 
+    // En el modelo CategoriaMaquina.php
     protected $fillable = [
         'nombre_categoria',
         'tipo_medicion',
+        'horas_mantencion'
     ];
 
     // Relación inversa: una categoría puede tener muchas máquinas

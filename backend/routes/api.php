@@ -102,3 +102,13 @@ Route::middleware('auth:sanctum')->get('/usuarios/recientes', [UserController::c
 // Ruta para GERENTE
 Route::apiResource('kpi-valores-entrada', KpiValoresEntradaController::class);
 Route::apiResource('informes-kpi', InformeKpiController::class);
+// Agregar esta ruta a tu archivo routes/api.php
+Route::get('/test-informes-kpi', [InformeKpiController::class, 'test']);
+Route::post('/calcular-kpis', [App\Http\Controllers\Api\KpiCalculadoraController::class, 'calcular']);
+// Rutas para KPIs mineros
+Route::post('/calcular-kpis', [App\Http\Controllers\Api\KpiCalculoController::class, 'guardarKpis']);
+Route::post('/calcular-kpis-sin-guardar', [App\Http\Controllers\Api\KpiCalculoController::class, 'calcularKpisEndpoint']);  
+// Rutas para valores de entrada
+Route::get('/kpi-valores-entrada/verificar-permiso', [App\Http\Controllers\Api\KpiValoresEntradaController::class, 'verificarPermiso']);
+Route::get('/kpi-valores-entrada/historial', [App\Http\Controllers\Api\KpiValoresEntradaController::class, 'obtenerHistorial']);
+Route::apiResource('kpi-valores-entrada', App\Http\Controllers\Api\KpiValoresEntradaController::class);

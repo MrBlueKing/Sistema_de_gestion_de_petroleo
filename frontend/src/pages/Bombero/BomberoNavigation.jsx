@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState } from "react";
 import { UserContext } from "../../context/userContext";
 import TipoSolicitante from "../../components/templates/Bombero/BomberoTipoSolicitante";
 import Solicitante from "../../components/templates/Bombero/BomberoSolicitante";
@@ -15,11 +15,6 @@ const BomberoNavigation = () => {
   const [solicitante, setSolicitante] = useState(null);
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState("");
   const [patenteSeleccionada, setPatenteSeleccionada] = useState("");
-  const [estanqueSeleccionado, setEstanqueSeleccionado] = useState({
-    id_estanque: 1,
-    nombre: "Estanque Principal",
-    capacidad: 10000
-  });
   
   // Función para reiniciar todo el flujo
   const resetFlow = () => {
@@ -87,7 +82,6 @@ const BomberoNavigation = () => {
             patenteSeleccionada={patenteSeleccionada}
             solicitante={solicitante}
             tipoSolicitante={tipoSolicitante}
-            estanqueSeleccionado={estanqueSeleccionado}
             resetFlow={resetFlow}
           />
         );
