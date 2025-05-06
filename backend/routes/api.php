@@ -68,6 +68,8 @@ Route::get('/permisosFaenas', [FaenaController::class, 'getPermisosFaenas']);
 Route::get('/verificarPermiso', [FaenaController::class, 'verificarPermiso']);
 Route::get('/faenasDisponibles', [FaenaController::class, 'getFaenasDisponibles']);
 
+Route::get('/personal-internos-externos', [PersonalInternoController::class, 'indexInternoExterno']);
+
 //RUTAS RECEPCION PETROLEO
 Route::get('/ingresos-petroleo', [IngresoPetroleoController::class, 'index']);
 Route::post('/ingresos-petroleo', [IngresoPetroleoController::class, 'store']);

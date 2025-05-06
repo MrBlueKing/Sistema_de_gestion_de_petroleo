@@ -263,9 +263,9 @@ const RegistrarPersonal = () => {
           endpoint = "/api/registrar-personal-externo";
           payload = {
             rut: personalExterno.rut,
-            nombre: personalExterno.nombre,
+            nombre_completo: personalExterno.nombre,
             id_empresa: personalExterno.id_empresa,
-            faena: faenaSeleccionada
+            ubicacion: faenaSeleccionada
           };
           break;
         case "Nueva Empresa":
@@ -287,8 +287,17 @@ const RegistrarPersonal = () => {
         throw new Error(response.data?.message || "No se pudo completar el registro.");
       }
     } catch (err) {
-      setError(`Error al guardar los datos: ${err.message}`);
-    } finally {
+      if (err.response && err.response.status === 422) {
+        // Mostrar los errores de validación
+        const errores = err.response.data.errors;
+        const mensajes = Object.values(errores).flat().join("\n");
+        setError(`Errores de validación:\n${mensajes}`);
+      } else {
+        // Otro tipo de error (500, 404, etc)
+        setError(`Error al guardar los datos: ${err.message}`);
+      }
+    }
+     finally {
       setLoading(prev => ({ ...prev, submitForm: false }));
     }
   };

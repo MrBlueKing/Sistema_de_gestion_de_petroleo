@@ -11,7 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        //
+        Schema::table('personal_externo', function (Blueprint $table) {
+            $table->dropColumn('id_dotacion');
+        });
     }
 
     /**
@@ -19,6 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        //
+        Schema::table('personal_externo', function (Blueprint $table) {
+            $table->unsignedBigInteger('id_dotacion')->nullable(); // o ajusta el tipo de dato según corresponda
+        });
     }
 };

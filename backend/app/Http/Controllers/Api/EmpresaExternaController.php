@@ -24,7 +24,12 @@ class EmpresaExternaController extends Controller
         
         $empresa = EmpresaExterna::create($request->all());
 
-        return response()->json($empresa, 201);
+        return response()->json([
+            'success' => true,
+            'message' => 'Empresa registrada correctamente.',
+            'empresa' => $empresa
+        ], 201);
+        
     }
 
     public function show($id)
