@@ -22,33 +22,29 @@ const AsignarPermisoSolicitante = () => {
     setLoading(prev => ({ ...prev, fetchData: true }));
     try {
       // Obtener los solicitantes ya registrados usando la nueva API
-      const response = await axios.get("/api/personal-internos");
+      const response = await axios.get("/api/personal-internos-externos");
       if (!response.data) {
-        throw new Error("Error al obtener personal interno");
+        throw new Error("Error al obtener personal");
       }
-      
+  
       // Extraer el array correcto de la respuesta
-      const solicitantesRegistrados = response.data?.personal_interno || [];
-
+      const solicitantesRegistrados = response.data?.personal || [];
+  
       // Formatear las opciones para el dropdown
-      const opcionesFormateadas = solicitantesRegistrados.map((item) => {
-        // Verificar estructura de datos y crear nombre completo combinando nombre y apellido
-        const personalData = item.personal_interno || item;
-        const nombreCompleto = personalData.nombre_completo || 
-                             `${personalData.nombre || ''} ${personalData.apellido || ''}`.trim();
-        
-        return {
-          label: `${personalData.rut} - ${nombreCompleto}`,
-          value: {
-            id: personalData.id_personal_interno,
-            rut: personalData.rut,
-            nombre: nombreCompleto,
-            apellido: personalData.apellido || '',
-            cargo: personalData.cargo || "No especificado",
-          },
-        };
-      });
+      const opcionesFormateadas = solicitantesRegistrados.map((item) => ({
+        label: `${item.rut} - ${item.nombre} (${item.tipo})`,
+        value: {
+          id: item.id,
+          rut: item.rut,
+          nombre: item.nombre,
+          tipo: item.tipo,
+          cargo: item.cargo || 'No especificado'
+          
+        },
+       
+      }));
       
+  
       setSolicitantes(opcionesFormateadas);
     } catch (err) {
       setError(`No se pudo cargar el personal: ${err.message || "Error desconocido"}`);
@@ -56,6 +52,7 @@ const AsignarPermisoSolicitante = () => {
       setLoading(prev => ({ ...prev, fetchData: false }));
     }
   };
+  
 
   const fetchFaenas = async () => {
     setLoading(prev => ({ ...prev, fetchData: true }));
@@ -87,7 +84,7 @@ const AsignarPermisoSolicitante = () => {
   };
   
   // Función para obtener las faenas disponibles para un solicitante
-  const fetchFaenasDisponibles = async (idSolicitante) => {
+  const fetchFaenasDisponibles = async (idSolicitante, tipoSolicitante) => {
     if (!idSolicitante) return;
     
     setLoading(prev => ({ ...prev, faenasPermisos: true }));
@@ -95,9 +92,12 @@ const AsignarPermisoSolicitante = () => {
     setError(""); // Limpiar mensajes de error previos
     
     try {
-      // Usar el nuevo endpoint para obtener faenas disponibles
+      // Usar el nuevo endpoint para obtener faenas disponibles, incluyendo el tipo de solicitante
       const response = await axios.get("/api/faenasDisponibles", {
-        params: { id_dotacion: idSolicitante }
+        params: { 
+          id_dotacion: idSolicitante,
+          tipo_solicitante: tipoSolicitante // Añadir tipo de solicitante como parámetro
+        }
       });
       
       if (!response.data?.success) {
@@ -122,7 +122,10 @@ const AsignarPermisoSolicitante = () => {
       try {
         // Obtener los permisos existentes del solicitante
         const permisosResponse = await axios.get("/api/permisosFaenas", {
-          params: { id_dotacion: idSolicitante }
+          params: { 
+            id_dotacion: idSolicitante,
+            tipo_solicitante: tipoSolicitante // Añadir tipo de solicitante como parámetro
+          }
         });
         
         // Extraer los IDs de faenas donde el solicitante ya tiene permiso
@@ -140,9 +143,9 @@ const AsignarPermisoSolicitante = () => {
           setError("Este solicitante ya tiene permisos asignados en todas las faenas disponibles.");
         }
       } catch (error) {
-        console.log(error)
+        console.log(error);
         // Si ambos métodos fallan, usamos el verificador individual como último recurso
-        verificarFaenasManualmente(idSolicitante);
+        verificarFaenasManualmente(idSolicitante, tipoSolicitante);
       }
     } finally {
       setLoading(prev => ({ ...prev, faenasPermisos: false }));
@@ -150,20 +153,24 @@ const AsignarPermisoSolicitante = () => {
   };
 
   // Método alternativo para verificar manualmente cada faena
-  const verificarFaenasManualmente = async (idSolicitante) => {
+  const verificarFaenasManualmente = async (idSolicitante, tipoSolicitante) => {
     try {
       const checkResults = await Promise.allSettled(
         faenas.map(async (faena) => {
           try {
-            // Usamos el endpoint verificarPermiso para cada faena
+            // Usamos el endpoint verificarPermiso para cada faena, incluyendo el tipo de solicitante
             const response = await axios.get("/api/verificarPermiso", {
-              params: { id_dotacion: idSolicitante, id_faena: faena.value }
+              params: { 
+                id_dotacion: idSolicitante, 
+                id_faena: faena.value,
+                tipo_solicitante: tipoSolicitante // Añadir tipo de solicitante como parámetro
+              }
             });
             
             // Si existe el permiso, la faena no está disponible
             return response.data?.existe ? null : faena;
           } catch (error) {
-            console.log(error)
+            console.log(error);
             // Si hay error, asumimos que la faena está disponible
             return faena;
           }
@@ -220,7 +227,7 @@ const AsignarPermisoSolicitante = () => {
         setSolicitanteSeleccionado(solicitante);
         setError("");
         // Actualizar faenas disponibles para este solicitante
-        fetchFaenasDisponibles(solicitante.id);
+        fetchFaenasDisponibles(solicitante.id, solicitante.tipo);
         return;
       }
       
@@ -232,7 +239,7 @@ const AsignarPermisoSolicitante = () => {
     setSolicitanteSeleccionado(solicitante);
     setError("");
     // Actualizar faenas disponibles para este solicitante
-    fetchFaenasDisponibles(solicitante.id);
+    fetchFaenasDisponibles(solicitante.id, solicitante.tipo);
   };
 
   const validarFormulario = () => {
@@ -266,10 +273,11 @@ const AsignarPermisoSolicitante = () => {
     setLoading(prev => ({ ...prev, submitForm: true }));
     
     try {
-      // Llamar a la API para asignar permiso
+      // Llamar a la API para asignar permiso, incluyendo el tipo de solicitante
       const response = await axios.post("/api/asignarPermisoSolicitante", {
         id_dotacion: solicitanteSeleccionado.id,
         id_faena: faenaSeleccionada,
+        tipo_solicitante: solicitanteSeleccionado.tipo // Añadir tipo de solicitante
       });
 
       if (!response.data?.success) {
@@ -281,7 +289,7 @@ const AsignarPermisoSolicitante = () => {
       
       // Actualizar la lista de faenas disponibles
       if (solicitanteSeleccionado) {
-        fetchFaenasDisponibles(solicitanteSeleccionado.id);
+        fetchFaenasDisponibles(solicitanteSeleccionado.id, solicitanteSeleccionado.tipo);
       }
       
     } catch (err) {
@@ -322,7 +330,7 @@ const AsignarPermisoSolicitante = () => {
     // Si se encuentra la opción, devolver su label, de lo contrario crear uno basado en los datos disponibles
     return foundOption ? 
       foundOption.label : 
-      `${solicitanteSeleccionado.rut} - ${solicitanteSeleccionado.nombre}`;
+      `${solicitanteSeleccionado.rut} - ${solicitanteSeleccionado.nombre} (${solicitanteSeleccionado.tipo})`;
   };
 
   // Verificar si el botón debe estar deshabilitado
@@ -462,7 +470,10 @@ const AsignarPermisoSolicitante = () => {
                       <span className="font-medium">Nombre:</span> {solicitanteSeleccionado.nombre}
                     </div>
                     <div>
-                      <span className="font-medium">Cargo:</span> {solicitanteSeleccionado.cargo}
+                      <span className="font-medium">Tipo:</span> {solicitanteSeleccionado.tipo}
+                    </div>
+                    <div>
+                      <span className="font-medium">Cargo:</span> {solicitanteSeleccionado.cargo || 'No especificado'}
                     </div>
                     {faenaSeleccionada && (
                       <div>

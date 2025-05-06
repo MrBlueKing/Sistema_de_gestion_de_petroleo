@@ -13,7 +13,6 @@ class PersonalExterno extends Model
     protected $primaryKey = 'id_personal';
 
     protected $fillable = [
-        'id_dotacion',
         'nombre',
         'rut',
         'id_empresa',

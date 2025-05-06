@@ -122,6 +122,8 @@ class FaenaController extends Controller
             'data' => $faenasDisponibles,
         ]);
     }
+
+    
     public function getPermisosFaenas(Request $request)
     {
         try {

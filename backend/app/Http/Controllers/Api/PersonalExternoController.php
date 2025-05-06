@@ -5,6 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\PersonalExterno;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use App\Models\Solicitante;
+use App\Models\Faena;
+use App\Models\SolicitanteFaena;
 
 class PersonalExternoController extends Controller
 {
@@ -21,27 +25,92 @@ class PersonalExternoController extends Controller
      */
     public function store(Request $request)
     {
-        // Validar campos obligatorios y formato
-        $request->validate([
-            'nombre' => 'required|string|max:255',
-            'rut' => 'required|string|max:12|unique:personal_externo',
+        // Validar datos de entrada
+        $validator = Validator::make($request->all(), [
+            'rut' => 'required|unique:personal_externo,rut|unique:solicitantes,rut',
+            'nombre_completo' => 'required|string',
             'id_empresa' => 'required|exists:empresas_externas,id_empresa',
+            'ubicacion' => 'required|string', // ahora obligatorio si se usará para buscar/crear faena
         ]);
     
-        // Crear el nuevo registro de personal externo
-        $personal = PersonalExterno::create([
-            'nombre' => $request->input('nombre'),
-            'rut' => $request->input('rut'),
-            'id_empresa' => $request->input('id_empresa'),
-        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors()
+            ], 422);
+        }
     
-        return response()->json([
-            'success' => true,
-            'message' => 'Personal externo registrado correctamente.',
-            'data' => $personal
-        ], 201);
+        try {
+            // Procesar nombre y apellido
+            $nombreCompleto = trim($request->nombre_completo);
+            $partesNombre = explode(' ', $nombreCompleto);
+    
+            if (count($partesNombre) < 2) {
+                return response()->json([
+                    'error' => 'Debe proporcionar al menos un nombre y un apellido.'
+                ], 422);
+            }
+    
+            if (count($partesNombre) > 3) {
+                $nombre = array_pop($partesNombre);
+                $segundoNombre = array_pop($partesNombre);
+                $apellido = implode(' ', $partesNombre);
+                $nombre = $segundoNombre . ' ' . $nombre;
+            } elseif (count($partesNombre) == 3) {
+                $nombre = array_pop($partesNombre);
+                $apellido = implode(' ', $partesNombre);
+            } else {
+                $nombre = array_pop($partesNombre);
+                $apellido = implode(' ', $partesNombre);
+            }
+    
+            if (empty($nombre) || empty($apellido)) {
+                return response()->json([
+                    'error' => 'El nombre y el apellido deben estar presentes.'
+                ], 422);
+            }
+    
+            // Crear solicitante
+            $solicitante = Solicitante::create([
+                'rut' => $request->rut,
+                'tipo_personal' => 'Externo',
+            ]);
+    
+            // Crear personal externo
+            $personal = PersonalExterno::create([
+                'rut' => $request->rut,
+                'nombre' => $nombre . ' ' . $apellido,
+                'id_empresa' => $request->id_empresa,
+            ]);
+    
+            // Buscar o crear faena por ubicación
+            $nombreFaena = $request->ubicacion;
+            $faena = Faena::firstOrCreate(
+                ['ubicacion' => $nombreFaena]
+            );
+    
+            // Crear relación en solicitante_faena
+            $solicitanteFaena = SolicitanteFaena::create([
+                'id_dotacion' => $solicitante->id,
+                'id_faena' => $faena->id_faena,
+            ]);
+    
+            return response()->json([
+                'success' => true,
+                'message' => 'Personal externo registrado correctamente',
+                'solicitante' => $solicitante,
+                'personal_externo' => $personal,
+                'solicitante_faena' => $solicitanteFaena
+            ], 201);
+    
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Hubo un error al registrar el personal externo.',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
     }
-
+    
+    
     /**
      * Display the specified resource.
      */

@@ -147,7 +147,7 @@ export default function Main() {
                     <QuickAccessButton icon={FiUserPlus} title="Agregar Usuario" to="/registroUsuario" />
                     <QuickAccessButton icon={TbCategoryPlus} title="Añadir Tipo Maquina" to="/AñadirTipoMaquina" />
                     <QuickAccessButton icon={FaTruckDroplet} title="Categorización de Equipos" to="/GestionarMaquinaCategoria" />
-                    <QuickAccessButton icon={FaUserCog} title="Gestionar Personal" to="/GestionarPersonalInterno" />
+                    {/* <QuickAccessButton icon={FaUserCog} title="Gestionar Personal" to="/GestionarPersonalInterno" />  */}  
                     <QuickAccessButton icon={FaUserCog} title="Gestionar Personal Externo" to="/GestionarPersonalExterno" />
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
