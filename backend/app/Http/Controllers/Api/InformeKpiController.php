@@ -90,37 +90,55 @@ class InformeKpiController extends Controller
     private function getConsumoEquipos($faena)
     {
         try {
-            // Consulta corregida con nombres de columnas correctos
+            // Subconsulta: obtiene el último ID de consumo por máquina
+            $subqueryUltimoConsumo = DB::table('consumos as c1')
+                ->select(DB::raw('MAX(c1.id_consumo)'))
+                ->join('maquinas_internas as m1', 'c1.id_equipo', '=', 'm1.id_maquina_interna')
+                ->groupBy('c1.id_equipo');
+
+            // Consulta principal
             $query = DB::table('consumos')
                 ->join('maquinas_internas', 'consumos.id_equipo', '=', 'maquinas_internas.id_maquina_interna')
+                ->whereNotIn('consumos.id_consumo', $subqueryUltimoConsumo) // Excluir último consumo
                 ->select(
                     'maquinas_internas.id_maquina_interna as id',
                     'maquinas_internas.nombre',
-                    'maquinas_internas.patente', // Agregado el campo patente
+                    'maquinas_internas.patente',
                     DB::raw('SUM(consumos.litros_consumidos) as consumo')
                 )
-                ->groupBy('maquinas_internas.id_maquina_interna', 'maquinas_internas.nombre', 'maquinas_internas.patente') // Importante agregar al group by
-                ->orderBy('consumo', 'desc')
-                ->limit(5);
+                ->groupBy('maquinas_internas.id_maquina_interna', 'maquinas_internas.nombre', 'maquinas_internas.patente');
 
             if ($faena !== 'todas') {
                 $query->where('consumos.id_faena', $faena);
             }
 
-            $data = $query->get();
+            $consumos = $query->get();
 
-            // Si no hay datos, retornar un array vacío (no un error)
-            if ($data->isEmpty()) {
-                return response()->json([
-                    'status' => 'success',
-                    'data' => [],
-                    'message' => 'No hay datos de consumo por equipos disponibles'
-                ]);
+            // Calcular kilometrajes y rendimiento por equipo
+            foreach ($consumos as $item) {
+                $mediciones = DB::table('consumos')
+                    ->where('id_equipo', $item->id)
+                    ->when($faena !== 'todas', function ($q) use ($faena) {
+                        $q->where('id_faena', $faena);
+                    })
+                    ->orderBy('fecha_consumo')
+                    ->pluck('medicion');
+
+                if ($mediciones->count() >= 2) {
+                    $km = $mediciones->last() - $mediciones->first();
+                    $item->km = $km;
+                    $item->rendimiento = ($item->consumo > 0 && $km > 0)
+                        ? round($km / $item->consumo, 2) // Cambiado a km/L
+                        : null;
+                } else {
+                    $item->km = null;
+                    $item->rendimiento = null;
+                }
             }
 
             return response()->json([
                 'status' => 'success',
-                'data' => $data
+                'data' => $consumos
             ]);
         } catch (\Exception $e) {
             Log::error('Error al obtener consumo por equipos', [
@@ -128,14 +146,14 @@ class InformeKpiController extends Controller
                 'linea' => $e->getLine()
             ]);
 
-            // En caso de error, retorna un JSON con error pero HTTP 200
             return response()->json([
                 'status' => 'error',
                 'message' => 'Error al obtener datos de consumo por equipos: ' . $e->getMessage(),
-                'data' => [] // Importante retornar un array vacío para que el frontend no se rompa
+                'data' => []
             ]);
         }
     }
+
 
     // También corregir getConsumoFaenas, getConsumoMensual y getKpisConsumo
     // con los nombres correctos de columnas

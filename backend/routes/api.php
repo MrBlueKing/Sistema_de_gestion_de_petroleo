@@ -16,6 +16,8 @@ use App\Http\Controllers\Api\IngresoPetroleoController;
 use App\Http\Controllers\Api\EstanqueController;
 use App\Http\Controllers\Api\InformeKpiController;
 use App\Http\Controllers\Api\InformesController;
+use App\Http\Controllers\Api\KpiCalculadoraController;
+use App\Http\Controllers\Api\KpiCalculoController;
 use App\Http\Controllers\Api\KpiValoresEntradaController;
 use App\Http\Controllers\Api\PersonalExternoController;
 
@@ -113,10 +115,11 @@ Route::middleware('auth:sanctum')->get('/usuarios/recientes', [UserController::c
 Route::apiResource('kpi-valores-entrada', KpiValoresEntradaController::class);
 Route::apiResource('informes-kpi', InformeKpiController::class)->except(['show']); // Excluir método show
 Route::get('/test-informes-kpi', [InformeKpiController::class, 'test']);
-Route::post('/calcular-kpis', [App\Http\Controllers\Api\KpiCalculadoraController::class, 'calcular']);
-// Rutas para KPIs mineros
-Route::post('/calcular-kpis', [App\Http\Controllers\Api\KpiCalculoController::class, 'guardarKpis']);
-Route::post('/calcular-kpis-sin-guardar', [App\Http\Controllers\Api\KpiCalculoController::class, 'calcularKpisEndpoint']);  
+
+Route::post('/calcular-kpis', [KpiCalculadoraController::class, 'calcular']);
+
+Route::post('/calcular-kpis2', [KpiCalculoController::class, 'calcular']);
+
 // Rutas para valores de entrada
 Route::get('/kpi-valores-entrada/verificar-permiso', [App\Http\Controllers\Api\KpiValoresEntradaController::class, 'verificarPermiso']);
 Route::get('/kpi-valores-entrada/historial', [App\Http\Controllers\Api\KpiValoresEntradaController::class, 'obtenerHistorial']);

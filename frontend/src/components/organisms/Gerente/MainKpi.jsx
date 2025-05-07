@@ -46,7 +46,6 @@ const MainGerente = ({ children }) => {
     // KPIs con valores inicializados a cero
     const [kpis, setKpis] = useState([
         { title: "Producción Total", value: "0", change: "+0%", unit: "ton", subtext: "Toneladas extraídas", icon: FiTruck, isPositive: true, color: "blue" },
-        { title: "Balance Petróleo", value: "0", change: "+0", unit: "lts", subtext: "Balance de combustible", icon: FiDroplet, isPositive: true, color: "amber" },
         { title: "Camionadas", value: "0", change: "+0", unit: "", subtext: "Número de viajes realizados", icon: FiTruck, isPositive: true, color: "indigo" },
         { title: "Costo Petróleo / Ton", value: "$0", change: "0%", unit: "", subtext: "Costo por tonelada producida", icon: FiDroplet, isPositive: false, color: "red" },
         { title: "Costo Petróleo / Hora", value: "$0", change: "0%", unit: "", subtext: "Costo por hora de operación", icon: FiDroplet, isPositive: true, color: "teal" },
@@ -541,89 +540,6 @@ const MainGerente = ({ children }) => {
     return (
         <div className="flex-1 overflow-auto bg-gray-50">
             <div className="container mx-auto px-4 py-6">
-                {/* Encabezado con filtros y última actualización */}
-                <div className="flex flex-col md:flex-row justify-between items-center mb-6 text-sm text-gray-500">
-                    <div className="flex items-center mb-3 md:mb-0">
-                        <FiCalendar className="mr-2 text-blue-500" />
-                        Mostrando datos para: <span className="font-medium text-gray-700 ml-1">
-                            Este mes
-                        </span>
-                        {faenaSeleccionada !== 'todas' && (
-                            <span className="ml-2"> | Faena: <span className="font-medium text-gray-700 ml-1">
-                                {getNombreFaena(faenaSeleccionada)}
-                            </span></span>
-                        )}
-                    </div>
-                </div>
-
-                {/* Controles principales */}
-                <div className="flex flex-wrap gap-4 justify-between items-center mb-6">
-
-                    {/* Acciones principales */}
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => setMostrarCalculadora(!mostrarCalculadora)}
-                            className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors shadow-sm"
-                        >
-                            {mostrarCalculadora ? (
-                                <>
-                                    <FiX className="mr-2" /> Ocultar Calculadora
-                                </>
-                            ) : (
-                                <>
-                                    <FaCalculator className="mr-2" /> Calcular KPIs
-                                </>
-                            )}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Selector de faena y rango de fechas */}
-                <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Seleccionar Faena:
-                            </label>
-                            <select
-                                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                                value={faenaSeleccionada}
-                                onChange={(e) => setFaenaSeleccionada(e.target.value)}
-                            >
-                                <option value="todas">Todas las faenas</option>
-                                <option value="1">Cabildo</option>
-                                <option value="2">Catemu</option>
-                                <option value="3">Chincolco</option>
-                                <option value="4">Tiltil</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Desde:
-                            </label>
-                            <input
-                                type="date"
-                                value={fechaDesde}
-                                onChange={(e) => setFechaDesde(e.target.value)}
-                                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Hasta:
-                            </label>
-                            <input
-                                type="date"
-                                value={fechaHasta}
-                                onChange={(e) => setFechaHasta(e.target.value)}
-                                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                        </div>
-                    </div>
-                </div>
-
                 {/* Mensajes de estado */}
                 {cargando && (
                     <div className="text-center py-4 bg-white rounded-lg shadow-md mb-4">
@@ -674,6 +590,42 @@ const MainGerente = ({ children }) => {
                             Indicadores Clave
                         </h2>
                     </div>
+                    {/* Encabezado con filtros y última actualización */}
+                    <div className="flex flex-col md:flex-row justify-between items-center mb-6 text-sm text-gray-500">
+                        <div className="flex items-center mb-3 md:mb-0">
+                            <FiCalendar className="mr-2 text-blue-500" />
+                            Mostrando datos para: <span className="font-medium text-gray-700 ml-1">
+                                Este mes
+                            </span>
+                            {faenaSeleccionada !== 'todas' && (
+                                <span className="ml-2"> | Faena: <span className="font-medium text-gray-700 ml-1">
+                                    {getNombreFaena(faenaSeleccionada)}
+                                </span></span>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Controles principales */}
+                    <div className="flex flex-wrap gap-4 justify-between items-center mb-6">
+
+                        {/* Acciones principales */}
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setMostrarCalculadora(!mostrarCalculadora)}
+                                className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors shadow-sm"
+                            >
+                                {mostrarCalculadora ? (
+                                    <>
+                                        <FiX className="mr-2" /> Ocultar Calculadora
+                                    </>
+                                ) : (
+                                    <>
+                                        <FaCalculator className="mr-2" /> Calcular KPIs
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {kpis.map((kpi, i) => {
@@ -712,6 +664,52 @@ const MainGerente = ({ children }) => {
                                 <FiDroplet className="mr-2 text-blue-500" />
                                 Consumo de Petróleo
                             </h2>
+                        </div>
+
+                        {/* Selector de faena y rango de fechas */}
+                        <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Seleccionar Faena:
+                                    </label>
+                                    <select
+                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                        value={faenaSeleccionada}
+                                        onChange={(e) => setFaenaSeleccionada(e.target.value)}
+                                    >
+                                        <option value="todas">Todas las faenas</option>
+                                        <option value="1">Cabildo</option>
+                                        <option value="2">Catemu</option>
+                                        <option value="3">Chincolco</option>
+                                        <option value="4">Tiltil</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Desde:
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={fechaDesde}
+                                        onChange={(e) => setFechaDesde(e.target.value)}
+                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Hasta:
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={fechaHasta}
+                                        onChange={(e) => setFechaHasta(e.target.value)}
+                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
+                            </div>
                         </div>
 
                         {/* Resumen financiero */}

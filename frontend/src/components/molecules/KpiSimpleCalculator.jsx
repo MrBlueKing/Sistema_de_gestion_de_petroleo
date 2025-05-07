@@ -29,59 +29,6 @@ const SimpleKpiCalculator = ({
   const [historialVisible, setHistorialVisible] = useState(false);
   const [historialActualizaciones, setHistorialActualizaciones] = useState([]);
 
-  // Cargar historial de actualizaciones desde la API
-  useEffect(() => {
-    const cargarHistorial = async () => {
-      setLoading(true);
-      try {
-        // Intentar obtener el historial real desde la API
-        const historialRes = await gerenteService.obtenerHistorialActualizaciones({
-          faena,
-          periodo,
-          limite: 5 // últimas 5 actualizaciones
-        });
-        
-        if (historialRes && historialRes.data) {
-          setHistorialActualizaciones(historialRes.data);
-        } else {
-          // Si la API responde pero no hay datos
-          setHistorialActualizaciones([]);
-        }
-      } catch (histErr) {
-        console.error('Error al obtener historial:', histErr);
-        // Si falla la petición, simplemente mostrar un array vacío
-        setHistorialActualizaciones([]);
-        setError("No se pudo cargar el historial de actualizaciones. Verifique la conexión.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    // Cargar historial
-    cargarHistorial();
-  }, [faena, periodo]);
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    // Convertir a número si es un campo numérico y no está vacío
-    const parsedValue = value !== "" ? parseFloat(value) : value;
-    setValores({ ...valores, [name]: parsedValue });
-  };
-
-  const resetForm = () => {
-    setValores({
-      toneladas: "",
-      camionadas: "",
-      litros_petroleo: "",
-      horas: "",
-      kilometros: "",
-      concentracion: "",
-      costo_litro: ""
-    });
-    setSuccess(null);
-    setError(null);
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
