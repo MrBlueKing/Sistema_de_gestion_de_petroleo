@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   BarChart,
   Bar,
@@ -12,64 +12,90 @@ import {
 import { FiTruck, FiAlertTriangle, FiRefreshCw } from "react-icons/fi";
 import { consumoService } from "../../context/apiService";
 
-// Componente Card reutilizable
-const Card = ({ children, className }) => {
-  return (
-    <div className={`bg-white rounded-lg shadow-md p-4 ${className}`}>
-      {children}
-    </div>
-  );
-};
-
-// Componente Title reutilizable
-const Title = ({ children, icon: Icon }) => {
-  return (
-    <h2 className="text-xl font-bold mb-4 text-gray-800 flex items-center">
-      {Icon && <Icon className="mr-2" size={20} />}
-      {children}
-    </h2>
-  );
-};
-
-const TopEquiposChart = ({ faenaSeleccionada = 'todas' }) => {
+const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta }) => {
   const [loading, setLoading] = useState(true);
   const [equiposData, setEquiposData] = useState([]);
   const [error, setError] = useState(null);
   const [totalConsumo, setTotalConsumo] = useState(0);
   const [fechaActualizacion, setFechaActualizacion] = useState(null);
   
+  // Usar useRef para evitar llamadas innecesarias a la API
+  const isMounted = useRef(true);
+  const prevFilters = useRef({ faenaSeleccionada, fechaDesde, fechaHasta });
+  
   const NARANJA_PRINCIPAL = "#f97316"; // Orange-500
   const AZUL_SECUNDARIO = "#60a5fa"; // Blue-400
   
+  // Función para verificar si los filtros han cambiado realmente
+  const filtersChanged = () => {
+    const prevF = prevFilters.current;
+    const changed = prevF.faenaSeleccionada !== faenaSeleccionada || 
+                   prevF.fechaDesde !== fechaDesde ||
+                   prevF.fechaHasta !== fechaHasta;
+    
+    // Actualizar los filtros previos
+    prevFilters.current = { faenaSeleccionada, fechaDesde, fechaHasta };
+    return changed;
+  };
+  
   useEffect(() => {
+    // Establecer el ref a true cuando se monta el componente
+    isMounted.current = true;
+    
+    // Limpiar cuando se desmonta
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+  
+  useEffect(() => {
+    // Verificar si los filtros cambiaron realmente y si el componente está montado
+    if (!isMounted.current || !filtersChanged()) return;
+
     const fetchData = async () => {
       try {
         setLoading(true);
-        // Usamos el parámetro faenaSeleccionada para filtrar los datos
-        const data = await consumoService.getTopEquipos(faenaSeleccionada);
+        
+        // Verificar que las fechas estén presentes
+        if (!fechaDesde || !fechaHasta) {
+          setError("Por favor, seleccione un rango de fechas válido.");
+          setEquiposData([]);
+          setLoading(false);
+          return;
+        }
+
+        // Asegúrate de que la fecha 'Hasta' no sea anterior a 'Desde'
+        if (new Date(fechaDesde) > new Date(fechaHasta)) {
+          setError("La fecha 'Hasta' no puede ser anterior a la fecha 'Desde'.");
+          setEquiposData([]);
+          setLoading(false);
+          return;
+        }
+  
+        console.log("TopEquiposChart: Llamando a la API con filtros:", { faenaSeleccionada, fechaDesde, fechaHasta });
+        
+        // Llamada al servicio con los filtros aplicados
+        const data = await consumoService.getTopEquipos(faenaSeleccionada, fechaDesde, fechaHasta);
+        
+        // Solo actualizar el estado si el componente sigue montado
+        if (!isMounted.current) return;
         
         // Verificar si hay datos
         if (data && data.length > 0) {
-          // Formatear los datos con consumo y horas (si están disponibles)
           const formattedData = data.map(item => ({
             name: item.nombre || (item.name || 'Sin nombre'),
             patente: item.patente || 'S/P',
             consumo: item.consumo || (item.litros_consumidos || 0),
             horas: item.horas || (item.horas_trabajadas || 0),
-            // Calcular eficiencia si tenemos ambos valores
             eficiencia: (item.horas && item.consumo) 
               ? parseFloat((item.consumo / item.horas).toFixed(2)) 
               : null,
             id: item.id || `EQ-${Math.floor(Math.random() * 1000)}`
           }));
-          
-          // Calcular el consumo total
+  
           const total = formattedData.reduce((sum, item) => sum + item.consumo, 0);
           setTotalConsumo(total);
-          
-          // Establecer fecha de actualización
           setFechaActualizacion(new Date());
-          
           setEquiposData(formattedData);
           setError(null);
         } else {
@@ -78,15 +104,19 @@ const TopEquiposChart = ({ faenaSeleccionada = 'todas' }) => {
         }
       } catch (err) {
         console.error("Error al cargar datos de equipos:", err);
-        setEquiposData([]);
-        setError("No se pudieron cargar los datos de equipos. Por favor verifica la conexión con el servidor.");
+        if (isMounted.current) {
+          setEquiposData([]);
+          setError("No se pudieron cargar los datos de equipos. Por favor verifica la conexión con el servidor.");
+        }
       } finally {
-        setLoading(false);
+        if (isMounted.current) {
+          setLoading(false);
+        }
       }
     };
-
+  
     fetchData();
-  }, [faenaSeleccionada]);
+  }, [faenaSeleccionada, fechaDesde, fechaHasta]); // Mantener estas dependencias
 
   // Tooltip personalizado mejorado
   const CustomTooltip = ({ active, payload, label }) => {
@@ -118,16 +148,54 @@ const TopEquiposChart = ({ faenaSeleccionada = 'todas' }) => {
   const handleRetry = () => {
     setLoading(true);
     setError(null);
-    // Forzar recarga de datos
+    // Forzar un cambio en los filtros almacenados para garantizar una nueva llamada
+    prevFilters.current = { 
+      faenaSeleccionada: null, 
+      fechaDesde: null, 
+      fechaHasta: null 
+    };
+    // Usar el setTimeout para asegurar que el estado se actualice antes de recargar
     setTimeout(() => {
-      window.location.reload();
+      // Evitar window.location.reload() ya que recarga toda la página
+      // En su lugar, activamos el useEffect cambiando los filtros
+      filtersChanged();
+      // Llamar a la API directamente
+      const fetchData = async () => {
+        try {
+          const data = await consumoService.getTopEquipos(faenaSeleccionada, fechaDesde, fechaHasta);
+          if (data && data.length > 0) {
+            const formattedData = data.map(item => ({
+              name: item.nombre || (item.name || 'Sin nombre'),
+              patente: item.patente || 'S/P',
+              consumo: item.consumo || (item.litros_consumidos || 0),
+              horas: item.horas || (item.horas_trabajadas || 0),
+              eficiencia: (item.horas && item.consumo) 
+                ? parseFloat((item.consumo / item.horas).toFixed(2)) 
+                : null,
+              id: item.id || `EQ-${Math.floor(Math.random() * 1000)}`
+            }));
+            setEquiposData(formattedData);
+            setError(null);
+          } else {
+            setError("No hay datos disponibles para mostrar");
+          }
+        } catch (err) {
+          setError("Error al recargar los datos. Intente de nuevo.");
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchData();
     }, 500);
   };
 
   if (loading) {
     return (
-      <Card className="col-span-1 md:col-span-2 lg:col-span-1 mb-4 overflow-hidden">
-        <Title icon={FiTruck}>Equipos con Mayor Consumo de Diésel</Title>
+      <div className="bg-white rounded-lg shadow-md p-4 mb-4">
+        <div className="text-xl font-bold mb-4 text-gray-800 flex items-center">
+          <FiTruck className="mr-2" size={20} />
+          Equipos con Mayor Consumo de Diésel
+        </div>
         <div className="h-64 flex items-center justify-center">
           <div className="flex flex-col items-center">
             <div className="animate-spin text-orange-500 mb-3">
@@ -136,14 +204,15 @@ const TopEquiposChart = ({ faenaSeleccionada = 'todas' }) => {
             <div className="text-gray-500">Cargando datos...</div>
           </div>
         </div>
-      </Card>
+      </div>
     );
   }
 
   return (
-    <Card className="col-span-1 md:col-span-2 lg:col-span-1 mb-4 overflow-hidden">
+    <div className="bg-white rounded-lg shadow-md p-4 mb-4">
       <div className="flex justify-between items-center mb-4">
-        <Title icon={FiTruck}>
+        <div className="text-xl font-bold text-gray-800 flex items-center">
+          <FiTruck className="mr-2" size={20} />
           Equipos con Mayor Consumo de Diésel
           {faenaSeleccionada !== 'todas' && (
             <span className="ml-2 text-sm font-normal text-gray-500">
@@ -155,7 +224,7 @@ const TopEquiposChart = ({ faenaSeleccionada = 'todas' }) => {
               })
             </span>
           )}
-        </Title>
+        </div>
         {!error && equiposData.length > 0 && (
           <div className="flex items-center space-x-2">
             <span className="inline-block w-3 h-3 bg-orange-500 rounded-full"></span>
@@ -184,7 +253,7 @@ const TopEquiposChart = ({ faenaSeleccionada = 'todas' }) => {
         </div>
       ) : (
         <>
-          <div className="bg-white rounded-lg p-2">
+          <div className="bg-white rounded-lg">
             <ResponsiveContainer width="100%" height={280}>
               <BarChart 
                 data={equiposData}
@@ -196,54 +265,22 @@ const TopEquiposChart = ({ faenaSeleccionada = 'todas' }) => {
                 <XAxis 
                   dataKey="name" 
                   tick={{ fill: '#666', fontSize: 12 }}
-                  axisLine={{ stroke: '#e0e0e0' }}
-                  tickLine={false}
-                  angle={-45}
-                  textAnchor="end"
-                  height={60}
+                  axisLine={{ stroke: '#ddd' }}
                 />
                 <YAxis 
-                  tick={{ fill: '#666', fontSize: 12 }} 
-                  axisLine={{ stroke: '#e0e0e0' }}
-                  tickLine={false}
-                  tickFormatter={(value) => `${value}`}
+                  tick={{ fill: '#666', fontSize: 12 }}
+                  axisLine={{ stroke: '#ddd' }}
                 />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0, 0, 0, 0.05)' }} />
-                <Legend wrapperStyle={{ bottom: 0 }} />
-                <Bar 
-                  dataKey="consumo" 
-                  fill={NARANJA_PRINCIPAL} 
-                  radius={[4, 4, 0, 0]}
-                  name="Consumo (litros)"
-                />
-                {equiposData.some(item => item.horas > 0) && (
-                  <Bar 
-                    dataKey="horas" 
-                    fill={AZUL_SECUNDARIO} 
-                    radius={[4, 4, 0, 0]} 
-                    name="Horas operadas"
-                  />
-                )}
+                <Tooltip content={<CustomTooltip />} />
+                <Legend verticalAlign="top" height={36} />
+                <Bar dataKey="consumo" fill={NARANJA_PRINCIPAL} />
+                <Bar dataKey="horas" fill={AZUL_SECUNDARIO} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-          
-          <div className="mt-3 px-2">
-            <p className="text-xs text-gray-500">
-              Consumo total de diésel: <span className="font-medium text-gray-700">{totalConsumo.toLocaleString()} litros</span>
-              {fechaActualizacion && (
-                <>
-                  <span className="mx-2">•</span>
-                  <span className="text-green-500">
-                    (Actualizado: {fechaActualizacion.toLocaleDateString()})
-                  </span>
-                </>
-              )}
-            </p>
-          </div>
         </>
       )}
-    </Card>
+    </div>
   );
 };
 

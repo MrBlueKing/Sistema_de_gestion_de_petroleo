@@ -1,4 +1,3 @@
-
 import Main from "../../organisms/Gerente/MainKpi";
 import Header from "../../organisms/Gerente/Header";
 

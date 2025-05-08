@@ -69,9 +69,19 @@ class InformeKpiController extends Controller
 
         switch ($tipo) {
             case 'consumo_equipos':
-                return $this->getConsumoEquipos($faena);
+                return $this->getConsumoEquipos(
+                    $faena,
+                    $request->query('desde'),
+                    $request->query('hasta')
+                );
+
             case 'consumo_faenas':
-                return $this->getConsumoFaenas();
+                return $this->getConsumoFaenas(
+                    $faena,
+                    $request->query('desde'),
+                    $request->query('hasta')
+                );
+
             case 'consumo_mensual':
                 return $this->getConsumoMensual($faena);
             case 'kpis_consumo':
@@ -87,19 +97,23 @@ class InformeKpiController extends Controller
     /**
      * Obtiene los equipos con mayor consumo de diésel
      */
-    private function getConsumoEquipos($faena)
+    private function getConsumoEquipos($faena, $fechaInicio = null, $fechaFin = null)
     {
         try {
-            // Subconsulta: obtiene el último ID de consumo por máquina
+            if ($fechaInicio && $fechaFin) {
+                $fechaInicio = Carbon::parse($fechaInicio)->startOfDay();
+                $fechaFin = Carbon::parse($fechaFin)->endOfDay();
+            }
+    
+            // Subconsulta: último ID de consumo por equipo
             $subqueryUltimoConsumo = DB::table('consumos as c1')
                 ->select(DB::raw('MAX(c1.id_consumo)'))
                 ->join('maquinas_internas as m1', 'c1.id_equipo', '=', 'm1.id_maquina_interna')
                 ->groupBy('c1.id_equipo');
-
-            // Consulta principal
-            $query = DB::table('consumos')
+    
+            // 1. Obtener el consumo TOTAL por equipo (se usará como 'consumo')
+            $consumoTotalQuery = DB::table('consumos')
                 ->join('maquinas_internas', 'consumos.id_equipo', '=', 'maquinas_internas.id_maquina_interna')
-                ->whereNotIn('consumos.id_consumo', $subqueryUltimoConsumo) // Excluir último consumo
                 ->select(
                     'maquinas_internas.id_maquina_interna as id',
                     'maquinas_internas.nombre',
@@ -107,35 +121,60 @@ class InformeKpiController extends Controller
                     DB::raw('SUM(consumos.litros_consumidos) as consumo')
                 )
                 ->groupBy('maquinas_internas.id_maquina_interna', 'maquinas_internas.nombre', 'maquinas_internas.patente');
-
+    
             if ($faena !== 'todas') {
-                $query->where('consumos.id_faena', $faena);
+                $consumoTotalQuery->where('consumos.id_faena', $faena);
             }
-
-            $consumos = $query->get();
-
-            // Calcular kilometrajes y rendimiento por equipo
+            if ($fechaInicio && $fechaFin) {
+                $consumoTotalQuery->whereBetween('consumos.fecha_consumo', [$fechaInicio, $fechaFin]);
+            }
+    
+            $consumoTotal = $consumoTotalQuery->get()->keyBy('id');
+    
+            // 2. Obtener consumo excluyendo el último (como 'consumo_filtrado')
+            $queryFiltrado = DB::table('consumos')
+                ->join('maquinas_internas', 'consumos.id_equipo', '=', 'maquinas_internas.id_maquina_interna')
+                ->whereNotIn('consumos.id_consumo', $subqueryUltimoConsumo)
+                ->select(
+                    'maquinas_internas.id_maquina_interna as id',
+                    'maquinas_internas.nombre',
+                    'maquinas_internas.patente',
+                    DB::raw('SUM(consumos.litros_consumidos) as consumo_filtrado')
+                )
+                ->groupBy('maquinas_internas.id_maquina_interna', 'maquinas_internas.nombre', 'maquinas_internas.patente');
+    
+            if ($faena !== 'todas') {
+                $queryFiltrado->where('consumos.id_faena', $faena);
+            }
+            if ($fechaInicio && $fechaFin) {
+                $queryFiltrado->whereBetween('consumos.fecha_consumo', [$fechaInicio, $fechaFin]);
+            }
+    
+            $consumos = $queryFiltrado->get();
+    
+            // Agregar el consumo total y calcular rendimiento
             foreach ($consumos as $item) {
+                $item->consumo = $consumoTotal[$item->id]->consumo ?? 0;
+    
                 $mediciones = DB::table('consumos')
                     ->where('id_equipo', $item->id)
-                    ->when($faena !== 'todas', function ($q) use ($faena) {
-                        $q->where('id_faena', $faena);
-                    })
+                    ->when($faena !== 'todas', fn($q) => $q->where('id_faena', $faena))
+                    ->when($fechaInicio && $fechaFin, fn($q) => $q->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin]))
                     ->orderBy('fecha_consumo')
                     ->pluck('medicion');
-
+    
                 if ($mediciones->count() >= 2) {
                     $km = $mediciones->last() - $mediciones->first();
                     $item->km = $km;
-                    $item->rendimiento = ($item->consumo > 0 && $km > 0)
-                        ? round($km / $item->consumo, 2) // Cambiado a km/L
+                    $item->rendimiento = ($item->consumo_filtrado > 0 && $km > 0)
+                        ? round($km / $item->consumo_filtrado, 2)
                         : null;
                 } else {
                     $item->km = null;
                     $item->rendimiento = null;
                 }
             }
-
+    
             return response()->json([
                 'status' => 'success',
                 'data' => $consumos
@@ -145,7 +184,7 @@ class InformeKpiController extends Controller
                 'error' => $e->getMessage(),
                 'linea' => $e->getLine()
             ]);
-
+    
             return response()->json([
                 'status' => 'error',
                 'message' => 'Error al obtener datos de consumo por equipos: ' . $e->getMessage(),
@@ -153,26 +192,49 @@ class InformeKpiController extends Controller
             ]);
         }
     }
+    
 
 
     // También corregir getConsumoFaenas, getConsumoMensual y getKpisConsumo
     // con los nombres correctos de columnas
 
-    private function getConsumoFaenas()
+    private function getConsumoFaenas($faena, $fechaInicio = null, $fechaFin = null)
     {
         try {
-            $data = DB::table('consumos')
+            // Parseo y ajuste de fechas si vienen como parámetros
+            if ($fechaInicio && $fechaFin) {
+                $fechaInicio = Carbon::parse($fechaInicio)->startOfDay();
+                $fechaFin = Carbon::parse($fechaFin)->endOfDay();
+            }
+
+            $query = DB::table('consumos')
                 ->join('faenas', 'consumos.id_faena', '=', 'faenas.id_faena')
                 ->select(
                     'faenas.id_faena as id',
                     'faenas.ubicacion as name',
-                    DB::raw('SUM(consumos.litros_consumidos) as value')
+                    DB::raw('SUM(consumos.litros_consumidos) as consumo'),
+                    DB::raw('SUM(consumos.medicion) as suma_kms')
                 )
-                ->whereMonth('consumos.fecha_consumo', Carbon::now()->month)
-                ->whereYear('consumos.fecha_consumo', Carbon::now()->year)
                 ->groupBy('faenas.id_faena', 'faenas.ubicacion')
-                ->orderBy('value', 'desc')
-                ->get();
+                ->orderBy('consumo', 'desc');
+
+            // Filtro de fechas
+            if ($fechaInicio && $fechaFin) {
+                $query->whereBetween('consumos.fecha_consumo', [$fechaInicio, $fechaFin]);
+            } else {
+                // Por defecto: mes actual
+                $query->whereMonth('consumos.fecha_consumo', Carbon::now()->month)
+                    ->whereYear('consumos.fecha_consumo', Carbon::now()->year);
+            }
+
+            $data = $query->get();
+
+            // Procesar rendimiento aproximado si se desea
+            foreach ($data as $faena) {
+                $faena->rendimiento_estimado = ($faena->consumo > 0 && $faena->suma_kms > 0)
+                    ? round($faena->suma_kms / $faena->consumo, 2)
+                    : null;
+            }
 
             return response()->json([
                 'status' => 'success',
@@ -183,17 +245,14 @@ class InformeKpiController extends Controller
                 'error' => $e->getMessage()
             ]);
 
-            // Datos estáticos temporales
             return response()->json([
-                'status' => 'success',
-                'data' => [
-                    ['id' => 1, 'name' => 'Cabildo', 'value' => 300],
-                    ['id' => 2, 'name' => 'Catemu', 'value' => 450],
-                    ['id' => 3, 'name' => 'Chincolco', 'value' => 200],
-                ]
+                'status' => 'error',
+                'message' => 'Error al obtener consumo por faenas: ' . $e->getMessage(),
+                'data' => []
             ]);
         }
     }
+
 
     private function getConsumoMensual($faena)
     {
@@ -249,6 +308,9 @@ class InformeKpiController extends Controller
             ]);
         }
     }
+
+
+
     private function getKpisConsumo($faena = 'todas')
     {
         try {
