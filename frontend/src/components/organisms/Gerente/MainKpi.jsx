@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from "react";
+import { useState, useEffect, useContext, useCallback } from "react";
 import KpiCard from "../../molecules/KpiCard";
 import TopEquiposChart from "../../molecules/TopEquiposChart";
 import FaenasChart from "../../molecules/FaenasChart";
@@ -10,7 +10,7 @@ import axios from '../../../lib/axios';
 import {
     FiDroplet, FiTruck, FiActivity, FiTarget, FiX, FiLoader,
     FiAlertCircle, FiCheckCircle, FiDownload, FiFileText,
-    FiRefreshCw, FiCalendar
+    FiRefreshCw, FiCalendar, FiChevronUp, FiChevronDown
 } from "react-icons/fi";
 import { FaFlask, FaHardHat, FaCalculator, FaFileAlt, FaChartLine } from "react-icons/fa";
 import { UserContext } from "../../../context/userContext";
@@ -23,6 +23,9 @@ const MainGerente = ({ children }) => {
     const [ultimaActualizacion, setUltimaActualizacion] = useState(new Date());
     const [mostrarCalculadora, setMostrarCalculadora] = useState(false);
     const { user } = useContext(UserContext);
+    const [datosConsumoPetroleo, setDatosConsumoPetroleo] = useState(null);
+
+    
 
     // Nuevos estados para mejoras
     const [mostrarInformes, setMostrarInformes] = useState(false);
@@ -43,15 +46,6 @@ const MainGerente = ({ children }) => {
     const [datosConsumo, setDatosConsumo] = useState(null);
     const [balanceCombustible, setBalanceCombustible] = useState(null);
 
-    // KPIs con valores inicializados a cero
-    const [kpis, setKpis] = useState([
-        { title: "Producción Total", value: "0", change: "+0%", unit: "ton", subtext: "Toneladas extraídas", icon: FiTruck, isPositive: true, color: "blue" },
-        { title: "Camionadas", value: "0", change: "+0", unit: "", subtext: "Número de viajes realizados", icon: FiTruck, isPositive: true, color: "indigo" },
-        { title: "Costo Petróleo / Ton", value: "$0", change: "0%", unit: "", subtext: "Costo por tonelada producida", icon: FiDroplet, isPositive: false, color: "red" },
-        { title: "Costo Petróleo / Hora", value: "$0", change: "0%", unit: "", subtext: "Costo por hora de operación", icon: FiDroplet, isPositive: true, color: "teal" },
-        { title: "Costo Petróleo / Km", value: "$0", change: "0%", unit: "", subtext: "Costo por kilómetro recorrido", icon: FiDroplet, isPositive: false, color: "purple" },
-    ]);
-
     // Estados para datos de la API
     const [equiposData, setEquiposData] = useState([]);
     const [faenasData, setFaenasData] = useState([]);
@@ -60,6 +54,23 @@ const MainGerente = ({ children }) => {
     const [error, setError] = useState(null);
     const [datosDisponibles, setDatosDisponibles] = useState(false);
     const [datosApiCargados, setDatosApiCargados] = useState(false);
+
+    // Datos principales
+    const [datosPetroleo, setDatosPetroleo] = useState(null);
+    const [datosProduccion, setDatosProduccion] = useState({
+        toneladas: 0,
+        camionadas: 0
+    });
+
+    // KPIs con valores inicializados a cero
+    const [kpis, setKpis] = useState([
+        { title: "Producción Total", value: "0", change: "+0%", unit: "ton", subtext: "Toneladas extraídas", icon: FiTruck, isPositive: true, color: "blue" },
+        { title: "Camionadas", value: "0", change: "+0", unit: "", subtext: "Número de viajes realizados", icon: FiTruck, isPositive: true, color: "indigo" },
+        { title: "Rendimiento", value: "0", change: "0%", unit: "ton/viaje", subtext: "Toneladas por viaje", icon: FiActivity, isPositive: true, color: "green" },
+        { title: "Costo Petróleo / Ton", value: "$0", change: "0%", unit: "", subtext: "Costo por tonelada producida", icon: FiDroplet, isPositive: false, color: "red" },
+        { title: "Costo Petróleo / Hora", value: "$0", change: "0%", unit: "", subtext: "Costo por hora de operación", icon: FiDroplet, isPositive: true, color: "teal" },
+        { title: "Costo Petróleo / Km", value: "$0", change: "0%", unit: "", subtext: "Costo por kilómetro recorrido", icon: FiDroplet, isPositive: false, color: "purple" },
+    ]);
 
     // Función para obtener datos reales
     const obtenerDatosReales = async () => {
@@ -124,6 +135,39 @@ const MainGerente = ({ children }) => {
         }
     };
 
+    // Función para cargar datos de petróleo
+    const cargarDatosPetroleo = useCallback(async () => {
+        try {
+            const response = await axios.get('/api/kpis-getCostoPetroleoSinUltimosConsumos', {
+                params: {
+                    faena: faenaSeleccionada !== 'todas' ? faenaSeleccionada : null
+                }
+            });
+
+            if (response.data && response.data.status === 'success') {
+                setDatosPetroleo(response.data.data);
+                return response.data.data;
+            }
+            return null;
+        } catch (err) {
+            console.error('Error al cargar datos de petróleo:', err);
+            return null;
+        }
+    }, [faenaSeleccionada]);
+
+    // Cargar datos de producción (puede ser desde otro endpoint)
+    const cargarDatosProduccion = useCallback(async () => {
+        try {
+            // Esta función podría obtener toneladas y camionadas desde otro endpoint si es necesario
+            // Por ahora, vamos a mantener los valores actuales o usar datos de prueba
+            const datosActuales = { ...datosProduccion };
+            return datosActuales;
+        } catch (err) {
+            console.error('Error al cargar datos de producción:', err);
+            return null;
+        }
+    }, [datosProduccion]);
+
     // Función para actualizar KPIs desde datos de API
     const actualizarKpisDesdeAPI = (datosAPI) => {
         try {
@@ -136,7 +180,8 @@ const MainGerente = ({ children }) => {
                     updatedKpis[index] = {
                         ...updatedKpis[index],
                         value: datosAPI.toneladas_extraidas.toLocaleString('es-CL'),
-                        change: datosAPI.cambio_produccion || updatedKpis[index].change
+                        change: datosAPI.cambio_produccion || updatedKpis[index].change,
+                        subtext: `Toneladas extraídas en ${obtenerNombreMesAnterior()}`
                     };
                 }
             }
@@ -147,7 +192,8 @@ const MainGerente = ({ children }) => {
                     updatedKpis[index] = {
                         ...updatedKpis[index],
                         value: datosAPI.viajes.toString(),
-                        change: datosAPI.cambio_viajes || updatedKpis[index].change
+                        change: datosAPI.cambio_viajes || updatedKpis[index].change,
+                        subtext: `Viajes realizados en ${obtenerNombreMesAnterior()}`
                     };
                 }
             }
@@ -160,7 +206,8 @@ const MainGerente = ({ children }) => {
                         ...updatedKpis[index],
                         value: '$' + datosAPI.costo_tonelada.toLocaleString('es-CL'),
                         change: datosAPI.cambio_costo_ton || updatedKpis[index].change,
-                        isPositive: !(datosAPI.cambio_costo_ton && datosAPI.cambio_costo_ton.startsWith('+'))
+                        isPositive: !(datosAPI.cambio_costo_ton && datosAPI.cambio_costo_ton.startsWith('+')),
+                        subtext: `Costo por tonelada en ${obtenerNombreMesAnterior()}`
                     };
                 }
             }
@@ -172,7 +219,8 @@ const MainGerente = ({ children }) => {
                         ...updatedKpis[index],
                         value: '$' + datosAPI.costo_hora.toLocaleString('es-CL'),
                         change: datosAPI.cambio_costo_hora || updatedKpis[index].change,
-                        isPositive: !(datosAPI.cambio_costo_hora && datosAPI.cambio_costo_hora.startsWith('+'))
+                        isPositive: !(datosAPI.cambio_costo_hora && datosAPI.cambio_costo_hora.startsWith('+')),
+                        subtext: `Costo por hora en ${obtenerNombreMesAnterior()}`
                     };
                 }
             }
@@ -184,7 +232,8 @@ const MainGerente = ({ children }) => {
                         ...updatedKpis[index],
                         value: '$' + datosAPI.costo_km.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
                         change: datosAPI.cambio_costo_km || updatedKpis[index].change,
-                        isPositive: !(datosAPI.cambio_costo_km && datosAPI.cambio_costo_km.startsWith('+'))
+                        isPositive: !(datosAPI.cambio_costo_km && datosAPI.cambio_costo_km.startsWith('+')),
+                        subtext: `Costo por kilómetro en ${obtenerNombreMesAnterior()}`
                     };
                 }
             }
@@ -195,7 +244,7 @@ const MainGerente = ({ children }) => {
         }
     };
 
-    // Función para cargar datos de consumo de petróleo
+    // Función para cargar datos de consumo
     const cargarDatosConsumo = async () => {
         try {
             setCargando(true);
@@ -276,7 +325,7 @@ const MainGerente = ({ children }) => {
                     value: `${resumen.balance_litros.toLocaleString('es-CL')}`,
                     change: resumen.balance_litros > 0 ? "+litros" : "-litros",
                     unit: "lts",
-                    subtext: `${Math.abs(resumen.porcentaje_utilizado).toFixed(1)}% utilizado`,
+                    subtext: `${Math.abs(resumen.porcentaje_utilizado).toFixed(1)}% utilizado en ${obtenerNombreMesAnterior()}`,
                     icon: FiDroplet,
                     isPositive: resumen.balance_litros >= 0,
                     color: resumen.balance_litros >= 0 ? "green" : "red"
@@ -295,7 +344,7 @@ const MainGerente = ({ children }) => {
                                 updatedKpis[index] = {
                                     ...updatedKpis[index],
                                     value: '$' + rendimiento.costo_por_unidad.toLocaleString('es-CL', { maximumFractionDigits: 0 }),
-                                    subtext: `${rendimiento.litros_por_unidad.toFixed(2)} litros/hora`,
+                                    subtext: `${rendimiento.litros_por_unidad.toFixed(2)} litros/hora en ${obtenerNombreMesAnterior()}`,
                                     isPositive: false
                                 };
                             }
@@ -305,7 +354,7 @@ const MainGerente = ({ children }) => {
                                 updatedKpis[index] = {
                                     ...updatedKpis[index],
                                     value: '$' + rendimiento.costo_por_unidad.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-                                    subtext: `${rendimiento.litros_por_unidad.toFixed(2)} litros/km`,
+                                    subtext: `${rendimiento.litros_por_unidad.toFixed(2)} litros/km en ${obtenerNombreMesAnterior()}`,
                                     isPositive: false
                                 };
                             }
@@ -330,7 +379,7 @@ const MainGerente = ({ children }) => {
                         updatedKpis[indexCostoTon] = {
                             ...updatedKpis[indexCostoTon],
                             value: '$' + costoPorTonelada.toLocaleString('es-CL', { maximumFractionDigits: 0 }),
-                            subtext: `${litrosPorTonelada.toFixed(2)} litros/ton`,
+                            subtext: `${litrosPorTonelada.toFixed(2)} litros/ton en ${obtenerNombreMesAnterior()}`,
                             isPositive: false
                         };
                     }
@@ -383,7 +432,7 @@ const MainGerente = ({ children }) => {
                         value: `${parseFloat(balanceInfo.stock_final_teorico).toLocaleString('es-CL')}`,
                         change: parseFloat(balanceInfo.stock_final_teorico) > 0 ? "+litros" : "-litros",
                         unit: "lts",
-                        subtext: `${Math.abs(porcentajeUtilizado).toFixed(1)}% utilizado`,
+                        subtext: `${Math.abs(porcentajeUtilizado).toFixed(1)}% utilizado en ${obtenerNombreMesAnterior()}`,
                         icon: FiDroplet,
                         isPositive: parseFloat(balanceInfo.stock_final_teorico) >= 0,
                         color: parseFloat(balanceInfo.stock_final_teorico) >= 0 ? "green" : "red"
@@ -408,6 +457,7 @@ const MainGerente = ({ children }) => {
         obtenerDatosReales();
         cargarDatosConsumo();
         cargarBalanceCombustible();
+        cargarDatosPetroleo();
     }, [faenaSeleccionada, fechaDesde, fechaHasta]);
 
     // Función para cargar datos de consumo con el parámetro toneladas
@@ -445,68 +495,208 @@ const MainGerente = ({ children }) => {
         }
     };
 
+    // Función para actualizar los KPIs basados en datos de petróleo y producción
+    const actualizarKPIs = (datosPetroleo, datosProduccion) => {
+        if (!datosPetroleo) return;
+
+        // Crear una copia de los KPIs actuales
+        const kpisActualizados = [...kpis];
+        const nombreMesAnterior = obtenerNombreMesAnterior();
+
+        // Actualizar Producción Total y Camionadas
+        const indexProduccion = kpisActualizados.findIndex(k => k.title === "Producción Total");
+        if (indexProduccion !== -1) {
+            kpisActualizados[indexProduccion] = {
+                ...kpisActualizados[indexProduccion],
+                value: datosProduccion?.toneladas?.toLocaleString('es-CL') || '0',
+                subtext: `Toneladas extraídas en ${nombreMesAnterior}`
+            };
+        }
+
+        const indexCamionadas = kpisActualizados.findIndex(k => k.title === "Camionadas");
+        if (indexCamionadas !== -1) {
+            kpisActualizados[indexCamionadas] = {
+                ...kpisActualizados[indexCamionadas],
+                value: datosProduccion?.camionadas?.toLocaleString('es-CL') || '0',
+                subtext: `Viajes realizados en ${nombreMesAnterior}`
+            };
+        }
+
+        // Obtener valores para cálculos
+        const costoTotal = parseFloat(datosPetroleo.actual.costo_total);
+        const toneladas = parseFloat(datosProduccion?.toneladas || 0);
+        const medicionHorometro = parseFloat(datosPetroleo.actual.medicion_horometro);
+        const medicionKilometraje = parseFloat(datosPetroleo.actual.medicion_kilometraje);
+
+        // Actualizar Costo por Tonelada
+        if (toneladas > 0 && costoTotal > 0) {
+            const costoPorTon = costoTotal / toneladas;
+            const indexCostoTon = kpisActualizados.findIndex(k => k.title === "Costo Petróleo / Ton");
+
+            if (indexCostoTon !== -1) {
+                kpisActualizados[indexCostoTon] = {
+                    ...kpisActualizados[indexCostoTon],
+                    value: '$' + costoPorTon.toLocaleString('es-CL', { maximumFractionDigits: 0 }),
+                    change: datosPetroleo.cambios.costo_total.toFixed(1) + '%',
+                    isPositive: datosPetroleo.cambios.costo_total <= 0,
+                    subtext: `Costo por tonelada en ${nombreMesAnterior}`
+                };
+            }
+        }
+
+        // Actualizar Costo por Hora
+        if (medicionHorometro > 0 && costoTotal > 0) {
+            const costoPorHora = costoTotal / medicionHorometro;
+            const indexCostoHora = kpisActualizados.findIndex(k => k.title === "Costo Petróleo / Hora");
+
+            if (indexCostoHora !== -1) {
+                kpisActualizados[indexCostoHora] = {
+                    ...kpisActualizados[indexCostoHora],
+                    value: '$' + costoPorHora.toLocaleString('es-CL', { maximumFractionDigits: 0 }),
+                    change: datosPetroleo.cambios.medicion_horometro.toFixed(1) + '%',
+                    isPositive: datosPetroleo.cambios.medicion_horometro <= 0,
+                    subtext: `${medicionHorometro.toLocaleString('es-CL')} horas en ${nombreMesAnterior}`
+                };
+            }
+        }
+
+        // Actualizar Costo por Km
+        if (medicionKilometraje > 0 && costoTotal > 0) {
+            const costoPorKm = costoTotal / medicionKilometraje;
+            const indexCostoKm = kpisActualizados.findIndex(k => k.title === "Costo Petróleo / Km");
+
+            if (indexCostoKm !== -1) {
+                kpisActualizados[indexCostoKm] = {
+                    ...kpisActualizados[indexCostoKm],
+                    value: '$' + costoPorKm.toLocaleString('es-CL', { maximumFractionDigits: 2 }),
+                    change: datosPetroleo.cambios.medicion_kilometraje.toFixed(1) + '%',
+                    isPositive: datosPetroleo.cambios.medicion_kilometraje <= 0,
+                    subtext: `${medicionKilometraje.toLocaleString('es-CL')} km en ${nombreMesAnterior}`
+                };
+            }
+        }
+
+        // Actualizar KPIs
+        setKpis(kpisActualizados);
+    };
+
     // Función para manejar KPIs calculados desde la calculadora
-    const handleCalculatedKpis = (kpisCalculados) => {
-        // Verificar que kpisCalculados tenga datos y estructura correcta
-        if (!kpisCalculados || !kpisCalculados.data) {
-            setError('Los KPIs calculados no tienen un formato válido');
+    const handleCalculatedKpis = (resultado) => {
+        if (!resultado || !resultado.data) {
+            setError('Los datos calculados no tienen formato válido');
             return;
         }
 
         try {
-            const datos = kpisCalculados.data;
+            // Datos completos con producción y consumo
+            const datosCompletos = resultado.data;
+            const nombreMesAnterior = obtenerNombreMesAnterior();
 
-            // Actualizar los KPIs básicos con los valores de la calculadora
-            const updatedKpis = [...kpis];
+            // Actualizar datos de producción
+            setDatosProduccion({
+                toneladas: datosCompletos.toneladas || 0,
+                camionadas: datosCompletos.camionadas || 0
+            });
+
+            // Actualizar KPIs utilizando los datos combinados
+            const kpisActualizados = [...kpis];
 
             // Actualizar "Producción Total" (toneladas)
-            if (datos.toneladas !== undefined) {
-                const index = updatedKpis.findIndex(kpi => kpi.title === "Producción Total");
-                if (index !== -1) {
-                    updatedKpis[index] = {
-                        ...updatedKpis[index],
-                        value: datos.toneladas.toLocaleString('es-CL'),
-                        change: kpisCalculados.cambios?.produccion || '+0%',
-                        isPositive: !(kpisCalculados.cambios?.produccion?.startsWith('-'))
+            const indexProduccion = kpisActualizados.findIndex(k => k.title === "Producción Total");
+            if (indexProduccion !== -1) {
+                kpisActualizados[indexProduccion] = {
+                    ...kpisActualizados[indexProduccion],
+                    value: datosCompletos.toneladas.toLocaleString('es-CL'),
+                    subtext: `Toneladas extraídas en ${nombreMesAnterior}`
+                };
+            }
+
+            // Actualizar Rendimiento si hay datos
+            if (datosCompletos.camionadas > 0) {
+                const rendimientoCalculado = datosCompletos.toneladas / datosCompletos.camionadas;
+                const indexRendimiento = kpisActualizados.findIndex(k => k.title === "Rendimiento");
+
+                if (indexRendimiento !== -1) {
+                    kpisActualizados[indexRendimiento] = {
+                        ...kpisActualizados[indexRendimiento],
+                        value: rendimientoCalculado.toFixed(2),
+                        subtext: `Toneladas por viaje en ${nombreMesAnterior}`
                     };
                 }
             }
 
-            // Actualizar "Camionadas"
-            if (datos.camionadas !== undefined) {
-                const index = updatedKpis.findIndex(kpi => kpi.title === "Camionadas");
-                if (index !== -1) {
-                    updatedKpis[index] = {
-                        ...updatedKpis[index],
-                        value: datos.camionadas.toString(),
-                        change: kpisCalculados.cambios?.camionadas || '+0%',
-                        isPositive: !(kpisCalculados.cambios?.camionadas?.startsWith('-'))
+            // Actualizar Camionadas
+            const indexCamionadas = kpisActualizados.findIndex(k => k.title === "Camionadas");
+            if (indexCamionadas !== -1) {
+                kpisActualizados[indexCamionadas] = {
+                    ...kpisActualizados[indexCamionadas],
+                    value: datosCompletos.camionadas.toLocaleString('es-CL'),
+                    subtext: `Viajes realizados en ${nombreMesAnterior}`
+                };
+            }
+
+            // Actualizar Costo por Tonelada si hay datos suficientes
+            if (datosCompletos.costo_por_tonelada > 0) {
+                const indexCostoTon = kpisActualizados.findIndex(k => k.title === "Costo Petróleo / Ton");
+                if (indexCostoTon !== -1) {
+                    kpisActualizados[indexCostoTon] = {
+                        ...kpisActualizados[indexCostoTon],
+                        value: '$' + datosCompletos.costo_por_tonelada.toLocaleString('es-CL', { maximumFractionDigits: 0 }),
+                        subtext: `Costo por tonelada en ${nombreMesAnterior}`
                     };
                 }
             }
 
-            // Actualizar el estado de KPIs
-            setKpis(updatedKpis);
+            // Actualizar Costo por Hora si hay datos suficientes
+            if (datosCompletos.costo_por_hora > 0) {
+                const indexCostoHora = kpisActualizados.findIndex(k => k.title === "Costo Petróleo / Hora");
+                if (indexCostoHora !== -1) {
+                    kpisActualizados[indexCostoHora] = {
+                        ...kpisActualizados[indexCostoHora],
+                        value: '$' + datosCompletos.costo_por_hora.toLocaleString('es-CL', { maximumFractionDigits: 0 }),
+                        subtext: `${datosCompletos.medicion_horometro.toLocaleString('es-CL')} horas en ${nombreMesAnterior}`
+                    };
+                }
+            }
+
+            // Actualizar Costo por Km si hay datos suficientes
+            if (datosCompletos.costo_por_km > 0) {
+                const indexCostoKm = kpisActualizados.findIndex(k => k.title === "Costo Petróleo / Km");
+                if (indexCostoKm !== -1) {
+                    kpisActualizados[indexCostoKm] = {
+                        ...kpisActualizados[indexCostoKm],
+                        value: '$' + datosCompletos.costo_por_km.toLocaleString('es-CL', { maximumFractionDigits: 2 }),
+                        subtext: `${datosCompletos.medicion_kilometraje.toLocaleString('es-CL')} km en ${nombreMesAnterior}`
+                    };
+                }
+            }
+
+            // Actualizar KPIs
+            setKpis(kpisActualizados);
 
             // Cargar datos con el nuevo valor de toneladas para recalcular KPIs relacionados
-            if (datos.toneladas) {
-                cargarDatosConsumoConToneladas(datos.toneladas);
+            if (datosCompletos.toneladas) {
+                cargarDatosConsumoConToneladas(datosCompletos.toneladas);
             }
 
-            // Mostrar mensaje de éxito
-            setMensajeExito("KPIs actualizados correctamente");
+            // Mensajes de éxito y actualizar timestamp
+            setMensajeExito(`KPIs actualizados correctamente para ${nombreMesAnterior}`);
             setTimeout(() => setMensajeExito(null), 3000);
-
-            // Actualizar timestamp
             setUltimaActualizacion(new Date());
 
-            // Cerrar calculadora
+            // Ocultar calculadora
             setMostrarCalculadora(false);
-
         } catch (err) {
             console.error('Error al procesar KPIs calculados:', err);
             setError('Error al procesar los resultados calculados');
         }
+    };
+
+    // Función auxiliar para obtener el nombre del mes anterior
+    const obtenerNombreMesAnterior = () => {
+        const fechaActual = new Date();
+        fechaActual.setMonth(fechaActual.getMonth() - 1);
+        return fechaActual.toLocaleString('default', { month: 'long', year: 'numeric' });
     };
 
     // Función para refrescar datos manualmente
@@ -514,9 +704,10 @@ const MainGerente = ({ children }) => {
         obtenerDatosReales();
         cargarDatosConsumo();
         cargarBalanceCombustible();
+        cargarDatosPetroleo();
     };
 
-    // Obtener el nombre de la faena según su ID
+    // Obtener nombre de faena
     const getNombreFaena = (id) => {
         switch (id) {
             case '1': return 'Cabildo';
@@ -524,16 +715,6 @@ const MainGerente = ({ children }) => {
             case '3': return 'Chincolco';
             case '4': return 'Tiltil';
             default: return id;
-        }
-    };
-
-    // Obtener el nombre del periodo
-    const getNombrePeriodo = (periodo) => {
-        switch (periodo) {
-            case 'diario': return 'Hoy';
-            case 'semanal': return 'Esta semana';
-            case 'mensual': return 'Este periodo';
-            default: return 'Periodo actual';
         }
     };
 
@@ -589,27 +770,17 @@ const MainGerente = ({ children }) => {
                             <FaChartLine className="mr-2 text-blue-500" />
                             Indicadores Clave
                         </h2>
-                    </div>
-                    {/* Encabezado con filtros y última actualización */}
-                    <div className="flex flex-col md:flex-row justify-between items-center mb-6 text-sm text-gray-500">
-                        <div className="flex items-center mb-3 md:mb-0">
-                            <FiCalendar className="mr-2 text-blue-500" />
-                            Mostrando datos para: <span className="font-medium text-gray-700 ml-1">
-                                Este mes
-                            </span>
-                            {faenaSeleccionada !== 'todas' && (
-                                <span className="ml-2"> | Faena: <span className="font-medium text-gray-700 ml-1">
-                                    {getNombreFaena(faenaSeleccionada)}
-                                </span></span>
-                            )}
-                        </div>
-                    </div>
 
-                    {/* Controles principales */}
-                    <div className="flex flex-wrap gap-4 justify-between items-center mb-6">
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={refrescarDatos}
+                                className="flex items-center px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors"
+                                disabled={cargando}
+                            >
+                                <FiRefreshCw className={`mr-1 ${cargando ? 'animate-spin' : ''}`} />
+                                Actualizar
+                            </button>
 
-                        {/* Acciones principales */}
-                        <div className="flex gap-2">
                             <button
                                 onClick={() => setMostrarCalculadora(!mostrarCalculadora)}
                                 className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors shadow-sm"
@@ -627,32 +798,40 @@ const MainGerente = ({ children }) => {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {kpis.map((kpi, i) => {
-                            const borderColor = {
-                                blue: "border-blue-500",
-                                amber: "border-amber-500",
-                                green: "border-green-500",
-                                indigo: "border-indigo-500",
-                                red: "border-red-500",
-                                teal: "border-teal-500",
-                                purple: "border-purple-500",
-                            }[kpi.color] || "border-gray-500";
+                    {/* Información del período y faena */}
+                    <div className="flex flex-col md:flex-row justify-between items-center mb-6 text-sm text-gray-500">
+                        <div className="flex items-center mb-3 md:mb-0">
+                            <FiCalendar className="mr-2 text-blue-500" />
+                            Mostrando datos para: <span className="font-medium text-gray-700 ml-1">
+                                {periodoSeleccionado === "mensual" ? obtenerNombreMesAnterior() : "Este mes"}
+                            </span>
+                            {faenaSeleccionada !== 'todas' && (
+                                <span className="ml-2"> | Faena: <span className="font-medium text-gray-700 ml-1">
+                                    {getNombreFaena(faenaSeleccionada)}
+                                </span></span>
+                            )}
+                        </div>
 
-                            return (
-                                <KpiCard
-                                    className={`bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow border-l-4 ${borderColor}`}
-                                    key={i}
-                                    title={kpi.title}
-                                    value={kpi.value}
-                                    change={kpi.change}
-                                    unit={kpi.unit}
-                                    subtext={kpi.subtext}
-                                    icon={kpi.icon}
-                                    isPositive={kpi.isPositive}
-                                />
-                            );
-                        })}
+                        <div className="text-xs text-gray-500">
+                            Última actualización: {ultimaActualizacion.toLocaleString()}
+                        </div>
+                    </div>
+
+                    {/* Cards de KPIs */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {kpis.map((kpi, i) => (
+                            <KpiCard
+                                key={i}
+                                title={kpi.title}
+                                value={kpi.value}
+                                change={kpi.change}
+                                unit={kpi.unit}
+                                subtext={kpi.subtext}
+                                icon={kpi.icon}
+                                isPositive={kpi.isPositive}
+                                color={kpi.color}
+                            />
+                        ))}
                     </div>
                 </section>
 
@@ -867,7 +1046,7 @@ const MainGerente = ({ children }) => {
                     </section>
                 )}
 
-                {/* Sección de gráficos - Mostrar mensaje cuando no hay datos */}
+                {/* Sección de gráficos */}
                 <section className="mb-8">
                     <div className="flex justify-between items-center mb-4 bg-white p-4 rounded-lg shadow-sm">
                         <h2 className="text-lg font-semibold text-gray-800 flex items-center">
@@ -937,12 +1116,11 @@ const MainGerente = ({ children }) => {
             <footer className="bg-white border-t border-gray-200 py-4 px-6 mt-8">
                 <div className="container mx-auto flex justify-between items-center text-sm text-gray-500">
                     <div>
-                        &copy; {new Date().getFullYear()} Minería Analytics. Todos los derechos reservados.
+                        &copy; {new Date().getFullYear()} Minera 3H. Todos los derechos reservados.
                     </div>
                     <div className="flex items-center">
-                        <span className="mr-2">Versión 2.1.0</span>
+                        <span className="mr-2">Versión 0.0.1</span>
                         <span className="w-1 h-1 bg-gray-400 rounded-full mx-2"></span>
-                        <span>Soporte técnico: soporte@mineriaanalytics.cl</span>
                     </div>
                 </div>
             </footer>
