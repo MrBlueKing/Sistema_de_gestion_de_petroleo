@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
 use App\Models\Faena;
 use App\Models\KpiValoresEntrada;
-use App\Models\KpiResultados;
 
 class InformeKpi extends Model
 {
@@ -47,11 +46,5 @@ class InformeKpi extends Model
     public function valoresEntrada()
     {
         return $this->hasOne(KpiValoresEntrada::class, 'id_informe');
-    }
-
-    // Relación con resultados (uno a muchos)
-    public function resultados()
-    {
-        return $this->hasMany(KpiResultados::class, 'id_informe');
     }
 }

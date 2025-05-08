@@ -1,111 +1,194 @@
 <?php
 
-namespace App\Models;
+namespace App\Http\Controllers\Api;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Http\Controllers\Controller;
+use App\Models\Consumo;
+use App\Models\Estanque;
+use App\Models\StockPetroleo;
+use App\Models\EstanqueStock;
+use App\Models\IngresoPetroleo;
+use App\Models\MovimientoPetroleo;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 
-class ConsumoReporte extends Model
+class ConsumoController extends Controller
 {
-    public static function getReporteConsumoMaquinas($fechaInicio, $fechaFin)
+    public function store(Request $request)
     {
-        return DB::table('consumos as c')
-            ->join('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
-            ->join('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria')
-            ->join('faenas as f', 'c.id_faena', '=', 'f.id_faena')
-            ->select(
-                'm.id_maquina',
-                'm.nombre_maquina',
-                'm.patente',
-                'cm.tipo_medicion',
-                'c.id_faena',
-                'f.ubicacion as nombre_faena',
-                DB::raw('MIN(c.fecha_consumo) as primera_fecha'),
-                DB::raw('MAX(c.fecha_consumo) as ultima_fecha'),
-                DB::raw('MIN(c.medicion) as medicion_inicial'),
-                DB::raw('MAX(c.medicion) as medicion_final'),
-                DB::raw('(MAX(c.medicion) - MIN(c.medicion)) as diferencia_medicion'),
-                DB::raw('SUM(c.litros_consumidos) as total_litros'),
-                DB::raw('AVG(c.precio_litro) as precio_promedio'),
-                DB::raw('SUM(c.litros_consumidos * c.precio_litro) as costo_total')
-            )
-            ->where('c.fecha_consumo', '>=', $fechaInicio)
-            ->where('c.fecha_consumo', '<=', $fechaFin)
-            ->groupBy('m.id_maquina', 'm.nombre_maquina', 'm.patente', 'cm.tipo_medicion', 'c.id_faena', 'f.ubicacion')
-            ->having(DB::raw('COUNT(c.id_consumo)'), '>', 1) // Solo incluir máquinas con al menos 2 registros
-            ->orderBy('f.ubicacion')
-            ->orderBy('m.nombre_maquina')
-            ->get();
-    }
-    
-    // Alternativa si no quieres añadir la columna precio_litro
-    public static function getReporteConsumoMaquinasSinColumna($fechaInicio, $fechaFin)
-    {
-        return DB::select("
-            SELECT 
-                m.id_maquina,
-                m.nombre_maquina,
-                m.patente,
-                cm.tipo_medicion,
-                c.id_faena,
-                f.ubicacion AS nombre_faena,
+        Log::info('Iniciando store de Consumo', ['data_recibida' => $request->all()]);
+
+        $validator = Validator::make($request->all(), [
+            'id_dotacion' => 'required|exists:solicitantes,id',
+            'id_equipo' => 'required|exists:maquinas,id_maquina',
+            'id_usuario' => 'required|exists:users,id',
+            'fecha_consumo' => 'nullable|date',
+            'litros_consumidos' => 'required|numeric|min:0',
+            'id_faena' => 'required|exists:faenas,id_faena',
+            'id_estanque' => 'nullable|exists:estanques,id_estanque',
+            'medicion' => 'nullable|numeric',
+            'numeral_inicial' => 'nullable|numeric',
+            'numeral_final' => 'nullable|numeric',
+            'observacion' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            Log::warning('Validación fallida en Consumo::store', ['errors' => $validator->errors()]);
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $idFaena = $request->id_faena;
+            $litrosConsumidos = $request->litros_consumidos;
+        
+            // Obtener el último ingreso de petróleo por faena
+            $ultimoIngreso = IngresoPetroleo::where('id_faena', $idFaena)
+                ->orderBy('created_at', 'desc')
+                ->first();
+            
+            $precioLitro = $ultimoIngreso ? $ultimoIngreso->precio : null;
+        
+            DB::beginTransaction();
+        
+            $estanques = Estanque::where('id_faena', $idFaena)
+                ->where('activo', true)
+                ->with('stock')
+                ->get()
+                ->sortByDesc(fn($e) => $e->stock->stock_actual ?? 0);
+        
+            $stockTotal = $estanques->sum(fn($e) => $e->stock->stock_actual ?? 0);
+        
+            if ($stockTotal < $litrosConsumidos) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Stock insuficiente',
+                    'data' => [
+                        'stock_actual' => $stockTotal,
+                        'litros_solicitados' => $litrosConsumidos
+                    ]
+                ], 400);
+            }
+            
+            // Crear un único registro de consumo principal
+            $datosConsumoPrincipal = $request->all();
+            $datosConsumoPrincipal['precio_litro'] = $precioLitro;
+            
+            // Si hay un estanque preferido en la solicitud, lo usamos como estanque principal
+            // sino, usamos el primer estanque de la lista con stock suficiente
+            $estanquePrincipal = null;
+            
+            if ($request->id_estanque) {
+                $estanquePrincipal = $estanques->firstWhere('id_estanque', $request->id_estanque);
+            }
+            
+            if (!$estanquePrincipal) {
+                foreach ($estanques as $estanque) {
+                    if ($estanque->stock && $estanque->stock->stock_actual > 0) {
+                        $estanquePrincipal = $estanque;
+                        break;
+                    }
+                }
+            }
+            
+            if (!$estanquePrincipal) {
+                throw new \Exception('No se encontró un estanque con stock disponible');
+            }
+            
+            $datosConsumoPrincipal['id_estanque'] = $estanquePrincipal->id_estanque;
+            
+            // Creamos el consumo principal que representará el consumo total
+            $consumoPrincipal = Consumo::create($datosConsumoPrincipal);
+            
+            // Detalles para el frontend
+            $consumosPorEstanque = [];
+            $estanquesUtilizados = [];
+            
+            // Variables para procesar el consumo
+            $litrosRestantes = $litrosConsumidos;
+        
+            foreach ($estanques as $estanque) {
+                $stock = $estanque->stock;
+                if (!$stock || $stock->stock_actual <= 0) continue;
+        
+                $litrosDeEste = min($stock->stock_actual, $litrosRestantes);
+                if ($litrosDeEste <= 0) continue;
                 
-                (SELECT fecha_consumo FROM consumos 
-                 WHERE id_equipo = m.id_maquina AND id_faena = c.id_faena
-                 AND fecha_consumo BETWEEN ? AND ?
-                 ORDER BY fecha_consumo ASC LIMIT 1) AS primera_fecha,
+                $stockAnterior = $stock->stock_actual;
+                $stock->stock_actual -= $litrosDeEste;
+        
+                if ($estanque->altura_nominal && $estanque->capacidad) {
+                    $stock->altura_actual = ($stock->stock_actual / $estanque->capacidad) * $estanque->altura_nominal;
+                }
+        
+                $stock->ultima_medicion = now();
+                $stock->save();
                 
-                (SELECT fecha_consumo FROM consumos 
-                 WHERE id_equipo = m.id_maquina AND id_faena = c.id_faena
-                 AND fecha_consumo BETWEEN ? AND ?
-                 ORDER BY fecha_consumo DESC LIMIT 1) AS ultima_fecha,
-                 
-                (SELECT medicion FROM consumos 
-                 WHERE id_equipo = m.id_maquina AND id_faena = c.id_faena
-                 AND fecha_consumo BETWEEN ? AND ?
-                 ORDER BY fecha_consumo ASC LIMIT 1) AS medicion_inicial,
-                 
-                (SELECT medicion FROM consumos 
-                 WHERE id_equipo = m.id_maquina AND id_faena = c.id_faena
-                 AND fecha_consumo BETWEEN ? AND ?
-                 ORDER BY fecha_consumo DESC LIMIT 1) AS medicion_final,
-                 
-                (
-                    (SELECT medicion FROM consumos 
-                     WHERE id_equipo = m.id_maquina AND id_faena = c.id_faena
-                     AND fecha_consumo BETWEEN ? AND ?
-                     ORDER BY fecha_consumo DESC LIMIT 1)
-                    -
-                    (SELECT medicion FROM consumos 
-                     WHERE id_equipo = m.id_maquina AND id_faena = c.id_faena
-                     AND fecha_consumo BETWEEN ? AND ?
-                     ORDER BY fecha_consumo ASC LIMIT 1)
-                ) AS diferencia_medicion,
+                // Registrar el movimiento de petróleo para este estanque
+                MovimientoPetroleo::create([
+                    'id_faena' => $idFaena,
+                    'tipo_movimiento' => 'consumo',
+                    'id_referencia' => $consumoPrincipal->id_consumo, // TODOS apuntan al mismo consumo principal
+                    'cantidad' => -$litrosDeEste,
+                    'stock_anterior' => $stockAnterior,
+                    'stock_actual' => $stock->stock_actual,
+                    'id_usuario' => $request->id_usuario,
+                    'id_estanque' => $estanque->id_estanque // Añadimos el campo id_estanque si existe en la tabla
+                ]);
                 
-                SUM(c.litros_consumidos) AS total_litros,
-                (
-                    SELECT AVG(precio) FROM ingresos_petroleo
-                    WHERE id_faena = c.id_faena
-                    AND created_at BETWEEN ? AND ?
-                ) AS precio_promedio,
-                SUM(c.litros_consumidos) * (
-                    SELECT AVG(precio) FROM ingresos_petroleo
-                    WHERE id_faena = c.id_faena
-                    AND created_at BETWEEN ? AND ?
-                ) AS costo_total
-            FROM 
-                consumos c
-                INNER JOIN maquinas m ON c.id_equipo = m.id_maquina
-                INNER JOIN categorias_maquinas cm ON m.id_categoria = cm.id_categoria
-                INNER JOIN faenas f ON c.id_faena = f.id_faena
-            WHERE 
-                c.fecha_consumo BETWEEN ? AND ?
-            GROUP BY 
-                m.id_maquina, m.nombre_maquina, m.patente, cm.tipo_medicion, c.id_faena, f.ubicacion
-            HAVING 
-                COUNT(c.id_consumo) > 1
-            ORDER BY 
-                f.ubicacion, m.nombre_maquina
-        ", array_fill(0, 12, [$fechaInicio, $fechaFin]));
+                // Guardamos información para la respuesta
+                $consumosPorEstanque[] = [
+                    'id_estanque' => $estanque->id_estanque,
+                    'nombre_estanque' => $estanque->nombre ?? ('Estanque #' . $estanque->id_estanque),
+                    'litros_consumidos' => $litrosDeEste,
+                    'stock_anterior' => $stockAnterior,
+                    'stock_actual' => $stock->stock_actual
+                ];
+                
+                $estanquesUtilizados[] = $estanque->id_estanque;
+                
+                $litrosRestantes -= $litrosDeEste;
+                if ($litrosRestantes <= 0) break;
+            }
+            
+            // Actualizar el stock total de la faena
+            $totalFaena = EstanqueStock::whereHas('estanque', fn($q) => $q->where('id_faena', $idFaena))
+                ->sum('stock_actual');
+        
+            $stockPetroleo = StockPetroleo::firstOrNew(['id_faena' => $idFaena]);
+            $stockPetroleo->stock_actual = $totalFaena;
+            $stockPetroleo->ultima_actualizacion = now();
+            $stockPetroleo->save();
+        
+            DB::commit();
+        
+            return response()->json([
+                'success' => true,
+                'message' => 'Consumo registrado correctamente' . 
+                             (count($estanquesUtilizados) > 1 ? ' desde múltiples estanques' : ''),
+                'data' => [
+                    'id_consumo' => $consumoPrincipal->id_consumo,
+                    'litros_totales' => $litrosConsumidos,
+                    'estanques_utilizados' => $estanquesUtilizados,
+                    'desglose_por_estanque' => $consumosPorEstanque
+                ]
+            ], 201);
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error en Consumo::store', [
+                'exception' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al registrar el consumo',
+                'error' => $e->getMessage()
+            ], 500);
+        }        
     }
 }
