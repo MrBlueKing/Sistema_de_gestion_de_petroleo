@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
-import FiltrosComponent from "../../molecules/FiltrosComponents";
+import FiltrosComponent from "../../molecules/FiltrosComponent";
+
 import TopEquiposChart from "../../molecules/TopEquiposChart";
 import FaenasChart from "../../molecules/FaenasChart";
 import ConsumoTendenciaChart from "../../molecules/ConsumoTendenciaChart";
 
-const Dashboard = () => {
+const MainKpi = () => {
+
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
   const [faenaSeleccionada, setFaenaSeleccionada] = useState("todas");
@@ -72,4 +74,6 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+
+export default MainKpi;
+

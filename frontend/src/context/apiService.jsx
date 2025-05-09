@@ -73,6 +73,9 @@ const consumoService = {
         );
         return [];
       }
+      
+      console.warn('La respuesta de la API no contiene datos en el formato esperado', response.data);
+      return [];
     } catch (error) {
       console.error("Error al obtener consumo por faenas:", error);
       throw error;
@@ -93,6 +96,9 @@ const consumoService = {
         );
         return [];
       }
+      
+      console.warn('La respuesta de la API no contiene datos en el formato esperado', response.data);
+      return [];
     } catch (error) {
       console.error("Error al obtener consumo mensual:", error);
       throw error;
@@ -113,6 +119,9 @@ const consumoService = {
         );
         return null;
       }
+      
+      console.warn('La respuesta de la API no contiene datos en el formato esperado', response.data);
+      return null;
     } catch (error) {
       console.error("Error al obtener KPIs de consumo:", error);
       throw error;
@@ -139,9 +148,8 @@ const consumoService = {
       ) {
         //console.log("ApiService: Data received from API:", response.data.data);
         return response.data.data;
-      } else if (response.data && Array.isArray(response.data)) {
+      } else if (Array.isArray(response.data)) {
         // Alternativa: la API podría estar devolviendo el array directamente
-        //console.log("ApiService: Direct array received from API:", response.data);
         return response.data;
       } else {
         console.warn(
@@ -225,10 +233,10 @@ const gerenteService = {
         valoresEntrada.precio_combustible;
 
       const kpisCalculados = {
-        consumo_total: valoresEntrada.combustible_consumido,
-        toneladas: valoresEntrada.toneladas_extraidas,
-        concentracion: valoresEntrada.ley_mineral,
-        camionadas: valoresEntrada.numero_viajes,
+        consumo_total: combustibleConsumido,
+        toneladas: toneladasExtraidas,
+        concentracion: leyMineral,
+        camionadas: numeroViajes,
         costoTotal: costoTotal,
         costoTonelada:
           valoresEntrada.toneladas_extraidas > 0
@@ -261,10 +269,16 @@ const gerenteService = {
     }
   },
 
-  // Calcula KPIs con los valores ingresados por el usuario en la calculadora
+  /**
+   * Calcula y registra los KPIs en el servidor
+   * @param {Object} datos - Datos de entrada para cálculo y registro
+   * @returns {Promise<Object>} - Resultado de la operación
+   */
   calcularKpis: async (datos) => {
     try {
-      // Intentamos enviar al backend primero
+      console.log("Enviando datos al servidor:", datos);
+      
+      // Intentar enviar al endpoint del backend primero
       try {
         const response = await axios.post("/api/calcular-kpis", datos);
         if (response.data && response.data.status === "success") {

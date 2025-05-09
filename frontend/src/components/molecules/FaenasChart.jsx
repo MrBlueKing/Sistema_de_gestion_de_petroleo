@@ -265,10 +265,13 @@ const FaenasChart = ({
 
   const chartTitle = faenaSeleccionada !== 'todas' ? `Consumo de ${getNombreFaena(faenaSeleccionada)}` : "Consumo por Faena";
   
-  // Añadir información de fechas si están disponibles
-  const fechasInfo = fechaDesde && fechaHasta 
-    ? `Del ${new Date(fechaDesde).toLocaleDateString('es-CL')} al ${new Date(fechaHasta).toLocaleDateString('es-CL')}`
-    : "";
+  // Función para formatear fecha en formato dd-mm-yyyy
+const formatearFecha = (fechaStr) => fechaStr.split('-').reverse().join('-');
+
+ // Añadir información de fechas si están disponibles
+const fechasInfo = fechaDesde && fechaHasta 
+  ? `Del ${formatearFecha(fechaDesde)} al ${formatearFecha(fechaHasta)}`
+  : "";
 
   if (loading) {
     return (

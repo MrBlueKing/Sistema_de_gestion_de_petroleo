@@ -513,4 +513,17 @@ class InformeKpiController extends Controller
             ]);
         }
     }
+    public function obtenerValoresMesAnterior()
+    {
+        $inicioMesAnterior = Carbon::now()->subMonth()->startOfMonth();
+        $finMesAnterior = Carbon::now()->subMonth()->endOfMonth();
+
+        $valores = DB::table('kpi_valores_entradas as ve')
+            ->join('informes_kpi as i', 've.id_informe', '=', 'i.id_informe')
+            ->whereBetween('ve.created_at', [$inicioMesAnterior, $finMesAnterior])
+            ->select('i.id_faena', 've.*')
+            ->get();
+
+        return response()->json($valores);
+    }
 }
