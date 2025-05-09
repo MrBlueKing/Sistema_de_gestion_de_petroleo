@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import FiltrosComponent from "./FiltrosComponents";
+import FiltrosComponent from "../../molecules/FiltrosComponents";
 import TopEquiposChart from "../../molecules/TopEquiposChart";
 import FaenasChart from "../../molecules/FaenasChart";
 import ConsumoTendenciaChart from "../../molecules/ConsumoTendenciaChart";
