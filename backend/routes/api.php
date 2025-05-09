@@ -116,9 +116,9 @@ Route::apiResource('kpi-valores-entrada', KpiValoresEntradaController::class);
 Route::apiResource('informes-kpi', InformeKpiController::class)->except(['show']); // Excluir método show
 Route::get('/test-informes-kpi', [InformeKpiController::class, 'test']);
 
-//Route::post('/calcular-kpis', [KpiCalculadoraController::class, 'calcular']);
-
 Route::post('/calcular-kpis', [KpiCalculoController::class, 'calcular']);
+
+Route::get('/datos-mes-anterior', [InformeKpiController::class, 'obtenerValoresMesAnterior']);
 
 Route::get('/faenas-disponibles', [KpiCalculoController::class, 'getFaenasDisponibles']);
 

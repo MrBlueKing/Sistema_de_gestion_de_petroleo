@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, memo } from "react";
 import { FaCalculator, FaHistory, FaInfoCircle, FaCalendarAlt, FaChartBar } from "react-icons/fa";
 import { FiCheckCircle, FiInfo, FiAlertCircle, FiTruck, FiActivity, FiChevronUp, FiChevronDown } from "react-icons/fi";
-import { gerenteService } from "../../context/apiService";
+import { gerenteService } from "../../context/apiServiceS";
 import axios from '../../lib/axios';
 import PropTypes from 'prop-types';
 

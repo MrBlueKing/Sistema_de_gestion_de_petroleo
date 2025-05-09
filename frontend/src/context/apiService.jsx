@@ -1,98 +1,106 @@
-// src/services/ApiService.js - Implementación profesional mejorada
-import axios from '../lib/axios';
+// src/services/ApiService.js - Versión actualizada
+import axios from "../lib/axios";
 
-/**
- * Servicio para gestión de datos de consumo de diésel y métricas KPI
- */
 const consumoService = {
-  /**
-   * Obtiene el consumo de combustible por maquinaria
-   * @param {string} faena - ID de faena o 'todas'
-   * @param {string} periodo - Período a consultar (diario, semanal, mensual, etc.)
-   * @returns {Promise<Array>} - Lista de equipos con su consumo
-   */
-  getTopEquipos: async (faena = 'todas', periodo = 'mensual') => {
+  getTopEquipos: async (
+    faena = "todas",
+    desde = "",
+    hasta = "",
+    periodo = ""
+  ) => {
     try {
-      const response = await axios.get(`/api/informes-kpi`, {
-        params: {
-          tipo: 'consumo_equipos',
-          faena,
-          periodo
-        }
-      });
-      
-      if (response.data?.status === 'success' && Array.isArray(response.data.data)) {
-        return response.data.data;
+      // Verifica las fechas y el periodo antes de la solicitud
+      console.log(`Solicitando con los siguientes parámetros: 
+        Faena: ${faena}, 
+        Desde: ${desde}, 
+        Hasta: ${hasta}, 
+        Periodo: ${periodo}`);
+
+      // Realiza la solicitud con el parámetro 'periodo' incluido
+      const response = await axios.get(
+        `/api/informes-kpi?tipo=consumo_equipos&faena=${faena}&periodo=${periodo}&desde=${desde}&hasta=${hasta}`
+      );
+
+      // Log de la respuesta para depuración
+      console.log("Respuesta recibida:", response);
+
+      // Verifica si la respuesta tiene datos dentro del objeto 'data'
+      if (response && response.data && response.data.data) {
+        console.log("Datos de respuesta:", response.data.data);
+        return response.data.data; // Retorna los datos obtenidos
       }
-      
-      console.warn('La respuesta de la API no contiene datos en el formato esperado', response.data);
-      return [];
+
+      return null; // Si no hay datos, retorna null
     } catch (error) {
-      console.error('Error al obtener consumo por equipos:', error);
-      throw error;
+      console.error("Error al obtener consumo por equipos:", error);
+      throw error; // Lanza el error para manejo en otro lugar
     }
   },
 
-  /**
-   * Obtiene el consumo de combustible por faena
-   * @param {string} faena - ID de faena o 'todas'
-   * @returns {Promise<Array>} - Lista de faenas con su consumo
-   */
-  getConsumoFaenas: async (faena = 'todas') => {
+  // Obtiene consumo por faena - Actualizado para aceptar parámetro de faena
+  getConsumoFaenas: async (
+    faena = "todas",
+    desde = "",
+    hasta = "",
+    periodo = ""
+  ) => {
     try {
-      const response = await axios.get(`/api/informes-kpi`, {
-        params: {
-          tipo: 'consumo_faenas',
-          faena
-        }
-      });
-      
-      if (response.data?.status === 'success' && Array.isArray(response.data.data)) {
+      // Puedes usar estos parámetros en el futuro si lo necesitas
+      console.log(`Parámetros recibidos en getConsumoFaenas:
+        Faena: ${faena}, 
+        Desde: ${desde}, 
+        Hasta: ${hasta}, 
+        Periodo: ${periodo}`);
+
+      const response = await axios.get(
+        `/api/informes-kpi?tipo=consumo_faenas&faena=${faena}&desde=${desde}&hasta=${hasta}`
+      );
+
+      if (response.data && response.data.data) {
         let data = response.data.data;
 
-        // Filtrar por faena específica si se solicita
-        if (faena !== 'todas') {
-          data = data.filter(item => 
-            item.id === parseInt(faena) || 
-            item.id_faena === parseInt(faena)
+        if (faena !== "todas") {
+          data = data.filter(
+            (item) =>
+              item.id === parseInt(faena) || item.id_faena === parseInt(faena)
           );
         }
 
         return data;
+      } else {
+        console.warn(
+          "La respuesta de la API no contiene datos en el formato esperado"
+        );
+        return [];
       }
       
       console.warn('La respuesta de la API no contiene datos en el formato esperado', response.data);
       return [];
     } catch (error) {
-      console.error('Error al obtener consumo por faenas:', error);
+      console.error("Error al obtener consumo por faenas:", error);
       throw error;
     }
   },
 
-  /**
-   * Obtiene la tendencia mensual de consumo
-   * @param {string} faena - ID de faena o 'todas'
-   * @param {string} periodo - Período a consultar
-   * @returns {Promise<Array>} - Datos de consumo mensual
-   */
-  getConsumoMensual: async (faena = 'todas', periodo = 'mensual') => {
+  // Obtiene tendencia mensual de consumo
+  getConsumoMensual: async (faena = "", periodo = "mensual") => {
     try {
-      const response = await axios.get(`/api/informes-kpi`, {
-        params: {
-          tipo: 'consumo_mensual',
-          faena,
-          periodo
-        }
-      });
-      
-      if (response.data?.status === 'success' && Array.isArray(response.data.data)) {
+      const response = await axios.get(
+        `/api/informes-kpi?tipo=consumo_mensual&faena=${faena}&periodo=${periodo}`
+      );
+      if (response.data && response.data.data) {
         return response.data.data;
+      } else {
+        console.warn(
+          "La respuesta de la API no contiene datos en el formato esperado"
+        );
+        return [];
       }
       
       console.warn('La respuesta de la API no contiene datos en el formato esperado', response.data);
       return [];
     } catch (error) {
-      console.error('Error al obtener consumo mensual:', error);
+      console.error("Error al obtener consumo mensual:", error);
       throw error;
     }
   },
@@ -120,7 +128,7 @@ const consumoService = {
       console.warn('La respuesta de la API no contiene datos en el formato esperado', response.data);
       return null;
     } catch (error) {
-      console.error('Error al obtener KPIs de consumo:', error);
+      console.error("Error al obtener KPIs de consumo:", error);
       throw error;
     }
   },
@@ -146,22 +154,31 @@ const consumoService = {
       } else if (Array.isArray(response.data)) {
         // Alternativa: la API podría estar devolviendo el array directamente
         return response.data;
+      } else {
+        console.warn(
+          "La respuesta de la API no tiene el formato esperado para horas_trabajo"
+        );
       }
       
       console.warn('La respuesta de la API no tiene el formato esperado para horas_trabajo', response.data);
       return [];
     } catch (error) {
-      console.error('Error al obtener datos de horas de trabajo:', error);
-      
-      if (error.response?.status === 404) {
-        console.warn("El endpoint para horas_trabajo no está implementado en el backend");
-      } else if (error.response?.status === 400) {
+      console.error("Error al obtener datos de horas de trabajo:", error);
+
+      // Si el endpoint no existe o hay otro error, verificamos si es porque
+      // el backend no admite este tipo específico
+      if (error.response && error.response.status === 404) {
+        console.warn(
+          "El endpoint para horas_trabajo no está implementado en el backend"
+        );
+      } else if (error.response && error.response.status === 400) {
         console.warn("El backend no reconoce el tipo 'horas_trabajo'");
       }
-      
-      return [];
+
+      // Retornamos datos de ejemplo en formato compatible
+      //console.log("ApiService: Using mock data after error:");
     }
-  }
+  },
 };
 
 /**
@@ -203,12 +220,13 @@ const gerenteService = {
       // Calcular KPIs basados en estos valores
       return gerenteService.calcularKpisLocales(ultimoValor, periodo, faena);
     } catch (error) {
-      console.error('Error al obtener KPIs gerenciales:', error);
-      
+      console.error("Error al obtener KPIs gerenciales:", error);
+
+      // En caso de error retornamos mensaje amigable
       return {
-        status: 'error',
-        message: error.response?.data?.message || 'Error al obtener los KPIs. Intente nuevamente.',
-        data: []
+        status: "error",
+        message: "No fue posible obtener los KPIs. Intente nuevamente.",
+        data: [],
       };
     }
   },
@@ -265,9 +283,9 @@ const gerenteService = {
     try {
       if (!valoresEntrada) {
         return {
-          status: 'warning',
-          message: 'No hay datos para calcular',
-          data: []
+          status: "warning",
+          message: "No hay datos para calcular",
+          data: [],
         };
       }
 
@@ -300,22 +318,29 @@ const gerenteService = {
         concentracion: leyMineral,
         camionadas: numeroViajes,
         costoTotal: costoTotal,
-        costoTonelada: costoTonelada,
-        costoHora: costoHora,
-        costoKm: costoKm,
-        rendimiento: rendimiento,
-        horas_trabajadas: horasTrabajadas,
-        kilometros_recorridos: kilometrosRecorridos,
+        costoTonelada:
+          valoresEntrada.toneladas_extraidas > 0
+            ? costoTotal / valoresEntrada.toneladas_extraidas
+            : 0,
+        costoHora:
+          valoresEntrada.horas_trabajadas > 0
+            ? costoTotal / valoresEntrada.horas_trabajadas
+            : 0,
+        costoKm:
+          valoresEntrada.kilometros_recorridos > 0
+            ? costoTotal / valoresEntrada.kilometros_recorridos
+            : 0,
+        rendimiento: valoresEntrada.rendimiento_base,
         periodo: periodo,
         faena: faena,
       };
 
       return {
-        status: 'success',
-        data: kpisCalculados
+        status: "success",
+        data: kpisCalculados,
       };
     } catch (error) {
-      console.error('Error al calcular KPIs locales:', error);
+      console.error("Error al calcular KPIs locales:", error);
       return {
         status: 'error',
         message: 'Error en cálculo de KPIs: ' + error.message,
@@ -340,7 +365,10 @@ const gerenteService = {
           return response.data;
         }
       } catch (backendError) {
-        console.warn('No se pudo calcular en el backend, calculando localmente:', backendError);
+        console.warn(
+          "No se pudo calcular en el backend, calculando localmente:",
+          backendError
+        );
       }
 
       // Si falla el backend, calculamos en el frontend
@@ -348,7 +376,7 @@ const gerenteService = {
 
       // Validación básica
       if (!valores_entrada) {
-        throw new Error('No se proporcionaron valores de entrada');
+        throw new Error("No se proporcionaron valores de entrada");
       }
 
       // Extraer valores para cálculos
@@ -390,14 +418,14 @@ const gerenteService = {
         data: kpisCalculados
       };
     } catch (error) {
-      console.error('Error al calcular KPIs:', error);
+      console.error("Error al calcular KPIs:", error);
       return {
-        status: 'error',
-        message: 'Error en cálculo de KPIs: ' + error.message,
-        data: null
+        status: "error",
+        message: "Error en cálculo de KPIs: " + error.message,
+        data: null,
       };
     }
-  }
+  },
 };
 
 export { consumoService, gerenteService };

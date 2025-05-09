@@ -24,7 +24,7 @@ import {
   FiCalendar,
   FiChevronDown
 } from "react-icons/fi";
-import { consumoService } from "../../context/apiService";
+import { consumoService } from "../../context/apiServiceS";
 
 const HorasTrabajoChart = ({ faenaSeleccionada = 'todas' }) => {
   const [loading, setLoading] = useState(true);
