@@ -12,7 +12,7 @@ import {
 import { FiTruck, FiAlertTriangle, FiRefreshCw } from "react-icons/fi";
 import { consumoService } from "../../context/apiService";
 
-const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta }) => {
+const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey }) => {
   const [loading, setLoading] = useState(true);
   const [equiposData, setEquiposData] = useState([]);
   const [error, setError] = useState(null);
@@ -21,7 +21,8 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta }) => {
   
   // Usar useRef para evitar llamadas innecesarias a la API
   const isMounted = useRef(true);
-  const prevFilters = useRef({ faenaSeleccionada, fechaDesde, fechaHasta });
+  const initialLoadDone = useRef(false);
+  const prevFilters = useRef({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey });
   
   const NARANJA_PRINCIPAL = "#f97316"; // Orange-500
   const AZUL_SECUNDARIO = "#60a5fa"; // Blue-400
@@ -31,10 +32,12 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta }) => {
     const prevF = prevFilters.current;
     const changed = prevF.faenaSeleccionada !== faenaSeleccionada || 
                    prevF.fechaDesde !== fechaDesde ||
-                   prevF.fechaHasta !== fechaHasta;
+                   prevF.fechaHasta !== fechaHasta ||
+                   prevF.refreshKey !== refreshKey ||
+                   !initialLoadDone.current;
     
     // Actualizar los filtros previos
-    prevFilters.current = { faenaSeleccionada, fechaDesde, fechaHasta };
+    prevFilters.current = { faenaSeleccionada, fechaDesde, fechaHasta, refreshKey };
     return changed;
   };
   
@@ -48,75 +51,79 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta }) => {
     };
   }, []);
   
-  useEffect(() => {
-    // Verificar si los filtros cambiaron realmente y si el componente está montado
-    if (!isMounted.current || !filtersChanged()) return;
-
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        
-        // Verificar que las fechas estén presentes
-        if (!fechaDesde || !fechaHasta) {
-          setError("Por favor, seleccione un rango de fechas válido.");
-          setEquiposData([]);
-          setLoading(false);
-          return;
-        }
-
-        // Asegúrate de que la fecha 'Hasta' no sea anterior a 'Desde'
-        if (new Date(fechaDesde) > new Date(fechaHasta)) {
-          setError("La fecha 'Hasta' no puede ser anterior a la fecha 'Desde'.");
-          setEquiposData([]);
-          setLoading(false);
-          return;
-        }
-  
-        console.log("TopEquiposChart: Llamando a la API con filtros:", { faenaSeleccionada, fechaDesde, fechaHasta });
-        
-        // Llamada al servicio con los filtros aplicados
-        const data = await consumoService.getTopEquipos(faenaSeleccionada, fechaDesde, fechaHasta);
-        
-        // Solo actualizar el estado si el componente sigue montado
-        if (!isMounted.current) return;
-        
-        // Verificar si hay datos
-        if (data && data.length > 0) {
-          const formattedData = data.map(item => ({
-            name: item.nombre || (item.name || 'Sin nombre'),
-            patente: item.patente || 'S/P',
-            consumo: item.consumo || (item.litros_consumidos || 0),
-            horas: item.horas || (item.horas_trabajadas || 0),
-            eficiencia: (item.horas && item.consumo) 
-              ? parseFloat((item.consumo / item.horas).toFixed(2)) 
-              : null,
-            id: item.id || `EQ-${Math.floor(Math.random() * 1000)}`
-          }));
-  
-          const total = formattedData.reduce((sum, item) => sum + item.consumo, 0);
-          setTotalConsumo(total);
-          setFechaActualizacion(new Date());
-          setEquiposData(formattedData);
-          setError(null);
-        } else {
-          setEquiposData([]);
-          setError("No hay datos disponibles para mostrar");
-        }
-      } catch (err) {
-        console.error("Error al cargar datos de equipos:", err);
-        if (isMounted.current) {
-          setEquiposData([]);
-          setError("No se pudieron cargar los datos de equipos. Por favor verifica la conexión con el servidor.");
-        }
-      } finally {
-        if (isMounted.current) {
-          setLoading(false);
-        }
+  // Función para cargar los datos
+  const loadData = async () => {
+    if (!isMounted.current) return;
+    
+    try {
+      setLoading(true);
+      
+      // Verificar que las fechas estén presentes
+      if (!fechaDesde || !fechaHasta) {
+        setError("Por favor, seleccione un rango de fechas válido.");
+        setEquiposData([]);
+        setLoading(false);
+        return;
       }
-    };
+
+      // Asegúrate de que la fecha 'Hasta' no sea anterior a 'Desde'
+      if (new Date(fechaDesde) > new Date(fechaHasta)) {
+        setError("La fecha 'Hasta' no puede ser anterior a la fecha 'Desde'.");
+        setEquiposData([]);
+        setLoading(false);
+        return;
+      }
+
+      console.log("TopEquiposChart: Llamando a la API con filtros:", { faenaSeleccionada, fechaDesde, fechaHasta });
+      
+      // Llamada al servicio con los filtros aplicados
+      const data = await consumoService.getTopEquipos(faenaSeleccionada, fechaDesde, fechaHasta);
+      
+      // Solo actualizar el estado si el componente sigue montado
+      if (!isMounted.current) return;
+      
+      // Verificar si hay datos
+      if (data && data.length > 0) {
+        const formattedData = data.map(item => ({
+          name: item.nombre || (item.name || 'Sin nombre'),
+          patente: item.patente || 'S/P',
+          consumo: item.consumo || (item.litros_consumidos || 0),
+          horas: item.horas || (item.horas_trabajadas || 0),
+          eficiencia: (item.horas && item.consumo) 
+            ? parseFloat((item.consumo / item.horas).toFixed(2)) 
+            : null,
+          id: item.id || `EQ-${Math.floor(Math.random() * 1000)}`
+        }));
+
+        const total = formattedData.reduce((sum, item) => sum + item.consumo, 0);
+        setTotalConsumo(total);
+        setFechaActualizacion(new Date());
+        setEquiposData(formattedData);
+        setError(null);
+      } else {
+        setEquiposData([]);
+        setError("No hay datos disponibles para mostrar");
+      }
+    } catch (err) {
+      console.error("Error al cargar datos de equipos:", err);
+      if (isMounted.current) {
+        setEquiposData([]);
+        setError("No se pudieron cargar los datos de equipos. Por favor verifica la conexión con el servidor.");
+      }
+    } finally {
+      if (isMounted.current) {
+        setLoading(false);
+        initialLoadDone.current = true;
+      }
+    }
+  };
   
-    fetchData();
-  }, [faenaSeleccionada, fechaDesde, fechaHasta]); // Mantener estas dependencias
+  useEffect(() => {
+    // Siempre cargar datos en la primera renderización o cuando los filtros cambien
+    if (filtersChanged()) {
+      loadData();
+    }
+  }, [faenaSeleccionada, fechaDesde, fechaHasta, refreshKey]);
 
   // Tooltip personalizado mejorado
   const CustomTooltip = ({ active, payload, label }) => {
@@ -148,45 +155,7 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta }) => {
   const handleRetry = () => {
     setLoading(true);
     setError(null);
-    // Forzar un cambio en los filtros almacenados para garantizar una nueva llamada
-    prevFilters.current = { 
-      faenaSeleccionada: null, 
-      fechaDesde: null, 
-      fechaHasta: null 
-    };
-    // Usar el setTimeout para asegurar que el estado se actualice antes de recargar
-    setTimeout(() => {
-      // Evitar window.location.reload() ya que recarga toda la página
-      // En su lugar, activamos el useEffect cambiando los filtros
-      filtersChanged();
-      // Llamar a la API directamente
-      const fetchData = async () => {
-        try {
-          const data = await consumoService.getTopEquipos(faenaSeleccionada, fechaDesde, fechaHasta);
-          if (data && data.length > 0) {
-            const formattedData = data.map(item => ({
-              name: item.nombre || (item.name || 'Sin nombre'),
-              patente: item.patente || 'S/P',
-              consumo: item.consumo || (item.litros_consumidos || 0),
-              horas: item.horas || (item.horas_trabajadas || 0),
-              eficiencia: (item.horas && item.consumo) 
-                ? parseFloat((item.consumo / item.horas).toFixed(2)) 
-                : null,
-              id: item.id || `EQ-${Math.floor(Math.random() * 1000)}`
-            }));
-            setEquiposData(formattedData);
-            setError(null);
-          } else {
-            setError("No hay datos disponibles para mostrar");
-          }
-        } catch (err) {
-          setError("Error al recargar los datos. Intente de nuevo.");
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchData();
-    }, 500);
+    loadData();
   };
 
   if (loading) {
