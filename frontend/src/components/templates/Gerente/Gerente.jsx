@@ -1,4 +1,4 @@
-import Main from "../../organisms/Gerente/MainKpi";
+import Main from "../../organisms/Gerente/Main";
 import Header from "../../organisms/Gerente/Header";
 
 const DieselDashboard = () => {
