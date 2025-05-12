@@ -99,7 +99,7 @@ const InputField = ({
           onChange={isNumber ? handleNumberChange : onChange}
           placeholder={placeholder}
           className={`${baseClass} ${className} w-full`}
-          min={isNumber ? (min !== null ? min : "0") : undefined}
+          min={isNumber ? (min !== null ? min : 0) : undefined}
           max={isNumber && max !== null ? max : undefined}
         />
       )}

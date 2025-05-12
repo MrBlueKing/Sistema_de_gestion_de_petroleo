@@ -1,583 +1,79 @@
-import { useState, useEffect, useContext, useCallback } from "react";
+import { useState, useEffect } from "react";
 import BarrilesTrabajoChart from "../../molecules/HorasTrabajoChart";
 import SimpleKpiCalculator from "../../molecules/KpiSimpleCalculator";
 import axios from '../../../lib/axios';
+import Header from "../../organisms/Gerente/Header";
 
 import {
     FiDroplet, FiTruck, FiActivity, FiX, FiLoader,
-    FiAlertCircle, FiCheckCircle, 
-    FiRefreshCw, 
+    FiAlertCircle, FiCheckCircle, FiRefreshCw
 } from "react-icons/fi";
 import { FaCalculator } from "react-icons/fa";
-import { UserContext } from "../../../context/userContext";
 
 const MainGerente = ({ children }) => {
-    // Estados existentes
-    const periodoSeleccionado = "mensual"; // Fijo como "mensual", sin opción a cambiar
+    // Estados esenciales
+    const periodoSeleccionado = "mensual";
     const [faenaSeleccionada, setFaenaSeleccionada] = useState("todas");
-    const [ultimaActualizacion, setUltimaActualizacion] = useState(new Date());
     const [mostrarCalculadora, setMostrarCalculadora] = useState(false);
-
-    // Nuevos estados para mejoras
     const [mensajeExito, setMensajeExito] = useState(null);
-
-    // Inicializar fechaDesde al primer día del mes actual
-    const [fechaDesde, setFechaDesde] = useState(
-        new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
-    );
-
-    // Inicializar fechaHasta al día actual
-    const [fechaHasta, setFechaHasta] = useState(
-        new Date().toISOString().split('T')[0]
-    );
-    const [datosConsumo, setDatosConsumo] = useState(null);
-    const [balanceCombustible, setBalanceCombustible] = useState(null);
-
-    // Estados para datos de la API
-    const [equiposData, setEquiposData] = useState([]);
-    const [faenasData, setFaenasData] = useState([]);
-    const [consumoMensualData, setConsumoMensualData] = useState([]);
     const [cargando, setCargando] = useState(false);
     const [error, setError] = useState(null);
+    const [ultimaActualizacion, setUltimaActualizacion] = useState(new Date());
+    
+    // Estado simplificado para mostrar datos
     const [datosDisponibles, setDatosDisponibles] = useState(false);
-    const [datosApiCargados, setDatosApiCargados] = useState(false);
-
-    // Datos principales
-    const [datosPetroleo, setDatosPetroleo] = useState(null);
-    const [datosProduccion, setDatosProduccion] = useState({
-        toneladas: 0,
-        camionadas: 0
-    });
-
-    // KPIs con valores inicializados a cero
-    const [kpis, setKpis] = useState([
-        { title: "Producción Total", value: "0", change: "+0%", unit: "ton", subtext: "Toneladas extraídas", icon: FiTruck, isPositive: true, color: "blue" },
-        { title: "Camionadas", value: "0", change: "+0", unit: "", subtext: "Número de viajes realizados", icon: FiTruck, isPositive: true, color: "indigo" },
-        { title: "Rendimiento", value: "0", change: "0%", unit: "ton/viaje", subtext: "Toneladas por viaje", icon: FiActivity, isPositive: true, color: "green" },
-        { title: "Costo Petróleo / Ton", value: "$0", change: "0%", unit: "", subtext: "Costo por tonelada producida", icon: FiDroplet, isPositive: false, color: "red" },
-        { title: "Costo Petróleo / Hora", value: "$0", change: "0%", unit: "", subtext: "Costo por hora de operación", icon: FiDroplet, isPositive: true, color: "teal" },
-        { title: "Costo Petróleo / Km", value: "$0", change: "0%", unit: "", subtext: "Costo por kilómetro recorrido", icon: FiDroplet, isPositive: false, color: "purple" },
-    ]);
-
-    // Función para obtener datos reales
-    const obtenerDatosReales = async () => {
-        setCargando(true);
-        setError(null);
-
-        try {
-            // Cargar datos para los 3 gráficos en paralelo
-            const [equiposRes, faenasRes, mensualRes] = await Promise.all([
-                axios.get(`/api/informes-kpi?tipo=consumo_equipos&faena=${faenaSeleccionada}&periodo=mensual`),
-                axios.get(`/api/informes-kpi?tipo=consumo_faenas&faena=${faenaSeleccionada}`),
-                axios.get(`/api/informes-kpi?tipo=consumo_mensual&faena=${faenaSeleccionada}`)
-            ]);
-
-            let hayDatosGraficos = false;
-
-            // Usar los datos si están disponibles, establecer arrays vacíos si no hay datos
-            if (equiposRes.data && equiposRes.data.data && equiposRes.data.data.length > 0) {
-                setEquiposData(equiposRes.data.data);
-                hayDatosGraficos = true;
-            } else {
-                setEquiposData([]);
-            }
-
-            if (faenasRes.data && faenasRes.data.data && faenasRes.data.data.length > 0) {
-                setFaenasData(faenasRes.data.data);
-                hayDatosGraficos = true;
-            } else {
-                setFaenasData([]);
-            }
-
-            if (mensualRes.data && mensualRes.data.data && mensualRes.data.data.length > 0) {
-                setConsumoMensualData(mensualRes.data.data);
-                hayDatosGraficos = true;
-            } else {
-                setConsumoMensualData([]);
-            }
-
-            // Intentar cargar los KPIs
-            try {
-                const kpisRes = await axios.get(`/api/informes-kpi?tipo=kpis_consumo&faena=${faenaSeleccionada}&periodo=mensual`);
-
-                if (kpisRes.data && kpisRes.data.data) {
-                    actualizarKpisDesdeAPI(kpisRes.data.data);
-                    hayDatosGraficos = true;
-                }
-            } catch (kpisError) {
-                console.warn('Error al cargar KPIs:', kpisError);
-                // No hacemos nada con los KPIs si hay error, mantenemos los valores por defecto
-            }
-
-            setUltimaActualizacion(new Date());
-            setDatosApiCargados(true);
-
-            // No actualizamos datosDisponibles aquí, lo haremos después de cargar datosConsumo
-        } catch (err) {
-            console.error('Error al obtener datos reales:', err);
-            setError('Error al cargar datos de la base de datos. Por favor verifique la conexión o contacte a soporte técnico.');
-            setDatosApiCargados(false);
-        } finally {
-            setCargando(false);
-        }
-    };
-
-    // Función para cargar datos de petróleo
-    const cargarDatosPetroleo = useCallback(async () => {
-        try {
-            const response = await axios.get('/api/kpis-getCostoPetroleoSinUltimosConsumos', {
-                params: {
-                    faena: faenaSeleccionada !== 'todas' ? faenaSeleccionada : null
-                }
-            });
-
-            if (response.data && response.data.status === 'success') {
-                setDatosPetroleo(response.data.data);
-                return response.data.data;
-            }
-            return null;
-        } catch (err) {
-            console.error('Error al cargar datos de petróleo:', err);
-            return null;
-        }
-    }, [faenaSeleccionada]);
-
-    // Función para actualizar KPIs desde datos de API
-    const actualizarKpisDesdeAPI = (datosAPI) => {
-        try {
-            const updatedKpis = [...kpis];
-
-            // Actualizar cada KPI según los datos disponibles
-            if (datosAPI.toneladas_extraidas !== undefined) {
-                const index = updatedKpis.findIndex(kpi => kpi.title === "Producción Total");
-                if (index !== -1) {
-                    updatedKpis[index] = {
-                        ...updatedKpis[index],
-                        value: datosAPI.toneladas_extraidas.toLocaleString('es-CL'),
-                        change: datosAPI.cambio_produccion || updatedKpis[index].change,
-                        subtext: `Toneladas extraídas en ${obtenerNombreMesAnterior()}`
-                    };
-                }
-            }
-
-            if (datosAPI.viajes !== undefined) {
-                const index = updatedKpis.findIndex(kpi => kpi.title === "Camionadas");
-                if (index !== -1) {
-                    updatedKpis[index] = {
-                        ...updatedKpis[index],
-                        value: datosAPI.viajes.toString(),
-                        change: datosAPI.cambio_viajes || updatedKpis[index].change,
-                        subtext: `Viajes realizados en ${obtenerNombreMesAnterior()}`
-                    };
-                }
-            }
-
-            // Actualizar KPIs de costos si están disponibles
-            if (datosAPI.costo_tonelada !== undefined) {
-                const index = updatedKpis.findIndex(kpi => kpi.title === "Costo Petróleo / Ton");
-                if (index !== -1) {
-                    updatedKpis[index] = {
-                        ...updatedKpis[index],
-                        value: '$' + datosAPI.costo_tonelada.toLocaleString('es-CL'),
-                        change: datosAPI.cambio_costo_ton || updatedKpis[index].change,
-                        isPositive: !(datosAPI.cambio_costo_ton && datosAPI.cambio_costo_ton.startsWith('+')),
-                        subtext: `Costo por tonelada en ${obtenerNombreMesAnterior()}`
-                    };
-                }
-            }
-
-            if (datosAPI.costo_hora !== undefined) {
-                const index = updatedKpis.findIndex(kpi => kpi.title === "Costo Petróleo / Hora");
-                if (index !== -1) {
-                    updatedKpis[index] = {
-                        ...updatedKpis[index],
-                        value: '$' + datosAPI.costo_hora.toLocaleString('es-CL'),
-                        change: datosAPI.cambio_costo_hora || updatedKpis[index].change,
-                        isPositive: !(datosAPI.cambio_costo_hora && datosAPI.cambio_costo_hora.startsWith('+')),
-                        subtext: `Costo por hora en ${obtenerNombreMesAnterior()}`
-                    };
-                }
-            }
-
-            if (datosAPI.costo_km !== undefined) {
-                const index = updatedKpis.findIndex(kpi => kpi.title === "Costo Petróleo / Km");
-                if (index !== -1) {
-                    updatedKpis[index] = {
-                        ...updatedKpis[index],
-                        value: '$' + datosAPI.costo_km.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-                        change: datosAPI.cambio_costo_km || updatedKpis[index].change,
-                        isPositive: !(datosAPI.cambio_costo_km && datosAPI.cambio_costo_km.startsWith('+')),
-                        subtext: `Costo por kilómetro en ${obtenerNombreMesAnterior()}`
-                    };
-                }
-            }
-
-            setKpis(updatedKpis);
-        } catch (error) {
-            console.error('Error al actualizar KPIs desde API:', error);
-        }
-    };
-
-    // Función para cargar datos de consumo
-    const cargarDatosConsumo = async () => {
-        try {
-            setCargando(true);
-
-            const response = await axios.get('/api/informes-kpi/consumo-maquinas', {
-                params: {
-                    fecha_inicio: fechaDesde,
-                    fecha_fin: fechaHasta + ' 23:59:59', // Incluir todo el día
-                    faena: faenaSeleccionada !== 'todas' ? faenaSeleccionada : null
-                }
-            });
-
-            if (response.data && response.data.status === 'success') {
-                const datosConsumo = response.data.data;
-
-                // Guardar todos los datos
-                setDatosConsumo(datosConsumo);
-
-                // Actualizar los KPIs con los datos de consumo
-                actualizarKpisDesdeConsumo(datosConsumo);
-
-                // Si hay datos de consumo, tenemos datos disponibles
-                setDatosDisponibles(true);
-            } else {
-                console.warn('No se pudieron cargar los datos de consumo de máquinas');
-                setDatosDisponibles(false);
-            }
-        } catch (err) {
-            console.error('Error al cargar datos de consumo:', err);
-            setError('Error al cargar datos de consumo de máquinas');
-            setDatosDisponibles(false);
-        } finally {
-            setCargando(false);
-        }
-    };
-
-    // Función para cargar balance de combustible
-    const cargarBalanceCombustible = async () => {
-        try {
-            const response = await axios.get('/api/informes-kpi/balance-combustible', {
-                params: {
-                    fecha_inicio: fechaDesde,
-                    fecha_fin: fechaHasta + ' 23:59:59', // Incluir todo el día
-                    faena: faenaSeleccionada !== 'todas' ? faenaSeleccionada : null
-                }
-            });
-
-            if (response.data && response.data.status === 'success') {
-                const balanceData = response.data.data;
-
-                // Guardar los datos de balance
-                setBalanceCombustible(balanceData);
-
-                // Actualizar el balance de combustible en los KPIs
-                actualizarBalanceCombustible(balanceData);
-            }
-        } catch (err) {
-            console.error('Error al cargar balance de combustible:', err);
-        }
-    };
-
-    // Función para actualizar KPIs desde datos de consumo
-    const actualizarKpisDesdeConsumo = (datosConsumo) => {
-        try {
-            if (!datosConsumo || !datosConsumo.resumen_financiero) {
-                console.warn('Datos de consumo inválidos o sin resumen financiero');
-                return;
-            }
-
-            const updatedKpis = [...kpis];
-            const resumen = datosConsumo.resumen_financiero;
-
-            // Actualizar "Balance Petróleo" con datos del resumen financiero
-            const indexBalance = updatedKpis.findIndex(kpi => kpi.title === "Balance Petróleo");
-            if (indexBalance !== -1 && resumen) {
-                updatedKpis[indexBalance] = {
-                    ...updatedKpis[indexBalance],
-                    value: `${resumen.balance_litros.toLocaleString('es-CL')}`,
-                    change: resumen.balance_litros > 0 ? "+litros" : "-litros",
-                    unit: "lts",
-                    subtext: `${Math.abs(resumen.porcentaje_utilizado).toFixed(1)}% utilizado en ${obtenerNombreMesAnterior()}`,
-                    icon: FiDroplet,
-                    isPositive: resumen.balance_litros >= 0,
-                    color: resumen.balance_litros >= 0 ? "green" : "red"
-                };
-            }
-
-            // Buscar datos de rendimientos por tipo para actualizar KPIs
-            if (datosConsumo.rendimiento_por_tipo && datosConsumo.rendimiento_por_tipo.length > 0) {
-                // Procesar rendimientos por tipo
-                datosConsumo.rendimiento_por_tipo.forEach(rendimiento => {
-                    // Solo procesar si hay unidades positivas y datos válidos
-                    if (rendimiento.total_unidades > 0 && rendimiento.litros_consumidos > 0) {
-                        if (rendimiento.tipo_medicion === 'Horometro') {
-                            const index = updatedKpis.findIndex(kpi => kpi.title === "Costo Petróleo / Hora");
-                            if (index !== -1) {
-                                updatedKpis[index] = {
-                                    ...updatedKpis[index],
-                                    value: '$' + rendimiento.costo_por_unidad.toLocaleString('es-CL', { maximumFractionDigits: 0 }),
-                                    subtext: `${rendimiento.litros_por_unidad.toFixed(2)} litros/hora en ${obtenerNombreMesAnterior()}`,
-                                    isPositive: false
-                                };
-                            }
-                        } else if (rendimiento.tipo_medicion === 'Kilometraje') {
-                            const index = updatedKpis.findIndex(kpi => kpi.title === "Costo Petróleo / Km");
-                            if (index !== -1) {
-                                updatedKpis[index] = {
-                                    ...updatedKpis[index],
-                                    value: '$' + rendimiento.costo_por_unidad.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-                                    subtext: `${rendimiento.litros_por_unidad.toFixed(2)} litros/km en ${obtenerNombreMesAnterior()}`,
-                                    isPositive: false
-                                };
-                            }
-                        }
-                    }
-                });
-            }
-
-            // Calcular costo por tonelada si hay datos de producción (toneladas)
-            const indexProduccion = updatedKpis.findIndex(kpi => kpi.title === "Producción Total");
-            if (indexProduccion !== -1 && resumen && resumen.litros_consumidos > 0 && resumen.valor_consumos > 0) {
-                // Convertir el valor de toneladas a número
-                const toneladasValue = updatedKpis[indexProduccion].value.replace(/\./g, '').replace(',', '.');
-                const toneladas = parseFloat(toneladasValue);
-
-                if (!isNaN(toneladas) && toneladas > 0) {
-                    const costoPorTonelada = resumen.valor_consumos / toneladas;
-                    const litrosPorTonelada = resumen.litros_consumidos / toneladas;
-
-                    const indexCostoTon = updatedKpis.findIndex(kpi => kpi.title === "Costo Petróleo / Ton");
-                    if (indexCostoTon !== -1) {
-                        updatedKpis[indexCostoTon] = {
-                            ...updatedKpis[indexCostoTon],
-                            value: '$' + costoPorTonelada.toLocaleString('es-CL', { maximumFractionDigits: 0 }),
-                            subtext: `${litrosPorTonelada.toFixed(2)} litros/ton en ${obtenerNombreMesAnterior()}`,
-                            isPositive: false
-                        };
-                    }
-                }
-            }
-
-            setKpis(updatedKpis);
-        } catch (error) {
-            console.error('Error al actualizar KPIs desde datos de consumo:', error);
-        }
-    };
-
-    // Función para actualizar KPIs con datos del balance de combustible
-    const actualizarBalanceCombustible = (balanceData) => {
-        try {
-            if (!balanceData || !Array.isArray(balanceData) || balanceData.length === 0) {
-                console.warn('Datos de balance inválidos');
-                return;
-            }
-
-            // Si hay una faena seleccionada, buscar sus datos específicos
-            let balanceInfo = null;
-
-            if (faenaSeleccionada !== 'todas') {
-                balanceInfo = balanceData.find(item => item.id_faena.toString() === faenaSeleccionada);
-            } else {
-                // Si es "todas", calcular totales
-                balanceInfo = {
-                    stock_inicial: 0,
-                    total_ingresos: balanceData.reduce((sum, item) => sum + parseFloat(item.total_ingresos || 0), 0),
-                    total_consumos: balanceData.reduce((sum, item) => sum + parseFloat(item.total_consumos || 0), 0),
-                    stock_final_teorico: balanceData.reduce((sum, item) => sum + parseFloat(item.stock_final_teorico || 0), 0),
-                    stock_actual: balanceData.reduce((sum, item) => sum + parseFloat(item.stock_actual || 0), 0),
-                    diferencia: balanceData.reduce((sum, item) => sum + parseFloat(item.diferencia || 0), 0)
-                };
-            }
-
-            if (balanceInfo) {
-                const updatedKpis = [...kpis];
-                const indexBalance = updatedKpis.findIndex(kpi => kpi.title === "Balance Petróleo");
-
-                if (indexBalance !== -1) {
-                    // Calcular porcentaje utilizado
-                    const porcentajeUtilizado = balanceInfo.total_ingresos > 0
-                        ? (balanceInfo.total_consumos / balanceInfo.total_ingresos) * 100
-                        : 0;
-
-                    updatedKpis[indexBalance] = {
-                        ...updatedKpis[indexBalance],
-                        value: `${parseFloat(balanceInfo.stock_final_teorico).toLocaleString('es-CL')}`,
-                        change: parseFloat(balanceInfo.stock_final_teorico) > 0 ? "+litros" : "-litros",
-                        unit: "lts",
-                        subtext: `${Math.abs(porcentajeUtilizado).toFixed(1)}% utilizado en ${obtenerNombreMesAnterior()}`,
-                        icon: FiDroplet,
-                        isPositive: parseFloat(balanceInfo.stock_final_teorico) >= 0,
-                        color: parseFloat(balanceInfo.stock_final_teorico) >= 0 ? "green" : "red"
-                    };
-
-                    setKpis(updatedKpis);
-                }
-            }
-        } catch (error) {
-            console.error('Error al actualizar balance de combustible:', error);
-        }
-    };
-
-    // Verificar si tenemos datos disponibles
-    useEffect(() => {
-        const hayDatos = datosApiCargados && datosConsumo;
-        setDatosDisponibles(hayDatos);
-    }, [datosApiCargados, datosConsumo]);
-
-    // Cargar datos cuando cambie la faena o las fechas
-    useEffect(() => {
-        obtenerDatosReales();
-        cargarDatosConsumo();
-        cargarBalanceCombustible();
-        cargarDatosPetroleo();
-    }, [faenaSeleccionada, fechaDesde, fechaHasta]);
-
-    // Función para cargar datos de consumo con el parámetro toneladas
-    const cargarDatosConsumoConToneladas = async (toneladas) => {
-        try {
-            setCargando(true);
-
-            const response = await axios.get('/api/informes-kpi/consumo-maquinas', {
-                params: {
-                    fecha_inicio: fechaDesde,
-                    fecha_fin: fechaHasta + ' 23:59:59', // Incluir todo el día
-                    faena: faenaSeleccionada !== 'todas' ? faenaSeleccionada : null,
-                    toneladas: toneladas
-                }
-            });
-
-            if (response.data && response.data.status === 'success') {
-                const datosConsumo = response.data.data;
-
-                // Guardar todos los datos
-                setDatosConsumo(datosConsumo);
-
-                // Actualizar los KPIs con los datos de consumo
-                actualizarKpisDesdeConsumo(datosConsumo);
-
-                setDatosDisponibles(true);
-            } else {
-                console.warn('No se pudieron cargar los datos de consumo de máquinas');
-            }
-        } catch (err) {
-            console.error('Error al cargar datos de consumo:', err);
-            setError('Error al cargar datos de consumo de máquinas');
-        } finally {
-            setCargando(false);
-        }
-    };
-
+    
+    // Estado para controlar la carga inicial - evita ciclos infinitos
+    const [cargaIniciada, setCargaIniciada] = useState(false);
+    
     // Función para manejar KPIs calculados desde la calculadora
     const handleCalculatedKpis = (resultado) => {
-        if (!resultado || !resultado.data) {
+        if (!resultado?.data) {
             setError('Los datos calculados no tienen formato válido');
             return;
         }
 
         try {
-            // Datos completos con producción y consumo
-            const datosCompletos = resultado.data;
-            const nombreMesAnterior = obtenerNombreMesAnterior();
-
-            // Actualizar datos de producción
-            setDatosProduccion({
-                toneladas: datosCompletos.toneladas || 0,
-                camionadas: datosCompletos.camionadas || 0
-            });
-
-            // Actualizar KPIs utilizando los datos combinados
-            const kpisActualizados = [...kpis];
-
-            // Actualizar "Producción Total" (toneladas)
-            const indexProduccion = kpisActualizados.findIndex(k => k.title === "Producción Total");
-            if (indexProduccion !== -1) {
-                kpisActualizados[indexProduccion] = {
-                    ...kpisActualizados[indexProduccion],
-                    value: datosCompletos.toneladas.toLocaleString('es-CL'),
-                    subtext: `Toneladas extraídas en ${nombreMesAnterior}`
-                };
-            }
-
-            // Actualizar Rendimiento si hay datos
-            if (datosCompletos.camionadas > 0) {
-                const rendimientoCalculado = datosCompletos.toneladas / datosCompletos.camionadas;
-                const indexRendimiento = kpisActualizados.findIndex(k => k.title === "Rendimiento");
-
-                if (indexRendimiento !== -1) {
-                    kpisActualizados[indexRendimiento] = {
-                        ...kpisActualizados[indexRendimiento],
-                        value: rendimientoCalculado.toFixed(2),
-                        subtext: `Toneladas por viaje en ${nombreMesAnterior}`
-                    };
-                }
-            }
-
-            // Actualizar Camionadas
-            const indexCamionadas = kpisActualizados.findIndex(k => k.title === "Camionadas");
-            if (indexCamionadas !== -1) {
-                kpisActualizados[indexCamionadas] = {
-                    ...kpisActualizados[indexCamionadas],
-                    value: datosCompletos.camionadas.toLocaleString('es-CL'),
-                    subtext: `Viajes realizados en ${nombreMesAnterior}`
-                };
-            }
-
-            // Actualizar Costo por Tonelada si hay datos suficientes
-            if (datosCompletos.costo_por_tonelada > 0) {
-                const indexCostoTon = kpisActualizados.findIndex(k => k.title === "Costo Petróleo / Ton");
-                if (indexCostoTon !== -1) {
-                    kpisActualizados[indexCostoTon] = {
-                        ...kpisActualizados[indexCostoTon],
-                        value: '$' + datosCompletos.costo_por_tonelada.toLocaleString('es-CL', { maximumFractionDigits: 0 }),
-                        subtext: `Costo por tonelada en ${nombreMesAnterior}`
-                    };
-                }
-            }
-
-            // Actualizar Costo por Hora si hay datos suficientes
-            if (datosCompletos.costo_por_hora > 0) {
-                const indexCostoHora = kpisActualizados.findIndex(k => k.title === "Costo Petróleo / Hora");
-                if (indexCostoHora !== -1) {
-                    kpisActualizados[indexCostoHora] = {
-                        ...kpisActualizados[indexCostoHora],
-                        value: '$' + datosCompletos.costo_por_hora.toLocaleString('es-CL', { maximumFractionDigits: 0 }),
-                        subtext: `${datosCompletos.medicion_horometro.toLocaleString('es-CL')} horas en ${nombreMesAnterior}`
-                    };
-                }
-            }
-
-            // Actualizar Costo por Km si hay datos suficientes
-            if (datosCompletos.costo_por_km > 0) {
-                const indexCostoKm = kpisActualizados.findIndex(k => k.title === "Costo Petróleo / Km");
-                if (indexCostoKm !== -1) {
-                    kpisActualizados[indexCostoKm] = {
-                        ...kpisActualizados[indexCostoKm],
-                        value: '$' + datosCompletos.costo_por_km.toLocaleString('es-CL', { maximumFractionDigits: 2 }),
-                        subtext: `${datosCompletos.medicion_kilometraje.toLocaleString('es-CL')} km en ${nombreMesAnterior}`
-                    };
-                }
-            }
-
-            // Actualizar KPIs
-            setKpis(kpisActualizados);
-
-            // Cargar datos con el nuevo valor de toneladas para recalcular KPIs relacionados
-            if (datosCompletos.toneladas) {
-                cargarDatosConsumoConToneladas(datosCompletos.toneladas);
-            }
-
             // Mensajes de éxito y actualizar timestamp
-            setMensajeExito(`KPIs actualizados correctamente para ${nombreMesAnterior}`);
+            setMensajeExito(`KPIs actualizados correctamente para ${obtenerNombreMesAnterior()}`);
             setTimeout(() => setMensajeExito(null), 3000);
             setUltimaActualizacion(new Date());
-
+            
+            // Mostrar gráfico
+            setDatosDisponibles(true);
+            
             // Ocultar calculadora
             setMostrarCalculadora(false);
         } catch (err) {
             console.error('Error al procesar KPIs calculados:', err);
             setError('Error al procesar los resultados calculados');
+        }
+    };
+
+    // Función para verificar datos existentes
+    useEffect(() => {
+        if (!cargaIniciada) {
+            setCargaIniciada(true);
+            verificarDatosExistentes();
+        }
+    }, [cargaIniciada]);
+    
+    // Función para verificar si hay datos existentes
+    const verificarDatosExistentes = async () => {
+        setCargando(true);
+        try {
+            // Intentamos obtener datos del endpoint principal
+            const response = await axios.get('/api/kpi-totales-acumulados');
+            if (response.data?.success && response.data.data?.total_registros > 0) {
+                setDatosDisponibles(true);
+            } else {
+                setDatosDisponibles(false);
+            }
+        } catch (err) {
+            console.error('Error al verificar datos existentes:', err);
+            setDatosDisponibles(false);
+        } finally {
+            setCargando(false);
         }
     };
 
@@ -590,14 +86,12 @@ const MainGerente = ({ children }) => {
 
     // Función para refrescar datos manualmente
     const refrescarDatos = () => {
-        obtenerDatosReales();
-        cargarDatosConsumo();
-        cargarBalanceCombustible();
-        cargarDatosPetroleo();
+        verificarDatosExistentes();
     };
 
     return (
         <div className="flex-1 overflow-auto bg-gray-50">
+            <Header />
             <div className="container mx-auto px-4 py-6">
                 {/* Mensajes de estado */}
                 {cargando && (
@@ -631,103 +125,84 @@ const MainGerente = ({ children }) => {
                     </div>
                 )}
 
-                {/* Calculadora de KPIs */}
-                {mostrarCalculadora && (
-                    <SimpleKpiCalculator
-                        onCalculate={handleCalculatedKpis}
-                        periodo={periodoSeleccionado}
-                        faena={faenaSeleccionada}
-                        setFaena={setFaenaSeleccionada}
-                    />
-                )}
-
-                {/* Sección para el reporte de consumo de máquinas - Mostrar solo cuando tenemos datos de consumo */}
-                {datosConsumo && datosDisponibles && (
-                    <section className="mb-8">
-                        {/* Selector de faena y rango de fechas */}
-                        <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Seleccionar Faena:
-                                    </label>
-                                    <select
-                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                                        value={faenaSeleccionada}
-                                        onChange={(e) => setFaenaSeleccionada(e.target.value)}
-                                    >
-                                        <option value="todas">Todas las faenas</option>
-                                        <option value="1">Cabildo</option>
-                                        <option value="2">Catemu</option>
-                                        <option value="3">Chincolco</option>
-                                        <option value="4">Tiltil</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Desde:
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={fechaDesde}
-                                        onChange={(e) => setFechaDesde(e.target.value)}
-                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Hasta:
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={fechaHasta}
-                                        onChange={(e) => setFechaHasta(e.target.value)}
-                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    />
-                                </div>
-                            </div>
+                {/* Panel principal de mantenimiento */}
+                <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-xl font-semibold text-gray-800">Panel de Control de Mantenimiento</h2>
+                        <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-500">
+                                Actualizado: {ultimaActualizacion.toLocaleString()}
+                            </span>
+                            <button
+                                onClick={refrescarDatos}
+                                className="flex items-center px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors"
+                                disabled={cargando}
+                            >
+                                <FiRefreshCw className={`mr-1 ${cargando ? 'animate-spin' : ''}`} />
+                                Actualizar
+                            </button>
                         </div>
-                    </section>
-                )}
+                    </div>
+                    
+                    {/* Selector de faena simplificado */}
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Seleccionar Faena:
+                        </label>
+                        <select
+                            className="w-full sm:w-64 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                            value={faenaSeleccionada}
+                            onChange={(e) => setFaenaSeleccionada(e.target.value)}
+                        >
+                            <option value="todas">Todas las faenas</option>
+                            <option value="1">Cabildo</option>
+                            <option value="2">Catemu</option>
+                            <option value="3">Chincolco</option>
+                            <option value="4">Tiltil</option>
+                        </select>
+                    </div>
 
-                {/* Sección de gráficos */}
-                <section className="mb-8">
-                    {!datosDisponibles ? (
-                        <div className="bg-white rounded-lg shadow-md p-8 text-center border border-gray-100">
-                            <FiAlertCircle className="mx-auto h-12 w-12 text-gray-400 mb-3" />
-                            <h3 className="text-lg font-medium text-gray-800 mb-2">No hay datos disponibles</h3>
-                            <p className="text-gray-600 max-w-md mx-auto">
-                                No se encontraron datos para mostrar. Por favor utilice la calculadora de KPIs para ingresar datos manualmente o verifique la conexión con la base de datos.
-                            </p>
-                            <div className="mt-6">
-                                <button
-                                    onClick={() => setMostrarCalculadora(true)}
-                                    className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors shadow-sm mr-3"
-                                >
-                                    <FaCalculator className="mr-2" />
-                                    Usar Calculadora
-                                </button>
-                                <button
-                                    onClick={refrescarDatos}
-                                    className="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors shadow-sm"
-                                >
-                                    <FiRefreshCw className="mr-2" />
-                                    Actualizar Datos
-                                </button>
-                            </div>
-                        </div>
+                    {/* Calculadora de KPIs (visible solo cuando se solicita) */}
+                    {mostrarCalculadora ? (
+                        <SimpleKpiCalculator
+                            onCalculate={handleCalculatedKpis}
+                            periodo={periodoSeleccionado}
+                            faena={faenaSeleccionada}
+                            setFaena={setFaenaSeleccionada}
+                        />
                     ) : (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            <div className="rounded-lg shadow-md lg:col-span-3 p-4 border border-gray-200 bg-white">
-                                <BarrilesTrabajoChart faenaSeleccionada={faenaSeleccionada} />
-                            </div>
-                        </div>
+                        <>
+                            {/* Panel de visualización o entrada de datos */}
+                            {datosDisponibles ? (
+                                // Si hay datos disponibles, mostrar el gráfico
+                                <div className="mt-4">
+                                    <BarrilesTrabajoChart faenaSeleccionada={faenaSeleccionada} />
+                                </div>
+                            ) : (
+                                // Si no hay datos, mostrar mensaje y botón para ingresar datos
+                                <div className="bg-gray-50 p-8 text-center rounded-lg border border-gray-200 mt-4">
+                                    <FiAlertCircle className="mx-auto h-12 w-12 text-gray-400 mb-3" />
+                                    <h3 className="text-lg font-medium text-gray-800 mb-2">No hay datos disponibles</h3>
+                                    <p className="text-gray-600 max-w-md mx-auto mb-4">
+                                        No se encontraron datos para mostrar. Por favor ingrese datos manualmente usando la calculadora de KPIs.
+                                    </p>
+                                    <button
+                                        onClick={() => setMostrarCalculadora(true)}
+                                        className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors shadow-sm"
+                                    >
+                                        <FaCalculator className="mr-2" />
+                                        Ingresar Datos
+                                    </button>
+                                </div>
+                            )}
+                        </>
                     )}
-                </section>
+                </div>
 
                 {/* Sección para contenido hijo (si existe) */}
-                <section>{children}</section>
+                {children && (
+                    <section>{children}</section>
+                )}
             </div>
 
             {/* Footer */}
@@ -737,8 +212,9 @@ const MainGerente = ({ children }) => {
                         &copy; {new Date().getFullYear()} Minera 3H. Todos los derechos reservados.
                     </div>
                     <div className="flex items-center">
-                        <span className="mr-2">Versión 0.0.1</span>
+                        <span className="mr-2">Versión 1.0.0</span>
                         <span className="w-1 h-1 bg-gray-400 rounded-full mx-2"></span>
+                        <span>Panel de Mantenimiento</span>
                     </div>
                 </div>
             </footer>

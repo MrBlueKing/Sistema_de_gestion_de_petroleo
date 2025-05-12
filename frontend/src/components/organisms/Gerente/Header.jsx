@@ -14,7 +14,6 @@ const Header = () => {
   // Lista de elementos del Sidebar
   const menuItems = [
     { name: "Inicio", link: "/gerente", icon: <FaHome /> },
-    { name: "Registrar Usuarios", link: "/gerente", icon: <FaUser /> },
   ];
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);  // Estado para abrir/cerrar el Sidebar
@@ -33,18 +32,18 @@ const Header = () => {
 
   return (
     <div className="flex">
-      {/* Sidebar */}
-      <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} menuItems={menuItems} />
-
       <div className="flex flex-col flex-1">
         {/* Header */}
         <header className="flex items-center justify-between bg-white shadow-md px-4 py-3">
           {/* Botón hamburguesa para abrir el sidebar */}
           <div className="flex items-center gap-4">
+            
+            {/* Nuevo ícono de casa para navegar a la página principal */}
             <IconButton 
-              icono={<FaBars size={20} className="text-gray-600" />} 
-              onClick={toggleSidebar}  // Llamar a la función para abrir el Sidebar
+              icono={<FaHome size={20} className="text-gray-600" />} 
+              onClick={() => navigate('/gerente')}  // Navegar a la página principal
             />
+            
             <h1 className="text-xl font-bold text-gray-800">
               Gerente
             </h1>

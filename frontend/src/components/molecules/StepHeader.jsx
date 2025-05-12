@@ -11,6 +11,6 @@ const StepHeader = ({ text = "Cargar Combustible", icon = "⛽" }) => {
       </div>
     </div>
   );
-};
+};  
 
 export default StepHeader;

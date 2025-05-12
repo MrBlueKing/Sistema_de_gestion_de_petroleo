@@ -5,6 +5,10 @@ import LoginPage from "../pages/LoginPage";
 import PrivateRoute from "./PrivateRoutes";
 
 import GerentePage from "../pages/Gerente/GerentePage";
+import MainIngresoDatos from "../components/organisms/Gerente/MainIngresoDatos";
+import MainKpis from "../components/organisms/Gerente/MainKpi";
+import MainMantenimiento from "../components/organisms/Gerente/MainMantenimiento";
+
 
 import AdministradorPage from "../pages/Administrador/AdministradorPage";
 import AdministradorUserRegister from "../components/templates/Administrador/AdministradorUserRegister";
@@ -36,6 +40,36 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
+      {/* Ruta para dashborads de gerente*/}
+      <Route
+        path="/gerente/ingreso-datos"
+        element={
+          <PrivateRoute requiredRole="gerente">
+            <MainIngresoDatos />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Ruta para gráficos de gerente*/}
+      <Route
+        path="/gerente/graficos"
+        element={
+          <PrivateRoute requiredRole="gerente">
+            <MainKpis />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Ruta para Mantenimieto de gerente*/}
+      <Route
+        path="/gerente/mantenimiento"
+        element={
+          <PrivateRoute requiredRole="gerente">
+            <MainMantenimiento />
+          </PrivateRoute>
+        }
+      />
+
 
       {/* Ruta protegida para Administrador */}
       <Route

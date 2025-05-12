@@ -4,6 +4,7 @@ import FiltrosComponent from "../../molecules/FiltrosComponent";
 import TopEquiposChart from "../../molecules/TopEquiposChart";
 import FaenasChart from "../../molecules/FaenasChart";
 import ConsumoTendenciaChart from "../../molecules/ConsumoTendenciaChart";
+import Header from "../../organisms/Gerente/Header";
 
 const MainKpi = () => {
 
@@ -30,7 +31,8 @@ const MainKpi = () => {
   }, [fechaDesde, fechaHasta, faenaSeleccionada]);
 
   return (
-    <div className="container mx-auto px-4">
+     <div className="flex-1 overflow-auto bg-gray-50">
+      <Header />
       <div className="mb-6 bg-white rounded-lg shadow-md p-4">
         <h2 className="text-xl font-bold mb-4 text-gray-800 flex items-center">
           Filtros de Visualización

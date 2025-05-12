@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\InformeKpiController;
 use App\Http\Controllers\Api\InformesController;
 use App\Http\Controllers\Api\KpiCalculadoraController;
 use App\Http\Controllers\Api\KpiCalculoController;
+use App\Http\Controllers\Api\KpiHistoricoController;
 use App\Http\Controllers\Api\KpiValoresEntradaController;
 use App\Http\Controllers\Api\PersonalExternoController;
 
@@ -134,8 +135,21 @@ Route::get('/kpis-getCostoPetroleoSinUltimosConsumos', [KpiCalculoController::cl
 
 // Rutas para valores de entrada
 Route::get('/kpi-valores-entrada/verificar-permiso', [App\Http\Controllers\Api\KpiValoresEntradaController::class, 'verificarPermiso']);
-Route::get('/kpi-valores-entrada/historial', [App\Http\Controllers\Api\KpiValoresEntradaController::class, 'obtenerHistorial']);
+Route::get('/kpi-valores-entrada-historial', [KpiValoresEntradaController::class, 'obtenerHistorial']);
+
+//PROBANDO ESTAS APIS 
+// Historial general de valores KPI
+Route::get('/kpi-valores-entrada-historial', [KpiValoresEntradaController::class, 'getHistorialGeneral']);
+// Historial de valores KPI por faena específica
+Route::get('/kpi-valores-entrada-historial/faena/{idFaena}', [KpiValoresEntradaController::class, 'getHistorialPorFaena']);
+// Estadísticas de KPI agrupadas por faena
+Route::get('/kpi-estadisticas-por-faena', [KpiValoresEntradaController::class, 'getEstadisticasPorFaena']);
+// Totales acumulados de todos los valores KPI
+Route::get('/kpi-totales-acumulados', [KpiValoresEntradaController::class, 'getTotalesAcumulados']);
+
+Route::get('/kpi-valores-entrada-historial-filtrado', [KpiValoresEntradaController::class, 'getHistorialFiltrado']);
 
 // Rutas específicas para informes
 Route::get('/informes-kpi/consumo-maquinas', [App\Http\Controllers\Api\InformesController::class, 'getConsumoMaquinas']);
 Route::get('/informes-kpi/balance-combustible', [App\Http\Controllers\Api\InformesController::class, 'getBalanceCombustible']);
+
