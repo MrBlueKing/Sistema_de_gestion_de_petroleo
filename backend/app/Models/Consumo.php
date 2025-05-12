@@ -38,7 +38,7 @@ class Consumo extends Model
     // Relaciones
     public function solicitante()
     {
-        return $this->belongsTo(Solicitante::class, 'id_dotacion');
+        return $this->belongsTo(Solicitante::class, 'rut');
     }
 
     public function maquina()

@@ -23,7 +23,7 @@ const bomberoService = {
   getPersonalExterno: async () => {
     try {
       const response = await axios.get("/api/personal-externos");
-      
+      console.log('externos:', response);
       if (response.data && response.data.success && Array.isArray(response.data.personal_externo)) {
         return response.data.personal_externo;
       } else {

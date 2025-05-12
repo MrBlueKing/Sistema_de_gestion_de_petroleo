@@ -34,6 +34,9 @@ Route::get('/user/{id}', [UserController::class, 'show']);
 Route::get('/maquinarias-bodega', [BodegaController::class, 'obtenerMaquinarias']);
 // Ruta para obtener solo el personal de bodega (personas y maquinarias mezcladas)
 Route::middleware('auth:sanctum')->get('/personal-bodega', [BodegaController::class, 'index']);
+
+Route::get('/solicitantes', [PersonalInternoController::class, 'listarSolicitantes']);
+
 // Ruta para obtener solo el personal de bodega (personas y maquinarias mezcladas) con RUT inválido
 Route::get('/personal-bodega-invalidos', [BodegaController::class, 'rutInvalidos']);
 //Ruta para obtener las maquinarias de la bodega.
@@ -58,6 +61,7 @@ Route::get('/maquinas-internas-permiso', [MaquinaInternaController::class, 'inde
 Route::post('/ingresos-empresas-externas', [EmpresaExternaController::class, 'store']);
 Route::get('/empresas-disponibles', [EmpresaExternaController::class, 'index']);
 Route::post('/registrar-personal-externo', [PersonalExternoController::class, 'store']);
+Route::get('/personal-externos', [PersonalExternoController::class, 'index']);
 
 
 //RUTAS DE SOLICITANTES INTERNOS
@@ -71,6 +75,8 @@ Route::get('/verificarPermiso', [FaenaController::class, 'verificarPermiso']);
 Route::get('/faenasDisponibles', [FaenaController::class, 'getFaenasDisponibles']);
 
 Route::get('/personal-internos-externos', [PersonalInternoController::class, 'indexInternoExterno']);
+
+
 
 //RUTAS RECEPCION PETROLEO
 Route::get('/ingresos-petroleo', [IngresoPetroleoController::class, 'index']);

@@ -10,6 +10,7 @@ use App\Models\Solicitante;
 use App\Models\Faena;
 use App\Models\PersonalExterno;
 use App\Models\SolicitanteFaena;
+use Illuminate\Support\Facades\Log;
 
 class PersonalInternoController extends Controller
 {
@@ -123,7 +124,7 @@ class PersonalInternoController extends Controller
                 'id_dotacion' => $solicitante->id, // ✅ Este es el ID correcto
                 'id_faena' => $faena->id_faena,
             ]);
-            
+
 
             return response()->json([
                 'success' => true,
@@ -188,17 +189,23 @@ class PersonalInternoController extends Controller
         }
     }
 
-    // Función para listar todos los usuarios registrados
+    // Función para listar los todos los usuarios registrados
     public function index()
     {
         try {
             // Obtener todos los usuarios de la tabla 'personal_interno'
             $personalInterno = PersonalInterno::all();
 
-            // Opcionalmente, podemos incluir información de las faenas relacionadas
             $usuariosDetallados = [];
             foreach ($personalInterno as $personal) {
-                $solicitanteFaenas = SolicitanteFaena::where('id_dotacion', $personal->id_personal_interno)->get();
+                // Buscar el solicitante asociado por rut
+                $solicitante = Solicitante::where('rut', $personal->rut)->first();
+
+                // Validar si se encontró el solicitante
+                $solicitanteFaenas = [];
+                if ($solicitante) {
+                    $solicitanteFaenas = SolicitanteFaena::where('id_dotacion', $solicitante->id)->get();
+                }
 
                 $faenas = [];
                 foreach ($solicitanteFaenas as $sf) {
@@ -208,11 +215,14 @@ class PersonalInternoController extends Controller
                     }
                 }
 
+                // Cambiar 'id_personal_interno' por el 'id' del solicitante
                 $usuariosDetallados[] = [
+                    'id_dotacion' => $solicitante ? $solicitante->id : null,  // Ahora usamos el id del solicitante
                     'personal_interno' => $personal,
                     'faenas' => $faenas
                 ];
             }
+
             return response()->json([
                 'success' => true,
                 'personal_interno' => $usuariosDetallados
@@ -224,6 +234,10 @@ class PersonalInternoController extends Controller
             ], 500);
         }
     }
+
+
+
+
 
     // Nueva función para registrar usuario desde el frontend (ruta /api/registrarUsuarioInterno)
     public function registrarUsuarioInterno(Request $request)
@@ -250,7 +264,7 @@ class PersonalInternoController extends Controller
         }
     }
 
-   
+
 
     public function asignarPermisoSolicitante(Request $request)
     {
@@ -259,7 +273,7 @@ class PersonalInternoController extends Controller
             'id_dotacion' => 'required|exists:solicitantes,id',
             'id_faena' => 'required|exists:faenas,id_faena',
         ]);
-        
+
 
         if ($validator->fails()) {
             return response()->json([
@@ -299,48 +313,64 @@ class PersonalInternoController extends Controller
     }
 
     public function indexInternoExterno()
-{
-    try {
-        $personalInterno = PersonalInterno::all();
-        $personalExterno = PersonalExterno::all();
+    {
+        try {
+            $personalInterno = PersonalInterno::all();
+            $personalExterno = PersonalExterno::all();
 
-        $usuariosDetallados = [];
+            $usuariosDetallados = [];
 
-        // Procesar personal interno
-        foreach ($personalInterno as $personal) {
-            $solicitante = \App\Models\Solicitante::where('rut', $personal->rut)->first();
-            $usuariosDetallados[] = [
-                'tipo' => 'Interno',
-                'id' => $solicitante ? $solicitante->id : null, // id desde solicitantes
-                'rut' => $personal->rut,
-                'nombre' => trim("{$personal->nombre} {$personal->apellido}"),
-            ];
+            // Procesar personal interno
+            foreach ($personalInterno as $personal) {
+                $solicitante = \App\Models\Solicitante::where('rut', $personal->rut)->first();
+                $usuariosDetallados[] = [
+                    'tipo' => 'Interno',
+                    'id' => $solicitante ? $solicitante->id : null, // id desde solicitantes
+                    'rut' => $personal->rut,
+                    'nombre' => trim("{$personal->nombre} {$personal->apellido}"),
+                ];
+            }
+
+            // Procesar personal externo
+            foreach ($personalExterno as $personal) {
+                $solicitante = \App\Models\Solicitante::where('rut', $personal->rut)->first();
+                $usuariosDetallados[] = [
+                    'tipo' => 'Externo',
+                    'id' => $solicitante ? $solicitante->id : null, // id desde solicitantes
+                    'rut' => $personal->rut,
+                    'nombre' => $personal->nombre,
+                    'cargo' => $personal->cargo ?? null,
+                ];
+            }
+
+            return response()->json([
+                'success' => true,
+                'personal' => $usuariosDetallados
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Hubo un error al obtener los usuarios.',
+                'message' => $e->getMessage(),
+            ], 500);
         }
-
-        // Procesar personal externo
-        foreach ($personalExterno as $personal) {
-            $solicitante = \App\Models\Solicitante::where('rut', $personal->rut)->first();
-            $usuariosDetallados[] = [
-                'tipo' => 'Externo',
-                'id' => $solicitante ? $solicitante->id : null, // id desde solicitantes
-                'rut' => $personal->rut,
-                'nombre' => $personal->nombre,
-                'cargo' => $personal->cargo ?? null,
-            ];
-        }
-
-        return response()->json([
-            'success' => true,
-            'personal' => $usuariosDetallados
-        ], 200);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'error' => 'Hubo un error al obtener los usuarios.',
-            'message' => $e->getMessage(),
-        ], 500);
     }
-}
-    
+
+    public function listarSolicitantes()
+    {
+        try {
+            Log::info('Solicitantes:');
+            $solicitantes = Solicitante::all();
+
+            return response()->json([
+                'success' => true,
+                'solicitantes' => $solicitantes
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener los solicitantes: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

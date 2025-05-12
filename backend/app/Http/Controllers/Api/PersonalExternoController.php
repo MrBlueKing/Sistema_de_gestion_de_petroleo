@@ -15,10 +15,51 @@ class PersonalExternoController extends Controller
     /**
      * Display a listing of the resource.
      */
+     // Función para listar los todos los usuarios registrados
     public function index()
-    {
-        //
+{
+    try {
+        // Obtener todos los usuarios de la tabla 'personal_externo'
+        $personalExterno = PersonalExterno::all();
+
+        $usuariosDetallados = [];
+        foreach ($personalExterno as $personal) {
+            // Buscar el solicitante asociado por rut
+            $solicitante = Solicitante::where('rut', $personal->rut)->first();
+
+            $solicitanteFaenas = [];
+            if ($solicitante) {
+                $solicitanteFaenas = SolicitanteFaena::where('id_dotacion', $solicitante->id)->get(); 
+            }
+
+            $faenas = [];
+            foreach ($solicitanteFaenas as $sf) {
+                $faena = Faena::where('id_faena', $sf->id_faena)->first();
+                if ($faena) {
+                    $faenas[] = $faena;
+                }
+            }
+
+            // Usamos el RUT como id_dotacion (como string)
+            $usuariosDetallados[] = [
+                'id_dotacion' => $solicitante ? $solicitante->id : null,  // Ahora usamos el id del solicitante
+                'personal_externo' => $personal,
+                'faenas' => $faenas
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'personal_externo' => $usuariosDetallados
+        ], 200);
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => 'Hubo un error al obtener los usuarios.',
+            'message' => $e->getMessage(),
+        ], 500);
     }
+}
+
 
     /**
      * Store a newly created resource in storage.

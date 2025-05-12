@@ -9,6 +9,7 @@ import Button from "../../atoms/Button/Button";
 import StepHeader from "../../molecules/StepHeader";
 import { FaArrowLeft, FaMapMarkerAlt } from "react-icons/fa";
 import bomberoService from "../../../context/bomberoService";
+import axios from "../../../lib/axios"; // Asegúrate de importar axios
 
 const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
   // Obtener usuario del contexto
@@ -17,6 +18,8 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [usuarios, setUsuarios] = useState([]);
+  const [solicitantes, setSolicitantes] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [todosLosUsuarios, setTodosLosUsuarios] = useState([]);
@@ -41,10 +44,10 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
     };
 
     calcularElementosPorPagina();
-    window.addEventListener('resize', calcularElementosPorPagina);
+    window.addEventListener("resize", calcularElementosPorPagina);
 
     return () => {
-      window.removeEventListener('resize', calcularElementosPorPagina);
+      window.removeEventListener("resize", calcularElementosPorPagina);
     };
   }, []);
 
@@ -54,7 +57,7 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
     return bomberoService.buscarPersonal(usuarios, termino);
   }, []);
 
-  // Cargar faenas y usuarios en un solo useEffect para reducir recargas
+  // Cargar faenas, usuarios y solicitantes en un solo useEffect para reducir recargas
   useEffect(() => {
     let isMounted = true;
 
@@ -65,27 +68,38 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
         // 1. Primero obtener todas las faenas
         const faenas = await bomberoService.getAllFaenas();
 
+        // 2. Obtener todos los solicitantes para mapear IDs
+        const responseSolicitantes = await axios.get('/api/solicitantes');
+        if (isMounted) {
+          setSolicitantes(responseSolicitantes.data);
+          console.log("Datos de solicitantes", responseSolicitantes);
+        }
+  
         let ubicacion = "";
 
-        // 2. Identificar la ubicación del usuario actual si tiene faena asignada
+        // 3. Identificar la ubicación del usuario actual si tiene faena asignada
         if (user && user.id_faena) {
-          const faenaUsuario = faenas.find(f => f.id_faena === user.id_faena);
+          const faenaUsuario = faenas.find((f) => f.id_faena === user.id_faena);
           if (faenaUsuario) {
             ubicacion = faenaUsuario.ubicacion;
             if (isMounted) setUbicacionUsuario(ubicacion);
           }
         }
 
-        // 3. Obtener los usuarios del tipo seleccionado
+        // 4. Obtener los usuarios del tipo seleccionado
         if (isMounted) {
           const todosUsuarios = await bomberoService.getPersonalPorTipo(tipoSolicitante);
+          console.log('Tipo:', todosUsuarios);
 
-          // 4. Filtrar por ubicación si es necesario
+          // 5. Filtrar por ubicación si es necesario
           const usuariosFiltrados = ubicacion
-            ? bomberoService.filtrarPersonalPorUbicacion(todosUsuarios, ubicacion)
+            ? bomberoService.filtrarPersonalPorUbicacion(
+                todosUsuarios,
+                ubicacion
+              )
             : todosUsuarios;
 
-          // 5. Establecer los estados de usuarios
+          // 6. Establecer los estados de usuarios
           setTodosLosUsuarios(usuariosFiltrados);
           setUsuarios(usuariosFiltrados);
         }
@@ -120,9 +134,11 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
   // Formatear usuario para pasarlo al siguiente paso
   const formatearUsuarioParaSiguiente = (usuario) => {
     const personalData = usuario.personal_interno || usuario.personal_externo;
-
+    const rut = personalData?.rut;
+    
+   // Obtener el ID correspondiente de la tabla solicitante, si lo encuentr    
     return {
-      id: personalData.id_personal_interno || personalData.id_personal_externo,
+      id: usuario.personal_interno.rut || usuario.personal_externo.id_personal_externo, 
       nombre: personalData.nombre || "",
       apellido: personalData.apellido || "",
       rut: personalData.rut || "",
@@ -131,7 +147,7 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
       faena: personalData.ubicacion || "", // Usamos ubicación como faena
       id_faena: user?.id_faena || null,
       tipo: tipoSolicitante,
-      original: usuario
+      original: usuario,
     };
   };
 
@@ -145,6 +161,7 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
     setSelectedUser(usuario);
     setShowUserDetails(true);
 
+    // Pasamos directamente el usuario formateado al siguiente paso
     const usuarioFormateado = formatearUsuarioParaSiguiente(usuario._original);
     onNext(usuarioFormateado);
   };
@@ -153,21 +170,24 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
   const prepareItems = useCallback(() => {
     if (!Array.isArray(usuarios)) return [];
 
-    return usuarios.slice(
-      (currentPage - 1) * usersPerPage,
-      currentPage * usersPerPage
-    ).map(item => {
-      const personalData = item.personal_interno || item.personal_externo;
-      return {
-        id: personalData.id_personal_interno || personalData.id_personal_externo,
-        nombre: `${personalData.nombre || ""} ${personalData.apellido || ""}`,
-        descripcion: `${personalData.cargo || ""} - ${personalData.rut || ""}`,
-        ubicacion: personalData.ubicacion || "",
-        rut: personalData.rut || "",
-        cargo: personalData.cargo || "",
-        _original: item
-      };
-    });
+    return usuarios
+      .slice((currentPage - 1) * usersPerPage, currentPage * usersPerPage)
+      .map((item) => {
+        const personalData = item.personal_interno || item.personal_externo;
+        return {
+          id:
+            personalData.id_personal_interno ||
+            personalData.id_personal_externo,
+          nombre: `${personalData.nombre || ""} ${personalData.apellido || ""}`,
+          descripcion: `${personalData.cargo || ""} - ${
+            personalData.rut || ""
+          }`,
+          ubicacion: personalData.ubicacion || "",
+          rut: personalData.rut || "",
+          cargo: personalData.cargo || "",
+          _original: item,
+        };
+      });
   }, [usuarios, currentPage, usersPerPage]);
 
   // Calcular total de páginas
@@ -187,7 +207,13 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
           <div className="w-full flex justify-center items-center">
             <h2 className="text-gray-700 font-medium text-sm sm:text-base md:text-lg">
               Seleccione Personal:{" "}
-              <span className={`${tipoSolicitante === "interno" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"} rounded-full px-2 py-1 text-xs uppercase ml-1`}>
+              <span
+                className={`${
+                  tipoSolicitante === "interno"
+                    ? "bg-blue-100 text-blue-800"
+                    : "bg-green-100 text-green-800"
+                } rounded-full px-2 py-1 text-xs uppercase ml-1`}
+              >
                 {tipoSolicitante}
               </span>
             </h2>
@@ -222,9 +248,25 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
               {loading ? (
                 <div className="h-full flex items-center justify-center">
                   <div className="text-center">
-                    <svg className="animate-spin h-10 w-10 text-orange-500 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    <svg
+                      className="animate-spin h-10 w-10 text-orange-500 mx-auto mb-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
                     </svg>
                     <p className="text-gray-500">Cargando usuarios...</p>
                   </div>
@@ -232,8 +274,16 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
               ) : error ? (
                 <div className="h-full flex items-center justify-center">
                   <div className="text-center">
-                    <svg className="w-10 h-10 text-red-500 mx-auto mb-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"></path>
+                    <svg
+                      className="w-10 h-10 text-red-500 mx-auto mb-4"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                        clipRule="evenodd"
+                      ></path>
                     </svg>
                     <p className="text-red-500">{error}</p>
                     <button
@@ -281,28 +331,48 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
           {showUserDetails && selectedUser && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-xl p-4 max-w-md w-full mx-4">
-                <h3 className="text-lg font-semibold text-gray-800 mb-3">Detalles del personal seleccionado</h3>
+                <h3 className="text-lg font-semibold text-gray-800 mb-3">
+                  Detalles del personal seleccionado
+                </h3>
 
                 <div className="bg-gray-100 rounded-lg p-3 mb-4">
                   <div className="flex items-center mb-2">
-                    <svg className="w-6 h-6 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"></path>
+                    <svg
+                      className="w-6 h-6 text-blue-600 mr-2"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                        clipRule="evenodd"
+                      ></path>
                     </svg>
-                    <span className="font-medium text-gray-700">{selectedUser.nombre}</span>
+                    <span className="font-medium text-gray-700">
+                      {selectedUser.nombre}
+                    </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className="text-gray-600">RUT:</div>
-                    <div className="text-gray-800 font-medium">{selectedUser.rut}</div>
+                    <div className="text-gray-800 font-medium">
+                      {selectedUser.rut}
+                    </div>
 
                     <div className="text-gray-600">Cargo:</div>
-                    <div className="text-gray-800 font-medium">{selectedUser.cargo}</div>
+                    <div className="text-gray-800 font-medium">
+                      {selectedUser.cargo}
+                    </div>
 
                     <div className="text-gray-600">Ubicación:</div>
-                    <div className="text-gray-800 font-medium">{selectedUser.ubicacion}</div>
+                    <div className="text-gray-800 font-medium">
+                      {selectedUser.ubicacion}
+                    </div>
 
                     <div className="text-gray-600">Tipo:</div>
-                    <div className="text-gray-800 font-medium capitalize">{tipoSolicitante}</div>
+                    <div className="text-gray-800 font-medium capitalize">
+                      {tipoSolicitante}
+                    </div>
                   </div>
                 </div>
 
@@ -335,7 +405,11 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
               <span className="inline-block">
                 Seleccione un usuario para continuar
                 {ubicacionUsuario && (
-                  <> (Solo se muestran usuarios de la ubicación {ubicacionUsuario})</>
+                  <>
+                    {" "}
+                    (Solo se muestran usuarios de la ubicación{" "}
+                    {ubicacionUsuario})
+                  </>
                 )}
               </span>
             </p>

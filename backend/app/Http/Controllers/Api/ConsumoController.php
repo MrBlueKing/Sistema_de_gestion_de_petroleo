@@ -21,7 +21,7 @@ class ConsumoController extends Controller
         Log::info('Iniciando store de Consumo', ['data_recibida' => $request->all()]);
 
         $validator = Validator::make($request->all(), [
-            'id_dotacion' => 'required|exists:solicitantes,id',
+            'id_dotacion' => 'required|exists:solicitantes,rut',
             'id_equipo' => 'required|exists:maquinas,id_maquina',
             'id_usuario' => 'required|exists:users,id',
             'fecha_consumo' => 'nullable|date',
