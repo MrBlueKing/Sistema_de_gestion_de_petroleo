@@ -66,7 +66,14 @@ const TipoSolicitante = ({ onNext }) => {
 
           {/* Controles inferiores */}
           <div className="flex items-center w-full px-1 sm:px-2 md:px-4 py-1 sm:py-2">
-            <Button to="/Bombero" icon={<FaHome />} />
+            <Button
+              to="/Bombero"
+              icon={<FaHome />}
+              textColor="orange-600"
+              className="text-xl"
+              iconClassName="w-8 h-8" // Aumenta el tamaño del ícono
+            />
+
             <div className="flex-1"></div>
             <div className="w-8 sm:w-10">{/* Espacio para alinear */}</div>
           </div>

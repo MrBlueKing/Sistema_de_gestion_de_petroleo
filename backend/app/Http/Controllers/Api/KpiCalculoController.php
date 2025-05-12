@@ -13,6 +13,9 @@ use Illuminate\Support\Facades\Validator;
 
 class KpiCalculoController extends Controller
 {
+   /**
+     * Calcula y guarda los KPIs basados en los datos de entrada
+     */
     public function calcular(Request $request)
     {
         Log::info('Iniciando cálculo de KPIs', ['request' => $request->all()]);
@@ -26,8 +29,10 @@ class KpiCalculoController extends Controller
             'valores_entrada.petroleo_toneladas' => 'required|numeric|min:0',
             'valores_entrada.petroleo_horas' => 'required|numeric|min:0',
             'valores_entrada.petroleo_kilometros' => 'required|numeric|min:0',
-            'valores_entrada.horas_trabajadas' => 'nullable|numeric|min:0', // Nuevo campo
-            'valores_entrada.rendimiento' => 'nullable|numeric|min:0', // Nuevo campo
+            'valores_entrada.horas_trabajadas' => 'nullable|numeric|min:0',
+            'valores_entrada.rendimiento' => 'nullable|numeric|min:0',
+            'mes_registro' => 'nullable|integer|min:1|max:12', // Nuevo campo para mes de registro
+            'ano_registro' => 'nullable|integer|min:2000|max:2100' // Nuevo campo para año de registro
         ]);
 
         if ($validator->fails()) {
@@ -43,14 +48,38 @@ class KpiCalculoController extends Controller
             // Usar el user_id del request o por defecto el ID 3 (para pruebas)
             $userId = $request->input('user_id', 3);
 
+            // Si se especificó un mes y año para el registro, usarlos
+            // Si no, usar el mes anterior al actual por defecto
+            $periodoDate = Carbon::now();
+            
+            // Obtener el mes y año de registro (si se especificaron)
+            $mesRegistro = $request->input('mes_registro');
+            $anoRegistro = $request->input('ano_registro');
+            
+            // Si no se especifican mes/año en la petición, usar el mes anterior al actual
+            if (!$mesRegistro || !$anoRegistro) {
+                $periodoDate = Carbon::now()->subMonth();
+                $mesRegistro = $periodoDate->month;
+                $anoRegistro = $periodoDate->year;
+            } else {
+                // Si se especificaron mes/año, crear una fecha con esos valores
+                $periodoDate = Carbon::createFromDate($anoRegistro, $mesRegistro, 1);
+            }
+
             // 1. Crear registro en informes_kpi
             $informe = new InformeKpi();
             $informe->id_usuario = $userId;
             $informe->id_faena = $request->faena;
             $informe->periodo = $request->periodo;
-            $informe->fecha_inicio_periodo = $this->determinarFechaInicio($request->periodo);
-            $informe->fecha_fin_periodo = $this->determinarFechaFin($request->periodo);
-            $informe->titulo = "Informe KPI " . ucfirst($request->periodo) . " - " . date('d/m/Y');
+            
+            // Determinar fechas de inicio y fin basadas en el período y el mes/año especificados
+            $fechasPeriodo = $this->determinarFechasPeriodo($request->periodo, $periodoDate);
+            $informe->fecha_inicio_periodo = $fechasPeriodo['inicio'];
+            $informe->fecha_fin_periodo = $fechasPeriodo['fin'];
+            
+            // Generar un título descriptivo incluyendo el período y la fecha actual de creación
+            $nombreMes = $periodoDate->locale('es')->monthName;
+            $informe->titulo = "Informe KPI " . ucfirst($request->periodo) . " - $nombreMes $anoRegistro";
             $informe->save();
 
             // 2. Guardar valores de entrada con los nuevos campos
@@ -78,7 +107,14 @@ class KpiCalculoController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Datos registrados correctamente',
+                'message' => 'Datos registrados correctamente para ' . ucfirst($nombreMes) . ' ' . $anoRegistro,
+                'periodo_registrado' => [
+                    'mes' => $mesRegistro,
+                    'ano' => $anoRegistro,
+                    'nombre_mes' => $nombreMes,
+                    'fecha_inicio' => $informe->fecha_inicio_periodo->format('Y-m-d'),
+                    'fecha_fin' => $informe->fecha_fin_periodo->format('Y-m-d'),
+                ],
                 'data' => $this->calcularKpis($valoresEntrada)
             ]);
         } catch (\Exception $e) {
@@ -95,49 +131,46 @@ class KpiCalculoController extends Controller
     }
 
     /**
-     * Determina la fecha de inicio según el período
+     * Determina las fechas de inicio y fin según el período y la fecha base
      */
-    private function determinarFechaInicio($periodo)
+    private function determinarFechasPeriodo($periodo, Carbon $fechaBase)
     {
-        $ahora = Carbon::now();
-
+        // Clonar las fechas para evitar modificar la original
+        $fechaInicio = clone $fechaBase;
+        $fechaFin = clone $fechaBase;
+        
         switch ($periodo) {
             case 'diario':
-                return $ahora->startOfDay();
+                $fechaInicio = $fechaInicio->startOfDay();
+                $fechaFin = $fechaFin->endOfDay();
+                break;
             case 'semanal':
-                return $ahora->startOfWeek();
+                $fechaInicio = $fechaInicio->startOfWeek();
+                $fechaFin = $fechaFin->endOfWeek();
+                break;
             case 'mensual':
-                return $ahora->startOfMonth();
+                $fechaInicio = $fechaInicio->startOfMonth();
+                $fechaFin = $fechaFin->endOfMonth();
+                break;
             case 'trimestral':
-                return $ahora->startOfQuarter();
+                $fechaInicio = $fechaInicio->startOfQuarter();
+                $fechaFin = $fechaFin->endOfQuarter();
+                break;
             case 'anual':
-                return $ahora->startOfYear();
+                $fechaInicio = $fechaInicio->startOfYear();
+                $fechaFin = $fechaFin->endOfYear();
+                break;
             default:
-                return $ahora->startOfMonth(); // Default a mensual
+                // Por defecto usar mensual
+                $fechaInicio = $fechaInicio->startOfMonth();
+                $fechaFin = $fechaFin->endOfMonth();
+                break;
         }
-    }
-
-    /**
-     * Determina la fecha de fin según el período
-     */
-    private function determinarFechaFin($periodo)
-    {
-        $ahora = Carbon::now();
-
-        switch ($periodo) {
-            case 'diario':
-                return $ahora->endOfDay();
-            case 'semanal':
-                return $ahora->endOfWeek();
-            case 'mensual':
-                return $ahora->endOfMonth();
-            case 'trimestral':
-                return $ahora->endOfQuarter();
-            case 'anual':
-                return $ahora->endOfYear();
-            default:
-                return $ahora->endOfMonth(); // Default a mensual
-        }
+        
+        return [
+            'inicio' => $fechaInicio,
+            'fin' => $fechaFin
+        ];
     }
 
     /**

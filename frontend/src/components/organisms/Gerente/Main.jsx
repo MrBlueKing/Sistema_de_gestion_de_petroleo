@@ -20,17 +20,17 @@ const Main = () => {
       color: "bg-blue-50 hover:bg-blue-100 border-blue-200"
     },
     {
-      title: "Panel Gerente",
-      description: "Administración y toma de decisiones",
+      title: "Gráficos de Producción",
+      description: "ver cositas",
       icon: <FiBarChart2 className="w-10 h-10 text-indigo-500" />,
-      path: "/gerente",
+      path: "/gerente/graficos",
       color: "bg-indigo-50 hover:bg-indigo-100 border-indigo-200"
     },
     {
-      title: "Gestión de Consumo",
+      title: "Mantenimiento",
       description: "Control de consumo de combustible",
       icon: <FiDroplet className="w-10 h-10 text-cyan-500" />,
-      path: "/consumo",
+      path: "/gerente/mantenimiento",
       color: "bg-cyan-50 hover:bg-cyan-100 border-cyan-200"
     },
   ];

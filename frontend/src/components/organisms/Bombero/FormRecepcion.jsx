@@ -53,7 +53,8 @@ const FormRecepcion = () => {
   // Estado para almacenar información calculada del petróleo
   const [calculoPetroleo, setCalculoPetroleo] = useState({
     litrosCalculados: 0,
-    diferencia: 0
+    diferencia: 0,
+    calculoRealizado: false // Flag para indicar si se ha realizado el cálculo
   });
 
   // Actualizar la faena cuando el usuario cambie
@@ -185,11 +186,26 @@ const FormRecepcion = () => {
 
   // Función para manejar cambios en las alturas de estanques
   const handleAlturaChange = (estanqueId, value) => {
-    // Solo actualiza la altura del estanque específico
-    setAlturasEstanques(prevState => ({
-      ...prevState,
-      [estanqueId]: value
-    }));
+    // Cuando el valor es una cadena vacía, lo mantenemos como string vacío
+    // para que el input mantenga su estado "vacío" visualmente
+    if (value === "") {
+      setAlturasEstanques(prevState => ({
+        ...prevState,
+        [estanqueId]: value
+      }));
+      return;
+    }
+    
+    // Para otros casos, convertir a número si es posible
+    const numValue = parseFloat(value);
+    
+    // Si es un número válido (incluso 0), usamos ese valor
+    if (!isNaN(numValue)) {
+      setAlturasEstanques(prevState => ({
+        ...prevState,
+        [estanqueId]: numValue // Guardamos como número directamente
+      }));
+    }
   };
 
   // Función para calcular los litros de petróleo según las alturas
@@ -217,16 +233,24 @@ const FormRecepcion = () => {
     try {
       const token = JSON.parse(localStorage.getItem("authToken"))?.token;
 
-      const datosAlturas = Object.keys(alturasEstanques).map(estanqueId => ({
-        id_estanque: parseInt(estanqueId),
-        altura: parseFloat(alturasEstanques[estanqueId])
-      }));
+      // Convertir las alturas a un formato adecuado para la API
+      // Importante: Asegurarse de que los valores cero se traten correctamente
+      const datosAlturas = Object.keys(alturasEstanques).map(estanqueId => {
+        const altura = alturasEstanques[estanqueId];
+        // Verificar si es exactamente 0 o un valor numérico válido
+        const alturaNum = (altura === 0 || altura) ? parseFloat(altura) : null;
+        return {
+          id_estanque: parseInt(estanqueId),
+          altura: alturaNum
+        };
+      });
 
+      // Filtrar entradas incompletas - importante: permitir valores de 0
       const alturasIncompletas = datosAlturas.filter(item => {
-        // Solo considera incompleto si el valor es NaN o no está definido
-        // Esto permite que 0 sea un valor válido
+        // El valor 0 se considera válido, solo se filtra undefined, null y NaN
         return item.altura === undefined || item.altura === null || Number.isNaN(item.altura);
       });
+
       if (alturasIncompletas.length > 0) {
         setModalAlert({
           show: true,
@@ -277,12 +301,13 @@ const FormRecepcion = () => {
 
       const litrosGuia = parseFloat(formData.litrosRecibidos);
       // CAMBIO: Usar litros_ingresados en lugar de litros_totales
-      const litrosIngresados = response.data.litros_ingresados || 
-                               (response.data.litros_totales - response.data.stock_anterior_total);
+      const litrosIngresados = response.data.litros_ingresados ||
+        (response.data.litros_totales - response.data.stock_anterior_total);
 
       setCalculoPetroleo({
         litrosCalculados: litrosIngresados, // Cambiamos a litros ingresados en lugar del total
-        diferencia: litrosGuia - litrosIngresados
+        diferencia: litrosGuia - litrosIngresados,
+        calculoRealizado: true // Marcamos que el cálculo ya se ha realizado
       });
 
       setShowEstanquesModal(false);
@@ -369,7 +394,8 @@ const FormRecepcion = () => {
     }
 
     // Verificar que se haya realizado el cálculo de alturas
-    if (calculoPetroleo.litrosCalculados === 0) {
+    // Ahora usamos el flag calculoRealizado para verificar si se ha realizado el cálculo
+    if (!calculoPetroleo.calculoRealizado) {
       setAlert({
         show: true,
         type: "error",
@@ -435,11 +461,29 @@ const FormRecepcion = () => {
         id_faena: formData.id_faena,
         diferencia: diferencia, // Diferencia entre litros recibidos y documentados
         // Incluir las alturas de los estanques para crear verificaciones
-        alturas_estanques: Object.keys(alturasEstanques).map(id => ({
-          id_estanque: parseInt(id),
-          altura: parseFloat(alturasEstanques[id])
-        }))
+        // Corregido para manejar valores de 0 correctamente
+        alturas_estanques: Object.keys(alturasEstanques).map(id => {
+          const altura = alturasEstanques[id];
+          
+          // Verificar específicamente si es el valor numérico 0
+          if (altura === 0) {
+            return {
+              id_estanque: parseInt(id),
+              altura: 0
+            };
+          }
+          
+          // Para otros valores
+          return {
+            id_estanque: parseInt(id),
+            // Solo convertir a número si tiene valor
+            altura: altura ? parseFloat(altura) : null
+          };
+        })
       };
+
+      // Imprimir para depuración
+      console.log("Datos enviados al API para guardar:", dataToSend);
 
       // Obtener el token de autenticación
       const token = JSON.parse(localStorage.getItem("authToken"))?.token;
@@ -473,7 +517,7 @@ const FormRecepcion = () => {
 
       // Resetear campos tocados y cálculos
       setTouched({});
-      setCalculoPetroleo({ litrosCalculados: 0, diferencia: 0 });
+      setCalculoPetroleo({ litrosCalculados: 0, diferencia: 0, calculoRealizado: false });
       setAlturasEstanques({});
 
       // Ocultar mensaje después de 5 segundos
@@ -575,7 +619,7 @@ const FormRecepcion = () => {
               className="bg-orange-600 hover:bg-orange-700 text-white text-sm px-4 py-2 rounded-md flex items-center w-full"
               disabled={!formData.id_faena}
             />
-            {calculoPetroleo.litrosCalculados > 0 && (
+            {calculoPetroleo.calculoRealizado && (
               <span className="ml-3 text-green-600 flex items-center text-sm">
                 ✓ Alturas ingresadas
               </span>
@@ -585,7 +629,7 @@ const FormRecepcion = () => {
             <span className="text-amber-600 text-xs mt-1">
               No se ha podido identificar la faena
             </span>
-          ) : calculoPetroleo.litrosCalculados === 0 && (
+          ) : !calculoPetroleo.calculoRealizado && (
             <span className="text-red-500 text-xs mt-1">
               Debe ingresar las alturas para calcular la diferencia
             </span>
@@ -606,8 +650,8 @@ const FormRecepcion = () => {
         </div>
       )}
 
-      {/* Mostrar información de la diferencia calculada si existe */}
-      {calculoPetroleo.litrosCalculados > 0 && (
+      {/* Mostrar información de la diferencia calculada si se ha realizado el cálculo */}
+      {calculoPetroleo.calculoRealizado && (
         <div className={`p-3 rounded-lg text-center border mt-2 ${Math.abs(calculoPetroleo.diferencia) > 50 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'
           }`}>
           <p className={`text-sm ${Math.abs(calculoPetroleo.diferencia) > 50 ? 'text-red-600' : 'text-green-600'}`}>
@@ -676,7 +720,7 @@ const FormRecepcion = () => {
                   <p>Capacidad disponible: <span className="font-medium">{capacidadDisponible.toFixed(2)} litros</span></p>
                 </div>
               )}
-            
+
               {/* Alerta del modal */}
               {modalAlert.show && (
                 <div
@@ -710,7 +754,7 @@ const FormRecepcion = () => {
                               placeholder="Ingrese altura en cm"
                               type="number"
                               min="0" // Asegura que solo se ingresen valores positivos
-                              value={alturasEstanques[estanque.id_estanque] || ""}
+                              value={alturasEstanques[estanque.id_estanque] ?? ""}
                               onChange={(e) => handleAlturaChange(estanque.id_estanque, e.target.value)}
                               className="bg-white rounded-md text-gray-800 border-gray-300"
                             />

@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Faena;
+use App\Models\InformeKpi;
 use App\Models\KpiValoresEntrada;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Carbon; // Añadido el import correcto para Carbon
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 class KpiValoresEntradaController extends Controller
@@ -214,82 +217,211 @@ class KpiValoresEntradaController extends Controller
     }
 
     /**
-     * Obtener historial de valores KPI para un mes específico
+     * Obtiene el historial general de valores de entrada
      */
-    public function obtenerHistorial(Request $request)
+    public function getHistorialGeneral()
     {
         try {
-            // Obtener parámetros de la solicitud
-            $idFaena = $request->input('faena');
-            $mes = $request->input('mes'); // Formato YYYY-MM
-
-            // Si no se especifica mes, usar el mes anterior por defecto
-            if (!$mes) {
-                $mes = Carbon::now()->subMonth()->format('Y-m');
-            }
-
-            // Convertir a Carbon para manipulación de fechas
-            $fecha = Carbon::createFromFormat('Y-m', $mes);
-            $inicioMes = $fecha->copy()->startOfMonth();
-            $finMes = $fecha->copy()->endOfMonth();
-
-            Log::info("Buscando KPI valores entrada para: {$mes}, faena: {$idFaena}");
-
-            // Filtro de faena
-            $whereFaena = $idFaena && $idFaena !== 'todas' ?
-                function ($query) use ($idFaena) {
-                    $query->where('informes_kpi.id_faena', $idFaena);
-                } : function ($query) {};
-
-            // Búsqueda en kpi_valores_entrada para el período especificado
-            $valores = DB::table('informes_kpi')
+            $historial = InformeKpi::with(['valoresEntrada', 'faena:id_faena,ubicacion', 'usuario:id,nombre'])
+                ->select('informes_kpi.*')
                 ->join('kpi_valores_entrada', 'informes_kpi.id_informe', '=', 'kpi_valores_entrada.id_informe')
-                ->whereBetween('informes_kpi.fecha_inicio_periodo', [$inicioMes, $finMes])
-                ->tap($whereFaena)
-                ->select(
-                    'kpi_valores_entrada.*',
-                    'informes_kpi.id_faena',
-                    'informes_kpi.periodo',
-                    'informes_kpi.fecha_inicio_periodo',
-                    'informes_kpi.fecha_creacion'
-                )
-                ->orderBy('informes_kpi.fecha_creacion', 'desc')
+                ->orderBy('informes_kpi.fecha_fin_periodo', 'desc')
                 ->get();
 
-            // Si no hay datos en kpi_valores_entrada, buscar en consumos para estimar valores
-            if ($valores->isEmpty()) {
-                Log::info("No se encontraron valores en kpi_valores_entrada, buscando datos en consumos");
+            return response()->json([
+                'success' => true,
+                'data' => $historial,
+                'message' => 'Historial de valores KPI recuperado con éxito'
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al recuperar el historial: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 
-                // Obtener datos de consumo para el período
-                $datosConsumo = $this->getDatosConsumoEstimados($idFaena, $inicioMes, $finMes);
+    // Método para obtener historial filtrado por año/mes
+    public function getHistorialFiltrado(Request $request)
+    {
+        try {
+            // Validar parámetros
+            $request->validate([
+                'periodo' => 'nullable|string',
+                'fecha_inicio' => 'nullable|date',
+                'fecha_fin' => 'nullable|date',
+                'faena' => 'nullable'
+            ]);
 
-                if ($datosConsumo) {
-                    return response()->json([
-                        'status' => 'success',
-                        'message' => 'Datos estimados desde consumos',
-                        'data' => [$datosConsumo],
-                        'es_estimado' => true
-                    ]);
+            $query = InformeKpi::with(['valoresEntrada', 'faena:id_faena,ubicacion', 'usuario:id,nombre'])
+                ->select('informes_kpi.*')
+                ->join('kpi_valores_entrada', 'informes_kpi.id_informe', '=', 'kpi_valores_entrada.id_informe');
+
+            // Filtrar por fechas si se proporcionan
+            if ($request->has('fecha_inicio') && $request->has('fecha_fin')) {
+                $fechaInicio = Carbon::parse($request->input('fecha_inicio'))->startOfDay();
+                $fechaFin = Carbon::parse($request->input('fecha_fin'))->endOfDay();
+
+                $query->whereBetween('informes_kpi.fecha_fin_periodo', [$fechaInicio, $fechaFin]);
+            }
+            // Filtrar por periodo si no hay fechas específicas
+            else if ($request->has('periodo')) {
+                $periodo = $request->input('periodo');
+
+                switch ($periodo) {
+                    case 'diario':
+                        $query->whereDate('informes_kpi.fecha_fin_periodo', Carbon::today());
+                        break;
+                    case 'semanal':
+                        $query->whereBetween('informes_kpi.fecha_fin_periodo', [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()]);
+                        break;
+                    case 'mensual':
+                        $query->whereMonth('informes_kpi.fecha_fin_periodo', Carbon::now()->month)
+                            ->whereYear('informes_kpi.fecha_fin_periodo', Carbon::now()->year);
+                        break;
+                    case 'trimestral':
+                        $query->whereBetween('informes_kpi.fecha_fin_periodo', [Carbon::now()->startOfQuarter(), Carbon::now()->endOfQuarter()]);
+                        break;
+                    case 'anual':
+                        $query->whereYear('informes_kpi.fecha_fin_periodo', Carbon::now()->year);
+                        break;
                 }
-
-                // Si no hay datos en ninguna tabla
-                return response()->json([
-                    'status' => 'warning',
-                    'message' => 'No se encontraron datos para el período y faena seleccionados',
-                    'data' => []
-                ]);
             }
 
+            // Filtrar por faena si se especifica
+            if ($request->has('faena') && $request->input('faena') !== 'todas' && $request->input('faena') !== null) {
+                $query->where('informes_kpi.id_faena', $request->input('faena'));
+            }
+
+            // Ordenar por fecha más reciente primero
+            $query->orderBy('informes_kpi.fecha_fin_periodo', 'desc');
+
+            $historial = $query->get();
+
             return response()->json([
-                'status' => 'success',
-                'data' => $valores,
-                'es_estimado' => false
-            ]);
+                'success' => true,
+                'data' => $historial,
+                'message' => 'Historial de valores KPI recuperado con éxito',
+                'filtros' => [
+                    'periodo' => $request->input('periodo'),
+                    'fecha_inicio' => $request->input('fecha_inicio'),
+                    'fecha_fin' => $request->input('fecha_fin'),
+                    'faena' => $request->input('faena')
+                ]
+            ], 200);
         } catch (\Exception $e) {
-            Log::error('Error al obtener historial KPI: ' . $e->getMessage());
+            Log::error('Error al recuperar historial filtrado: ' . $e->getMessage());
             return response()->json([
-                'status' => 'error',
-                'message' => 'Error al obtener datos históricos: ' . $e->getMessage()
+                'success' => false,
+                'message' => 'Error al recuperar el historial: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Obtiene el historial de valores de entrada por faena
+     */
+    public function getHistorialPorFaena($idFaena)
+    {
+        try {
+            // Verificar que la faena existe
+            $faena = Faena::find($idFaena);
+
+            if (!$faena) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'La faena especificada no existe'
+                ], 404);
+            }
+
+            $historial = InformeKpi::with(['valoresEntrada', 'usuario:id,nombre'])
+                ->select('informes_kpi.*')
+                ->join('kpi_valores_entrada', 'informes_kpi.id_informe', '=', 'kpi_valores_entrada.id_informe')
+                ->where('informes_kpi.id_faena', $idFaena)
+                ->orderBy('informes_kpi.fecha_fin_periodo', 'desc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $historial,
+                'faena' => $faena->nombre,
+                'message' => 'Historial de KPI para la faena recuperado con éxito'
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al recuperar el historial por faena: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Obtiene estadísticas resumidas de valores KPI por faena
+     */
+    public function getEstadisticasPorFaena()
+    {
+        try {
+            $estadisticas = DB::table('faenas')
+                ->leftJoin('informes_kpi', 'faenas.id_faena', '=', 'informes_kpi.id_faena')
+                ->leftJoin('kpi_valores_entrada', 'informes_kpi.id_informe', '=', 'kpi_valores_entrada.id_informe')
+                ->select(
+                    'faenas.id_faena',
+                    'faenas.ubicacion',
+                    DB::raw('COUNT(DISTINCT informes_kpi.id_informe) as total_informes'),
+                    DB::raw('SUM(kpi_valores_entrada.toneladas_extraidas) as total_toneladas'),
+                    DB::raw('SUM(kpi_valores_entrada.camionadas) as total_camionadas'),
+                    DB::raw('SUM(kpi_valores_entrada.petroleo_toneladas) as total_petroleo_toneladas'),
+                    DB::raw('AVG(kpi_valores_entrada.petroleo_horas) as promedio_petroleo_horas'),
+                    DB::raw('AVG(kpi_valores_entrada.petroleo_kilometros) as promedio_petroleo_kilometros'),
+                    DB::raw('MAX(informes_kpi.fecha_fin_periodo) as ultima_actualizacion')
+                )
+                ->groupBy('faenas.id_faena', 'faenas.ubicacion')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $estadisticas,
+                'message' => 'Estadísticas de KPI por faena recuperadas con éxito'
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al recuperar estadísticas: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Obtiene totales acumulados de todos los valores KPI
+     */
+    public function getTotalesAcumulados()
+    {
+        try {
+            $totales = DB::table('kpi_valores_entrada')
+                ->select(
+                    DB::raw('SUM(toneladas_extraidas) as total_toneladas_extraidas'),
+                    DB::raw('SUM(camionadas) as total_camionadas'),
+                    DB::raw('SUM(petroleo_toneladas) as total_petroleo_toneladas'),
+                    DB::raw('AVG(petroleo_horas) as promedio_petroleo_horas'),
+                    DB::raw('AVG(petroleo_kilometros) as promedio_petroleo_kilometros'),
+                    DB::raw('COUNT(*) as total_registros')
+                )
+                ->first();
+
+            // Obtener el último período actualizado
+            $ultimoInforme = InformeKpi::orderBy('fecha_fin_periodo', 'desc')->first();
+            $ultimaActualizacion = $ultimoInforme ? $ultimoInforme->fecha_fin_periodo : null;
+
+            return response()->json([
+                'success' => true,
+                'data' => $totales,
+                'ultima_actualizacion' => $ultimaActualizacion,
+                'message' => 'Totales acumulados de KPI recuperados con éxito'
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al recuperar totales: ' . $e->getMessage()
             ], 500);
         }
     }

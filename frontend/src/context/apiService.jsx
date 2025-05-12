@@ -73,9 +73,6 @@ const consumoService = {
         );
         return [];
       }
-      
-      console.warn('La respuesta de la API no contiene datos en el formato esperado', response.data);
-      return [];
     } catch (error) {
       console.error("Error al obtener consumo por faenas:", error);
       throw error;
@@ -96,9 +93,6 @@ const consumoService = {
         );
         return [];
       }
-      
-      console.warn('La respuesta de la API no contiene datos en el formato esperado', response.data);
-      return [];
     } catch (error) {
       console.error("Error al obtener consumo mensual:", error);
       throw error;
@@ -119,9 +113,7 @@ const consumoService = {
         );
         return null;
       }
-      
-      console.warn('La respuesta de la API no contiene datos en el formato esperado', response.data);
-      return null;
+
     } catch (error) {
       console.error("Error al obtener KPIs de consumo:", error);
       throw error;
@@ -277,7 +269,7 @@ const gerenteService = {
   calcularKpis: async (datos) => {
     try {
       console.log("Enviando datos al servidor:", datos);
-      
+
       // Intentar enviar al endpoint del backend primero
       try {
         const response = await axios.post("/api/calcular-kpis", datos);
@@ -336,6 +328,27 @@ const gerenteService = {
       };
     }
   },
+
+  // Dentro del objeto consumoService
+  getFaenasDisponibles: async () => {
+    try {
+      const response = await axios.get("/api/faenas-disponibles");
+      // Asegúrate de que el status sea 'success' y data esté en el formato correcto
+      if (response.data && response.data.status === 'success' && Array.isArray(response.data.data)) {
+        return {
+          status: 'success',
+          data: response.data.data,
+          mesActual: response.data.mes_actual ?? null // Por si necesitas usarlo después
+        };
+      } else {
+        console.warn("Formato inesperado de la respuesta al obtener faenas", response.data);
+        return { status: 'error', data: [], message: 'Formato de respuesta no esperado' };
+      }
+    } catch (error) {
+      console.error("Error al obtener faenas disponibles:", error);
+      return { status: 'error', data: [], message: 'Error al conectar con el servidor' };
+    }
+  }
 };
 
 export { consumoService, gerenteService };

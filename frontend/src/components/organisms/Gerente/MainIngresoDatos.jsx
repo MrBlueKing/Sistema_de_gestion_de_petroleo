@@ -1,93 +1,189 @@
-import { useState, useEffect } from "react";
+
+import { useState, useEffect, useContext } from "react";
+import KpiCard from "../../molecules/KpiCard";
+import SimpleKpiCalculator from "../../molecules/KpiSimpleCalculator";
 import axios from '../../../lib/axios';
+import Header from "../../organisms/Gerente/Header";
+import KpiDashboard from "../../molecules/KpiDashboard"; // Importamos el nuevo componente
 
 import {
-    FiDroplet, FiLoader, FiX, FiCheckCircle,
-    FiRefreshCw, FiCalendar
+    FiDroplet, FiTruck, FiActivity, FiX, FiLoader,
+    FiAlertCircle, FiCheckCircle, FiRefreshCw, FiCalendar, FiInfo, FiChevronRight
 } from "react-icons/fi";
+import { FaCalculator, FaChartLine, FaHistory } from "react-icons/fa";
+import { UserContext } from "../../../context/userContext";
 
 const MainGerente = ({ children }) => {
-    // Estados básicos necesarios
-    const [faenaSeleccionada, setFaenaSeleccionada] = useState("todas");
-    const [ultimaActualizacion, setUltimaActualizacion] = useState(new Date());
-    const [cargando, setCargando] = useState(false);
-    const [error, setError] = useState(null);
+    // Estados principales
+    const periodoSeleccionado = "mensual"; 
+    const { user } = useContext(UserContext);
     const [mensajeExito, setMensajeExito] = useState(null);
-    const [datosConsumo, setDatosConsumo] = useState(null);
-    const [datosDisponibles, setDatosDisponibles] = useState(false);
-
-    // Inicializar fechaDesde al primer día del mes actual
-    const [fechaDesde, setFechaDesde] = useState(
+    const [ultimaActualizacion, setUltimaActualizacion] = useState(new Date());
+    
+    // Estados para las pestañas
+    const [activeTab, setActiveTab] = useState("kpis"); // "kpis" o "calculadora"
+    
+    // Estado para KPIs
+    const [kpisNeedRefresh, setKpisNeedRefresh] = useState(false);
+    
+    // Estados para KPIs (panel principal)
+    const [kpiFaenaSeleccionada, setKpiFaenaSeleccionada] = useState("todas");
+    const [kpiFechaDesde, setKpiFechaDesde] = useState(
         new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
     );
-
-    // Inicializar fechaHasta al día actual
-    const [fechaHasta, setFechaHasta] = useState(
+    const [kpiFechaHasta, setKpiFechaHasta] = useState(
         new Date().toISOString().split('T')[0]
     );
+    
+    // Estado para datos
+    const [datosConsumo, setDatosConsumo] = useState(null);
+    const [balanceCombustible, setBalanceCombustible] = useState(null);
+    const [equiposData, setEquiposData] = useState([]);
+    const [faenasData, setFaenasData] = useState([]);
+    const [consumoMensualData, setConsumoMensualData] = useState([]);
+    const [cargando, setCargando] = useState(false);
+    const [error, setError] = useState(null);
+    const [datosDisponibles, setDatosDisponibles] = useState(false);
+    const [datosApiCargados, setDatosApiCargados] = useState(false);
+    const [datosPetroleo, setDatosPetroleo] = useState(null);
+    const [datosProduccion, setDatosProduccion] = useState({
+        toneladas: 0,
+        camionadas: 0
+    });
 
-    // Función para cargar datos de consumo
-    const cargarDatosConsumo = async () => {
+    // Datos de consumo por tipo de máquina
+    const [datosMaquinas, setDatosMaquinas] = useState({
+        horometro: [],
+        kilometraje: []
+    });
+
+    // KPIs con valores inicializados a cero
+    const [kpis, setKpis] = useState([
+        { title: "Producción Total", value: "0", change: "+0%", unit: "ton", subtext: "Toneladas extraídas", icon: FiTruck, isPositive: true, color: "blue" },
+        { title: "Camionadas", value: "0", change: "+0", unit: "", subtext: "Número de viajes realizados", icon: FiTruck, isPositive: true, color: "indigo" },
+        { title: "Rendimiento", value: "0", change: "0%", unit: "ton/viaje", subtext: "Toneladas por viaje", icon: FiActivity, isPositive: true, color: "green" },
+        { title: "Costo Petróleo / Ton", value: "$0", change: "0%", unit: "", subtext: "Costo por tonelada producida", icon: FiDroplet, isPositive: false, color: "red" },
+        { title: "Costo Petróleo / Hora", value: "$0", change: "0%", unit: "", subtext: "Costo por hora de operación", icon: FiDroplet, isPositive: true, color: "teal" },
+        { title: "Costo Petróleo / Km", value: "$0", change: "0%", unit: "", subtext: "Costo por kilómetro recorrido", icon: FiDroplet, isPositive: false, color: "purple" },
+    ]);
+
+    // Cambiar entre pestañas
+    const handleTabChange = (tab) => {
+        setActiveTab(tab);
+    };
+
+    // Función para obtener datos reales
+    const obtenerDatosReales = async () => {
+        setCargando(true);
+        setError(null);
+
         try {
-            setCargando(true);
+            console.log("Obteniendo datos para faena:", kpiFaenaSeleccionada);
+            
+            // Cargar datos para los 3 gráficos en paralelo
+            const [equiposRes, faenasRes, mensualRes] = await Promise.all([
+                axios.get(`/api/informes-kpi?tipo=consumo_equipos&faena=${kpiFaenaSeleccionada}&periodo=mensual`),
+                axios.get(`/api/informes-kpi?tipo=consumo_faenas&faena=${kpiFaenaSeleccionada}`),
+                axios.get(`/api/informes-kpi?tipo=consumo_mensual&faena=${kpiFaenaSeleccionada}`)
+            ]);
 
-            const response = await axios.get('/api/informes-kpi/consumo-maquinas', {
-                params: {
-                    fecha_inicio: fechaDesde,
-                    fecha_fin: fechaHasta + ' 23:59:59', // Incluir todo el día
-                    faena: faenaSeleccionada !== 'todas' ? faenaSeleccionada : null
-                }
-            });
+            let hayDatosGraficos = false;
 
-            if (response.data && response.data.status === 'success') {
-                const datosConsumo = response.data.data;
-
-                // Guardar todos los datos
-                setDatosConsumo(datosConsumo);
-                setDatosDisponibles(true);
-                setUltimaActualizacion(new Date());
+            // Usar los datos si están disponibles, establecer arrays vacíos si no hay datos
+            if (equiposRes.data?.data?.length > 0) {
+                setEquiposData(equiposRes.data.data);
+                hayDatosGraficos = true;
             } else {
-                console.warn('No se pudieron cargar los datos de consumo de máquinas');
-                setDatosDisponibles(false);
+                setEquiposData([]);
             }
+
+            if (faenasRes.data?.data?.length > 0) {
+                setFaenasData(faenasRes.data.data);
+                hayDatosGraficos = true;
+            } else {
+                setFaenasData([]);
+            }
+
+            if (mensualRes.data?.data?.length > 0) {
+                setConsumoMensualData(mensualRes.data.data);
+                hayDatosGraficos = true;
+            } else {
+                setConsumoMensualData([]);
+            }
+
+            // Intentar cargar los KPIs
+            try {
+                const kpisRes = await axios.get(`/api/informes-kpi?tipo=kpis_consumo&faena=${kpiFaenaSeleccionada}&periodo=mensual`);
+
+                if (kpisRes.data?.data) {
+                    actualizarKpisDesdeAPI(kpisRes.data.data);
+                    hayDatosGraficos = true;
+                }
+            } catch (kpisError) {
+                console.warn('Error al cargar KPIs:', kpisError);
+            }
+
+            setUltimaActualizacion(new Date());
+            setDatosApiCargados(true);
         } catch (err) {
-            console.error('Error al cargar datos de consumo:', err);
-            setError('Error al cargar datos de consumo de máquinas');
-            setDatosDisponibles(false);
+            console.error('Error al obtener datos reales:', err);
+            setError('Error al cargar datos de la base de datos. Por favor verifique la conexión o contacte a soporte técnico.');
+            setDatosApiCargados(false);
         } finally {
             setCargando(false);
         }
     };
 
-    // Cargar datos cuando cambie la faena o las fechas
-    useEffect(() => {
-        cargarDatosConsumo();
-    }, [faenaSeleccionada, fechaDesde, fechaHasta]);
+    // Función para manejar KPIs calculados desde la calculadora
+    const handleCalculatedKpis = (resultado) => {
+        if (!resultado?.data) {
+            setError('Los datos calculados no tienen formato válido');
+            return;
+        }
 
-    // Función para refrescar datos manualmente
-    const refrescarDatos = () => {
-        cargarDatosConsumo();
-    };
-
-    // Obtener nombre de faena
-    const getNombreFaena = (id) => {
-        switch (id) {
-            case '1': return 'Cabildo';
-            case '2': return 'Catemu';
-            case '3': return 'Chincolco';
-            case '4': return 'Tiltil';
-            default: return id;
+        try {
+            // Mensajes de éxito y actualizar timestamp
+            setMensajeExito(`KPIs actualizados correctamente para ${obtenerNombreMesAnterior()}`);
+            setTimeout(() => setMensajeExito(null), 3000);
+            setUltimaActualizacion(new Date());
+            
+            // Marcar que los KPIs necesitan actualizarse
+            setKpisNeedRefresh(true);
+            
+            // Cambiar a la pestaña de KPIs después de registrar datos
+            setActiveTab("kpis");
+        } catch (err) {
+            console.error('Error al procesar KPIs calculados:', err);
+            setError('Error al procesar los resultados calculados');
         }
     };
 
-    // Función auxiliar para obtener el nombre del mes actual
-    const obtenerNombreMes = () => {
+    // Función auxiliar para obtener el nombre del mes anterior
+    const obtenerNombreMesAnterior = () => {
         const fechaActual = new Date();
+        fechaActual.setMonth(fechaActual.getMonth() - 1);
         return fechaActual.toLocaleString('default', { month: 'long', year: 'numeric' });
     };
 
+    // Función para refrescar datos manualmente
+    const refrescarDatos = () => {
+        setKpisNeedRefresh(true);
+    };
+
+    // Actualización cuando se marca que los KPIs necesitan actualizar
+    useEffect(() => {
+        if (kpisNeedRefresh) {
+            // Si estamos en la pestaña del nuevo dashboard, no necesitamos ejecutar la lógica antigua
+            if (activeTab !== 'kpis') {
+                obtenerDatosReales();
+            }
+            setKpisNeedRefresh(false);
+        }
+    }, [kpisNeedRefresh]);
+
     return (
         <div className="flex-1 overflow-auto bg-gray-50">
+            <Header />
             <div className="container mx-auto px-4 py-6">
                 {/* Mensajes de estado */}
                 {cargando && (
@@ -120,250 +216,44 @@ const MainGerente = ({ children }) => {
                         </div>
                     </div>
                 )}
-
-                {/* Sección para el reporte de consumo de máquinas */}
-                <section className="mb-8">
-                    <div className="flex justify-between items-center mb-4 bg-white p-4 rounded-lg shadow-sm">
-                        <h2 className="text-lg font-semibold text-gray-800 flex items-center">
-                            <FiDroplet className="mr-2 text-blue-500" />
-                            Consumo de Petróleo
-                        </h2>
-                        
-                        <div className="flex items-center">
-                            <button
-                                onClick={refrescarDatos}
-                                className="flex items-center px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors"
-                                disabled={cargando}
-                            >
-                                <FiRefreshCw className={`mr-1 ${cargando ? 'animate-spin' : ''}`} />
-                                Actualizar
-                            </button>
-                        </div>
+                
+                {/* Tabs para KPIs y Calculadora */}
+                <div className="mb-4">
+                    <div className="flex border-b border-gray-200">
+                        <button
+                            className={`px-6 py-3 font-medium text-sm ${activeTab === 'kpis' 
+                                ? 'border-b-2 border-blue-500 text-blue-600' 
+                                : 'text-gray-500 hover:text-gray-700'}`}
+                            onClick={() => handleTabChange('kpis')}
+                        >
+                            <FaChartLine className="inline mr-2" />
+                            Indicadores de Desempeño (KPIs)
+                        </button>
+                        <button
+                            className={`px-6 py-3 font-medium text-sm ${activeTab === 'calculadora' 
+                                ? 'border-b-2 border-orange-500 text-orange-600' 
+                                : 'text-gray-500 hover:text-gray-700'}`}
+                            onClick={() => handleTabChange('calculadora')}
+                        >
+                            <FaCalculator className="inline mr-2" />
+                            Ingresar Datos
+                        </button>
                     </div>
+                </div>
 
-                    {/* Información del período y faena */}
-                    <div className="flex flex-col md:flex-row justify-between items-center mb-6 text-sm text-gray-500">
-                        <div className="flex items-center mb-3 md:mb-0">
-                            <FiCalendar className="mr-2 text-blue-500" />
-                            Mostrando datos para: <span className="font-medium text-gray-700 ml-1">
-                                {obtenerNombreMes()}
-                            </span>
-                            {faenaSeleccionada !== 'todas' && (
-                                <span className="ml-2"> | Faena: <span className="font-medium text-gray-700 ml-1">
-                                    {getNombreFaena(faenaSeleccionada)}
-                                </span></span>
-                            )}
-                        </div>
-
-                        <div className="text-xs text-gray-500">
-                            Última actualización: {ultimaActualizacion.toLocaleString()}
-                        </div>
-                    </div>
-
-                    {/* Selector de faena y rango de fechas */}
-                    <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Seleccionar Faena:
-                                </label>
-                                <select
-                                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                                    value={faenaSeleccionada}
-                                    onChange={(e) => setFaenaSeleccionada(e.target.value)}
-                                >
-                                    <option value="todas">Todas las faenas</option>
-                                    <option value="1">Cabildo</option>
-                                    <option value="2">Catemu</option>
-                                    <option value="3">Chincolco</option>
-                                    <option value="4">Tiltil</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Desde:
-                                </label>
-                                <input
-                                    type="date"
-                                    value={fechaDesde}
-                                    onChange={(e) => setFechaDesde(e.target.value)}
-                                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Hasta:
-                                </label>
-                                <input
-                                    type="date"
-                                    value={fechaHasta}
-                                    onChange={(e) => setFechaHasta(e.target.value)}
-                                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    {datosConsumo && datosConsumo.resumen_financiero && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                            <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-blue-500">
-                                <h3 className="text-sm font-medium text-gray-500">Total Ingresado</h3>
-                                <p className="text-2xl font-semibold">{datosConsumo.resumen_financiero.litros_ingresados.toLocaleString('es-CL')} lts</p>
-                                <p className="text-sm text-gray-600 mt-1">
-                                    Valor: ${datosConsumo.resumen_financiero.valor_ingresos.toLocaleString('es-CL')}
-                                </p>
-                            </div>
-
-                            <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-green-500">
-                                <h3 className="text-sm font-medium text-gray-500">Total Consumido</h3>
-                                <p className="text-2xl font-semibold">{datosConsumo.resumen_financiero.litros_consumidos.toLocaleString('es-CL')} lts</p>
-                                <p className="text-sm text-gray-600 mt-1">
-                                    Valor: ${datosConsumo.resumen_financiero.valor_consumos.toLocaleString('es-CL')}
-                                </p>
-                            </div>
-
-                            <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-amber-500">
-                                <h3 className="text-sm font-medium text-gray-500">Balance</h3>
-                                <p className="text-2xl font-semibold">
-                                    {datosConsumo.resumen_financiero.balance_litros.toLocaleString('es-CL')} lts
-                                </p>
-                                <p className="text-sm text-gray-600 mt-1">
-                                    {datosConsumo.resumen_financiero.porcentaje_utilizado.toFixed(1)}% utilizado
-                                </p>
-                            </div>
-
-                            <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-purple-500">
-                                <h3 className="text-sm font-medium text-gray-500">Precio Promedio</h3>
-                                <p className="text-2xl font-semibold">
-                                    ${datosConsumo.resumen_financiero.precio_promedio_compra.toLocaleString('es-CL')}
-                                </p>
-                                <p className="text-sm text-gray-600 mt-1">
-                                    Varianza: {datosConsumo.resumen_financiero.varianza_precios.toFixed(2)}
-                                </p>
-                            </div>
-                        </div>
-                    )}
-
-                    {datosConsumo && datosConsumo.consumo_por_maquina && (
-                        <div className="bg-white rounded-lg shadow-md overflow-x-auto mb-6">
-                            <h3 className="text-md font-medium text-gray-800 p-4 border-b">Consumo por Máquina</h3>
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Máquina</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Faena</th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Litros</th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Rendimiento</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {datosConsumo.consumo_por_maquina.map((maquina, index) => (
-                                        <tr key={index} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="font-medium text-gray-900">{maquina.nombre_maquina}</div>
-                                                <div className="text-sm text-gray-500">{maquina.patente}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${maquina.tipo_medicion === 'Horometro' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
-                                                    }`}>
-                                                    {maquina.tipo_medicion}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {maquina.nombre_faena}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">
-                                                {Number(maquina.litros_consumidos).toLocaleString('es-CL')}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
-                                                ${maquina.valor_consumo?.toLocaleString('es-CL') || '-'}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                                                {maquina.litros_por_unidad?.toFixed(2) || '-'} lts/{maquina.unidad}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-
-                    {datosConsumo && datosConsumo.consumo_por_faena && datosConsumo.ingresos_por_faena && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                            <div className="bg-white rounded-lg shadow-md overflow-x-auto">
-                                <h3 className="text-md font-medium text-gray-800 p-4 border-b">Consumo por Faena</h3>
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Faena</th>
-                                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Litros</th>
-                                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
-                                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Máquinas</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {datosConsumo.consumo_por_faena.map((faena, index) => (
-                                            <tr key={index} className="hover:bg-gray-50">
-                                                <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
-                                                    {faena.nombre_faena}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">
-                                                    {Number(faena.litros_consumidos).toLocaleString('es-CL')}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
-                                                    ${Number(faena.valor_consumo).toLocaleString('es-CL')}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                                                    {faena.total_maquinas}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <div className="bg-white rounded-lg shadow-md overflow-x-auto">
-                                <h3 className="text-md font-medium text-gray-800 p-4 border-b">Ingresos por Faena</h3>
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Faena</th>
-                                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Litros</th>
-                                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
-                                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Precio Prom.</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {datosConsumo.ingresos_por_faena.map((faena, index) => (
-                                            <tr key={index} className="hover:bg-gray-50">
-                                                <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
-                                                    {faena.nombre_faena}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">
-                                                    {Number(faena.litros_recibidos).toLocaleString('es-CL')}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
-                                                    ${Number(faena.valor_ingreso).toLocaleString('es-CL')}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                                                    ${Number(faena.precio_promedio).toLocaleString('es-CL')}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    )}
-                </section>
-
-                {/* Sección para contenido hijo (si existe) */}
-                <section>{children}</section>
+                {/* Panel de KPIs con el nuevo componente */}
+                {activeTab === 'kpis' && (
+                    <KpiDashboard />
+                )}
+                
+                {/* Calculadora de KPIs */}
+                {activeTab === 'calculadora' && (
+                    <SimpleKpiCalculator
+                        onCalculate={handleCalculatedKpis}
+                        periodo={periodoSeleccionado}
+                    />
+                )}
             </div>
-
             {/* Footer */}
             <footer className="bg-white border-t border-gray-200 py-4 px-6 mt-8">
                 <div className="container mx-auto flex justify-between items-center text-sm text-gray-500">
@@ -371,7 +261,7 @@ const MainGerente = ({ children }) => {
                         &copy; {new Date().getFullYear()} Minera 3H. Todos los derechos reservados.
                     </div>
                     <div className="flex items-center">
-                        <span className="mr-2">Versión 0.0.1</span>
+                        <span className="mr-2">Versión 1.0.0</span>
                         <span className="w-1 h-1 bg-gray-400 rounded-full mx-2"></span>
                     </div>
                 </div>
