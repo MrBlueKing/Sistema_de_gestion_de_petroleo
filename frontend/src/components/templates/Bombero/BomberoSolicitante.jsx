@@ -93,11 +93,7 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
 
           // 5. Filtrar por ubicación si es necesario
           const usuariosFiltrados = ubicacion
-            ? bomberoService.filtrarPersonalPorUbicacion(
-                todosUsuarios,
-                ubicacion
-              )
-            : todosUsuarios;
+            ? bomberoService.filtrarPersonalPorUbicacion(todosUsuarios,ubicacion): todosUsuarios;
 
           // 6. Establecer los estados de usuarios
           setTodosLosUsuarios(usuariosFiltrados);
@@ -132,23 +128,41 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
   }, [searchTerm, todosLosUsuarios, filtrarUsuarios]);
 
   // Formatear usuario para pasarlo al siguiente paso
+// Formatear usuario para pasarlo al siguiente paso
   const formatearUsuarioParaSiguiente = (usuario) => {
-    const personalData = usuario.personal_interno || usuario.personal_externo;
-    const rut = personalData?.rut;
+    // Verificar si es personal interno o externo
+    const esInterno = Boolean(usuario.personal_interno);
+    const personalData = esInterno ? usuario.personal_interno : usuario.personal_externo;
     
-   // Obtener el ID correspondiente de la tabla solicitante, si lo encuentr    
-    return {
-      id: usuario.personal_interno.rut || usuario.personal_externo.id_personal_externo, 
-      nombre: personalData.nombre || "",
-      apellido: personalData.apellido || "",
-      rut: personalData.rut || "",
-      cargo: personalData.cargo || "",
-      ubicacion: personalData.ubicacion || "",
-      faena: personalData.ubicacion || "", // Usamos ubicación como faena
-      id_faena: user?.id_faena || null,
-      tipo: tipoSolicitante,
-      original: usuario,
-    };
+    if (esInterno) {
+      // Para personal interno, incluimos todos los campos
+      return {
+        id: personalData.rut || "",
+        nombre: personalData.nombre || "",
+        apellido: personalData.apellido || "",
+        rut: personalData.rut || "",
+        cargo: personalData.cargo || "",
+        ubicacion: personalData.ubicacion || "",
+        faena: personalData.ubicacion || "", // Usamos ubicación como faena
+        id_faena: user?.id_faena || null,
+        tipo: "interno",
+        original: usuario,
+      };
+    } else {
+      // Para personal externo, solo incluimos los campos disponibles
+      return {
+        id: personalData.rut || "",
+        nombre: personalData.nombre || "", // Asumiendo que nombre ya contiene el nombre completo
+        apellido: "", // Dejamos vacío o lo extraemos si existe
+        rut: personalData.rut || "",
+        cargo: personalData.cargo || "",
+        ubicacion: personalData.ubicacion || "",
+        faena: personalData.ubicacion || "",
+        id_faena: user?.id_faena || null,
+        tipo: "externo",
+        original: usuario,
+      };
+    }
   };
 
   // Manejar la limpieza del campo de búsqueda

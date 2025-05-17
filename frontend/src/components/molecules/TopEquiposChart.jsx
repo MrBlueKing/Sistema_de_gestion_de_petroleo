@@ -160,7 +160,7 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-4 mb-4">
+      <div className="bg-white rounded-lg shadow-md">
         <div className="text-xl font-bold mb-4 text-gray-800 flex items-center">
           <FiTruck className="mr-2" size={20} />
           Equipos con Mayor Consumo de Diésel
@@ -178,7 +178,7 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-4 mb-4">
+    <div className="bg-white rounded-lg shadow-md ">
       <div className="flex justify-between items-center mb-4">
         <div className="text-xl font-bold text-gray-800 flex items-center">
           <FiTruck className="mr-2" size={20} />
@@ -222,8 +222,8 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
         </div>
       ) : (
         <>
-          <div className="bg-white rounded-lg">
-            <ResponsiveContainer width="100%" height={280}>
+          <div style={{ width: "100%", height: 300 }}>
+            <ResponsiveContainer>
               <BarChart 
                 data={equiposData}
                 margin={{ top: 10, right: 10, left: 0, bottom: 20 }}
@@ -246,7 +246,7 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
                 <Bar dataKey="horas" fill={AZUL_SECUNDARIO} />
               </BarChart>
             </ResponsiveContainer>
-          </div>
+           </div>
         </>
       )}
     </div>
