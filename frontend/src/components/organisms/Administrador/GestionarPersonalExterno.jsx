@@ -12,50 +12,19 @@ const RegistrarPersonal = () => {
   const [camposEditables, setCamposEditables] = useState(true);
   const [solicitantes, setSolicitantes] = useState([]);
   const [empresas, setEmpresas] = useState([]);
-  const [loading, setLoading] = useState({
-    fetchData: false,
-    submitForm: false,
-  });
+  const [loading, setLoading] = useState({ fetchData: false, submitForm: false });
 
   // Estados simplificados
-  const [personalExterno, setPersonalExterno] = useState({
-    nombre: "",
-    rut: "",
-    id_empresa: "",
-  });
-  const [empresaExterna, setEmpresaExterna] = useState({
-    nombre: "",
-    rut: "",
-    contacto: "",
-  });
-  // Nuevo estado para maquina externa
-  const [maquinaExterna, setMaquinaExterna] = useState({
-    patente: "",
-    marca: "",
-    modelo: "",
-    tipo: "",
-    id_empresa: "",
-  });
+  const [personalExterno, setPersonalExterno] = useState({ nombre: "", rut: "", id_empresa: "" });
+  const [empresaExterna, setEmpresaExterna] = useState({ nombre: "", rut: "", contacto: "" });
 
   const faenas = ["Cabildo", "Catemu", "Chincolco", "Tiltil"];
-  const tiposMaquina = [
-    "Excavadora",
-    "Retroexcavadora",
-    "Cargador Frontal",
-    "Camión",
-    "Grúa",
-    "Tractor",
-    "Otro",
-  ];
 
   // Carga datos según el tipo de personal seleccionado
   useEffect(() => {
     if (tipoPersonal === "Interno") {
       fetchSolicitantes();
-    } else if (
-      tipoPersonal === "Externo" ||
-      tipoPersonal === "Maquina Externa"
-    ) {
+    } else if (tipoPersonal === "Externo") {
       fetchEmpresas();
     }
   }, [tipoPersonal]);
@@ -63,150 +32,121 @@ const RegistrarPersonal = () => {
   // Función mejorada para validar RUT chileno
   const validarRut = (rut) => {
     if (!rut) return false;
-
+    
     // Eliminar puntos y guión
     const rutLimpio = rut.replace(/\./g, "").replace(/-/g, "").trim();
-
+    
     // Verificar formato básico
     if (!/^[0-9]{7,8}[0-9kK]$/.test(rutLimpio)) return false;
-
+    
     // Validación del dígito verificador
     const rutDigitos = rutLimpio.slice(0, -1);
     const dv = rutLimpio.slice(-1).toLowerCase();
-
+    
     let suma = 0;
     let multiplo = 2;
-
+    
     // Suma ponderada
     for (let i = rutDigitos.length - 1; i >= 0; i--) {
       suma += parseInt(rutDigitos[i]) * multiplo;
       multiplo = multiplo === 7 ? 2 : multiplo + 1;
     }
-
+    
     // Cálculo del dígito verificador
     const dvEsperado = 11 - (suma % 11);
-    const dvCalculado =
-      dvEsperado === 11 ? "0" : dvEsperado === 10 ? "k" : dvEsperado.toString();
-
+    const dvCalculado = dvEsperado === 11 ? '0' : dvEsperado === 10 ? 'k' : dvEsperado.toString();
+    
     return dvCalculado === dv;
   };
 
   // Función para formatear RUT con puntos y guión
   const formatearRut = (rut) => {
     if (!rut) return "";
-
+    
     // Eliminar puntos y guiones
     let valor = rut.replace(/\./g, "").replace(/-/g, "").trim();
-
+    
     // Validar que solo contenga números y k
     if (!/^[0-9kK]+$/.test(valor)) return rut;
-
+    
     // Obtener DV
     const dv = valor.slice(-1);
     // Obtener Cuerpo
     const rutCuerpo = valor.slice(0, -1);
-
+    
     // Formatear con puntos
     let rutFormateado = "";
     let i = rutCuerpo.length;
-
+    
     while (i > 0) {
       const inicio = Math.max(0, i - 3);
-      rutFormateado =
-        rutCuerpo.substring(inicio, i) +
-        (rutFormateado ? "." + rutFormateado : "");
+      rutFormateado = rutCuerpo.substring(inicio, i) + (rutFormateado ? "." + rutFormateado : "");
       i = inicio;
     }
-
+    
     return rutFormateado + "-" + dv;
   };
 
   // Obtener solicitantes internos disponibles
   const fetchSolicitantes = async () => {
-    setLoading((prev) => ({ ...prev, fetchData: true }));
+    setLoading(prev => ({ ...prev, fetchData: true }));
     try {
       const [responseBodega, responsePetroleo] = await Promise.all([
         axios.get("/api/personal-bodega"),
-        axios.get("/api/personal-internos"),
+        axios.get("/api/personal-internos")
       ]);
-
-      if (!responseBodega.data?.data)
-        throw new Error("Error al obtener datos de bodega");
-
-      const personas = responseBodega.data.data.filter(
-        (item) => item.Cargo !== "Maquinaria" && item.Rut && item.Nombre
-      );
+      
+      if (!responseBodega.data?.data) throw new Error("Error al obtener datos de bodega");
+      
+      const personas = responseBodega.data.data.filter(item => item.Cargo !== "Maquinaria" && item.Rut && item.Nombre);
       const registrados = responsePetroleo.data?.personal_interno || [];
-
+      
       // Filtrar solicitantes no registrados
-      const disponibles = personas.filter((p) => {
+      const disponibles = personas.filter(p => {
         const rutLimpio = p.Rut.trim().toLowerCase();
-        return !registrados.some(
-          (r) =>
-            r.personal_interno?.rut &&
-            r.personal_interno.rut.trim().toLowerCase() === rutLimpio
+        return !registrados.some(r => 
+          r.personal_interno?.rut && 
+          r.personal_interno.rut.trim().toLowerCase() === rutLimpio
         );
       });
-
+      
       // Formatear para dropdown
-      setSolicitantes(
-        disponibles.map((p) => ({
-          label: `${p.Rut} - ${p.Nombre}`,
-          value: {
-            rut: p.Rut,
-            nombre: p.Nombre,
-            cargo: p.Cargo || "No especificado",
-          },
-        }))
-      );
+      setSolicitantes(disponibles.map(p => ({
+        label: `${p.Rut} - ${p.Nombre}`,
+        value: { rut: p.Rut, nombre: p.Nombre, cargo: p.Cargo || "No especificado" }
+      })));
     } catch (err) {
-      setError(
-        `Error al cargar solicitantes: ${err.message || "Error desconocido"}`
-      );
+      setError(`Error al cargar solicitantes: ${err.message || "Error desconocido"}`);
     } finally {
-      setLoading((prev) => ({ ...prev, fetchData: false }));
+      setLoading(prev => ({ ...prev, fetchData: false }));
     }
   };
 
   // Obtener empresas disponibles
   const fetchEmpresas = async () => {
-    setLoading((prev) => ({ ...prev, fetchData: true }));
+    setLoading(prev => ({ ...prev, fetchData: true }));
     try {
       const response = await axios.get("/api/empresas-disponibles");
       console.log("datillos:", response.data);
       if (!response.data) throw new Error("Error al obtener empresas");
-
+      
       // Formatear empresas para dropdown
-      setEmpresas(
-        (response.data || []).map((e) => ({
-          label: `${e.rut} - ${e.nombre}`,
-          value: {
-            id: e.id_empresa,
-            nombre: e.nombre,
-            rut: e.rut,
-            contacto: e.contacto,
-          },
-        }))
-      );
-      console.log("datilijillos:", empresas);
+      setEmpresas((response.data || []).map(e => ({
+        label: `${e.rut} - ${e.nombre}`,
+        value: { id: e.id_empresa, nombre: e.nombre, rut: e.rut, contacto: e.contacto }
+      })));
+    console.log("datilijillos:" , empresas);
     } catch (err) {
-      setError(
-        `Error al cargar empresas: ${err.message || "Error desconocido"}`
-      );
+      setError(`Error al cargar empresas: ${err.message || "Error desconocido"}`);
     } finally {
-      setLoading((prev) => ({ ...prev, fetchData: false }));
+      setLoading(prev => ({ ...prev, fetchData: false }));
     }
   };
 
   // Validación mejorada del formulario
   const validarFormulario = () => {
-    // Validación común para tipos que requieren faena
-    if (
-      (tipoPersonal === "Interno" ||
-        tipoPersonal === "Externo" ||
-        tipoPersonal === "Maquina Externa") &&
-      !faenaSeleccionada
-    ) {
+    // Validación común para todos los tipos
+    if ((tipoPersonal === "Interno" || tipoPersonal === "Externo") && !faenaSeleccionada) {
       setError("Debe seleccionar una faena.");
       return false;
     }
@@ -221,7 +161,8 @@ const RegistrarPersonal = () => {
         setError("El RUT del solicitante es inválido.");
         return false;
       }
-    } else if (tipoPersonal === "Externo") {
+    } 
+    else if (tipoPersonal === "Externo") {
       if (!personalExterno.nombre?.trim()) {
         setError("El nombre del personal externo es requerido.");
         return false;
@@ -234,28 +175,8 @@ const RegistrarPersonal = () => {
         setError("Debe seleccionar una empresa.");
         return false;
       }
-    } else if (tipoPersonal === "Maquina Externa") {
-      if (!maquinaExterna.patente?.trim()) {
-        setError("La patente de la máquina es requerida.");
-        return false;
-      }
-      if (!maquinaExterna.marca?.trim()) {
-        setError("La marca de la máquina es requerida.");
-        return false;
-      }
-      if (!maquinaExterna.modelo?.trim()) {
-        setError("El modelo de la máquina es requerido.");
-        return false;
-      }
-      if (!maquinaExterna.tipo?.trim()) {
-        setError("El tipo de máquina es requerido.");
-        return false;
-      }
-      if (!maquinaExterna.id_empresa) {
-        setError("Debe seleccionar una empresa.");
-        return false;
-      }
-    } else if (tipoPersonal === "Nueva Empresa") {
+    } 
+    else if (tipoPersonal === "Nueva Empresa") {
       if (!empresaExterna.nombre?.trim()) {
         setError("El nombre de la empresa es requerido.");
         return false;
@@ -269,7 +190,7 @@ const RegistrarPersonal = () => {
         return false;
       }
     }
-
+    
     return true;
   };
 
@@ -281,7 +202,7 @@ const RegistrarPersonal = () => {
       return;
     }
 
-    const seleccionado = solicitantes.find((s) => s.label === selectedLabel);
+    const seleccionado = solicitantes.find(s => s.label === selectedLabel);
     if (!seleccionado) {
       setError("Solicitante no encontrado en la lista.");
       return;
@@ -294,39 +215,25 @@ const RegistrarPersonal = () => {
   // Handler para selección de empresa
   const handleEmpresaSelect = (selectedLabel) => {
     if (!selectedLabel) {
-      if (tipoPersonal === "Externo") {
-        setPersonalExterno((prev) => ({ ...prev, id_empresa: "" }));
-      } else if (tipoPersonal === "Maquina Externa") {
-        setMaquinaExterna((prev) => ({ ...prev, id_empresa: "" }));
-      }
+      setPersonalExterno(prev => ({ ...prev, id_empresa: "" }));
       setError("");
       return;
     }
 
-    const seleccionada = empresas.find((e) => e.label === selectedLabel);
+    const seleccionada = empresas.find(e => e.label === selectedLabel);
     if (!seleccionada) {
       setError("Empresa no encontrada en la lista.");
       return;
     }
 
-    if (tipoPersonal === "Externo") {
-      setPersonalExterno((prev) => ({
-        ...prev,
-        id_empresa: seleccionada.value.id,
-      }));
-    } else if (tipoPersonal === "Maquina Externa") {
-      setMaquinaExterna((prev) => ({
-        ...prev,
-        id_empresa: seleccionada.value.id,
-      }));
-    }
+    setPersonalExterno(prev => ({ ...prev, id_empresa: seleccionada.value.id }));
     setError("");
   };
 
   // Handler para manejo de input RUT con autoformato
-  const handleRutChange = (e, setterFn, field = "rut") => {
+  const handleRutChange = (e, setterFn, field = 'rut') => {
     const rutFormateado = formatearRut(e.target.value);
-    setterFn((prev) => ({ ...prev, [field]: rutFormateado }));
+    setterFn(prev => ({ ...prev, [field]: rutFormateado }));
   };
 
   // Handler para guardar registro
@@ -336,11 +243,11 @@ const RegistrarPersonal = () => {
 
     if (!validarFormulario()) return;
 
-    setLoading((prev) => ({ ...prev, submitForm: true }));
-
+    setLoading(prev => ({ ...prev, submitForm: true }));
+    
     try {
       let endpoint, payload;
-
+      
       switch (tipoPersonal) {
         case "Interno":
           endpoint = "/api/registrarUsuarioInterno";
@@ -349,7 +256,7 @@ const RegistrarPersonal = () => {
             nombre_completo: solicitanteSeleccionado.nombre,
             cargo: solicitanteSeleccionado.cargo,
             ubicacion: faenaSeleccionada,
-            faena: faenaSeleccionada,
+            faena: faenaSeleccionada
           };
           break;
         case "Externo":
@@ -358,18 +265,7 @@ const RegistrarPersonal = () => {
             rut: personalExterno.rut,
             nombre_completo: personalExterno.nombre,
             id_empresa: personalExterno.id_empresa,
-            ubicacion: faenaSeleccionada,
-          };
-          break;
-        case "Maquina Externa":
-          endpoint = "/api/registrar-maquina-externa";
-          payload = {
-            patente: maquinaExterna.patente,
-            marca: maquinaExterna.marca,
-            modelo: maquinaExterna.modelo,
-            tipo: maquinaExterna.tipo,
-            id_empresa: maquinaExterna.id_empresa,
-            ubicacion: faenaSeleccionada,
+            ubicacion: faenaSeleccionada
           };
           break;
         case "Nueva Empresa":
@@ -377,20 +273,18 @@ const RegistrarPersonal = () => {
           payload = {
             nombre: empresaExterna.nombre,
             rut: empresaExterna.rut,
-            contacto: empresaExterna.contacto,
+            contacto: empresaExterna.contacto
           };
           break;
       }
-
+      
       const response = await axios.post(endpoint, payload);
-
+      
       if (response.data?.success) {
         setSuccess("Registro realizado correctamente.");
         setCamposEditables(false);
       } else {
-        throw new Error(
-          response.data?.message || "No se pudo completar el registro."
-        );
+        throw new Error(response.data?.message || "No se pudo completar el registro.");
       }
     } catch (err) {
       if (err.response && err.response.status === 422) {
@@ -402,8 +296,9 @@ const RegistrarPersonal = () => {
         // Otro tipo de error (500, 404, etc)
         setError(`Error al guardar los datos: ${err.message}`);
       }
-    } finally {
-      setLoading((prev) => ({ ...prev, submitForm: false }));
+    }
+     finally {
+      setLoading(prev => ({ ...prev, submitForm: false }));
     }
   };
 
@@ -413,25 +308,17 @@ const RegistrarPersonal = () => {
     setFaenaSeleccionada("");
     setPersonalExterno({ nombre: "", rut: "", id_empresa: "" });
     setEmpresaExterna({ nombre: "", rut: "", contacto: "" });
-    setMaquinaExterna({
-      patente: "",
-      marca: "",
-      modelo: "",
-      tipo: "",
-      id_empresa: "",
-    });
     setError("");
     setSuccess("");
     setCamposEditables(true);
-
+    
     if (tipoPersonal === "Interno") fetchSolicitantes();
-    else if (tipoPersonal === "Externo" || tipoPersonal === "Maquina Externa")
-      fetchEmpresas();
+    else if (tipoPersonal === "Externo") fetchEmpresas();
   };
 
   // Renderizar formulario según tipo de personal
   const renderFormFields = () => {
-    switch (tipoPersonal) {
+    switch(tipoPersonal) {
       case "Interno":
         return (
           <>
@@ -439,54 +326,29 @@ const RegistrarPersonal = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Solicitante <span className="text-red-500">*</span>
               </label>
-              <div
-                className={
-                  !camposEditables ? "opacity-75 pointer-events-none" : ""
-                }
-              >
+              <div className={!camposEditables ? "opacity-75 pointer-events-none" : ""}>
                 <SearchableDropdown
                   options={solicitantes}
-                  selected={
-                    solicitanteSeleccionado
-                      ? solicitantes.find(
-                          (s) => s.value.rut === solicitanteSeleccionado.rut
-                        )?.label || ""
-                      : ""
-                  }
+                  selected={solicitanteSeleccionado ? solicitantes.find(s => s.value.rut === solicitanteSeleccionado.rut)?.label || "" : ""}
                   onSelect={handleSolicitanteSelect}
-                  placeholder={
-                    loading.fetchData
-                      ? "Cargando..."
-                      : "Seleccione un solicitante"
-                  }
+                  placeholder={loading.fetchData ? "Cargando..." : "Seleccione un solicitante"}
                   disabled={!camposEditables || loading.fetchData}
                 />
               </div>
             </div>
             {solicitanteSeleccionado && (
               <div className="mt-4 bg-gray-50 p-4 rounded-md">
-                <h3 className="font-medium text-gray-700 mb-2">
-                  Información del solicitante
-                </h3>
+                <h3 className="font-medium text-gray-700 mb-2">Información del solicitante</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="font-medium">RUT:</span>{" "}
-                    {solicitanteSeleccionado.rut}
-                  </div>
-                  <div>
-                    <span className="font-medium">Nombre:</span>{" "}
-                    {solicitanteSeleccionado.nombre}
-                  </div>
-                  <div>
-                    <span className="font-medium">Cargo:</span>{" "}
-                    {solicitanteSeleccionado.cargo}
-                  </div>
+                  <div><span className="font-medium">RUT:</span> {solicitanteSeleccionado.rut}</div>
+                  <div><span className="font-medium">Nombre:</span> {solicitanteSeleccionado.nombre}</div>
+                  <div><span className="font-medium">Cargo:</span> {solicitanteSeleccionado.cargo}</div>
                 </div>
               </div>
             )}
           </>
         );
-
+      
       case "Externo":
         return (
           <>
@@ -494,22 +356,12 @@ const RegistrarPersonal = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Empresa <span className="text-red-500">*</span>
               </label>
-              <div
-                className={
-                  !camposEditables ? "opacity-75 pointer-events-none" : ""
-                }
-              >
+              <div className={!camposEditables ? "opacity-75 pointer-events-none" : ""}>
                 <SearchableDropdown
                   options={empresas}
-                  selected={
-                    empresas.find(
-                      (e) => e.value.id === personalExterno.id_empresa
-                    )?.label || ""
-                  }
+                  selected={empresas.find(e => e.value.id === personalExterno.id_empresa)?.label || ""}
                   onSelect={handleEmpresaSelect}
-                  placeholder={
-                    loading.fetchData ? "Cargando..." : "Seleccione empresa"
-                  }
+                  placeholder={loading.fetchData ? "Cargando..." : "Seleccione empresa"}
                   disabled={!camposEditables || loading.fetchData}
                 />
               </div>
@@ -522,12 +374,7 @@ const RegistrarPersonal = () => {
               <input
                 type="text"
                 value={personalExterno.nombre}
-                onChange={(e) =>
-                  setPersonalExterno((prev) => ({
-                    ...prev,
-                    nombre: e.target.value,
-                  }))
-                }
+                onChange={(e) => setPersonalExterno(prev => ({ ...prev, nombre: e.target.value }))}
                 disabled={!camposEditables}
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
                 placeholder="Nombre completo"
@@ -547,196 +394,22 @@ const RegistrarPersonal = () => {
                 placeholder="12.345.678-9"
               />
             </div>
-
+            
             {personalExterno.id_empresa && (
               <div className="mt-4 bg-gray-50 p-4 rounded-md">
-                <h3 className="font-medium text-gray-700 mb-2">
-                  Información de la empresa
-                </h3>
-                {empresas.find(
-                  (e) => e.value.id === personalExterno.id_empresa
-                ) && (
+                <h3 className="font-medium text-gray-700 mb-2">Información de la empresa</h3>
+                {empresas.find(e => e.value.id === personalExterno.id_empresa) && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium">Empresa:</span>{" "}
-                      {
-                        empresas.find(
-                          (e) => e.value.id === personalExterno.id_empresa
-                        ).value.nombre
-                      }
-                    </div>
-                    <div>
-                      <span className="font-medium">RUT:</span>{" "}
-                      {
-                        empresas.find(
-                          (e) => e.value.id === personalExterno.id_empresa
-                        ).value.rut
-                      }
-                    </div>
-                    <div>
-                      <span className="font-medium">Contacto:</span>{" "}
-                      {
-                        empresas.find(
-                          (e) => e.value.id === personalExterno.id_empresa
-                        ).value.contacto
-                      }
-                    </div>
+                    <div><span className="font-medium">Empresa:</span> {empresas.find(e => e.value.id === personalExterno.id_empresa).value.nombre}</div>
+                    <div><span className="font-medium">RUT:</span> {empresas.find(e => e.value.id === personalExterno.id_empresa).value.rut}</div>
+                    <div><span className="font-medium">Contacto:</span> {empresas.find(e => e.value.id === personalExterno.id_empresa).value.contacto}</div>
                   </div>
                 )}
               </div>
             )}
           </>
         );
-
-      case "Maquina Externa":
-        return (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Empresa <span className="text-red-500">*</span>
-              </label>
-              <div
-                className={
-                  !camposEditables ? "opacity-75 pointer-events-none" : ""
-                }
-              >
-                <SearchableDropdown
-                  options={empresas}
-                  selected={
-                    empresas.find(
-                      (e) => e.value.id === maquinaExterna.id_empresa
-                    )?.label || ""
-                  }
-                  onSelect={handleEmpresaSelect}
-                  placeholder={
-                    loading.fetchData ? "Cargando..." : "Seleccione empresa"
-                  }
-                  disabled={!camposEditables || loading.fetchData}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Patente <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={maquinaExterna.patente}
-                onChange={(e) =>
-                  setMaquinaExterna((prev) => ({
-                    ...prev,
-                    patente: e.target.value.toUpperCase(),
-                  }))
-                }
-                disabled={!camposEditables}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
-                placeholder="ABCD12"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Marca <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={maquinaExterna.marca}
-                  onChange={(e) =>
-                    setMaquinaExterna((prev) => ({
-                      ...prev,
-                      marca: e.target.value,
-                    }))
-                  }
-                  disabled={!camposEditables}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
-                  placeholder="Caterpillar"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Modelo <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={maquinaExterna.modelo}
-                  onChange={(e) =>
-                    setMaquinaExterna((prev) => ({
-                      ...prev,
-                      modelo: e.target.value,
-                    }))
-                  }
-                  disabled={!camposEditables}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
-                  placeholder="320D"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tipo de Máquina <span className="text-red-500">*</span>
-              </label>
-              <div
-                className={
-                  !camposEditables ? "opacity-75 pointer-events-none" : ""
-                }
-              >
-                <SearchableDropdown
-                  options={tiposMaquina.map((t) => ({ label: t, value: t }))}
-                  selected={maquinaExterna.tipo}
-                  onSelect={(value) => {
-                    setMaquinaExterna((prev) => ({ ...prev, tipo: value }));
-                    setError("");
-                  }}
-                  placeholder="Seleccione tipo de máquina"
-                  disabled={!camposEditables}
-                />
-              </div>
-            </div>
-
-            {maquinaExterna.id_empresa && (
-              <div className="mt-4 bg-gray-50 p-4 rounded-md">
-                <h3 className="font-medium text-gray-700 mb-2">
-                  Información de la empresa
-                </h3>
-                {empresas.find(
-                  (e) => e.value.id === maquinaExterna.id_empresa
-                ) && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium">Empresa:</span>{" "}
-                      {
-                        empresas.find(
-                          (e) => e.value.id === maquinaExterna.id_empresa
-                        ).value.nombre
-                      }
-                    </div>
-                    <div>
-                      <span className="font-medium">RUT:</span>{" "}
-                      {
-                        empresas.find(
-                          (e) => e.value.id === maquinaExterna.id_empresa
-                        ).value.rut
-                      }
-                    </div>
-                    <div>
-                      <span className="font-medium">Contacto:</span>{" "}
-                      {
-                        empresas.find(
-                          (e) => e.value.id === maquinaExterna.id_empresa
-                        ).value.contacto
-                      }
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </>
-        );
-
+      
       case "Nueva Empresa":
         return (
           <>
@@ -747,12 +420,7 @@ const RegistrarPersonal = () => {
               <input
                 type="text"
                 value={empresaExterna.nombre}
-                onChange={(e) =>
-                  setEmpresaExterna((prev) => ({
-                    ...prev,
-                    nombre: e.target.value,
-                  }))
-                }
+                onChange={(e) => setEmpresaExterna(prev => ({ ...prev, nombre: e.target.value }))}
                 disabled={!camposEditables}
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
                 placeholder="Nombre de la empresa"
@@ -780,12 +448,7 @@ const RegistrarPersonal = () => {
               <input
                 type="text"
                 value={empresaExterna.contacto}
-                onChange={(e) =>
-                  setEmpresaExterna((prev) => ({
-                    ...prev,
-                    contacto: e.target.value,
-                  }))
-                }
+                onChange={(e) => setEmpresaExterna(prev => ({ ...prev, contacto: e.target.value }))}
                 disabled={!camposEditables}
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
                 placeholder="Teléfono o email"
@@ -793,7 +456,7 @@ const RegistrarPersonal = () => {
             </div>
           </>
         );
-
+      
       default:
         return null;
     }
@@ -802,32 +465,14 @@ const RegistrarPersonal = () => {
   // Verificar si el botón debe estar deshabilitado
   const isSubmitDisabled = () => {
     if (loading.submitForm || loading.fetchData) return true;
-
-    switch (tipoPersonal) {
+    
+    switch(tipoPersonal) {
       case "Interno":
         return !solicitanteSeleccionado || !faenaSeleccionada;
       case "Externo":
-        return (
-          !personalExterno.nombre ||
-          !personalExterno.rut ||
-          !personalExterno.id_empresa ||
-          !faenaSeleccionada
-        );
-      case "Maquina Externa":
-        return (
-          !maquinaExterna.patente ||
-          !maquinaExterna.marca ||
-          !maquinaExterna.modelo ||
-          !maquinaExterna.tipo ||
-          !maquinaExterna.id_empresa ||
-          !faenaSeleccionada
-        );
+        return !personalExterno.nombre || !personalExterno.rut || !personalExterno.id_empresa || !faenaSeleccionada;
       case "Nueva Empresa":
-        return (
-          !empresaExterna.nombre ||
-          !empresaExterna.rut ||
-          !empresaExterna.contacto
-        );
+        return !empresaExterna.nombre || !empresaExterna.rut || !empresaExterna.contacto;
       default:
         return true;
     }
@@ -837,25 +482,15 @@ const RegistrarPersonal = () => {
     <div className="bg-white shadow-lg rounded-lg overflow-hidden max-w-4xl mx-auto">
       <div className="bg-orange-400 px-6 py-4">
         <h2 className="text-white text-2xl font-bold">Registrar Personal</h2>
-        <p className="text-orange-50 text-sm">
-          Gestión de solicitantes internos, personal externo y empresas
-        </p>
+        <p className="text-orange-50 text-sm">Gestión de solicitantes internos, personal externo y empresas</p>
       </div>
 
       <div className="p-6">
         {error && (
           <div className="mb-4 bg-red-50 border-l-4 border-red-500 p-3 rounded">
             <div className="flex items-center">
-              <svg
-                className="h-5 w-5 text-red-500 mr-2"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                  clipRule="evenodd"
-                />
+              <svg className="h-5 w-5 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
               <span className="text-red-700">{error}</span>
             </div>
@@ -865,16 +500,8 @@ const RegistrarPersonal = () => {
         {success && (
           <div className="mb-4 bg-green-50 border-l-4 border-green-500 p-3 rounded">
             <div className="flex items-center">
-              <svg
-                className="h-5 w-5 text-green-500 mr-2"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                  clipRule="evenodd"
-                />
+              <svg className="h-5 w-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
               <span className="text-green-700">{success}</span>
             </div>
@@ -888,23 +515,20 @@ const RegistrarPersonal = () => {
               Tipo de Registro <span className="text-red-500">*</span>
             </label>
             <div className="flex flex-wrap gap-3">
-              {["Interno", "Externo", "Nueva Empresa"].map((tipo) => (
+              {["Interno", "Externo", "Nueva Empresa"].map(tipo => (
                 <button
                   key={tipo}
                   type="button"
                   onClick={() => setTipoPersonal(tipo)}
                   className={`px-4 py-2 rounded-md text-sm font-medium ${
-                    tipoPersonal === tipo
-                      ? "bg-orange-400 text-white"
+                    tipoPersonal === tipo 
+                      ? "bg-orange-400 text-white" 
                       : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                   }`}
                   disabled={!camposEditables}
                 >
-                  {tipo === "Interno"
-                    ? "Solicitante Interno"
-                    : tipo === "Externo"
-                    ? "Personal Externo"
-                    : "Nueva Empresa"}
+                  {tipo === "Interno" ? "Solicitante Interno" : 
+                   tipo === "Externo" ? "Personal Externo" : "Nueva Empresa"}
                 </button>
               ))}
             </div>
@@ -916,15 +540,11 @@ const RegistrarPersonal = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Faena <span className="text-red-500">*</span>
               </label>
-              <div
-                className={
-                  !camposEditables ? "opacity-75 pointer-events-none" : ""
-                }
-              >
+              <div className={!camposEditables ? "opacity-75 pointer-events-none" : ""}>
                 <SearchableDropdown
-                  options={faenas.map((f) => ({ label: f, value: f }))}
+                  options={faenas.map(f => ({ label: f, value: f }))}
                   selected={faenaSeleccionada}
-                  onSelect={(value) => {
+                  onSelect={value => {
                     setFaenaSeleccionada(value);
                     setError("");
                   }}
@@ -955,15 +575,10 @@ const RegistrarPersonal = () => {
               disabled={isSubmitDisabled()}
               className="px-4 py-2 rounded-md text-sm font-medium text-white bg-orange-400 hover:bg-orange-500 disabled:opacity-50"
             >
-              {loading.submitForm
-                ? "Registrando..."
-                : `Registrar ${
-                    tipoPersonal === "Interno"
-                      ? "Solicitante"
-                      : tipoPersonal === "Externo"
-                      ? "Personal Externo"
-                      : "Empresa"
-                  }`}
+              {loading.submitForm ? "Registrando..." : `Registrar ${
+                tipoPersonal === "Interno" ? "Solicitante" :
+                tipoPersonal === "Externo" ? "Personal Externo" : "Empresa"
+              }`}
             </button>
           )}
         </div>

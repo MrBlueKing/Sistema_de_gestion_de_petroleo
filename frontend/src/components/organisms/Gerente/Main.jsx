@@ -7,8 +7,7 @@ import {
   FiSettings,
   FiFileText,
   FiUsers,
-  FiDroplet,
-  FiAlertCircle
+  FiDroplet
 } from "react-icons/fi";
 
 const Main = () => {
@@ -22,7 +21,7 @@ const Main = () => {
     },
     {
       title: "Gráficos de Producción",
-      description: "Datos operacionales",
+      description: "ver cositas",
       icon: <FiBarChart2 className="w-10 h-10 text-indigo-500" />,
       path: "/gerente/graficos",
       color: "bg-indigo-50 hover:bg-indigo-100 border-indigo-200"
@@ -34,14 +33,6 @@ const Main = () => {
       path: "/gerente/mantenimiento",
       color: "bg-cyan-50 hover:bg-cyan-100 border-cyan-200"
     },
-{
-      title: "Simulacion",
-      description: "Estimación de Consumos",
-      icon: <FiAlertCircle className="w-10 h-10 text-cyan-500" />,
-      path: "/gerente/simulacion",
-      color: "bg-cyan-50 hover:bg-cyan-100 border-cyan-200"
-    },
-
   ];
 
   return (

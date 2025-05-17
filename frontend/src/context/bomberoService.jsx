@@ -45,25 +45,23 @@ const bomberoService = {
     }
   },
   
-// Filtrar personal por ubicación considerando las faenas
-filtrarPersonalPorUbicacion: (personal, ubicacion) => {
-  if (!ubicacion || !Array.isArray(personal)) return [];
-   
-  // Convertimos a minúsculas para comparación insensible a mayúsculas/minúsculas
-  const ubicacionLower = ubicacion.toLowerCase();
-   
-  return personal.filter(item => {
-    // Verificamos si tiene faenas asociadas
-    if (!item.faenas || !Array.isArray(item.faenas)) return false;
-
-    // Buscamos si alguna de las faenas coincide con la ubicación
-    const tieneUbicacionCoincidente = item.faenas.some(faena => 
-      faena.ubicacion.toLowerCase() === ubicacionLower
-    );
-
-    return tieneUbicacionCoincidente;
-  });
-},
+  // Filtrar personal por ubicación - esta función se usa para filtrar en el cliente
+  filtrarPersonalPorUbicacion: (personal, ubicacion) => {
+    if (!ubicacion || !Array.isArray(personal)) return [];
+    
+    // Convertimos a minúsculas para comparación insensible a mayúsculas/minúsculas
+    const ubicacionLower = ubicacion.toLowerCase();
+    
+    return personal.filter(item => {
+      // Extraemos el objeto de personal interno/externo según su estructura
+      const personalData = item.personal_interno || item.personal_externo;
+      
+      if (!personalData || !personalData.ubicacion) return false;
+      
+      // Comparamos la ubicación
+      return personalData.ubicacion.toLowerCase() === ubicacionLower;
+    });
+  },
   
   // Buscar personal por término de búsqueda - esta función se usa para buscar en el cliente
   buscarPersonal: (personal, termino) => {
