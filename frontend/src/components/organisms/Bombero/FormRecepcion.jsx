@@ -1,140 +1,127 @@
 import React, { useContext, useState, useEffect } from "react";
-
 import InputField from "../../atoms/Inputs/InputField";
-
 import Button from "../../atoms/Button/Button";
-
 import "react-datepicker/dist/react-datepicker.css";
-
 import { registerLocale } from "react-datepicker";
-
 import es from "date-fns/locale/es";
-
 import {
   FaHome,
   FaExclamationTriangle,
   FaTimes,
   FaRuler,
 } from "react-icons/fa";
-
 import { UserContext } from "../../../context/userContext";
-
 import axios from "../../../lib/axios";
-
 import EstanquesModal from "./EstanquesModal";
 
 registerLocale("es", es);
 
 // Función de utilidad para formatear números a 2 decimales
-
 const formatNumber = (num) => {
   if (num === undefined || num === null || isNaN(parseFloat(num))) {
     return "0.00";
   }
-
   return parseFloat(num).toFixed(2);
 };
 
 const FormRecepcion = () => {
   // Acceder al contexto de usuario
-
   const { user, loading } = useContext(UserContext);
 
-  // Estado para capacidad disponible
+  // Estados para datos del formulario
+  const [formData, setFormData] = useState({
+    numeroGuia: "",
+    litrosRecibidos: "",
+    observacion: "",
+    precio: "",
+    id_faena: "",
+  });
 
-  const [capacidadDisponible, setCapacidadDisponible] = useState();
-
-  // Estado para alertas del modal
-
+  // Estados para UI
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
+  const [alert, setAlert] = useState({ show: false, message: "", type: "" });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showEstanquesModal, setShowEstanquesModal] = useState(false);
   const [modalAlert, setModalAlert] = useState({
     show: false,
-
     message: "",
-
     type: "",
   });
 
-  // Estado local para los datos del formulario
-
-  const [formData, setFormData] = useState({
-    numeroGuia: "",
-
-    litrosRecibidos: "",
-
-    observacion: "",
-
-    precio: "",
-
-    id_faena: "", // <-- Inicializar vacío
-  });
-
-  // Estado para errores de validación
-
-  const [errors, setErrors] = useState({});
-
-  // Estado para mensaje de alerta
-
-  const [alert, setAlert] = useState({ show: false, message: "", type: "" });
-
-  // Estado para indicar si el formulario está enviándose
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Estado para manejar el enfoque en campos
-
-  const [touched, setTouched] = useState({});
-
-  // Estado para mostrar/ocultar modal de estanques
-
-  const [showEstanquesModal, setShowEstanquesModal] = useState(false);
-
-  // Estado para almacenar los estanques de la faena
-
+  // Estados para datos de combustible
   const [estanques, setEstanques] = useState([]);
-
-  // Estado para almacenar las alturas de los estanques
-
   const [alturasEstanques, setAlturasEstanques] = useState({});
-
-  // Estado para almacenar información calculada del petróleo
-
+  const [capacidadDisponible, setCapacidadDisponible] = useState();
   const [calculoPetroleo, setCalculoPetroleo] = useState({
     litrosCalculados: 0,
-
     diferencia: 0,
-
-    calculoRealizado: false, // Flag para indicar si se ha realizado el cálculo
+    calculoRealizado: false,
   });
 
-  // Actualizar la faena cuando el usuario cambie
-
+  // Efecto para actualizar la faena cuando el usuario cambie
   useEffect(() => {
     if (user?.id_faena) {
       setFormData((prev) => ({
         ...prev,
-
         id_faena: user.id_faena,
       }));
     }
   }, [user]);
 
-  // Cargar capacidad disponible cuando se abra el modal
+  // Cargar estanques cuando cambie la faena seleccionada
+  useEffect(() => {
+    if (formData.id_faena) {
+      cargarEstanques(formData.id_faena);
+    }
+  }, [formData.id_faena]);
 
+  // Cargar capacidad disponible cuando se abra el modal
   useEffect(() => {
     if (showEstanquesModal && formData.id_faena) {
       cargarCapacidadDisponible();
     }
   }, [showEstanquesModal, formData.id_faena]);
 
-  // Función para cargar la capacidad disponible
+  // Validación en tiempo real
+  useEffect(() => {
+    validateField();
+  }, [formData]);
 
+  // Función para cargar los estanques de una faena
+  const cargarEstanques = async (idFaena) => {
+    try {
+      const token = JSON.parse(localStorage.getItem("authToken"))?.token;
+      const response = await axios.get(`/api/estanques/${idFaena}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      // Guardar datos de los estanques
+      setEstanques(response.data.data);
+
+      // Inicializar el estado de alturas con los estanques cargados
+      const initialAlturas = {};
+      response.data.data.forEach((estanque) => {
+        initialAlturas[estanque.id_estanque] = {
+          inicial: "",
+          final: "",
+        };
+      });
+      setAlturasEstanques(initialAlturas);
+    } catch (error) {
+      console.error("Error al cargar estanques:", error);
+      mostrarAlerta("error", "Error al cargar los estanques de la faena.");
+    }
+  };
+
+  // Función para cargar la capacidad disponible
   const cargarCapacidadDisponible = async () => {
     try {
       const token = JSON.parse(localStorage.getItem("authToken"))?.token;
-
       const response = await axios.get(
         `/api/capacidad-disponible/${formData.id_faena}`,
-
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -147,83 +134,23 @@ const FormRecepcion = () => {
       }
     } catch (error) {
       console.error("Error al cargar capacidad disponible:", error);
-
-      setModalAlert({
-        show: true,
-
-        type: "error",
-
-        message: "Error al cargar la capacidad disponible.",
-      });
-
-      setTimeout(
-        () => setModalAlert({ show: false, message: "", type: "" }),
-
-        5000
-      );
+      mostrarModalAlerta("error", "Error al cargar la capacidad disponible.");
     }
   };
 
-  // Cargar estanques de la faena cuando cambie la faena seleccionada
-
-  useEffect(() => {
-    if (formData.id_faena) {
-      cargarEstanques(formData.id_faena);
-    }
-  }, [formData.id_faena]);
-
-  // Función para cargar los estanques de una faena
-
-  const cargarEstanques = async (idFaena) => {
-    try {
-      const token = JSON.parse(localStorage.getItem("authToken"))?.token;
-
-      const response = await axios.get(`/api/estanques/${idFaena}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      // Guardar solo los datos de los estanques
-
-      setEstanques(response.data.data);
-
-      // Inicializar el estado de alturas con los estanques cargados
-
-      const initialAlturas = {};
-
-      response.data.data.forEach((estanque) => {
-        initialAlturas[estanque.id_estanque] = {
-          inicial: "",
-
-          final: "",
-        };
-      });
-
-      setAlturasEstanques(initialAlturas);
-    } catch (error) {
-      console.error("Error al cargar estanques:", error);
-
-      setAlert({
-        show: true,
-
-        type: "error",
-
-        message: "Error al cargar los estanques de la faena.",
-      });
-
-      setTimeout(() => setAlert({ show: false, message: "", type: "" }), 5000);
-    }
+  // Mostrar alertas temporales
+  const mostrarAlerta = (type, message) => {
+    setAlert({ show: true, type, message });
+    setTimeout(() => setAlert({ show: false, message: "", type: "" }), 5000);
   };
 
-  // Validación en tiempo real
-
-  useEffect(() => {
-    validateField();
-  }, [formData]);
+  // Mostrar alertas modales temporales
+  const mostrarModalAlerta = (type, message) => {
+    setModalAlert({ show: true, type, message });
+    setTimeout(() => setModalAlert({ show: false, message: "", type: "" }), 5000);
+  };
 
   // Función para validar campos en tiempo real
-
   const validateField = () => {
     const newErrors = {};
 
@@ -253,45 +180,63 @@ const FormRecepcion = () => {
     setErrors(newErrors);
   };
 
-  // Manejar cambios en los campos del formulario
+  // Función para validar todos los campos
+  const validarFormularioCompleto = () => {
+    const newErrors = {};
 
+    if (!formData.numeroGuia.trim())
+      newErrors.numeroGuia = "Este campo es obligatorio";
+
+    if (!formData.litrosRecibidos) {
+      newErrors.litrosRecibidos = "Este campo es obligatorio";
+    } else if (
+      isNaN(formData.litrosRecibidos) ||
+      parseFloat(formData.litrosRecibidos) <= 0
+    ) {
+      newErrors.litrosRecibidos = "Debe ingresar un valor numérico mayor a 0";
+    }
+
+    if (!formData.precio) {
+      newErrors.precio = "Este campo es obligatorio";
+    } else if (isNaN(formData.precio) || parseFloat(formData.precio) <= 0) {
+      newErrors.precio = "Debe ingresar un precio válido mayor a 0";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Manejar cambios en los campos del formulario
   const handleChange = (field, value) => {
     setFormData({
       ...formData,
-
       [field]: value,
     });
   };
 
   // Manejar el enfoque en un campo
-
   const handleBlur = (field) => {
     setTouched({
       ...touched,
-
       [field]: true,
     });
   };
 
   // Función para manejar cambios en las alturas de estanques
-
   const handleAlturaChange = (estanqueId, value) => {
     setAlturasEstanques((prevState) => {
       // Siempre aseguramos formato de objeto para alturas
-
       if (
         typeof value === "object" &&
         (value.inicial !== undefined || value.final !== undefined)
       ) {
         return {
           ...prevState,
-
           [estanqueId]: {
             inicial:
               value.inicial !== undefined
                 ? value.inicial
                 : prevState[estanqueId]?.inicial || "",
-
             final:
               value.final !== undefined
                 ? value.final
@@ -300,15 +245,11 @@ const FormRecepcion = () => {
         };
       } else {
         // Si se recibe un valor simple, asumimos que es altura inicial
-
         console.warn("Formato de altura no estándar para estanque", estanqueId);
-
         return {
           ...prevState,
-
           [estanqueId]: {
             inicial: value || "",
-
             final: prevState[estanqueId]?.final || "",
           },
         };
@@ -317,58 +258,122 @@ const FormRecepcion = () => {
   };
 
   // Función para calcular los litros de petróleo según las alturas
-// Corrección para la función calcularLitrosPetroleo en FormRecepcion.jsx
+  const calcularLitrosPetroleo = async () => {
+    // Validaciones iniciales
+    if (!formData.id_faena) {
+      mostrarModalAlerta("error", "Debe seleccionar una faena antes de calcular.");
+      return null;
+    }
 
-// Reemplazar la función actual por esta versión corregida:
-const calcularLitrosPetroleo = async () => {
-  if (!formData.id_faena) {
-    setModalAlert({
-      show: true,
-      type: "error",
-      message: "Debe seleccionar una faena antes de calcular.",
-    });
-    setTimeout(
-      () => setModalAlert({ show: false, message: "", type: "" }),
-      5000
-    );
-    return null;
-  }
+    if (!user || !user.id) {
+      mostrarModalAlerta("error", "No se puede identificar al usuario actual.");
+      return null;
+    }
 
-  if (!user || !user.id) {
-    setModalAlert({
-      show: true,
-      type: "error",
-      message: "No se puede identificar al usuario actual.",
-    });
-    setTimeout(
-      () => setModalAlert({ show: false, message: "", type: "" }),
-      5000
-    );
-    return null;
-  }
+    // Validar que se haya ingresado litros recibidos
+    if (
+      !formData.litrosRecibidos ||
+      parseFloat(formData.litrosRecibidos) <= 0
+    ) {
+      mostrarModalAlerta("error", "Debe ingresar la cantidad de litros recibidos antes de calcular.");
+      return null;
+    }
 
-  // Validar que se haya ingresado litros recibidos
-  if (
-    !formData.litrosRecibidos ||
-    parseFloat(formData.litrosRecibidos) <= 0
-  ) {
-    setModalAlert({
-      show: true,
-      type: "error",
-      message:
-        "Debe ingresar la cantidad de litros recibidos antes de calcular.",
-    });
-    setTimeout(
-      () => setModalAlert({ show: false, message: "", type: "" }),
-      5000
-    );
-    return null;
-  }
+    try {
+      const token = JSON.parse(localStorage.getItem("authToken"))?.token;
 
-  try {
-    const token = JSON.parse(localStorage.getItem("authToken"))?.token;
+      // Procesar y validar alturas
+      const { alturasIniciales, alturasFinales, incompletas } = procesarAlturas();
+      
+      if (incompletas) {
+        mostrarModalAlerta("error", "Debe ingresar todas las alturas iniciales y finales de los estanques.");
+        return null;
+      }
 
-    // Validar que haya alturas iniciales y finales
+      // Convertir las alturas al formato que espera la API
+      const datosAlturasIniciales = convertirAlturasParaAPI(alturasIniciales);
+      const datosAlturasFinales = convertirAlturasParaAPI(alturasFinales);
+      
+      // Validar completitud de las alturas
+      if (
+        hayAlturasIncompletas(datosAlturasIniciales) ||
+        hayAlturasIncompletas(datosAlturasFinales)
+      ) {
+        mostrarModalAlerta("error", "Debe ingresar todas las alturas iniciales y finales de los estanques.");
+        return null;
+      }
+
+      // Preparar datos para las peticiones API
+      const datosCalcularInicial = {
+        id_faena: formData.id_faena,
+        id_usuario: user.id,
+        tipo_movimiento: "ingreso",
+        alturas: datosAlturasIniciales,
+      };
+
+      const datosCalcularFinal = {
+        id_faena: formData.id_faena,
+        id_usuario: user.id,
+        tipo_movimiento: "ingreso",
+        alturas: datosAlturasFinales,
+      };
+
+      // Llamar a la API para calcular los litros iniciales
+      const responseInicial = await axios.post(
+        "/api/calcular-litros-petroleo",
+        datosCalcularInicial,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!responseInicial.data.success) {
+        throw new Error(
+          responseInicial.data.message ||
+            "Error al calcular los litros iniciales"
+        );
+      }
+
+      // Llamar a la API para calcular los litros finales
+      const responseFinal = await axios.post(
+        "/api/calcular-litros-petroleo",
+        datosCalcularFinal,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!responseFinal.data.success) {
+        throw new Error(
+          responseFinal.data.message || "Error al calcular los litros finales"
+        );
+      }
+
+      // Procesar los resultados y actualizar estados
+      return procesarResultadosCalculo(responseInicial, responseFinal);
+      
+    } catch (error) {
+      console.error("Error al calcular litros de petróleo:", error);
+
+      // Obtener mensaje de error más específico si está disponible
+      let errorMessage = "Error al calcular los litros de petróleo.";
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      mostrarModalAlerta("error", errorMessage);
+      return null;
+    }
+  };
+
+  // Función para procesar las alturas de los estanques
+  const procesarAlturas = () => {
     const alturasIniciales = {};
     const alturasFinales = {};
     let incompletas = false;
@@ -400,130 +405,34 @@ const calcularLitrosPetroleo = async () => {
       }
     });
 
-    if (incompletas) {
-      setModalAlert({
-        show: true,
-        type: "error",
-        message:
-          "Debe ingresar todas las alturas iniciales y finales de los estanques.",
-      });
-      setTimeout(
-        () => setModalAlert({ show: false, message: "", type: "" }),
-        5000
-      );
-      return null;
-    }
+    return { alturasIniciales, alturasFinales, incompletas };
+  };
 
-    // PRIMER CAMBIO: Convertir las alturas iniciales al formato que espera la API
-    const datosAlturasIniciales = Object.keys(alturasIniciales).map(
-      (estanqueId) => {
-        const altura = alturasIniciales[estanqueId];
-        const alturaNum = altura === 0 || altura ? parseFloat(altura) : null;
-        return {
-          id_estanque: parseInt(estanqueId),
-          altura: alturaNum, // CORRECTO: usar 'altura' en lugar de 'inicial'
-        };
-      }
-    );
+  // Función para convertir alturas al formato API
+  const convertirAlturasParaAPI = (alturas) => {
+    return Object.keys(alturas).map((estanqueId) => {
+      const altura = alturas[estanqueId];
+      const alturaNum = altura === 0 || altura ? parseFloat(altura) : null;
+      return {
+        id_estanque: parseInt(estanqueId),
+        altura: alturaNum,
+      };
+    });
+  };
 
-    // PRIMER CAMBIO: Convertir las alturas finales al formato que espera la API
-    const datosAlturasFinales = Object.keys(alturasFinales).map(
-      (estanqueId) => {
-        const altura = alturasFinales[estanqueId];
-        const alturaNum = altura === 0 || altura ? parseFloat(altura) : null;
-        return {
-          id_estanque: parseInt(estanqueId),
-          altura: alturaNum, // CORRECTO: usar 'altura' en lugar de 'final'
-        };
-      }
-    );
-
-    // Filtrar entradas incompletas
-    const alturasInicialesIncompletas = datosAlturasIniciales.filter(
-      (item) => {
-        return (
-          item.altura === undefined ||
-          item.altura === null ||
-          Number.isNaN(item.altura)
-        );
-      }
-    );
-
-    const alturasFinalesIncompletas = datosAlturasFinales.filter((item) => {
+  // Función para verificar alturas incompletas
+  const hayAlturasIncompletas = (datosAlturas) => {
+    return datosAlturas.some((item) => {
       return (
         item.altura === undefined ||
         item.altura === null ||
         Number.isNaN(item.altura)
       );
     });
+  };
 
-    if (
-      alturasInicialesIncompletas.length > 0 ||
-      alturasFinalesIncompletas.length > 0
-    ) {
-      setModalAlert({
-        show: true,
-        type: "error",
-        message:
-          "Debe ingresar todas las alturas iniciales y finales de los estanques.",
-      });
-      setTimeout(
-        () => setModalAlert({ show: false, message: "", type: "" }),
-        5000
-      );
-      return null;
-    }
-
-    // Crear objetos de datos para enviar a la API
-    const datosCalcularInicial = {
-      id_faena: formData.id_faena,
-      id_usuario: user.id,
-      tipo_movimiento: "ingreso", // SEGUNDO CAMBIO: usar 'ingreso' en lugar de 'consulta'
-      alturas: datosAlturasIniciales,
-    };
-
-    const datosCalcularFinal = {
-      id_faena: formData.id_faena,
-      id_usuario: user.id,
-      tipo_movimiento: "ingreso", // SEGUNDO CAMBIO: usar 'ingreso' en lugar de 'consulta'
-      alturas: datosAlturasFinales,
-    };
-
-    // Llamar a la API para calcular los litros iniciales
-    const responseInicial = await axios.post(
-      "/api/calcular-litros-petroleo",
-      datosCalcularInicial,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    if (!responseInicial.data.success) {
-      throw new Error(
-        responseInicial.data.message ||
-          "Error al calcular los litros iniciales"
-      );
-    }
-
-    // Llamar a la API para calcular los litros finales
-    const responseFinal = await axios.post(
-      "/api/calcular-litros-petroleo",
-      datosCalcularFinal,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    if (!responseFinal.data.success) {
-      throw new Error(
-        responseFinal.data.message || "Error al calcular los litros finales"
-      );
-    }
-
+  // Función para procesar los resultados del cálculo
+  const procesarResultadosCalculo = (responseInicial, responseFinal) => {
     // Obtener los valores calculados
     const stockInicial = responseInicial.data.litros_totales || 0;
     const stockFinal = responseFinal.data.litros_totales || 0;
@@ -540,157 +449,108 @@ const calcularLitrosPetroleo = async () => {
     // Actualizar observación con la diferencia calculada
     setFormData((prevFormData) => ({
       ...prevFormData,
-      observacion: `Según cálculo de alturas, se detecta una diferencia de ${formatNumber(
-        Math.abs(litrosGuia - litrosIngresados)
-      )} litros ${
-        litrosGuia > litrosIngresados ? "de menos" : "de más"
-      } en la recepción. Litros según guía: ${formatNumber(
-        litrosGuia
-      )}. Litros calculados: ${formatNumber(litrosIngresados)}.`,
+      observacion: generarObservacionDiferencia(litrosGuia, litrosIngresados),
     }));
 
-    // IMPORTANTE: Retornar los valores que espera EstanquesModal
+    // Retornar los valores que espera EstanquesModal
     return {
-      volInicial: stockInicial, // Stock real inicial calculado por alturas
-      volFinal: stockFinal, // Stock real final calculado por alturas
-      discrepanciaIni: stockInicial - 200, // Discrepancia inicial: real vs teórico
-      discrepanciaCam: litrosGuia - litrosIngresados, // Discrepancia del camión
+      volInicial: stockInicial,
+      volFinal: stockFinal,
+      discrepanciaIni: stockInicial - 200,
+      discrepanciaCam: litrosGuia - litrosIngresados,
     };
-  } catch (error) {
-    console.error("Error al calcular litros de petróleo:", error);
+  };
 
-    // Obtener mensaje de error más específico si está disponible
-    let errorMessage = "Error al calcular los litros de petróleo.";
-    if (error.response?.data?.message) {
-      errorMessage = error.response.data.message;
-    } else if (error.message) {
-      errorMessage = error.message;
-    }
+  // Generar texto de observación basado en diferencia
+  const generarObservacionDiferencia = (litrosGuia, litrosIngresados) => {
+    return `Según cálculo de alturas, se detecta una diferencia de ${formatNumber(
+      Math.abs(litrosGuia - litrosIngresados)
+    )} litros ${
+      litrosGuia > litrosIngresados ? "de menos" : "de más"
+    } en la recepción. Litros según guía: ${formatNumber(
+      litrosGuia
+    )}. Litros calculados: ${formatNumber(litrosIngresados)}.`;
+  };
 
-    setModalAlert({
-      show: true,
-      type: "error",
-      message: errorMessage,
+  // Verificar si hay alturas vacías
+  const verificarAlturasCompletas = () => {
+    return !Object.values(alturasEstanques).some((alturas) => {
+      if (typeof alturas !== "object") return true;
+      return !alturas.inicial || !alturas.final;
     });
-    setTimeout(
-      () => setModalAlert({ show: false, message: "", type: "" }),
-      5000
-    );
-    return null;
-  }
-};  
+  };
+
+  // Preparar datos de alturas para envío a API
+  const prepararDatosAlturas = () => {
+    const alturas = [];
+    
+    Object.keys(alturasEstanques).forEach((idEstanque) => {
+      const datos = alturasEstanques[idEstanque];
+
+      // Verificar si hay datos de alturas iniciales y finales
+      if (datos && typeof datos === "object") {
+        // Agregar altura inicial si existe
+        if (datos.inicial !== undefined && datos.inicial !== "") {
+          alturas.push({
+            id_estanque: parseInt(idEstanque),
+            altura: parseFloat(datos.inicial),
+            tipo: "inicial",
+          });
+        }
+
+        // Agregar altura final si existe
+        if (datos.final !== undefined && datos.final !== "") {
+          alturas.push({
+            id_estanque: parseInt(idEstanque),
+            altura: parseFloat(datos.final),
+            tipo: "final",
+          });
+        }
+      } else if (datos !== undefined && datos !== "") {
+        // Compatibilidad con formato antiguo (solo altura)
+        console.warn("Formato de altura no estándar detectado en envío");
+        alturas.push({
+          id_estanque: parseInt(idEstanque),
+          altura: parseFloat(datos),
+          tipo: "inicial", // Por defecto se considera inicial
+        });
+      }
+    });
+    
+    return alturas;
+  };
 
   // Manejar el envío del formulario
-
   const handleSubmit = async () => {
     // Marcar todos los campos como tocados para validar
-
-    const allFields = {
+    setTouched({
       numeroGuia: true,
-
       litrosRecibidos: true,
-
       precio: true,
-    };
-
-    setTouched(allFields);
+    });
 
     if (loading || !user) {
-      setAlert({
-        show: true,
-
-        type: "error",
-
-        message: "No se ha podido acceder a la información del usuario.",
-      });
-
-      setTimeout(() => setAlert({ show: false, message: "", type: "" }), 5000);
-
+      mostrarAlerta("error", "No se ha podido acceder a la información del usuario.");
       return;
     }
 
     // Validación completa antes de enviar
-
-    const newErrors = {};
-
-    if (!formData.numeroGuia.trim())
-      newErrors.numeroGuia = "Este campo es obligatorio";
-
-    if (!formData.litrosRecibidos) {
-      newErrors.litrosRecibidos = "Este campo es obligatorio";
-    } else if (
-      isNaN(formData.litrosRecibidos) ||
-      parseFloat(formData.litrosRecibidos) <= 0
-    ) {
-      newErrors.litrosRecibidos = "Debe ingresar un valor numérico mayor a 0";
-    }
-
-    if (!formData.precio) {
-      newErrors.precio = "Este campo es obligatorio";
-    } else if (isNaN(formData.precio) || parseFloat(formData.precio) <= 0) {
-      newErrors.precio = "Debe ingresar un precio válido mayor a 0";
-    }
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-
-      // Mostrar alerta de validación
-
-      setAlert({
-        show: true,
-
-        type: "error",
-
-        message:
-          "Por favor, complete todos los campos obligatorios correctamente.",
-      });
-
-      setTimeout(() => setAlert({ show: false, message: "", type: "" }), 5000);
-
+    if (!validarFormularioCompleto()) {
+      mostrarAlerta("error", "Por favor, complete todos los campos obligatorios correctamente.");
       return;
     }
 
     // Verificar que se haya realizado el cálculo de alturas
-
     if (!calculoPetroleo.calculoRealizado) {
-      setAlert({
-        show: true,
-
-        type: "error",
-
-        message:
-          "Debe ingresar las alturas de los estanques y calcular la diferencia.",
-      });
-
-      setTimeout(() => setAlert({ show: false, message: "", type: "" }), 5000);
-
+      mostrarAlerta("error", "Debe ingresar las alturas de los estanques y calcular la diferencia.");
       setShowEstanquesModal(true);
-
       return;
     }
 
     // Validación adicional de alturas de estanques
-
-    const hayAlturasVacias = Object.values(alturasEstanques).some((alturas) => {
-      if (typeof alturas !== "object") return true;
-
-      return !alturas.inicial || !alturas.final;
-    });
-
-    if (hayAlturasVacias) {
-      setAlert({
-        show: true,
-
-        type: "error",
-
-        message:
-          "Debe ingresar todas las alturas iniciales y finales de los estanques.",
-      });
-
-      setTimeout(() => setAlert({ show: false, message: "", type: "" }), 5000);
-
-      setShowEstanquesModal(true); // Abrir modal para completar alturas
-
+    if (!verificarAlturasCompletas()) {
+      mostrarAlerta("error", "Debe ingresar todas las alturas iniciales y finales de los estanques.");
+      setShowEstanquesModal(true);
       return;
     }
 
@@ -698,97 +558,35 @@ const calcularLitrosPetroleo = async () => {
 
     try {
       // Calcular precio total
-
       const precioTotal =
         parseFloat(formData.litrosRecibidos) * parseFloat(formData.precio);
 
       // Calcular diferencia entre litros recibidos y calculados
-
       const diferencia =
         parseFloat(formData.litrosRecibidos) - calculoPetroleo.litrosCalculados;
 
       // Preparar datos para el formato esperado por la API
-
-      const alturas = [];
-
-      // Procesar las alturas en el formato correcto para la API
-
-      Object.keys(alturasEstanques).forEach((idEstanque) => {
-        const datos = alturasEstanques[idEstanque];
-
-        // Verificar si hay datos de alturas iniciales y finales
-
-        if (datos && typeof datos === "object") {
-          // Agregar altura inicial si existe
-
-          if (datos.inicial !== undefined && datos.inicial !== "") {
-            alturas.push({
-              id_estanque: parseInt(idEstanque),
-
-              altura: parseFloat(datos.inicial),
-
-              tipo: "inicial",
-            });
-          }
-
-          // Agregar altura final si existe
-
-          if (datos.final !== undefined && datos.final !== "") {
-            alturas.push({
-              id_estanque: parseInt(idEstanque),
-
-              altura: parseFloat(datos.final),
-
-              tipo: "final",
-            });
-          }
-        } else if (datos !== undefined && datos !== "") {
-          // Compatibilidad con formato antiguo (solo altura)
-
-          console.warn("Formato de altura no estándar detectado en envío");
-
-          alturas.push({
-            id_estanque: parseInt(idEstanque),
-
-            altura: parseFloat(datos),
-
-            tipo: "inicial", // Por defecto se considera inicial
-          });
-        }
-      });
+      const alturas = prepararDatosAlturas();
 
       // Preparar los datos según la estructura de la BD
-
       const dataToSend = {
         id_usuario: user.id,
-
         numero_guia: formData.numeroGuia,
-
-        litros_documentados: parseFloat(formData.litrosRecibidos),
-
-        litros_calculados: calculoPetroleo.litrosCalculados,
-
+        litros_documentados: parseFloat(formData.litrosRecibidos), // Valor de la guía
+        litros_recibidos: calculoPetroleo.litrosCalculados, // Valor calculado por alturas
         precio: parseFloat(formData.precio),
-
         precio_total: precioTotal,
-
         recibo_conforme: true,
-
         observacion: formData.observacion,
-
         id_faena: formData.id_faena,
-
         diferencia: diferencia,
-
         alturas_estanques: alturas,
       };
 
       // Obtener el token de autenticación
-
       const token = JSON.parse(localStorage.getItem("authToken"))?.token;
 
       // Realizar la petición a la API
-
       const response = await axios.post("/api/ingresos-petroleo", dataToSend, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -796,89 +594,66 @@ const calcularLitrosPetroleo = async () => {
       });
 
       // Mostrar mensaje de éxito
+      mostrarAlerta("success", "Recepción de petróleo registrada con éxito");
 
-      setAlert({
-        show: true,
-
-        type: "success",
-
-        message: "Recepción de petróleo registrada con éxito",
-      });
-
-      // Limpiar el formulario después del envío exitoso pero mantener la faena
-
-      setFormData({
-        numeroGuia: "",
-
-        litrosRecibidos: "",
-
-        observacion: "",
-
-        precio: "",
-
-        id_faena: formData.id_faena, // Mantener la faena actual
-      });
-
-      // Resetear campos tocados y cálculos
-
-      setTouched({});
-
-      setCalculoPetroleo({
-        litrosCalculados: 0,
-
-        diferencia: 0,
-
-        calculoRealizado: false,
-      });
-
-      // Reiniciar las alturas de estanques
-
-      const initialAlturas = {};
-
-      estanques.forEach((estanque) => {
-        initialAlturas[estanque.id_estanque] = {
-          inicial: "",
-
-          final: "",
-        };
-      });
-
-      setAlturasEstanques(initialAlturas);
-
-      // Ocultar mensaje después de 5 segundos
-
-      setTimeout(() => setAlert({ show: false, message: "", type: "" }), 5000);
+      // Limpiar el formulario pero mantener la faena
+      resetearFormulario();
+      
     } catch (error) {
       console.error("Error al enviar los datos:", error);
-
-      let errorMessage = "Error al registrar la recepción. Intente nuevamente.";
-
-      // Mostrar mensaje más específico si está disponible
-
-      if (
-        error.response &&
-        error.response.data &&
-        error.response.data.message
-      ) {
-        errorMessage = error.response.data.message;
-      }
-
-      setAlert({
-        show: true,
-
-        type: "error",
-
-        message: errorMessage,
-      });
-
-      setTimeout(() => setAlert({ show: false, message: "", type: "" }), 5000);
+      manejarErrorEnvio(error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Mostrar un mensaje de carga mientras se carga la información del usuario
+  // Función para resetear el formulario
+  const resetearFormulario = () => {
+    // Limpiar el formulario después del envío exitoso pero mantener la faena
+    setFormData({
+      numeroGuia: "",
+      litrosRecibidos: "",
+      observacion: "",
+      precio: "",
+      id_faena: formData.id_faena, // Mantener la faena actual
+    });
 
+    // Resetear campos tocados y cálculos
+    setTouched({});
+    setCalculoPetroleo({
+      litrosCalculados: 0,
+      diferencia: 0,
+      calculoRealizado: false,
+    });
+
+    // Reiniciar las alturas de estanques
+    const initialAlturas = {};
+    estanques.forEach((estanque) => {
+      initialAlturas[estanque.id_estanque] = {
+        inicial: "",
+        final: "",
+      };
+    });
+    setAlturasEstanques(initialAlturas);
+  };
+
+  // Función para manejar errores en el envío
+  const manejarErrorEnvio = (error) => {
+    let errorMessage = "Error al registrar la recepción. Intente nuevamente.";
+
+    // Mostrar mensaje más específico si está disponible
+    if (
+      error.response &&
+      error.response.data &&
+      error.response.data.message
+    ) {
+      errorMessage = error.response.data.message;
+    }
+
+    mostrarAlerta("error", errorMessage);
+  };
+
+  // Mostrar un mensaje de carga mientras se carga la información del usuario
   if (loading) {
     return (
       <div className="flex justify-center items-center h-40">
@@ -890,7 +665,6 @@ const calcularLitrosPetroleo = async () => {
   return (
     <div className="flex flex-col space-y-4 bg-gray-50 p-5 rounded-lg shadow-sm">
       {/* Mostrar alertas */}
-
       {alert.show && (
         <div
           className={`flex items-center p-3 rounded-lg ${
@@ -900,7 +674,6 @@ const calcularLitrosPetroleo = async () => {
           }`}
         >
           {alert.type === "error" && <FaExclamationTriangle className="mr-2" />}
-
           {alert.message}
         </div>
       )}
@@ -914,7 +687,6 @@ const calcularLitrosPetroleo = async () => {
           <label className="text-sm font-medium text-gray-600 mb-1">
             N° Guía de Despacho *
           </label>
-
           <InputField
             placeholder="Ingrese número de guía"
             value={formData.numeroGuia}
@@ -924,7 +696,6 @@ const calcularLitrosPetroleo = async () => {
               errors.numeroGuia ? "border-red-500" : "border-gray-300"
             }`}
           />
-
           {errors.numeroGuia && (
             <span className="text-red-500 text-xs mt-1">
               {errors.numeroGuia}
@@ -936,7 +707,6 @@ const calcularLitrosPetroleo = async () => {
           <label className="text-sm font-medium text-gray-600 mb-1">
             Litros Recibidos *
           </label>
-
           <InputField
             placeholder="Ingrese cantidad de litros"
             type="number"
@@ -947,7 +717,6 @@ const calcularLitrosPetroleo = async () => {
               errors.litrosRecibidos ? "border-red-500" : "border-gray-300"
             }`}
           />
-
           {errors.litrosRecibidos && (
             <span className="text-red-500 text-xs mt-1">
               {errors.litrosRecibidos}
@@ -959,7 +728,6 @@ const calcularLitrosPetroleo = async () => {
           <label className="text-sm font-medium text-gray-600 mb-1">
             Precio del Petróleo (por litro) *
           </label>
-
           <InputField
             placeholder="Ingrese precio por litro"
             type="number"
@@ -970,7 +738,6 @@ const calcularLitrosPetroleo = async () => {
               errors.precio ? "border-red-500" : "border-gray-300"
             }`}
           />
-
           {errors.precio && (
             <span className="text-red-500 text-xs mt-1">{errors.precio}</span>
           )}
@@ -980,7 +747,6 @@ const calcularLitrosPetroleo = async () => {
           <label className="text-sm font-medium text-gray-600 mb-1">
             Alturas de Estanques *
           </label>
-
           <div className="flex">
             <Button
               text="Ingresar Alturas"
@@ -990,14 +756,12 @@ const calcularLitrosPetroleo = async () => {
               className="bg-orange-600 hover:bg-orange-700 text-white text-sm px-4 py-2 rounded-md flex items-center w-full"
               disabled={!formData.id_faena || !formData.litrosRecibidos}
             />
-
             {calculoPetroleo.calculoRealizado && (
               <span className="ml-3 text-green-600 flex items-center text-sm">
                 ✓ Alturas ingresadas
               </span>
             )}
           </div>
-
           {!formData.id_faena ? (
             <span className="text-amber-600 text-xs mt-1">
               No se ha podido identificar la faena
@@ -1017,28 +781,23 @@ const calcularLitrosPetroleo = async () => {
       </div>
 
       {/* Calcular total estimado si hay litros y precio */}
-
       {formData.litrosRecibidos &&
         formData.precio &&
         !errors.litrosRecibidos &&
         !errors.precio && (
           <div className="bg-blue-50 p-3 rounded-lg text-center border border-blue-200 mt-2">
             <p className="text-sm text-blue-600">Total Estimado:</p>
-
             <p className="font-bold text-gray-800 text-lg">
               {(
                 parseFloat(formData.litrosRecibidos) *
                 parseFloat(formData.precio)
               ).toLocaleString("es-CL", {
                 style: "currency",
-
                 currency: "CLP",
               })}
             </p>
           </div>
         )}
-
-      {/* Mostrar información de la diferencia calculada si se ha realizado el cálculo */}
 
       {calculoPetroleo.calculoRealizado && (
         <div
@@ -1057,18 +816,15 @@ const calcularLitrosPetroleo = async () => {
           >
             Resultado del cálculo:
           </p>
-
           <div className="font-medium text-gray-800">
             <p>
               Litros según guía:{" "}
               {formatNumber(parseFloat(formData.litrosRecibidos))}
             </p>
-
             <p>
               Litros ingresados calculados:{" "}
               {formatNumber(calculoPetroleo.litrosCalculados)}
             </p>
-
             <p
               className={`font-bold ${
                 Math.abs(calculoPetroleo.diferencia) > 50
@@ -1087,7 +843,6 @@ const calcularLitrosPetroleo = async () => {
         <label className="text-sm font-medium text-gray-600 mb-1">
           Observación
         </label>
-
         <InputField
           placeholder="Ingrese sus observaciones"
           isTextarea={true}
@@ -1121,7 +876,6 @@ const calcularLitrosPetroleo = async () => {
       </div>
 
       {/* MODAL DE ESTANQUES */}
-
       <EstanquesModal
         isOpen={showEstanquesModal}
         onClose={() => setShowEstanquesModal(false)}

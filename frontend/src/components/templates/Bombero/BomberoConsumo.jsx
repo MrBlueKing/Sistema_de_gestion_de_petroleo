@@ -212,7 +212,7 @@
         });
 
         const apiData = {
-          id_dotacion: solicitante.id,
+          id_dotacion: solicitante.rut,
           id_equipo: patenteSeleccionada.id_maquina,
           id_usuario: userInfo.id, // Usar el ID del contexto
           fecha_consumo: formatDateForAPI(formData.fechaHora),
