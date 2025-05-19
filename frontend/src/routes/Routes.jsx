@@ -6,7 +6,7 @@ import PrivateRoute from "./PrivateRoutes";
 
 import GerentePage from "../pages/Gerente/GerentePage";
 import MainIngresoDatos from "../components/organisms/Gerente/MainIngresoDatos";
-import MainKpis from "../components/organisms/Gerente/MainKpi";
+import MainKpis from "../components/organisms/Gerente/Main Antiguo";
 import MainMantenimiento from "../components/organisms/Gerente/MainMantenimiento";
 
 

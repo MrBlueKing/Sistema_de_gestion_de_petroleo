@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\KpiCalculoController;
 use App\Http\Controllers\Api\KpiHistoricoController;
 use App\Http\Controllers\Api\KpiValoresEntradaController;
 use App\Http\Controllers\Api\PersonalExternoController;
+use App\Http\Controllers\DatabaseCheckController;
 
 // Rutas públicas
 Route::post('/login', [AuthController::class, 'login']);
@@ -152,4 +153,9 @@ Route::get('/kpi-valores-entrada-historial-filtrado', [KpiValoresEntradaControll
 // Rutas específicas para informes
 Route::get('/informes-kpi/consumo-maquinas', [App\Http\Controllers\Api\InformesController::class, 'getConsumoMaquinas']);
 Route::get('/informes-kpi/balance-combustible', [App\Http\Controllers\Api\InformesController::class, 'getBalanceCombustible']);
+
+
+
+//PROBAR CONEXION BASE DE DATOS REAL 
+Route::get('/check-databases', [DatabaseCheckController::class, 'check']);
 

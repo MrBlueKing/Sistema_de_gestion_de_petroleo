@@ -61,14 +61,14 @@ return [
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
         ],
-        
+
         'bodega' => [
             'driver' => 'mysql',
-            'host' => env('DB_BODEGA_HOST', '127.0.0.1'),
-            'port' => env('DB_BODEGA_PORT', '3306'),
-            'database' => env('DB_BODEGA_DATABASE', 'mhcl_sistemabodega'),
-            'username' => env('DB_BODEGA_USERNAME', 'root'),
-            'password' => env('DB_BODEGA_PASSWORD', ''),
+            'host' => 'api.m3h.cl',
+            'port' => '3306',
+            'database' => 'mhcl_sistemabodega',
+            'username' => 'mhcl_bodega3h',
+            'password' => 'MCgUM5Nr)?_Z',
             'charset' => 'utf8mb4',
             'collation' => 'utf8mb4_unicode_ci',
             'prefix' => '',
