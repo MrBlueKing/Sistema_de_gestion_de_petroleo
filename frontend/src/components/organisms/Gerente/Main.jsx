@@ -33,6 +33,14 @@ const Main = () => {
       path: "/gerente/mantenimiento",
       color: "bg-cyan-50 hover:bg-cyan-100 border-cyan-200"
     },
+
+    {
+      title: "Simulacion Consumos",
+      description: "Simulacion de consumo de combustible",
+      icon: <FiSettings className="w-10 h-10 text-cyan-500" />,
+      path: "/gerente/simulacion",
+      color: "bg-cyan-50 hover:bg-blue-100 border-cyan-200"
+    },
   ];
 
   return (

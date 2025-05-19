@@ -8,6 +8,7 @@ import GerentePage from "../pages/Gerente/GerentePage";
 import MainIngresoDatos from "../components/organisms/Gerente/MainIngresoDatos";
 import MainKpis from "../components/organisms/Gerente/Main Antiguo";
 import MainMantenimiento from "../components/organisms/Gerente/MainMantenimiento";
+import MainSimulacion from "../components/organisms/Gerente/MainSimulacion";
 
 
 import AdministradorPage from "../pages/Administrador/AdministradorPage";
@@ -66,6 +67,16 @@ const AppRoutes = () => {
         element={
           <PrivateRoute requiredRole="gerente">
             <MainMantenimiento />
+          </PrivateRoute>
+        }
+      />
+
+{/* Ruta para Mantenimieto de gerente*/}
+      <Route
+        path="/gerente/simulacion"
+        element={
+          <PrivateRoute requiredRole="gerente">
+            <MainSimulacion />
           </PrivateRoute>
         }
       />
