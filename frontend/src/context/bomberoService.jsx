@@ -6,7 +6,7 @@ const bomberoService = {
   getPersonalInterno: async () => {
     try {
       const response = await axios.get("/api/personal-internos");
-      
+
       if (response.data && response.data.success && Array.isArray(response.data.personal_interno)) {
         return response.data.personal_interno;
       } else {
@@ -18,12 +18,13 @@ const bomberoService = {
       return [];
     }
   },
-  
+
   // Obtener personal externo
   getPersonalExterno: async () => {
     try {
       const response = await axios.get("/api/personal-externos");
       
+      console.log('externos:', response);
       if (response.data && response.data.success && Array.isArray(response.data.personal_externo)) {
         return response.data.personal_externo;
       } else {
@@ -35,7 +36,7 @@ const bomberoService = {
       return [];
     }
   },
-  
+
   // Obtener todo el personal según tipo
   getPersonalPorTipo: async (tipo) => {
     if (tipo === "interno") {
@@ -44,37 +45,42 @@ const bomberoService = {
       return bomberoService.getPersonalExterno();
     }
   },
-  
-  // Filtrar personal por ubicación - esta función se usa para filtrar en el cliente
-  filtrarPersonalPorUbicacion: (personal, ubicacion) => {
-    if (!ubicacion || !Array.isArray(personal)) return [];
-    
-    // Convertimos a minúsculas para comparación insensible a mayúsculas/minúsculas
-    const ubicacionLower = ubicacion.toLowerCase();
-    
+
+  // Función modificada: Filtrar personal por id_faena en lugar de por ubicación
+  filtrarPersonalPorFaena: (personal, idFaena) => {
+    if (!idFaena || !Array.isArray(personal)) return [];
+
     return personal.filter(item => {
+      // Verificar si el usuario tiene una lista de faenas
+      if (item.faenas && Array.isArray(item.faenas)) {
+        // Buscar si el id_faena está en la lista de faenas permitidas del usuario
+        return item.faenas.some(faena => faena.id_faena === idFaena);
+      }
+      
       // Extraemos el objeto de personal interno/externo según su estructura
       const personalData = item.personal_interno || item.personal_externo;
       
-      if (!personalData || !personalData.ubicacion) return false;
+      // Si no tiene la lista faenas pero tiene id_faena directamente
+      if (personalData && personalData.id_faena !== undefined) {
+        return personalData.id_faena === idFaena;
+      }
       
-      // Comparamos la ubicación
-      return personalData.ubicacion.toLowerCase() === ubicacionLower;
+      return false;
     });
   },
-  
+
   // Buscar personal por término de búsqueda - esta función se usa para buscar en el cliente
   buscarPersonal: (personal, termino) => {
     if (!termino || !Array.isArray(personal)) return personal;
-    
+
     const terminoLower = termino.toLowerCase();
-    
+
     return personal.filter(item => {
       // Extraemos el objeto de personal interno/externo según su estructura
       const personalData = item.personal_interno || item.personal_externo;
-      
+
       if (!personalData) return false;
-      
+
       // Buscamos en nombre, apellido y rut
       return (
         (personalData.nombre && personalData.nombre.toLowerCase().includes(terminoLower)) ||
@@ -83,17 +89,17 @@ const bomberoService = {
       );
     });
   },
-  
+
   // Obtener todas las faenas y buscar la del usuario por ID
   getFaenaById: async (idFaena) => {
     try {
       // Obtenemos todas las faenas
       const response = await axios.get("/api/faenas");
-      
+
       if (response.data && response.data.success && Array.isArray(response.data.data)) {
         // Buscamos la faena con el ID específico
         const faena = response.data.data.find(f => f.id_faena === idFaena);
-        
+
         if (faena) {
           return faena;
         } else {
@@ -109,12 +115,12 @@ const bomberoService = {
       return null;
     }
   },
-  
+
   // Obtener todas las faenas
   getAllFaenas: async () => {
     try {
       const response = await axios.get("/api/faenas");
-      
+
       if (response.data && response.data.success && Array.isArray(response.data.data)) {
         return response.data.data;
       } else {
@@ -126,7 +132,7 @@ const bomberoService = {
       return [];
     }
   },
-  
+
   // Obtener información del bombero actual
   getBomberoInfo: async (bomberoBadgeId) => {
     try {
@@ -140,12 +146,12 @@ const bomberoService = {
       return null;
     }
   },
-  
+
   // Obtener categorías de maquinaria
   getCategoriasMaquinaria: async () => {
     try {
       const response = await axios.get("/api/categorias");
-      
+
       if (response.data && response.data.success && Array.isArray(response.data.categorias)) {
         return response.data.categorias;
       } else {
@@ -157,7 +163,7 @@ const bomberoService = {
       return [];
     }
   },
-  
+
   // Registrar un consumo de combustible
   registrarConsumo: async (datosConsumo) => {
     try {

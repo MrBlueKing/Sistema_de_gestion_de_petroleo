@@ -1,6 +1,7 @@
-import React from "react";
-import { FaSave, FaSpinner, FaCheckCircle, FaExclamationTriangle, FaClock, FaTachometerAlt } from "react-icons/fa";
+import React, { useState, useEffect } from "react";
+import { FaSave, FaSpinner, FaCheckCircle, FaExclamationTriangle, FaClock, FaTachometerAlt, FaGasPump, FaInfoCircle } from "react-icons/fa";
 import { GiGasPump } from "react-icons/gi";
+import SelectorEstanques from "../../molecules/SelectorEstanque"; // Importamos el componente compartido
 
 const ConsumoForm = ({
   formData,
@@ -10,10 +11,17 @@ const ConsumoForm = ({
   isSaved = false,
   hasError = false,
   errorMessage = "",
-  tipoMedicion = "Kilometraje"
+  tipoMedicion = "Kilometraje",
+  // Nuevos props para el selector de estanques
+  idFaena,
+  estanqueSeleccionado,
+  onEstanqueSelect
 }) => {
   const showHorometro = tipoMedicion === "Horometro";
   const showKilometraje = tipoMedicion === "Kilometraje";
+  
+  // Estado para controlar si mostramos el selector de estanques
+  const [mostrarSelectorEstanques, setMostrarSelectorEstanques] = useState(false);
   
   // Formatea la fecha para mostrarla en formato legible
   const formatDate = (dateString) => {
@@ -32,6 +40,15 @@ const ConsumoForm = ({
   const hasNumeralError = parseFloat(formData.numeralFinal) <= parseFloat(formData.numeralInicial) 
                           && formData.numeralFinal 
                           && formData.numeralInicial;
+
+  // Mostrar selector de estanques una vez que se hayan ingresado litros válidos
+  useEffect(() => {
+    if (formData.litros && parseFloat(formData.litros) > 0) {
+      setMostrarSelectorEstanques(true);
+    } else {
+      setMostrarSelectorEstanques(false);
+    }
+  }, [formData.litros]);
   
   return (
     <div className="space-y-4">
@@ -169,6 +186,42 @@ const ConsumoForm = ({
         </div>
       </div>
       
+      {/* Selector de Estanques - Solo aparece cuando se han ingresado litros válidos */}
+      {mostrarSelectorEstanques && (
+        <div className="mt-6">
+          <div className="border-t border-gray-200 pt-4 mb-3">
+            <h3 className="text-left text-gray-700 font-medium text-sm sm:text-base flex items-center">
+              <FaGasPump className="text-orange-500 mr-2" />
+              {estanqueSeleccionado
+                ? "Estanque seleccionado para este consumo"
+                : "Seleccione el estanque para descontar el combustible"}
+            </h3>
+          </div>
+          
+          <SelectorEstanques 
+            idFaena={idFaena} 
+            onEstanqueSelect={onEstanqueSelect}
+            estanqueSeleccionado={estanqueSeleccionado}
+            litrosRequeridos={parseFloat(formData.litros) || 0}
+            disabled={isSaving}
+          />
+
+          {/* Nota sobre el estanque seleccionado */}
+          {estanqueSeleccionado && (
+            <div className="mt-3 text-left">
+              <p className="text-sm text-gray-600">
+                Estanque seleccionado: <span className="font-medium text-gray-800">{estanqueSeleccionado.nombre}</span>
+                {estanqueSeleccionado.stock_actual < parseFloat(formData.litros) && (
+                  <span className="text-red-600 ml-2">
+                    (Stock insuficiente: {estanqueSeleccionado.stock_actual.toLocaleString()} litros)
+                  </span>
+                )}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+      
       {/* Observaciones */}
       <div>
         <label className="block text-left text-gray-700 text-xs sm:text-sm font-medium mb-1">
@@ -187,12 +240,12 @@ const ConsumoForm = ({
       <div className="pt-2">
         <button
           onClick={handleSubmit}
-          disabled={isSaving || isSaved || hasNumeralError}
+          disabled={isSaving || isSaved || hasNumeralError || !estanqueSeleccionado || (estanqueSeleccionado && estanqueSeleccionado.stock_actual < parseFloat(formData.litros))}
           className={`w-full md:w-auto px-6 py-2.5 rounded-lg flex items-center justify-center transition-colors ${
             isSaved 
               ? "bg-green-600 hover:bg-green-700 text-white" 
               : "bg-orange-500 hover:bg-orange-600 text-white"
-          } ${(isSaving || isSaved || hasNumeralError) ? "opacity-80 cursor-not-allowed" : ""}`}
+          } ${(isSaving || isSaved || hasNumeralError || !estanqueSeleccionado || (estanqueSeleccionado && estanqueSeleccionado.stock_actual < parseFloat(formData.litros))) ? "opacity-80 cursor-not-allowed" : ""}`}
         >
           {isSaving ? (
             <>
@@ -203,6 +256,11 @@ const ConsumoForm = ({
             <>
               <FaCheckCircle className="mr-2" />
               <span>Guardado</span>
+            </>
+          ) : !estanqueSeleccionado && formData.litros ? (
+            <>
+              <FaGasPump className="mr-2" />
+              <span>Seleccione un estanque</span>
             </>
           ) : (
             <>
