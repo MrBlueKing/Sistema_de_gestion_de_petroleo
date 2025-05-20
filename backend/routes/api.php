@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\KpiCalculoController;
 use App\Http\Controllers\Api\KpiHistoricoController;
 use App\Http\Controllers\Api\KpiValoresEntradaController;
 use App\Http\Controllers\Api\PersonalExternoController;
+use App\Http\Controllers\Api\ProyeccionConsumoController;
 use App\Http\Controllers\DatabaseCheckController;
 
 // Rutas públicas
@@ -121,8 +122,32 @@ Route::middleware('auth:sanctum')->get('/usuarios/recientes', [UserController::c
 
 // Ruta para GERENTE
 Route::apiResource('kpi-valores-entrada', KpiValoresEntradaController::class);
-Route::apiResource('informes-kpi', InformeKpiController::class)->except(['show']); // Excluir método show
-Route::get('/test-informes-kpi', [InformeKpiController::class, 'test']);
+Route::get('/informes-kpi', [InformeKpiController::class, 'index']);
+Route::get('/informes-kpi/test', [InformeKpiController::class, 'test']);
+Route::get('/informes-kpi/mes-anterior', [InformeKpiController::class, 'obtenerValoresMesAnterior']);
+
+// Rutas para proyección de consumo
+Route::get('/proyeccion-consumo', [ProyeccionConsumoController::class, 'getProyeccionAvanzada']);
+Route::get('/proyeccion-consumo/equipos', [ProyeccionConsumoController::class, 'getEquiposConUltimoConsumo']);
+
+// Nuevas rutas para proyección en rango
+Route::get('/proyeccion-consumo/rango', [ProyeccionConsumoController::class, 'getMaquinasConConsumoEnRango']);
+Route::get('/proyeccion-consumo/reporte', [ProyeccionConsumoController::class, 'getReporteProyeccionPorPeriodo']);
+
+// Ruta para obtener lista de faenas (usada en los filtros)
+Route::get('/faenas', function () {
+    return \Illuminate\Support\Facades\DB::table('faenas')
+        ->select('id_faena', 'ubicacion')
+        ->orderBy('ubicacion')
+        ->get();
+});
+// Ruta para obtener lista de faenas (usada en los filtros)
+Route::get('/faenas', function () {
+    return \Illuminate\Support\Facades\DB::table('faenas')
+        ->select('id_faena', 'ubicacion')
+        ->orderBy('ubicacion')
+        ->get();
+});
 
 Route::post('/calcular-kpis', [KpiCalculoController::class, 'calcular']);
 
