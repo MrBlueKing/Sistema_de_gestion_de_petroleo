@@ -15,17 +15,17 @@ import { UserContext } from "../../../context/userContext";
 
 const MainGerente = ({ children }) => {
     // Estados principales
-    const periodoSeleccionado = "mensual"; 
+    const periodoSeleccionado = "mensual";
     const { user } = useContext(UserContext);
     const [mensajeExito, setMensajeExito] = useState(null);
     const [ultimaActualizacion, setUltimaActualizacion] = useState(new Date());
-    
+
     // Estados para las pestañas
     const [activeTab, setActiveTab] = useState("kpis"); // "kpis" o "calculadora"
-    
+
     // Estado para KPIs
     const [kpisNeedRefresh, setKpisNeedRefresh] = useState(false);
-    
+
     // Estados para KPIs (panel principal)
     const [kpiFaenaSeleccionada, setKpiFaenaSeleccionada] = useState("todas");
     const [kpiFechaDesde, setKpiFechaDesde] = useState(
@@ -34,7 +34,7 @@ const MainGerente = ({ children }) => {
     const [kpiFechaHasta, setKpiFechaHasta] = useState(
         new Date().toISOString().split('T')[0]
     );
-    
+
     // Estado para datos
     const [datosConsumo, setDatosConsumo] = useState(null);
     const [balanceCombustible, setBalanceCombustible] = useState(null);
@@ -79,7 +79,7 @@ const MainGerente = ({ children }) => {
 
         try {
             console.log("Obteniendo datos para faena:", kpiFaenaSeleccionada);
-            
+
             // Cargar datos para los 3 gráficos en paralelo
             const [equiposRes, faenasRes, mensualRes] = await Promise.all([
                 axios.get(`/api/informes-kpi?tipo=consumo_equipos&faena=${kpiFaenaSeleccionada}&periodo=mensual`),
@@ -146,10 +146,10 @@ const MainGerente = ({ children }) => {
             setMensajeExito(`KPIs actualizados correctamente para ${obtenerNombreMesAnterior()}`);
             setTimeout(() => setMensajeExito(null), 3000);
             setUltimaActualizacion(new Date());
-            
+
             // Marcar que los KPIs necesitan actualizarse
             setKpisNeedRefresh(true);
-            
+
             // Cambiar a la pestaña de KPIs después de registrar datos
             setActiveTab("kpis");
         } catch (err) {
@@ -216,13 +216,13 @@ const MainGerente = ({ children }) => {
                         </div>
                     </div>
                 )}
-                
+
                 {/* Tabs para KPIs y Calculadora */}
                 <div className="mb-4">
                     <div className="flex border-b border-gray-200">
                         <button
-                            className={`px-6 py-3 font-medium text-sm ${activeTab === 'kpis' 
-                                ? 'border-b-2 border-blue-500 text-blue-600' 
+                            className={`px-6 py-3 font-medium text-sm ${activeTab === 'kpis'
+                                ? 'border-b-2 border-blue-500 text-blue-600'
                                 : 'text-gray-500 hover:text-gray-700'}`}
                             onClick={() => handleTabChange('kpis')}
                         >
@@ -230,8 +230,8 @@ const MainGerente = ({ children }) => {
                             Indicadores de Desempeño (KPIs)
                         </button>
                         <button
-                            className={`px-6 py-3 font-medium text-sm ${activeTab === 'calculadora' 
-                                ? 'border-b-2 border-orange-500 text-orange-600' 
+                            className={`px-6 py-3 font-medium text-sm ${activeTab === 'calculadora'
+                                ? 'border-b-2 border-orange-500 text-orange-600'
                                 : 'text-gray-500 hover:text-gray-700'}`}
                             onClick={() => handleTabChange('calculadora')}
                         >
@@ -245,7 +245,7 @@ const MainGerente = ({ children }) => {
                 {activeTab === 'kpis' && (
                     <KpiDashboard />
                 )}
-                
+
                 {/* Calculadora de KPIs */}
                 {activeTab === 'calculadora' && (
                     <SimpleKpiCalculator
