@@ -23,6 +23,11 @@ const ConsumoForm = ({
   // Estado para controlar si mostramos el selector de estanques
   const [mostrarSelectorEstanques, setMostrarSelectorEstanques] = useState(false);
   
+  // Log para depuración
+  useEffect(() => {
+    
+  }, [idFaena]);
+  
   // Formatea la fecha para mostrarla en formato legible
   const formatDate = (dateString) => {
     if (!dateString) return "";
@@ -49,6 +54,16 @@ const ConsumoForm = ({
       setMostrarSelectorEstanques(false);
     }
   }, [formData.litros]);
+  
+  // Asegurarse de que idFaena sea un valor numérico
+  const faenaIdForSelector = idFaena !== undefined && idFaena !== null ? Number(idFaena) : null;
+  
+  // Log cada vez que se va a renderizar el selector de estanques
+  useEffect(() => {
+    if (mostrarSelectorEstanques) {
+      console.log("Mostrando selector de estanques con idFaena:", faenaIdForSelector);
+    }
+  }, [mostrarSelectorEstanques, faenaIdForSelector]);
   
   return (
     <div className="space-y-4">
@@ -78,6 +93,8 @@ const ConsumoForm = ({
           Tipo de medición: <span className="font-bold text-orange-800">{tipoMedicion}</span>
         </span>
       </div>
+     
+     
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {/* Fecha como campo de solo lectura */}
@@ -198,13 +215,25 @@ const ConsumoForm = ({
             </h3>
           </div>
           
-          <SelectorEstanques 
-            idFaena={idFaena} 
-            onEstanqueSelect={onEstanqueSelect}
-            estanqueSeleccionado={estanqueSeleccionado}
-            litrosRequeridos={parseFloat(formData.litros) || 0}
-            disabled={isSaving}
-          />
+          {faenaIdForSelector ? (
+            <SelectorEstanques 
+              idFaena={faenaIdForSelector} // Asegurarnos de que sea un número
+              onEstanqueSelect={onEstanqueSelect}
+              estanqueSeleccionado={estanqueSeleccionado}
+              litrosRequeridos={parseFloat(formData.litros) || 0}
+              disabled={isSaving}
+            />
+          ) : (
+            <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-3 rounded">
+              <div className="flex items-start">
+                <FaInfoCircle className="text-yellow-500 mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-sm">
+                  No se ha podido determinar la faena para cargar los estanques disponibles. 
+                  Por favor, contacte al administrador del sistema.
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Nota sobre el estanque seleccionado */}
           {estanqueSeleccionado && (

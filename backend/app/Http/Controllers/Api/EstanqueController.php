@@ -15,31 +15,46 @@ use Illuminate\Support\Facades\Validator;
 
 class EstanqueController extends Controller
 {
-    public function estanquesPorFaena($id_faena)
-    {
-        try {
-            $estanques = Estanque::where('id_faena', $id_faena)->get(); // Modelo Estanque
-
-            if ($estanques->isEmpty()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No se encontraron estanques para esta faena.'
-                ], 404);
-            }
-
-            return response()->json([
-                'success' => true,
-                'data' => $estanques
-            ], 200);
-        } catch (\Exception $e) {
-            Log::error('Error al obtener estanques de faena', ['error' => $e->getMessage()]);
-
+public function estanquesPorFaena($id_faena)
+{
+    try {
+        // Obtenemos los estanques con la relación stock incluida
+        $estanques = Estanque::where('id_faena', $id_faena)
+            ->with('stock')  // Usamos la relación 'stock' que ya tienes definida
+            ->get();
+        
+        Log::info("estanquini", ['estanques' => $estanques->toArray()]);
+        
+        if ($estanques->isEmpty()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error al obtener los estanques.'
-            ], 500);
+                'message' => 'No se encontraron estanques para esta faena.'
+            ], 404);
         }
+        
+        // Transformamos los datos para incluir el stock_actual directamente
+        $estanquesConStock = $estanques->map(function ($estanque) {
+            $estanqueArray = $estanque->toArray();
+            
+            // Como la relación es hasOne, podemos acceder directamente al stock
+            $estanqueArray['stock_actual'] = $estanque->stock ? $estanque->stock->stock_actual : 0;
+            
+            return $estanqueArray;
+        });
+        
+        return response()->json([
+            'success' => true,
+            'data' => $estanquesConStock
+        ], 200);
+    } catch (\Exception $e) {
+        Log::error('Error al obtener estanques de faena', ['error' => $e->getMessage()]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Error al obtener los estanques.'
+        ], 500);
     }
+}
 
     public function calcularLitrosPetroleo(Request $request)
     {

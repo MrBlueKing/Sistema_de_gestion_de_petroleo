@@ -87,9 +87,15 @@ const SelectorEstanques = ({
   const [error, setError] = useState(null);
   const [mostrarTodos, setMostrarTodos] = useState(false);
 
+  // Log para debugging
+  useEffect(() => {
+    console.log("SelectorEstanques recibió idFaena:", idFaena);
+  }, [idFaena]);
+
   // Cargar estanques al montar el componente o cuando cambia la faena
   useEffect(() => {
     if (!idFaena) {
+      console.error("idFaena no está definido, no se pueden cargar estanques");
       setError("No se ha especificado una faena");
       setLoading(false);
       return;
@@ -99,13 +105,19 @@ const SelectorEstanques = ({
       try {
         setLoading(true);
         setError(null);
+        
 
         const token = JSON.parse(localStorage.getItem("authToken"))?.token;
-        const response = await axios.get(`/api/estanques/${idFaena}`, {
+        const url = `/api/estanques/${idFaena}`;
+        
+
+        const response = await axios.get(url, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
+
+        console.log("Respuesta del servidor:", response.data);
 
         if (response.data.success) {
           // Agregar stock_actual a cada estanque (esto debería venir del backend)
@@ -116,6 +128,7 @@ const SelectorEstanques = ({
           }));
 
           setEstanques(estanquesConStock);
+          console.log("Estanques cargados:", estanquesConStock.length);
         } else {
           throw new Error(
             response.data.message || "Error al cargar los estanques"
@@ -131,8 +144,9 @@ const SelectorEstanques = ({
       }
     };
 
-    cargarEstanques();
-  }, [idFaena]);
+    cargarEstanques(); // No necesita parámetro ya que usamos el idFaena del scope
+
+  }, [idFaena]); // Dependencia: idFaena
 
   // Filtrar estanques por disponibilidad según los litros requeridos
   const estanquesDisponibles = estanques.filter(
@@ -153,6 +167,11 @@ const SelectorEstanques = ({
         <p className="text-sm text-yellow-700">
           No se encontraron estanques registrados para esta faena.
         </p>
+        {process.env.NODE_ENV === 'development' && (
+          <p className="mt-2 text-xs text-yellow-600 border-t border-yellow-200 pt-2">
+            Debugging: idFaena = {idFaena ? idFaena : 'undefined'}
+          </p>
+        )}
       </div>
     );
   }
@@ -171,6 +190,7 @@ const SelectorEstanques = ({
           </div>
         )}
       </div>
+      
 
       {loading ? (
         <div className="p-4 text-center">
@@ -183,6 +203,11 @@ const SelectorEstanques = ({
             <FaExclamationTriangle className="text-red-500 text-xl" />
           </div>
           <p className="text-red-600">{error}</p>
+          {process.env.NODE_ENV === 'development' && (
+            <p className="mt-2 text-xs text-red-500">
+              Debugging: idFaena = {idFaena ? idFaena : 'undefined'}
+            </p>
+          )}
         </div>
       ) : (
         <>
