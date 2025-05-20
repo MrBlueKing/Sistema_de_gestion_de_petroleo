@@ -287,6 +287,7 @@ function ProyeccionConsumo() {
           dias_proyeccion: diasProyeccion
         }
       });
+      
 
       console.log("Respuesta proyección:", response);
 
