@@ -32,6 +32,9 @@ const LoginScreen = () => {
       case "gerente":
         navigate("/gerente");
         break;
+      case "toneladas":
+        navigate("/Distpach");
+        break;
       default:
         navigate("/");
     }

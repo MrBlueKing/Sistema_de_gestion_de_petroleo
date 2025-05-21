@@ -5,16 +5,9 @@ import { FaChartBar, FaHistory, FaFilter } from "react-icons/fa";
 import KpiCard from "../molecules/KpiCard";
 import { UserContext } from "../../context/userContext";
 
-const KpiDashboard = () => {
+// El KpiDashboard ahora recibe los filtros como props
+const KpiDashboard = ({ fechaDesde, fechaHasta, faenaSeleccionada, faenas = [] }) => {
     const { user } = useContext(UserContext);
-
-    // Estado para filtros - Reemplazando fechaDesde/fechaHasta con año/mes
-    const [faenaSeleccionada, setFaenaSeleccionada] = useState("todas");
-
-    // Obtener año y mes actual
-    const fechaActual = new Date();
-    const [anoSeleccionado, setAnoSeleccionado] = useState(fechaActual.getFullYear());
-    const [mesSeleccionado, setMesSeleccionado] = useState(fechaActual.getMonth() + 1); // JavaScript months are 0-based
 
     // Estados para datos
     const [historialKpi, setHistorialKpi] = useState([]);
@@ -24,12 +17,6 @@ const KpiDashboard = () => {
     const [cargando, setCargando] = useState(false);
     const [error, setError] = useState(null);
     const [exito, setExito] = useState(null);
-    const [faenas] = useState([
-        { id_faena: 1, ubicacion: 'Cabildo' },
-        { id_faena: 2, ubicacion: 'Catemu' },
-        { id_faena: 3, ubicacion: 'Chincolco' },
-        { id_faena: 4, ubicacion: 'Tiltil' }
-    ]);
 
     // KPIs con valores inicializados a cero
     const [kpis, setKpis] = useState([
@@ -41,50 +28,17 @@ const KpiDashboard = () => {
         { title: "Costo Petróleo / Km", value: "$0", change: "0%", unit: "", subtext: "Costo por kilómetro recorrido", icon: FiDroplet, isPositive: false, color: "purple" },
     ]);
 
-    // Generar array de años para el selector (desde 2020 hasta el año actual)
-    const años = useMemo(() => {
-        const añoActual = new Date().getFullYear();
-        const años = [];
-        for (let i = 2020; i <= añoActual; i++) {
-            años.push(i);
+    // Cargar datos cuando cambian las fechas o faena
+    useEffect(() => {
+        if (fechaDesde && fechaHasta) {
+            cargarTodosDatos();
         }
-        return años;
-    }, []);
-
-    // Meses para el selector
-    const meses = [
-        { numero: 1, nombre: "Enero" },
-        { numero: 2, nombre: "Febrero" },
-        { numero: 3, nombre: "Marzo" },
-        { numero: 4, nombre: "Abril" },
-        { numero: 5, nombre: "Mayo" },
-        { numero: 6, nombre: "Junio" },
-        { numero: 7, nombre: "Julio" },
-        { numero: 8, nombre: "Agosto" },
-        { numero: 9, nombre: "Septiembre" },
-        { numero: 10, nombre: "Octubre" },
-        { numero: 11, nombre: "Noviembre" },
-        { numero: 12, nombre: "Diciembre" }
-    ];
-
-    // Obtener el periodo actual formateado para mostrar en la UI
-    const periodoFormateado = useMemo(() => {
-        const mes = meses.find(m => m.numero === mesSeleccionado);
-        return `${mes ? mes.nombre : ''} ${anoSeleccionado}`;
-    }, [mesSeleccionado, anoSeleccionado, meses]);
-
-    // Cargar datos iniciales
-    useEffect(() => {
-        cargarTodosDatos();
-    }, []);
-
-    // Cargar datos cuando cambian los filtros
-    useEffect(() => {
-        cargarDatosFiltrados();
-    }, [faenaSeleccionada, mesSeleccionado, anoSeleccionado]);
+    }, [fechaDesde, fechaHasta, faenaSeleccionada]);
 
     // Función para cargar todos los datos
     const cargarTodosDatos = async () => {
+        if (!fechaDesde || !fechaHasta) return;
+        
         setCargando(true);
         setError(null);
 
@@ -113,24 +67,19 @@ const KpiDashboard = () => {
         }, 3000);
     };
 
-    // Función para cargar datos filtrados
+    // Función para cargar datos filtrados por fecha y faena
     const cargarDatosFiltrados = async () => {
+        if (!fechaDesde || !fechaHasta) return;
+        
         setCargando(true);
         setError(null);
 
         try {
-            // Crear fechas del primer y último día del mes seleccionado
-            const primerDiaMes = new Date(anoSeleccionado, mesSeleccionado - 1, 1);
-            const ultimoDiaMes = new Date(anoSeleccionado, mesSeleccionado, 0);
-
-            const fechaInicio = primerDiaMes.toISOString().split('T')[0];
-            const fechaFin = ultimoDiaMes.toISOString().split('T')[0];
-
             // Hacer la petición con filtros de fecha y faena
             const params = {
                 periodo: 'personalizado',
-                fecha_inicio: fechaInicio,
-                fecha_fin: fechaFin
+                fecha_inicio: fechaDesde,
+                fecha_fin: fechaHasta
             };
 
             if (faenaSeleccionada !== 'todas') {
@@ -148,15 +97,7 @@ const KpiDashboard = () => {
             } else {
                 console.warn("La respuesta no tiene el formato esperado:", response.data);
                 // Incluso si no hay datos, reiniciamos las tarjetas de KPI
-                const kpisReseteados = kpis.map(kpi => ({
-                    ...kpi,
-                    value: kpi.title === "Producción Total" ? "0" :
-                        kpi.title === "Camionadas" ? "0" :
-                            kpi.title === "Rendimiento" ? "0" :
-                                kpi.title.includes("Petróleo") ? "$0" : "0",
-                    subtext: `${kpi.subtext.split("en")[0]} en ${periodoFormateado}`
-                }));
-                setKpis(kpisReseteados);
+                resetearKPIs();
             }
 
             setUltimaActualizacion(new Date());
@@ -174,7 +115,13 @@ const KpiDashboard = () => {
     // Función para cargar estadísticas por faena
     const cargarEstadisticasPorFaena = async () => {
         try {
-            const response = await axios.get('/api/kpi-estadisticas-por-faena');
+            const response = await axios.get('/api/kpi-estadisticas-por-faena', {
+                params: {
+                    desde: fechaDesde,
+                    hasta: fechaHasta,
+                    faena: faenaSeleccionada
+                }
+            });
 
             if (response.data?.success) {
                 setEstadisticasFaenas(response.data.data);
@@ -190,7 +137,13 @@ const KpiDashboard = () => {
     // Función para cargar totales acumulados
     const cargarTotalesAcumulados = async () => {
         try {
-            const response = await axios.get('/api/kpi-totales-acumulados');
+            const response = await axios.get('/api/kpi-totales-acumulados', {
+                params: {
+                    desde: fechaDesde,
+                    hasta: fechaHasta,
+                    faena: faenaSeleccionada
+                }
+            });
 
             if (response.data?.success) {
                 setTotalesAcumulados(response.data.data);
@@ -234,7 +187,7 @@ const KpiDashboard = () => {
                 kpisActualizados[indexProduccion] = {
                     ...kpisActualizados[indexProduccion],
                     value: toneladas.toLocaleString('es-CL'),
-                    subtext: `Toneladas extraídas en ${periodoFormateado}`
+                    subtext: `Toneladas extraídas (${fechaDesde} - ${fechaHasta})`
                 };
             }
 
@@ -245,7 +198,7 @@ const KpiDashboard = () => {
                 kpisActualizados[indexCamionadas] = {
                     ...kpisActualizados[indexCamionadas],
                     value: camionadas.toLocaleString('es-CL'),
-                    subtext: `Número de viajes en ${periodoFormateado}`
+                    subtext: `Número de viajes (${fechaDesde} - ${fechaHasta})`
                 };
             }
 
@@ -256,7 +209,7 @@ const KpiDashboard = () => {
                 kpisActualizados[indexRendimiento] = {
                     ...kpisActualizados[indexRendimiento],
                     value: rendimiento.toFixed(2),
-                    subtext: `Toneladas por viaje en ${periodoFormateado}`
+                    subtext: `Toneladas por viaje (${fechaDesde} - ${fechaHasta})`
                 };
             }
 
@@ -267,7 +220,7 @@ const KpiDashboard = () => {
                 kpisActualizados[indexCostoTon] = {
                     ...kpisActualizados[indexCostoTon],
                     value: `$${costoTon.toLocaleString('es-CL')}`,
-                    subtext: `Costo por tonelada en ${periodoFormateado}`
+                    subtext: `Costo por tonelada (${fechaDesde} - ${fechaHasta})`
                 };
             }
 
@@ -278,7 +231,7 @@ const KpiDashboard = () => {
                 kpisActualizados[indexCostoHora] = {
                     ...kpisActualizados[indexCostoHora],
                     value: `$${costoHora.toLocaleString('es-CL')}`,
-                    subtext: `Costo por hora en ${periodoFormateado}`
+                    subtext: `Costo por hora (${fechaDesde} - ${fechaHasta})`
                 };
             }
 
@@ -289,7 +242,7 @@ const KpiDashboard = () => {
                 kpisActualizados[indexCostoKm] = {
                     ...kpisActualizados[indexCostoKm],
                     value: `$${costoKm.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-                    subtext: `Costo por kilómetro en ${periodoFormateado}`
+                    subtext: `Costo por kilómetro (${fechaDesde} - ${fechaHasta})`
                 };
             }
 
@@ -304,74 +257,30 @@ const KpiDashboard = () => {
 
     // Función para resetear los KPIs a valores iniciales
     const resetearKPIs = () => {
+        const fechasText = fechaDesde && fechaHasta ? `(${fechaDesde} - ${fechaHasta})` : "";
+        
         const kpisReseteados = [
-            { title: "Producción Total", value: "0", change: "+0%", unit: "ton", subtext: `Toneladas extraídas en ${periodoFormateado}`, icon: FiTruck, isPositive: true, color: "blue" },
-            { title: "Camionadas", value: "0", change: "+0", unit: "", subtext: `Número de viajes en ${periodoFormateado}`, icon: FiTruck, isPositive: true, color: "indigo" },
-            { title: "Rendimiento", value: "0", change: "0%", unit: "ton/viaje", subtext: `Toneladas por viaje en ${periodoFormateado}`, icon: FiActivity, isPositive: true, color: "green" },
-            { title: "Costo Petróleo / Ton", value: "$0", change: "0%", unit: "", subtext: `Costo por tonelada en ${periodoFormateado}`, icon: FiDroplet, isPositive: false, color: "red" },
-            { title: "Costo Petróleo / Hora", value: "$0", change: "0%", unit: "", subtext: `Costo por hora en ${periodoFormateado}`, icon: FiDroplet, isPositive: true, color: "teal" },
-            { title: "Costo Petróleo / Km", value: "$0", change: "0%", unit: "", subtext: `Costo por kilómetro en ${periodoFormateado}`, icon: FiDroplet, isPositive: false, color: "purple" },
+            { title: "Producción Total", value: "0", change: "+0%", unit: "ton", subtext: `Toneladas extraídas ${fechasText}`, icon: FiTruck, isPositive: true, color: "blue" },
+            { title: "Camionadas", value: "0", change: "+0", unit: "", subtext: `Número de viajes ${fechasText}`, icon: FiTruck, isPositive: true, color: "indigo" },
+            { title: "Rendimiento", value: "0", change: "0%", unit: "ton/viaje", subtext: `Toneladas por viaje ${fechasText}`, icon: FiActivity, isPositive: true, color: "green" },
+            { title: "Costo Petróleo / Ton", value: "$0", change: "0%", unit: "", subtext: `Costo por tonelada ${fechasText}`, icon: FiDroplet, isPositive: false, color: "red" },
+            { title: "Costo Petróleo / Hora", value: "$0", change: "0%", unit: "", subtext: `Costo por hora ${fechasText}`, icon: FiDroplet, isPositive: true, color: "teal" },
+            { title: "Costo Petróleo / Km", value: "$0", change: "0%", unit: "", subtext: `Costo por kilómetro ${fechasText}`, icon: FiDroplet, isPositive: false, color: "purple" },
         ];
         setKpis(kpisReseteados);
     };
 
     // Función para refrescar todos los datos
     const refrescarDatos = () => {
-        cargarTodosDatos();
+        if (fechaDesde && fechaHasta) {
+            cargarTodosDatos();
+        }
     };
 
     // Función para obtener el nombre completo de una faena
     const obtenerNombreFaena = (idFaena) => {
-        const faena = faenas.find(f => f.id_faena.toString() === idFaena.toString());
-        return faena ? faena.ubicacion : 'Desconocida';
-    };
-
-    // Función para manejar el cambio de mes anterior
-    const irMesAnterior = () => {
-        let nuevoMes = mesSeleccionado - 1;
-        let nuevoAno = anoSeleccionado;
-
-        if (nuevoMes < 1) {
-            nuevoMes = 12;
-            nuevoAno -= 1;
-        }
-
-        setMesSeleccionado(nuevoMes);
-        setAnoSeleccionado(nuevoAno);
-    };
-
-    // Función para manejar el cambio de mes siguiente
-    const irMesSiguiente = () => {
-        const fechaActual = new Date();
-        const anoActual = fechaActual.getFullYear();
-        const mesActual = fechaActual.getMonth() + 1;
-
-        // Evitar ir a meses futuros más allá del mes actual
-        if (anoSeleccionado === anoActual && mesSeleccionado >= mesActual) {
-            return;
-        }
-
-        let nuevoMes = mesSeleccionado + 1;
-        let nuevoAno = anoSeleccionado;
-
-        if (nuevoMes > 12) {
-            nuevoMes = 1;
-            nuevoAno += 1;
-        }
-
-        // Verificar que no estamos yendo más allá del mes actual
-        if (nuevoAno > anoActual || (nuevoAno === anoActual && nuevoMes > mesActual)) {
-            return;
-        }
-
-        setMesSeleccionado(nuevoMes);
-        setAnoSeleccionado(nuevoAno);
-    };
-
-    // Función para exportar datos a Excel/CSV
-    const exportarDatos = () => {
-        // Esta función podría implementarse para exportar los datos a Excel o CSV
-        alert('Funcionalidad de exportación en desarrollo');
+        const faena = faenas.find(f => f.value === idFaena.toString());
+        return faena ? faena.label : 'Desconocida';
     };
 
     return (
@@ -382,120 +291,14 @@ const KpiDashboard = () => {
                     <FaChartBar className="mr-2 text-blue-600" />
                     Dashboard de Indicadores KPI
                 </h2>
-                <div className="flex items-center gap-3">
-                    <span className="text-sm text-gray-500">
-                        Última actualización: {ultimaActualizacion.toLocaleString()}
-                    </span>
-                    <button
-                        onClick={refrescarDatos}
-                        className="flex items-center px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors"
-                        disabled={cargando}
-                    >
-                        <FiRefreshCw className={`mr-1 ${cargando ? 'animate-spin' : ''}`} />
-                        Actualizar
-                    </button>
-                    <button
-                        onClick={exportarDatos}
-                        className="flex items-center px-3 py-1 bg-green-100 text-green-600 rounded hover:bg-green-200 transition-colors"
-                    >
-                        <FiDownload className="mr-1" />
-                        Exportar
-                    </button>
-                </div>
-            </div>
-
-            {/* Panel de Filtros mejorado con selección de año/mes */}
-            <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
-                <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-lg font-medium text-gray-700 flex items-center">
-                        <FaFilter className="mr-2 text-blue-500" />
-                        Filtros
-                    </h3>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                    {/* Filtro de Faena - 4 columnas */}
-                    <div className="md:col-span-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Faena:
-                        </label>
-                        <select
-                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            value={faenaSeleccionada}
-                            onChange={(e) => setFaenaSeleccionada(e.target.value)}
-                        >
-                            <option value="todas">Todas las faenas</option>
-                            {faenas.map(faena => (
-                                <option key={faena.id_faena} value={faena.id_faena}>
-                                    {faena.ubicacion}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Selector de Periodo (Año y Mes) - 8 columnas */}
-                    <div className="md:col-span-8">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Periodo:
-                        </label>
-                        <div className="flex items-center">
-                            <button
-                                onClick={irMesAnterior}
-                                className="px-3 py-2 bg-gray-100 text-gray-700 rounded-l-md hover:bg-gray-200 transition-colors border border-gray-300"
-                            >
-                                &laquo; Anterior
-                            </button>
-
-                            <div className="flex-1 flex">
-                                <select
-                                    className="w-1/2 p-2 border-t border-b border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    value={mesSeleccionado}
-                                    onChange={(e) => setMesSeleccionado(parseInt(e.target.value))}
-                                >
-                                    {meses.map(mes => (
-                                        <option key={mes.numero} value={mes.numero}>
-                                            {mes.nombre}
-                                        </option>
-                                    ))}
-                                </select>
-
-                                <select
-                                    className="w-1/2 p-2 border-t border-b border-r border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    value={anoSeleccionado}
-                                    onChange={(e) => setAnoSeleccionado(parseInt(e.target.value))}
-                                >
-                                    {años.map(año => (
-                                        <option key={año} value={año}>
-                                            {año}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <button
-                                onClick={irMesSiguiente}
-                                className="px-3 py-2 bg-gray-100 text-gray-700 rounded-r-md hover:bg-gray-200 transition-colors border border-gray-300"
-                                disabled={
-                                    anoSeleccionado === new Date().getFullYear() &&
-                                    mesSeleccionado >= new Date().getMonth() + 1
-                                }
-                            >
-                                Siguiente &raquo;
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="mt-3 flex justify-between items-center text-sm">
-                    <div className="flex items-center text-gray-500">
-                        <FiCalendar className="mr-2 text-blue-500" />
-                        <span>
-                            {faenaSeleccionada !== 'todas'
-                                ? `Mostrando datos para: ${obtenerNombreFaena(faenaSeleccionada)} - ${periodoFormateado}`
-                                : `Mostrando datos para todas las faenas - ${periodoFormateado}`}
-                        </span>
-                    </div>
-                </div>
+                <button
+                    onClick={refrescarDatos}
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-md text-sm flex items-center"
+                    disabled={cargando || !fechaDesde || !fechaHasta}
+                >
+                    <FiRefreshCw className={`mr-1 ${cargando ? 'animate-spin' : ''}`} />
+                    {cargando ? 'Cargando...' : 'Actualizar'}
+                </button>
             </div>
 
             {/* Mensajes de estado */}
@@ -565,37 +368,52 @@ const KpiDashboard = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                            {historialKpi.map((registro, index) => (
-                                <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                                    <td className="py-2 px-3 text-sm text-gray-500">
-                                        {new Date(registro.fecha_fin_periodo).toLocaleDateString('es-CL', { year: 'numeric', month: 'long' })}
-                                    </td>
-                                    <td className="py-2 px-3 text-sm text-gray-500">
-                                        {registro.faena ? registro.faena.ubicacion : obtenerNombreFaena(registro.id_faena)}
-                                    </td>
-                                    <td className="py-2 px-3 text-sm text-gray-500">
-                                        {parseFloat(registro.valores_entrada?.toneladas_extraidas || 0).toLocaleString('es-CL')} ton
-                                    </td>
-                                    <td className="py-2 px-3 text-sm text-gray-500">
-                                        {parseFloat(registro.valores_entrada?.camionadas || 0).toLocaleString('es-CL')}
-                                    </td>
-                                    <td className="py-2 px-3 text-sm text-gray-500">
-                                        {parseFloat(registro.valores_entrada?.rendimiento || 0).toFixed(2)}
-                                    </td>
-                                    <td className="py-2 px-3 text-sm text-gray-500">
-                                        ${parseFloat(registro.valores_entrada?.petroleo_toneladas || 0).toLocaleString('es-CL')}
-                                    </td>
-                                    <td className="py-2 px-3 text-sm text-gray-500">
-                                        ${parseFloat(registro.valores_entrada?.petroleo_horas || 0).toLocaleString('es-CL')}
-                                    </td>
-                                    <td className="py-2 px-3 text-sm text-gray-500">
-                                        {registro.usuario ? registro.usuario.nombre : 'N/A'}
+                            {historialKpi.length > 0 ? (
+                                historialKpi.map((registro, index) => (
+                                    <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                        <td className="py-2 px-3 text-sm text-gray-500">
+                                            {new Date(registro.fecha_fin_periodo).toLocaleDateString('es-CL', { year: 'numeric', month: 'long' })}
+                                        </td>
+                                        <td className="py-2 px-3 text-sm text-gray-500">
+                                            {registro.faena ? registro.faena.ubicacion : obtenerNombreFaena(registro.id_faena)}
+                                        </td>
+                                        <td className="py-2 px-3 text-sm text-gray-500">
+                                            {parseFloat(registro.valores_entrada?.toneladas_extraidas || 0).toLocaleString('es-CL')} ton
+                                        </td>
+                                        <td className="py-2 px-3 text-sm text-gray-500">
+                                            {parseFloat(registro.valores_entrada?.camionadas || 0).toLocaleString('es-CL')}
+                                        </td>
+                                        <td className="py-2 px-3 text-sm text-gray-500">
+                                            {parseFloat(registro.valores_entrada?.rendimiento || 0).toFixed(2)}
+                                        </td>
+                                        <td className="py-2 px-3 text-sm text-gray-500">
+                                            ${parseFloat(registro.valores_entrada?.petroleo_toneladas || 0).toLocaleString('es-CL')}
+                                        </td>
+                                        <td className="py-2 px-3 text-sm text-gray-500">
+                                            ${parseFloat(registro.valores_entrada?.petroleo_horas || 0).toLocaleString('es-CL')}
+                                        </td>
+                                        <td className="py-2 px-3 text-sm text-gray-500">
+                                            {registro.usuario ? registro.usuario.nombre : 'N/A'}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan="8" className="py-4 text-center text-gray-500">
+                                        {!fechaDesde || !fechaHasta 
+                                            ? "Seleccione un rango de fechas para ver el historial" 
+                                            : "No hay registros para el período seleccionado"}
                                     </td>
                                 </tr>
-                            ))}
+                            )}
                         </tbody>
                     </table>
                 </div>
+            </div>
+
+            {/* Pie de página con fecha de actualización */}
+            <div className="text-xs text-gray-500 text-center">
+                Última actualización: {ultimaActualizacion.toLocaleString()}
             </div>
         </div>
     );

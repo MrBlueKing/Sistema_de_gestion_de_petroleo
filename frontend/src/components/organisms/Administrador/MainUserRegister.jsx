@@ -45,13 +45,13 @@ const UserRegister = () => {
       const offset = 100; // Puedes ajustar este valor para subir más o menos
       const top = alertRef.current.getBoundingClientRect().top + window.pageYOffset - offset;
       window.scrollTo({ top, behavior: "smooth" });
-  
+
       const timer = setTimeout(() => setError(null), 6000);
       return () => clearTimeout(timer);
     }
   }, [error]);
-  
-  
+
+
 
   const translateErrorMessages = (errors) => {
     const translations = {
@@ -83,18 +83,18 @@ const UserRegister = () => {
   const validateRut = (rut) => {
     // Eliminar cualquier carácter que no sea número o 'k'
     const cleanRut = rut.toLowerCase().replace(/[^0-9k]/g, "");
-    
+
     // Verificar longitud: RUT chileno típicamente tiene entre 7 y 9 dígitos más dígito verificador
     if (cleanRut.length < 8 || cleanRut.length > 10) {
       return "El RUT debe tener entre 8 y 10 caracteres";
     }
-    
+
     // Verificar que solo tenga un 'k' y que este al final (dígito verificador)
     const kCount = (cleanRut.match(/k/g) || []).length;
     if (kCount > 1 || (kCount === 1 && cleanRut.charAt(cleanRut.length - 1) !== 'k')) {
       return "El formato del RUT no es válido";
     }
-    
+
     return null; // Si no hay errores
   };
 
@@ -103,12 +103,12 @@ const UserRegister = () => {
     if (password.length < 8) {
       return "La contraseña debe tener al menos 8 caracteres";
     }
-    
+
     // Verifica si tiene al menos una letra y un número
     if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
       return "La contraseña debe contener al menos una letra y un número";
     }
-    
+
     return null; // Si no hay errores
   };
 
@@ -127,12 +127,12 @@ const UserRegister = () => {
       const rutError = validateRut(rut);
       if (rutError) errors.rut = rutError;
     }
-    
+
     if (!firstName) errors.firstName = "El campo nombre es obligatorio.";
     if (!lastName) errors.lastName = "El campo apellido es obligatorio.";
     if (!role) errors.role = "El campo rol es obligatorio.";
     if (!location) errors.location = "El campo ubicación es obligatorio.";
-    
+
     if (!password) {
       errors.password = "El campo contraseña es obligatorio.";
     } else {
@@ -162,7 +162,7 @@ const UserRegister = () => {
       const response = await axios.post("http://localhost:8000/api/register", userData, {
         headers: { "Content-Type": "application/json" },
       });
-      
+
       // Limpiar formulario solo en caso de éxito
       setRut("");
       setFirstName("");
@@ -170,7 +170,7 @@ const UserRegister = () => {
       setRole("");
       setLocation("");
       setPassword("");
-      
+
       // Mostrar mensaje de éxito
       setSuccessMessage(response.data.message || "Usuario registrado exitosamente.");
     } catch (err) {
@@ -180,7 +180,7 @@ const UserRegister = () => {
         setError({ global: translateErrorMessages(err.response.data.message) });
       } else {
         setError({ global: "Error de conexión con el servidor." });
-      }      
+      }
     } finally {
       setIsLoading(false);
     }
@@ -190,12 +190,12 @@ const UserRegister = () => {
   const handleRutChange = (e) => {
     // Solo permitir números y 'k'
     let value = e.target.value.toLowerCase().replace(/[^0-9k]/g, "");
-    
+
     // Limitar a máximo 10 caracteres
     if (value.length > 10) {
       value = value.slice(0, 10);
     }
-    
+
     setRut(value);
   };
 
@@ -229,9 +229,11 @@ const UserRegister = () => {
       value: role,
       icon: <FaUser />,
       options: [
-        { label: "Administrador", value: 3 },
         { label: "Bombero", value: 1 },
-        { label: "Gerente", value: 2 }
+        { label: "Gerente", value: 2 },
+        { label: "Administrador", value: 3 },
+        { label: "Distpach", value: 4 },
+        { label: "Planificador", value: 5 }
       ]
     },
     {

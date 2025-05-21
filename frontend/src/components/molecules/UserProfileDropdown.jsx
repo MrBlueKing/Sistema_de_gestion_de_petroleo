@@ -12,7 +12,8 @@ const UserProfileDropdown = ({ userMenuOpen, setUserMenuOpen, handleLogout }) =>
     const roles = {
       1: "Bombero",
       2: "Gerente",
-      3: "Administrador"
+      3: "Administrador",
+      4: "Distpach",
     };
     
     // Si el ID existe en nuestro mapeo, devolvemos el nombre del rol

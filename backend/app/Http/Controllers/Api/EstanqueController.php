@@ -19,7 +19,6 @@ class EstanqueController extends Controller
     {
         try {
             $estanques = Estanque::where('id_faena', $id_faena)->get(); // Modelo Estanque
-
             if ($estanques->isEmpty()) {
                 return response()->json([
                     'success' => false,

@@ -24,6 +24,9 @@ import BomberoPage from "../pages/Bombero/BomberoPage";
 import BomberoRecepcionPage from "../pages/Bombero/BomberoRecepcionPage";
 import BomberoNavigation from "../pages/Bombero/BomberoNavigation";
 
+import Distpach from "../pages/Distpach/MenuPrincipalDistpach";
+
+
 const AppRoutes = () => {
   return (
     <Routes>
@@ -71,7 +74,7 @@ const AppRoutes = () => {
         }
       />
 
-{/* Ruta para Mantenimieto de gerente*/}
+      {/* Ruta para Mantenimieto de gerente*/}
       <Route
         path="/gerente/simulacion"
         element={
@@ -206,6 +209,17 @@ const AppRoutes = () => {
         element={
           <PrivateRoute requiredRole="bombero">
             <BomberoIngresoExterno />
+          </PrivateRoute>
+        }
+      />
+
+
+      {/* Ruta protegida para Distpach*/}
+      <Route
+        path="/Distpach"
+        element={
+          <PrivateRoute requiredRole="toneladas">
+            <Distpach />
           </PrivateRoute>
         }
       />
