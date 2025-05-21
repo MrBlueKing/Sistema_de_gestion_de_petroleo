@@ -31,6 +31,8 @@ const BomberoNavigation = () => {
       setTipoSolicitante(value);
     } else if (currentStep === 2) {
       setSolicitante(value);
+      // Opcional: console.log para verificar que el id_faena viene en el objeto solicitante
+      console.log("Solicitante guardado con id_faena:", value?.id_faena);
     } else if (currentStep === 3) {
       setCategoriaSeleccionada(value);
     } else if (currentStep === 4) {
@@ -82,6 +84,7 @@ const BomberoNavigation = () => {
             patenteSeleccionada={patenteSeleccionada}
             solicitante={solicitante}
             tipoSolicitante={tipoSolicitante}
+            idFaena={solicitante?.id_faena || null}  // Pasamos explícitamente el id_faena
             resetFlow={resetFlow}
           />
         );

@@ -18,7 +18,13 @@ class EstanqueController extends Controller
     public function estanquesPorFaena($id_faena)
     {
         try {
-            $estanques = Estanque::where('id_faena', $id_faena)->get(); // Modelo Estanque
+            // Obtenemos los estanques con la relación stock incluida
+            $estanques = Estanque::where('id_faena', $id_faena)
+                ->with('stock')  // Usamos la relación 'stock' que ya tienes definida
+                ->get();
+
+            Log::info("estanquini", ['estanques' => $estanques->toArray()]);
+
             if ($estanques->isEmpty()) {
                 return response()->json([
                     'success' => false,
@@ -26,9 +32,19 @@ class EstanqueController extends Controller
                 ], 404);
             }
 
+            // Transformamos los datos para incluir el stock_actual directamente
+            $estanquesConStock = $estanques->map(function ($estanque) {
+                $estanqueArray = $estanque->toArray();
+
+                // Como la relación es hasOne, podemos acceder directamente al stock
+                $estanqueArray['stock_actual'] = $estanque->stock ? $estanque->stock->stock_actual : 0;
+
+                return $estanqueArray;
+            });
+
             return response()->json([
                 'success' => true,
-                'data' => $estanques
+                'data' => $estanquesConStock
             ], 200);
         } catch (\Exception $e) {
             Log::error('Error al obtener estanques de faena', ['error' => $e->getMessage()]);

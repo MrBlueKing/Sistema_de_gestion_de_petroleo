@@ -147,7 +147,10 @@ const FormRecepcion = () => {
   // Mostrar alertas modales temporales
   const mostrarModalAlerta = (type, message) => {
     setModalAlert({ show: true, type, message });
-    setTimeout(() => setModalAlert({ show: false, message: "", type: "" }), 5000);
+    setTimeout(
+      () => setModalAlert({ show: false, message: "", type: "" }),
+      5000
+    );
   };
 
   // Función para validar campos en tiempo real
@@ -261,7 +264,10 @@ const FormRecepcion = () => {
   const calcularLitrosPetroleo = async () => {
     // Validaciones iniciales
     if (!formData.id_faena) {
-      mostrarModalAlerta("error", "Debe seleccionar una faena antes de calcular.");
+      mostrarModalAlerta(
+        "error",
+        "Debe seleccionar una faena antes de calcular."
+      );
       return null;
     }
 
@@ -275,7 +281,10 @@ const FormRecepcion = () => {
       !formData.litrosRecibidos ||
       parseFloat(formData.litrosRecibidos) <= 0
     ) {
-      mostrarModalAlerta("error", "Debe ingresar la cantidad de litros recibidos antes de calcular.");
+      mostrarModalAlerta(
+        "error",
+        "Debe ingresar la cantidad de litros recibidos antes de calcular."
+      );
       return null;
     }
 
@@ -283,23 +292,30 @@ const FormRecepcion = () => {
       const token = JSON.parse(localStorage.getItem("authToken"))?.token;
 
       // Procesar y validar alturas
-      const { alturasIniciales, alturasFinales, incompletas } = procesarAlturas();
-      
+      const { alturasIniciales, alturasFinales, incompletas } =
+        procesarAlturas();
+
       if (incompletas) {
-        mostrarModalAlerta("error", "Debe ingresar todas las alturas iniciales y finales de los estanques.");
+        mostrarModalAlerta(
+          "error",
+          "Debe ingresar todas las alturas iniciales y finales de los estanques."
+        );
         return null;
       }
 
       // Convertir las alturas al formato que espera la API
       const datosAlturasIniciales = convertirAlturasParaAPI(alturasIniciales);
       const datosAlturasFinales = convertirAlturasParaAPI(alturasFinales);
-      
+
       // Validar completitud de las alturas
       if (
         hayAlturasIncompletas(datosAlturasIniciales) ||
         hayAlturasIncompletas(datosAlturasFinales)
       ) {
-        mostrarModalAlerta("error", "Debe ingresar todas las alturas iniciales y finales de los estanques.");
+        mostrarModalAlerta(
+          "error",
+          "Debe ingresar todas las alturas iniciales y finales de los estanques."
+        );
         return null;
       }
 
@@ -355,7 +371,6 @@ const FormRecepcion = () => {
 
       // Procesar los resultados y actualizar estados
       return procesarResultadosCalculo(responseInicial, responseFinal);
-      
     } catch (error) {
       console.error("Error al calcular litros de petróleo:", error);
 
@@ -483,7 +498,7 @@ const FormRecepcion = () => {
   // Preparar datos de alturas para envío a API
   const prepararDatosAlturas = () => {
     const alturas = [];
-    
+
     Object.keys(alturasEstanques).forEach((idEstanque) => {
       const datos = alturasEstanques[idEstanque];
 
@@ -516,7 +531,7 @@ const FormRecepcion = () => {
         });
       }
     });
-    
+
     return alturas;
   };
 
@@ -530,26 +545,38 @@ const FormRecepcion = () => {
     });
 
     if (loading || !user) {
-      mostrarAlerta("error", "No se ha podido acceder a la información del usuario.");
+      mostrarAlerta(
+        "error",
+        "No se ha podido acceder a la información del usuario."
+      );
       return;
     }
 
     // Validación completa antes de enviar
     if (!validarFormularioCompleto()) {
-      mostrarAlerta("error", "Por favor, complete todos los campos obligatorios correctamente.");
+      mostrarAlerta(
+        "error",
+        "Por favor, complete todos los campos obligatorios correctamente."
+      );
       return;
     }
 
     // Verificar que se haya realizado el cálculo de alturas
     if (!calculoPetroleo.calculoRealizado) {
-      mostrarAlerta("error", "Debe ingresar las alturas de los estanques y calcular la diferencia.");
+      mostrarAlerta(
+        "error",
+        "Debe ingresar las alturas de los estanques y calcular la diferencia."
+      );
       setShowEstanquesModal(true);
       return;
     }
 
     // Validación adicional de alturas de estanques
     if (!verificarAlturasCompletas()) {
-      mostrarAlerta("error", "Debe ingresar todas las alturas iniciales y finales de los estanques.");
+      mostrarAlerta(
+        "error",
+        "Debe ingresar todas las alturas iniciales y finales de los estanques."
+      );
       setShowEstanquesModal(true);
       return;
     }
@@ -598,7 +625,6 @@ const FormRecepcion = () => {
 
       // Limpiar el formulario pero mantener la faena
       resetearFormulario();
-      
     } catch (error) {
       console.error("Error al enviar los datos:", error);
       manejarErrorEnvio(error);
@@ -642,11 +668,7 @@ const FormRecepcion = () => {
     let errorMessage = "Error al registrar la recepción. Intente nuevamente.";
 
     // Mostrar mensaje más específico si está disponible
-    if (
-      error.response &&
-      error.response.data &&
-      error.response.data.message
-    ) {
+    if (error.response && error.response.data && error.response.data.message) {
       errorMessage = error.response.data.message;
     }
 
@@ -885,6 +907,7 @@ const FormRecepcion = () => {
         calcularLitrosPetroleo={calcularLitrosPetroleo}
         modalAlert={modalAlert}
         capacidadDisponible={capacidadDisponible}
+        litrosRecibidos={parseFloat(formData.litrosRecibidos) || 0} // Pasamos los litros de la guía
       />
     </div>
   );
