@@ -783,6 +783,7 @@ class ProyeccionConsumoController extends Controller
                 ->distinct()
                 ->get();
 
+            // Contadores y acumuladores
             $totalMaquinas = 0;
             $maquinasConConsumoReal = 0;
             $maquinasConProyeccion = 0;
@@ -793,6 +794,14 @@ class ProyeccionConsumoController extends Controller
             $consumoTotalProyectado = 0;
             $horasTrabajadas = 0;
             $kilometrosRecorridos = 0;
+
+            // Nuevos acumuladores para cálculos detallados
+            $totalHorasHistoricas = 0;
+            $totalKilometrosHistoricos = 0;
+            $totalConsumoHistorico = 0;
+            $totalDiasHistoricos = 0;
+            $sumatoriaRendimientos = 0;
+            $contadorMaquinasConRendimiento = 0;
 
             foreach ($maquinasConRegistros as $maquina) {
                 $historialCompleto = DB::table('consumos')
@@ -819,7 +828,7 @@ class ProyeccionConsumoController extends Controller
                     $cargasHistorial[] = floatval($consumo->litros_consumidos);
                 }
 
-                // Calcular intervalos válidos y promedios (mismo lógica que en getMaquinasConConsumoHastaAyer)
+                // Calcular intervalos válidos y promedios
                 $intervalosValidos = [];
                 $primerFechaConActividad = null;
                 $ultimaFechaConActividad = null;
@@ -927,7 +936,7 @@ class ProyeccionConsumoController extends Controller
                     $maquinasKilometraje++;
                 }
 
-                // Acumular totales
+                // Acumular totales para la fecha específica
                 $consumoTotalReal += $consumoRealEnFecha;
                 $consumoTotalProyectado += $consumoProyectadoEnFecha;
 
@@ -937,7 +946,23 @@ class ProyeccionConsumoController extends Controller
                     $kilometrosRecorridos += $actividadRealEnFecha + $actividadProyectadaEnFecha;
                 }
 
-                // Datos detallados de la máquina
+                // Acumular totales históricos para cálculos de promedios
+                $totalConsumoHistorico += $totalConsumoAcumulado;
+                $totalDiasHistoricos += $diasCubiertosPorHistorial;
+
+                if (strtolower($tipoMedicion) == 'horometro') {
+                    $totalHorasHistoricas += $totalDiferenciaMedicionAcumulada;
+                } else {
+                    $totalKilometrosHistoricos += $totalDiferenciaMedicionAcumulada;
+                }
+
+                // Acumular rendimientos para promedio general
+                if ($rendimientoPromedio > 0) {
+                    $sumatoriaRendimientos += $rendimientoPromedio;
+                    $contadorMaquinasConRendimiento++;
+                }
+
+                // Datos detallados de la máquina con información extendida
                 $maquinasConDatos[] = [
                     'id' => $maquina->id,
                     'nombre' => $maquina->nombre,
@@ -947,7 +972,12 @@ class ProyeccionConsumoController extends Controller
                     'tiene_proyeccion' => $tieneProyeccionEnFecha,
                     'datos_totales' => [
                         'total_registros' => count($historialCompleto),
-                        'rendimiento' => round($rendimientoPromedio, 3)
+                        'dias_historicos_cubiertos' => $diasCubiertosPorHistorial,
+                        'rendimiento' => round($rendimientoPromedio, 3),
+                        'actividad_historica_total' => round($totalDiferenciaMedicionAcumulada, 2),
+                        'consumo_historico_total' => round($totalConsumoAcumulado, 2),
+                        'promedio_actividad_diaria' => round($promedioDiferenciaMedicionDiaria, 2),
+                        'consumo_simulado_diario' => round($consumoSimuladoDiario, 2)
                     ],
                     'datos_en_rango' => [
                         'consumo_real' => round($consumoRealEnFecha, 2),
@@ -956,11 +986,18 @@ class ProyeccionConsumoController extends Controller
                         'diferencia_medicion_real' => round($actividadRealEnFecha, 2),
                         'diferencia_medicion_proyectada' => round($actividadProyectadaEnFecha, 2),
                         'diferencia_medicion_total' => round($actividadRealEnFecha + $actividadProyectadaEnFecha, 2)
+                    ],
+                    'metricas_especificas' => [
+                        'eficiencia_actual' => $actividadRealEnFecha + $actividadProyectadaEnFecha > 0 ?
+                            round(($consumoRealEnFecha + $consumoProyectadoEnFecha) / ($actividadRealEnFecha + $actividadProyectadaEnFecha), 3) : 0,
+                        'variacion_vs_promedio' => $promedioDiferenciaMedicionDiaria > 0 ?
+                            round((($actividadRealEnFecha + $actividadProyectadaEnFecha) / $promedioDiferenciaMedicionDiaria - 1) * 100, 1) : 0,
+                        'estado_operacional' => $actividadRealEnFecha + $actividadProyectadaEnFecha > 0 ? 'activa' : 'inactiva'
                     ]
                 ];
             }
 
-            // Calcular totales y promedios
+            // Calcular totales y promedios generales
             $consumoTotal = $consumoTotalReal + $consumoTotalProyectado;
             $porcentajeProyectado = $consumoTotal > 0 ? round(($consumoTotalProyectado / $consumoTotal) * 100, 2) : 0;
 
@@ -978,13 +1015,27 @@ class ProyeccionConsumoController extends Controller
 
             $promedioConsumoPorMaquina = $totalMaquinas > 0 ? round($consumoTotal / $totalMaquinas, 2) : 0;
 
-            // Estructura de respuesta optimizada para DailyKpiCalculator
+            // Cálculos de promedios históricos detallados
+            $promedioRendimientoGeneral = $contadorMaquinasConRendimiento > 0 ?
+                round($sumatoriaRendimientos / $contadorMaquinasConRendimiento, 3) : 0;
+
+            $promedioHorasDiarias = $totalDiasHistoricos > 0 && $maquinasHorometro > 0 ?
+                round($totalHorasHistoricas / $totalDiasHistoricos, 2) : 0;
+
+            $promedioKilometrosDiarios = $totalDiasHistoricos > 0 && $maquinasKilometraje > 0 ?
+                round($totalKilometrosHistoricos / $totalDiasHistoricos, 2) : 0;
+
+            $promedioConsumoDiarioHistorico = $totalDiasHistoricos > 0 ?
+                round($totalConsumoHistorico / $totalDiasHistoricos, 2) : 0;
+
+            // Estructura de respuesta MEJORADA con detalles adicionales
             $respuesta = [
                 'status' => 'success',
-                'message' => "Resumen de consumo para la fecha {$fechaObjetivo->toDateString()}",
+                'message' => "Resumen detallado de consumo para la fecha {$fechaObjetivo->toDateString()}",
                 'fecha_consultada' => $fechaObjetivo->toDateString(),
                 'data' => [
                     'resumen' => [
+                        // Datos principales (mantenidos para compatibilidad)
                         'consumo_total' => round($consumoTotal, 2),
                         'consumo_total_real' => round($consumoTotalReal, 2),
                         'consumo_total_proyectado' => round($consumoTotalProyectado, 2),
@@ -998,7 +1049,47 @@ class ProyeccionConsumoController extends Controller
                         'maquinas_con_proyeccion' => $maquinasConProyeccion,
                         'rendimiento_horometro' => $rendimientoHorometro,
                         'rendimiento_kilometraje' => $rendimientoKilometraje,
-                        'promedio_consumo_por_maquina' => $promedioConsumoPorMaquina
+                        'promedio_consumo_por_maquina' => $promedioConsumoPorMaquina,
+
+                        // NUEVOS DATOS DETALLADOS SOLICITADOS
+                        'detalles_actividad' => [
+                            'promedio_horas_por_maquina_horometro' => $maquinasHorometro > 0 ?
+                                round($horasTrabajadas / $maquinasHorometro, 2) : 0,
+                            'promedio_km_por_maquina_kilometraje' => $maquinasKilometraje > 0 ?
+                                round($kilometrosRecorridos / $maquinasKilometraje, 2) : 0,
+                            'total_horas_todas_maquinas' => round($horasTrabajadas, 2),
+                            'total_kilometros_todas_maquinas' => round($kilometrosRecorridos, 2),
+                            'intensidad_operacional' => $totalMaquinas > 0 ?
+                                round(($horasTrabajadas + $kilometrosRecorridos) / $totalMaquinas, 2) : 0
+                        ],
+
+                        'promedios_historicos' => [
+                            'promedio_rendimiento_general' => $promedioRendimientoGeneral,
+                            'promedio_horas_diarias_historico' => $promedioHorasDiarias,
+                            'promedio_kilometros_diarios_historico' => $promedioKilometrosDiarios,
+                            'promedio_consumo_diario_historico' => $promedioConsumoDiarioHistorico,
+                            'total_dias_historicos_analizados' => $totalDiasHistoricos,
+                            'total_actividad_historica_horas' => round($totalHorasHistoricas, 2),
+                            'total_actividad_historica_kilometros' => round($totalKilometrosHistoricos, 2),
+                            'total_consumo_historico' => round($totalConsumoHistorico, 2)
+                        ],
+
+                        'analisis_eficiencia' => [
+                            'consumo_por_hora_promedio' => $horasTrabajadas > 0 ?
+                                round($consumoTotal / $horasTrabajadas, 3) : 0,
+                            'consumo_por_kilometro_promedio' => $kilometrosRecorridos > 0 ?
+                                round($consumoTotal / $kilometrosRecorridos, 3) : 0,
+                            'factor_utilizacion_horas' => $promedioHorasDiarias > 0 ?
+                                round($horasTrabajadas / ($promedioHorasDiarias * $maquinasHorometro), 3) : 0,
+                            'factor_utilizacion_km' => $promedioKilometrosDiarios > 0 ?
+                                round($kilometrosRecorridos / ($promedioKilometrosDiarios * $maquinasKilometraje), 3) : 0,
+                            'maquinas_activas' => count(array_filter($maquinasConDatos, function ($m) {
+                                return $m['metricas_especificas']['estado_operacional'] === 'activa';
+                            })),
+                            'maquinas_inactivas' => count(array_filter($maquinasConDatos, function ($m) {
+                                return $m['metricas_especificas']['estado_operacional'] === 'inactiva';
+                            }))
+                        ]
                     ],
                     'detalle_maquinas' => $maquinasConDatos
                 ]
@@ -1006,10 +1097,12 @@ class ProyeccionConsumoController extends Controller
 
             return response()->json($respuesta);
         } catch (\Exception $e) {
-            Log::error('Error al obtener resumen de consumo para fecha', [
+            Log::error('Error al obtener resumen detallado de consumo para fecha', [
                 'error' => $e->getMessage(),
                 'linea' => $e->getLine(),
-                'archivo' => $e->getFile()
+                'archivo' => $e->getFile(),
+                'fecha' => $fecha ?? 'N/A',
+                'faena' => $faena
             ]);
 
             return response()->json([

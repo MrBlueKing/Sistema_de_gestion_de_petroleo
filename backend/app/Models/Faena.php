@@ -55,4 +55,14 @@ class Faena extends Model
             'id_dotacion'   // Clave del solicitante en la tabla pivot
         );
     }
+    // Relación con padrones
+    public function padrones()
+    {
+        return $this->hasMany(Padron::class, 'id_faena', 'id_faena');
+    }
+    // Relacion con tonelajes
+    public function tonelajes()
+    {
+        return $this->hasManyThrough(Tonelaje::class, Padron::class, 'id_faena', 'id_padron', 'id_faena', 'id_padron');
+    }
 }

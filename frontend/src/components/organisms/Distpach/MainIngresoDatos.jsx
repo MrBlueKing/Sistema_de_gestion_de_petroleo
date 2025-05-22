@@ -38,9 +38,6 @@ const MainIngresoDatos = () => {
   return (
     <div className="flex-1 overflow-auto bg-gray-50">
       <div className="container mx-auto px-4 py-6">
-        {/* Título de la sección */}
-        <h1 className="text-2xl font-bold text-center mb-6">Ingreso de Datos</h1>
-
         {/* Mensajes de estado */}
         {cargando && (
           <div className="text-center py-4 bg-white rounded-lg shadow-md mb-4">

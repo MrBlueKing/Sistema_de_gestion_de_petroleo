@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\KpiHistoricoController;
 use App\Http\Controllers\Api\KpiValoresEntradaController;
 use App\Http\Controllers\Api\PersonalExternoController;
 use App\Http\Controllers\Api\ProyeccionConsumoController;
+use App\Http\Controllers\Api\TonelajeController;
 use App\Http\Controllers\DatabaseCheckController;
 
 // Rutas públicas
@@ -141,14 +142,6 @@ Route::get('/consumo-resumen-fecha', [ProyeccionConsumoController::class, 'getRe
 Route::get('/proyeccion-consumo/rango', [ProyeccionConsumoController::class, 'getMaquinasConConsumoEnRango']);
 Route::get('/proyeccion-consumo/reporte', [ProyeccionConsumoController::class, 'getReporteProyeccionPorPeriodo']);
 
-// Ruta para obtener lista de faenas (usada en los filtros)
-Route::get('/faenas-2', function () {
-    return \Illuminate\Support\Facades\DB::table('faenas')
-        ->select('id_faena', 'ubicacion')
-        ->orderBy('ubicacion')
-        ->get();
-});
-
 
 // Calculo de kpis de Distpach
 Route::post('/calcular-kpis', [KpiCalculoController::class, 'calcular']);
@@ -186,3 +179,28 @@ Route::get('/informes-kpi/balance-combustible', [App\Http\Controllers\Api\Inform
 //PROBAR CONEXION BASE DE DATOS REAL 
 Route::get('/check-databases', [DatabaseCheckController::class, 'check']);
 
+
+
+
+// En routes/api.php
+// Obtener faenas disponibles
+Route::get('/faenas', [TonelajeController::class, 'getFaenas']);
+
+// Obtener padrones de una faena
+Route::get('/faenas/{id}/padrones', [TonelajeController::class, 'getPadrones']);
+
+// Obtener registros del día
+Route::get('/registros', [TonelajeController::class, 'getRegistros']);
+
+// CRUD básico de tonelajes
+Route::get('/tonelajes', [TonelajeController::class, 'index']);
+Route::post('/tonelajes', [TonelajeController::class, 'store']);
+Route::get('/tonelajes/{id}', [TonelajeController::class, 'show']);
+Route::put('/tonelajes/{id}', [TonelajeController::class, 'update']);
+Route::delete('/tonelajes/{id}', [TonelajeController::class, 'destroy']);
+
+// Historial de un tonelaje
+Route::get('/tonelajes/{id}/historial', [TonelajeController::class, 'getHistorial']);
+
+// Verificar si un registro puede ser editado
+Route::get('/tonelajes/{id}/puede-editar', [TonelajeController::class, 'puedeEditar']);
