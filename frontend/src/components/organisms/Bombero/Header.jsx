@@ -37,17 +37,12 @@ const Header = () => {
 
   const faena = user?.id_faena ? FAENAS[user.id_faena] : null;
 
-  // Actualizar la hora actual cada segundo para que funcione como reloj
+  // Actualizar la hora actual cada segundo
   useEffect(() => {
-    // Establecer la hora inicial
-    setCurrentTime(new Date());
-    
-    // Crear el intervalo para actualizar cada segundo
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
 
-    // Limpiar el intervalo cuando el componente se desmonte
     return () => clearInterval(timer);
   }, []);
 
@@ -96,8 +91,8 @@ const Header = () => {
           scrolled ? 'bg-white shadow-lg' : 'bg-white shadow-md'
         }`}
       >
-        {/* Barra superior con fecha y hora - Solo visible en desktop */}
-        <div className="hidden sm:block bg-gray-800 text-white py-1 px-4">
+        {/* Barra superior con fecha y hora - Oculta en móvil */}
+        <div className="hidden md:block bg-gray-800 text-white py-1 px-4">
           <div className="flex justify-between items-center text-xs">
             <div>
               {currentTime.toLocaleDateString('es-ES', {
@@ -111,100 +106,53 @@ const Header = () => {
           </div>
         </div>
 
-        {/* Contenido principal del header - Responsivo */}
-        <div className="px-3 sm:px-4 py-2">
-          {/* Layout para móviles */}
-          <div className="flex sm:hidden items-center justify-between min-h-[60px]">
-            {/* Columna izquierda - Botón home y título compacto */}
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <IconButton
-                icono={<FaHome size={18} className="text-blue-600" />}
-                onClick={() => navigate("/bombero")}
-                className="flex-shrink-0"
-              />
-              <div className="min-w-0 flex-1">
-                <h1 className="text-sm font-bold text-gray-800 leading-tight">
+        {/* Contenido principal - USANDO LA ESTRUCTURA QUE FUNCIONA */}
+        <div className="flex items-center justify-between px-3 md:px-4 py-2 min-h-[56px] md:h-14">
+          <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
+            {/* Botón de inicio */}
+            <IconButton
+              icono={<FaHome size={18} className="text-blue-600 md:w-5 md:h-5" />}
+              onClick={() => navigate("/bombero")}
+              className="flex-shrink-0"
+            />
+
+            {/* Título y ubicación - Responsivo */}
+            <div className="flex flex-col min-w-0 flex-1">
+              {/* Título adaptativo */}
+              <h1 className="text-sm md:text-lg font-bold text-gray-800 leading-tight">
+                <span className="md:hidden">
                   Encargado de<br />
                   Operaciones
-                </h1>
-                {faena && (
-                  <div className="flex items-center text-xs mt-0.5">
-                    <FaMapMarkerAlt className={`text-${faena.color} mr-1 flex-shrink-0`} size={10} />
-                    <span className="font-medium truncate">{faena.ubicacion}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Columna derecha - Hora y perfil */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {/* Hora en móvil */}
-              <div className="text-right">
-                <div className="text-xs text-gray-600 leading-tight font-mono">
-                  {formatTime(currentTime)}
-                </div>
-                <div className="text-xs text-gray-500">
-                  {formatDate(currentTime)}
-                </div>
-              </div>
-              <UserProfileDropdown
-                userMenuOpen={userMenuOpen}
-                setUserMenuOpen={setUserMenuOpen}
-                handleLogout={handleLogout}
-              />
-            </div>
-          </div>
-
-          {/* Layout para tablets */}
-          <div className="hidden sm:flex lg:hidden items-center justify-between h-14">
-            <div className="flex items-center gap-3">
-              <IconButton
-                icono={<FaHome size={20} className="text-blue-600" />}
-                onClick={() => navigate("/bombero")}
-              />
-              <div className="flex flex-col min-w-0">
-                <h1 className="text-base font-bold text-gray-800 leading-tight">
-                  Encargado de Operaciones
-                </h1>
-                {faena && (
-                  <div className="flex items-center text-sm">
-                    <FaMapMarkerAlt className={`text-${faena.color} mr-1`} size={12} />
-                    <span className="font-medium">{faena.ubicacion}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <UserProfileDropdown
-                userMenuOpen={userMenuOpen}
-                setUserMenuOpen={setUserMenuOpen}
-                handleLogout={handleLogout}
-              />
-            </div>
-          </div>
-
-          {/* Layout para desktop */}
-          <div className="hidden lg:flex items-center justify-between h-14">
-            <div className="flex items-center gap-4">
-              <IconButton
-                icono={<FaHome size={20} className="text-blue-600" />}
-                onClick={() => navigate("/bombero")}
-              />
-              <div className="flex flex-col">
-                <h1 className="text-lg font-bold text-gray-800">
+                </span>
+                <span className="hidden md:inline">
                   Encargado de Operaciones de Combustible
-                </h1>
-                {faena && (
-                  <div className="flex items-center text-sm">
-                    <FaMapMarkerAlt className={`text-${faena.color} mr-1`} size={12} />
-                    <span className="font-medium">{faena.ubicacion}</span>
-                    <span className="text-gray-500 ml-1">• {faena.detalle}</span>
-                  </div>
-                )}
+                </span>
+              </h1>
+
+              {/* Ubicación */}
+              {faena && (
+                <div className="flex items-center text-xs md:text-sm mt-0.5 md:mt-0">
+                  <FaMapMarkerAlt className={`text-${faena.color} mr-1 flex-shrink-0`} size={10} />
+                  <span className="font-medium truncate">{faena.ubicacion}</span>
+                  <span className="hidden md:inline text-gray-500 ml-1">• {faena.detalle}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Lado derecho */}
+          <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
+            {/* Hora en móvil */}
+            <div className="md:hidden text-right">
+              <div className="text-xs text-gray-600 leading-tight font-mono">
+                {formatTime(currentTime)}
+              </div>
+              <div className="text-xs text-gray-500">
+                {formatDate(currentTime)}
               </div>
             </div>
 
+            {/* Perfil de usuario - EXACTAMENTE COMO EN EL CÓDIGO QUE FUNCIONA */}
             <div className="flex items-center gap-4">
               <UserProfileDropdown
                 userMenuOpen={userMenuOpen}
@@ -215,9 +163,9 @@ const Header = () => {
           </div>
         </div>
       </header>
-
-      {/* Espacio para que el contenido no quede detrás del header - Responsivo */}
-      <div className="pt-16 sm:pt-20 lg:pt-20"></div>
+      
+      {/* Espacio para que el contenido no quede detrás del header */}
+      <div className="pt-14 md:pt-20"></div>
     </>
   );
 };
