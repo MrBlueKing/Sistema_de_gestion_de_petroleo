@@ -64,9 +64,10 @@ const Header = () => {
     };
   }, []);
 
+  // Función para cerrar sesión
   const handleLogout = () => {
-    localStorage.removeItem("authToken");
-    navigate("/");
+    localStorage.removeItem('authToken');  // Eliminar el token de localStorage
+    navigate('/');  // Redirigir al login utilizando useNavigate
   };
 
   // Formatear hora con segundos
