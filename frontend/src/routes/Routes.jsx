@@ -216,7 +216,7 @@ const AppRoutes = () => {
 
       {/* Ruta protegida para Distpach*/}
       <Route
-        path="/Distpach"
+        path="/IngresoToneladas"
         element={
           <PrivateRoute requiredRole="toneladas">
             <Distpach />

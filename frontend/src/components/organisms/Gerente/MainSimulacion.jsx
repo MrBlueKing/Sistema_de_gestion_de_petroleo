@@ -6,213 +6,35 @@ import KpiToggleSection from "../../atoms/Button/KpiToggleSection";
 import { FaChartBar } from "react-icons/fa";
 import {
   FiTruck, FiDroplet, FiClock, FiCalendar,
-  FiFilter, FiRefreshCw, FiDownload, FiInfo, FiAlertTriangle
+  FiFilter, FiRefreshCw, FiInfo, FiAlertTriangle
 } from "react-icons/fi";
-import { toPng } from "html-to-image";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, ReferenceLine
 } from "recharts";
-import {
-  PDFDownloadLink,
-  Document,
-  Page,
-  Text,
-  View,
-  StyleSheet,
-  Image
-} from "@react-pdf/renderer";
 
 // Importar el componente de filtros
 import FiltrosComponent from "../../molecules/FiltrosComponent";
 
-// Estilos para el PDF
-const styles = StyleSheet.create({
-  page: {
-    flexDirection: 'column',
-    backgroundColor: '#FFFFFF',
-    padding: 30,
-  },
-  section: {
-    margin: 10,
-    padding: 10,
-  },
-  title: {
-    fontSize: 24,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  subtitle: {
-    fontSize: 18,
-    marginBottom: 10,
-  },
-  text: {
-    fontSize: 12,
-    marginBottom: 5,
-  },
-  bold: {
-    fontWeight: 'bold',
-  },
-  table: {
-    display: 'table',
-    width: 'auto',
-    borderStyle: 'solid',
-    borderWidth: 1,
-    borderRightWidth: 0,
-    borderBottomWidth: 0,
-    marginVertical: 10,
-  },
-  tableRow: {
-    flexDirection: 'row',
-  },
-  tableColHeader: {
-    width: '16.6%',
-    borderStyle: 'solid',
-    borderWidth: 1,
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
-    backgroundColor: '#f2f2f2',
-    padding: 5,
-  },
-  tableCol: {
-    width: '16.6%',
-    borderStyle: 'solid',
-    borderWidth: 1,
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
-    padding: 5,
-  },
-  tableHeader: {
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  tableCell: {
-    fontSize: 8,
-  },
-  image: {
-    marginVertical: 15,
-  },
-  footer: {
-    position: 'absolute',
-    bottom: 30,
-    left: 30,
-    right: 30,
-    fontSize: 8,
-    textAlign: 'center',
-  },
-});
+// Función helper para formatear números de forma segura
+const formatNumber = (value) => {
+  if (value === null || value === undefined || isNaN(value)) {
+    return '0';
+  }
+  return parseFloat(value).toLocaleString();
+};
 
-// Componente PDF
-const ProyeccionPDF = ({ maquina, calculos, periodo, imagenGrafico }) => (
-  <Document>
-    <Page size="A4" style={styles.page}>
-      <Text style={styles.title}>Proyección de Consumo</Text>
-      <Text style={styles.subtitle}>{maquina.label}</Text>
-
-      <View style={styles.section}>
-        <Text style={styles.text}>
-          <Text style={styles.bold}>Período: </Text>
-          {periodo.desde} al {periodo.hasta}
-        </Text>
-        <Text style={styles.text}>
-          <Text style={styles.bold}>Tipo de medición: </Text>
-          {maquina.tipo}
-        </Text>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.subtitle}>Resultados de Cálculos</Text>
-        <Text style={styles.text}>
-          <Text style={styles.bold}>Total {maquina.tipo === 'horometro' ? 'Horas' : 'Kilómetros'}: </Text>
-          {calculos.totalHoras.toLocaleString()} {maquina.tipo === 'horometro' ? 'h' : 'km'}
-        </Text>
-        <Text style={styles.text}>
-          <Text style={styles.bold}>Total Consumo: </Text>
-          {calculos.totalConsumo.toLocaleString()} L
-        </Text>
-        <Text style={styles.text}>
-          <Text style={styles.bold}>Rendimiento: </Text>
-          {calculos.rendimiento.toFixed(3)} {maquina.tipo === 'horometro' ? 'h/L' : 'km/L'}
-        </Text>
-        <Text style={styles.text}>
-          <Text style={styles.bold}>Promedio Diario: </Text>
-          {calculos.promedioHoras.toFixed(2)} {maquina.tipo === 'horometro' ? 'h/día' : 'km/día'}
-        </Text>
-        <Text style={styles.text}>
-          <Text style={styles.bold}>Consumo Simulado Diario: </Text>
-          {calculos.consumoSimuladoDiario.toFixed(2)} L/día
-        </Text>
-      </View>
-
-      {imagenGrafico && (
-        <View style={styles.section}>
-          <Text style={styles.subtitle}>Gráfico de Proyección</Text>
-          <Image src={imagenGrafico} style={styles.image} />
-        </View>
-      )}
-
-      <View style={styles.section}>
-        <Text style={styles.subtitle}>Proyección</Text>
-        <View style={styles.table}>
-          <View style={styles.tableRow}>
-            <View style={styles.tableColHeader}>
-              <Text style={styles.tableHeader}>Día</Text>
-            </View>
-            <View style={styles.tableColHeader}>
-              <Text style={styles.tableHeader}>Fecha</Text>
-            </View>
-            <View style={styles.tableColHeader}>
-              <Text style={styles.tableHeader}>{maquina.tipo === 'horometro' ? 'Horas' : 'Km'}</Text>
-            </View>
-            <View style={styles.tableColHeader}>
-              <Text style={styles.tableHeader}>Consumo</Text>
-            </View>
-            <View style={styles.tableColHeader}>
-              <Text style={styles.tableHeader}>Stock Inicial</Text>
-            </View>
-            <View style={styles.tableColHeader}>
-              <Text style={styles.tableHeader}>Stock Final</Text>
-            </View>
-          </View>
-
-          {calculos.simulacion.map((sim, index) => (
-            <View key={`pdf-sim-${index}`} style={styles.tableRow}>
-              <View style={styles.tableCol}>
-                <Text style={styles.tableCell}>{sim.dia}</Text>
-              </View>
-              <View style={styles.tableCol}>
-                <Text style={styles.tableCell}>{sim.fecha}</Text>
-              </View>
-              <View style={styles.tableCol}>
-                <Text style={styles.tableCell}>{parseFloat(sim.horas).toLocaleString()}</Text>
-              </View>
-              <View style={styles.tableCol}>
-                <Text style={styles.tableCell}>{parseFloat(sim.consumo).toLocaleString()}</Text>
-              </View>
-              <View style={styles.tableCol}>
-                <Text style={styles.tableCell}>{parseFloat(sim.stock_inicial).toLocaleString()}</Text>
-              </View>
-              <View style={styles.tableCol}>
-                <Text style={styles.tableCell}>{parseFloat(sim.stock_final).toLocaleString()}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      </View>
-
-      <Text style={styles.footer}>
-        Reporte generado el {new Date().toLocaleString()} • Sistema de Proyección de Consumo
-      </Text>
-    </Page>
-  </Document>
-);
+// Función helper para validar si un valor es válido
+const isValidNumber = (value) => {
+  return value !== null && value !== undefined && !isNaN(value) && isFinite(value);
+};
 
 // Componente personalizado para formatear etiquetas del eje X
 const CustomizedAxisTick = ({ x, y, payload }) => {
   // Extraer fecha del formato "Día X (yyyy-mm-dd)"
   const match = payload.value.match(/\((.*?)\)/);
   const fecha = match ? match[1] : payload.value;
-  
+
   // Formato de fecha corto
   const formatearFecha = (fechaStr) => {
     try {
@@ -225,12 +47,12 @@ const CustomizedAxisTick = ({ x, y, payload }) => {
 
   return (
     <g transform={`translate(${x},${y})`}>
-      <text 
-        x={0} 
-        y={0} 
-        dy={16} 
-        textAnchor="end" 
-        fill="#666" 
+      <text
+        x={0}
+        y={0}
+        dy={16}
+        textAnchor="end"
+        fill="#666"
         fontSize={12}
         transform="rotate(-35)"
       >
@@ -256,9 +78,8 @@ function MainSimulacion() {
   const [faenas, setFaenas] = useState([]);
   const [datosProyeccion, setDatosProyeccion] = useState(null);
   const [maquinaDetalles, setMaquinaDetalles] = useState(null);
-  const [graficoDataUrl, setGraficoDataUrl] = useState(null);
 
-  // Referencias para exportar
+  // Referencias para el gráfico
   const graficoRef = useRef(null);
 
   // Efecto para cargar faenas al inicio
@@ -271,17 +92,38 @@ function MainSimulacion() {
     try {
       const response = await axios.get("/api/faenas");
 
-      if (Array.isArray(response.data)) {
+      console.log("Respuesta completa:", response);
+      console.log("response.data:", response.data);
+
+      // Intentar diferentes formas de acceder a los datos
+      let faenasData = response.data;
+
+      // Si los datos están en response.data.data
+      if (response.data && response.data.data && Array.isArray(response.data.data)) {
+        faenasData = response.data.data;
+      }
+      // Si los datos están directamente en response.data
+      else if (Array.isArray(response.data)) {
+        faenasData = response.data;
+      }
+      // Si los datos están en response.data.faenas
+      else if (response.data && response.data.faenas && Array.isArray(response.data.faenas)) {
+        faenasData = response.data.faenas;
+      }
+
+      if (Array.isArray(faenasData) && faenasData.length > 0) {
         const opcionesFaenas = [
           { value: "todas", label: "Todas las faenas" },
-          ...response.data.map(faena => ({
+          ...faenasData.map(faena => ({
             value: faena.id_faena.toString(),
             label: faena.ubicacion
           }))
         ];
         setFaenas(opcionesFaenas);
+        console.log("Faenas cargadas correctamente:", opcionesFaenas);
       } else {
-        console.error("La respuesta no tiene el formato esperado:", response.data);
+        console.error("Los datos no son un array válido:", faenasData);
+        console.error("Tipo de datos:", typeof faenasData);
         setError("Formato de respuesta de faenas incorrecto");
       }
     } catch (err) {
@@ -313,6 +155,8 @@ function MainSimulacion() {
           dias_proyeccion: diasProyeccion
         }
       });
+
+      console.log("Respuesta de proyección:", response.data);
 
       if (response.data && response.data.status === "success") {
         setDatosProyeccion(response.data.data);
@@ -356,57 +200,80 @@ function MainSimulacion() {
     setMaquinaDetalles(maquinaData);
   }, [datosProyeccion]);
 
-  // Cálculos para la máquina seleccionada
+  // Cálculos para la máquina seleccionada - MEJORADO
   const calculos = useMemo(() => {
     if (!maquinaDetalles) return null;
 
+    const safeGetValue = (obj, path, defaultValue = 0) => {
+      const value = path.split('.').reduce((o, p) => o && o[p], obj);
+      return isValidNumber(value) ? value : defaultValue;
+    };
+
     return {
-      horometro: maquinaDetalles.detalle_historico.map(d => d.medicion),
-      cargas: maquinaDetalles.detalle_historico.map(d => d.carga),
-      horasTrabajadas: maquinaDetalles.detalle_historico.map(d => d.horas_trabajadas),
-      consumoReal: maquinaDetalles.detalle_historico.map(d => d.consumo_real),
-      totalHoras: maquinaDetalles.datos_totales.total_horas_trabajadas,
-      totalConsumo: maquinaDetalles.datos_totales.total_consumo_real,
-      rendimiento: maquinaDetalles.datos_totales.rendimiento,
-      promedioHoras: maquinaDetalles.datos_totales.promedio_horas_diario,
-      consumoSimuladoDiario: maquinaDetalles.datos_totales.consumo_simulado_diario,
-      simulacion: maquinaDetalles.detalle_proyeccion,
-      diasRegistrados: maquinaDetalles.datos_totales.total_registros - 1
+      // Datos históricos
+      mediciones: maquinaDetalles.detalle_historico?.map(d => safeGetValue(d, 'medicion')) || [],
+      cargas: maquinaDetalles.detalle_historico?.map(d => safeGetValue(d, 'carga')) || [],
+      diferenciaMedicionDiaria: maquinaDetalles.detalle_historico?.map(d => safeGetValue(d, 'diferencia_medicion_diaria')) || [],
+      consumoRealDiario: maquinaDetalles.detalle_historico?.map(d => safeGetValue(d, 'consumo_real_diario')) || [],
+      
+      // Totales
+      totalDiferenciaMedicion: safeGetValue(maquinaDetalles, 'datos_totales.total_diferencia_medicion'),
+      totalConsumo: safeGetValue(maquinaDetalles, 'datos_totales.total_consumo_real'),
+      rendimiento: safeGetValue(maquinaDetalles, 'datos_totales.rendimiento'),
+      promedioDiferenciaMedicionDiaria: safeGetValue(maquinaDetalles, 'datos_totales.promedio_diferencia_medicion_diaria'),
+      consumoSimuladoDiario: safeGetValue(maquinaDetalles, 'datos_totales.consumo_simulado_diario'),
+      
+      // Proyección
+      simulacion: maquinaDetalles.detalle_proyeccion || [],
+      diasRegistrados: safeGetValue(maquinaDetalles, 'datos_totales.total_registros', 0) - 1,
+
+      // Datos en rango
+      datosEnRango: {
+        consumoReal: safeGetValue(maquinaDetalles, 'datos_en_rango.consumo_real'),
+        diferenciaMedicion: safeGetValue(maquinaDetalles, 'datos_en_rango.diferencia_medicion'),
+        consumoProyectado: safeGetValue(maquinaDetalles, 'datos_en_rango.consumo_proyectado'),
+        diferenciaMedicionProyectada: safeGetValue(maquinaDetalles, 'datos_en_rango.diferencia_medicion_proyectada'),
+        consumoTotal: safeGetValue(maquinaDetalles, 'datos_en_rango.consumo_total'),
+        diferenciaMedicionTotal: safeGetValue(maquinaDetalles, 'datos_en_rango.diferencia_medicion_total')
+      }
     };
   }, [maquinaDetalles]);
 
-  // Datos para gráficos con formato mejorado para el eje X
+  // Datos para gráficos con formato mejorado - ACTUALIZADO
   const datosGrafico = useMemo(() => {
-    if (!calculos) return [];
+    if (!calculos || !maquinaDetalles) return [];
 
-    // Datos históricos para el gráfico con formato mejorado para las fechas
-    const datosHistoricos = maquinaDetalles.detalle_historico.map((d, index) => ({
-      dia: `Día ${index + 1} (${d.fecha})`,
-      fecha: d.fecha,
-      horas: d.horas_trabajadas || 0,
-      consumo: d.consumo_real || 0,
-      medicion: d.medicion,
-      carga: d.carga,
-      stockInicial: index > 0 ?
-        parseFloat(maquinaDetalles.detalle_historico[index - 1].carga) - parseFloat(d.consumo_real || 0) :
-        parseFloat(d.carga),
-      esReal: true,
-      esTipoHistorico: true
-    }));
+    // Datos históricos para el gráfico
+    const datosHistoricos = maquinaDetalles.detalle_historico?.map((d, index) => {
+      const stockInicial = index > 0 ?
+        parseFloat(maquinaDetalles.detalle_historico[index - 1].carga || 0) - parseFloat(d.consumo_real_diario || 0) :
+        parseFloat(d.carga || 0);
 
-    // Datos de proyección para el gráfico con formato mejorado para las fechas
-    const datosProyeccion = maquinaDetalles.detalle_proyeccion.map(p => ({
+      return {
+        dia: `Día ${index + 1} (${d.fecha})`,
+        fecha: d.fecha,
+        diferenciaMedicion: parseFloat(d.diferencia_medicion_diaria || 0),
+        consumo: parseFloat(d.consumo_real_diario || 0),
+        medicion: parseFloat(d.medicion || 0),
+        carga: parseFloat(d.carga || 0),
+        stockInicial: stockInicial,
+        esReal: true,
+        esTipoHistorico: true
+      };
+    }) || [];
+
+    // Datos de proyección para el gráfico
+    const datosProyeccion = maquinaDetalles.detalle_proyeccion?.map(p => ({
       dia: `Día ${p.dia} (${p.fecha})`,
       fecha: p.fecha,
-      horas: parseFloat(p.horas),
-      consumo: parseFloat(p.consumo),
-      stockInicial: parseFloat(p.stock_inicial),
-      stockFinal: parseFloat(p.stock_final),
+      diferenciaMedicion: parseFloat(p.medicion_diaria_proyectada || 0),
+      consumo: parseFloat(p.consumo_proyectado_diario || 0),
+      stockInicial: parseFloat(p.stock_inicial || 0),
+      stockFinal: parseFloat(p.stock_final || 0),
       esReal: false,
       esTipoHistorico: false
-    }));
+    })) || [];
 
-    // Unir datos y añadir un marcador para separar datos históricos de la proyección
     return [...datosHistoricos, ...datosProyeccion];
   }, [maquinaDetalles, calculos]);
 
@@ -415,27 +282,6 @@ function MainSimulacion() {
     if (!datosGrafico.length) return 0;
     return datosGrafico.findIndex(d => !d.esTipoHistorico);
   }, [datosGrafico]);
-
-  // Generar imagen del gráfico para PDF
-  const generarImagenGrafico = useCallback(async () => {
-    if (!graficoRef.current) return null;
-
-    try {
-      const dataUrl = await toPng(graficoRef.current);
-      setGraficoDataUrl(dataUrl);
-      return dataUrl;
-    } catch (error) {
-      console.error('Error al generar imagen del gráfico:', error);
-      return null;
-    }
-  }, []);
-
-  // Efecto para actualizar imagen del gráfico
-  useEffect(() => {
-    if (maquinaDetalles && calculos) {
-      generarImagenGrafico();
-    }
-  }, [maquinaDetalles, calculos, generarImagenGrafico]);
 
   // Componente para tooltips del gráfico
   const CustomTooltip = ({ active, payload, label }) => {
@@ -446,7 +292,7 @@ function MainSimulacion() {
           <p className="font-semibold">{data.fecha}</p>
           {payload.map((entry, index) => (
             <p key={`item-${index}`} style={{ color: entry.color }}>
-              {entry.name}: {entry.value.toLocaleString()}
+              {entry.name}: {formatNumber(entry.value)}
             </p>
           ))}
           <p className="text-xs mt-1 text-gray-500">
@@ -456,6 +302,18 @@ function MainSimulacion() {
       );
     }
     return null;
+  };
+
+  // Función para obtener el nombre de la unidad de medición
+  const getUnidadMedicion = () => {
+    if (!maquinaDetalles) return 'h';
+    return maquinaDetalles.tipo_medicion?.toLowerCase() === 'kilometraje' ? 'km' : 'h';
+  };
+
+  // Función para obtener el nombre descriptivo de la medición
+  const getNombreMedicion = () => {
+    if (!maquinaDetalles) return 'Horas';
+    return maquinaDetalles.tipo_medicion?.toLowerCase() === 'kilometraje' ? 'Kilómetros' : 'Horas';
   };
 
   return (
@@ -544,13 +402,13 @@ function MainSimulacion() {
           />
         )}
 
-        {/* Selector de máquina */}
-        {datosProyeccion && (
+        {/* Selector de máquina y estadísticas generales */}
+        {datosProyeccion && datosProyeccion.kpis_globales && (
           <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
             <h2 className="text-lg font-semibold mb-3 flex items-center">
               <FiTruck className="mr-2 text-blue-500" /> Seleccionar Máquina
             </h2>
-            
+
             <div className="mb-4">
               <select
                 value={maquinaSeleccionada?.value || ''}
@@ -566,22 +424,22 @@ function MainSimulacion() {
               </select>
             </div>
 
-            {/* Estadísticas generales */}
+            {/* Estadísticas generales - MEJORADAS */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
               <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
                 <h3 className="text-sm font-semibold text-blue-700 mb-1">Total Máquinas</h3>
-                <p className="text-2xl font-bold text-blue-800">{datosProyeccion.total_maquinas}</p>
+                <p className="text-2xl font-bold text-blue-800">{datosProyeccion.total_maquinas || 0}</p>
                 <div className="text-xs text-blue-600 mt-1">
-                  <span>{datosProyeccion.maquinas_con_consumo_real} con consumo real</span> •
-                  <span className="ml-1">{datosProyeccion.maquinas_con_proyeccion} con proyección</span>
+                  <span>{datosProyeccion.maquinas_con_consumo_real || 0} con consumo real</span> •
+                  <span className="ml-1">{datosProyeccion.maquinas_con_proyeccion || 0} con proyección</span>
                 </div>
               </div>
               <div className="bg-green-50 p-3 rounded-lg border border-green-100">
                 <h3 className="text-sm font-semibold text-green-700 mb-1">Consumo Total en Período</h3>
-                <p className="text-2xl font-bold text-green-800">{datosProyeccion.kpis_globales.consumo_total.toLocaleString()} L</p>
+                <p className="text-2xl font-bold text-green-800">{formatNumber(datosProyeccion.kpis_globales.consumo_total)} L</p>
                 <div className="text-xs text-green-600 mt-1">
-                  <span>{datosProyeccion.kpis_globales.consumo_total_real.toLocaleString()} L reales</span> •
-                  <span className="ml-1">{datosProyeccion.kpis_globales.consumo_total_proyectado.toLocaleString()} L proyectados</span>
+                  <span>{formatNumber(datosProyeccion.kpis_globales.consumo_total_real)} L reales</span> •
+                  <span className="ml-1">{formatNumber(datosProyeccion.kpis_globales.consumo_total_proyectado)} L proyectados</span>
                 </div>
               </div>
               <div className="bg-purple-50 p-3 rounded-lg border border-purple-100">
@@ -589,13 +447,13 @@ function MainSimulacion() {
                 <div className="flex justify-between">
                   <div>
                     <p className="text-xl font-bold text-purple-800">
-                      {datosProyeccion.kpis_globales.rendimiento_promedio_horometro.toLocaleString()} h/L
+                      {formatNumber(datosProyeccion.kpis_globales.rendimiento_promedio_horometro)} h/L
                     </p>
                     <div className="text-xs text-purple-600">Horómetro</div>
                   </div>
                   <div>
                     <p className="text-xl font-bold text-purple-800">
-                      {datosProyeccion.kpis_globales.rendimiento_promedio_kilometraje.toLocaleString()} km/L
+                      {formatNumber(datosProyeccion.kpis_globales.rendimiento_promedio_kilometraje)} km/L
                     </p>
                     <div className="text-xs text-purple-600">Kilometraje</div>
                   </div>
@@ -605,94 +463,62 @@ function MainSimulacion() {
           </div>
         )}
 
-        {/* Detalles de máquina seleccionada */}
+        {/* Detalles de máquina seleccionada - ACTUALIZADO */}
         {maquinaDetalles && calculos && (
           <div className="mb-6">
             <div className="flex justify-between mb-3">
               <h2 className="text-lg font-semibold flex items-center">
                 <FiClock className="mr-2 text-blue-500" /> Detalles de Proyección: {maquinaSeleccionada.label}
               </h2>
-              {graficoDataUrl && (
-                <PDFDownloadLink
-                  document={
-                    <ProyeccionPDF
-                      maquina={maquinaSeleccionada}
-                      calculos={calculos}
-                      periodo={{
-                        desde: fechaDesde,
-                        hasta: fechaHasta
-                      }}
-                      imagenGrafico={graficoDataUrl}
-                    />
-                  }
-                  fileName={`Proyeccion_${maquinaSeleccionada.value}_${new Date().toISOString().slice(0, 10)}.pdf`}
-                >
-                  {({ blob, url, loading, error }) => (
-                    <button
-                      className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md text-sm flex items-center transition-colors"
-                      disabled={loading}
-                    >
-                      <FiDownload className="mr-1" />
-                      {loading ? 'Generando...' : 'Exportar PDF'}
-                    </button>
-                  )}
-                </PDFDownloadLink>
-              )}
             </div>
 
-            {/* Información sobre consumo real vs proyectado para esta máquina */}
+            {/* Información sobre consumo real vs proyectado - MEJORADA */}
             <div className="bg-blue-50 p-4 mb-4 rounded-lg border border-blue-100">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <h3 className="text-sm font-semibold text-blue-800 mb-1">Consumo Real</h3>
-                  <p className="text-2xl font-bold text-blue-700">{maquinaDetalles.datos_en_rango.consumo_real.toLocaleString()} L</p>
+                  <p className="text-2xl font-bold text-blue-700">{formatNumber(calculos.datosEnRango.consumoReal)} L</p>
                   <p className="text-xs text-blue-600">
-                    {maquinaDetalles.tipo_medicion === 'horometro'
-                      ? `${maquinaDetalles.datos_en_rango.horas_trabajadas.toLocaleString()} horas trabajadas`
-                      : `${maquinaDetalles.datos_en_rango.horas_trabajadas.toLocaleString()} km recorridos`}
+                    {formatNumber(calculos.datosEnRango.diferenciaMedicion)} {getUnidadMedicion()} trabajadas
                   </p>
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-indigo-800 mb-1">Consumo Proyectado</h3>
-                  <p className="text-2xl font-bold text-indigo-700">{maquinaDetalles.datos_en_rango.consumo_proyectado.toLocaleString()} L</p>
+                  <p className="text-2xl font-bold text-indigo-700">{formatNumber(calculos.datosEnRango.consumoProyectado)} L</p>
                   <p className="text-xs text-indigo-600">
-                    {maquinaDetalles.tipo_medicion === 'horometro'
-                      ? `${maquinaDetalles.datos_en_rango.horas_proyectadas.toLocaleString()} horas proyectadas`
-                      : `${maquinaDetalles.datos_en_rango.horas_proyectadas.toLocaleString()} km proyectados`}
+                    {formatNumber(calculos.datosEnRango.diferenciaMedicionProyectada)} {getUnidadMedicion()} proyectadas
                   </p>
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-purple-800 mb-1">Consumo Total</h3>
-                  <p className="text-2xl font-bold text-purple-700">{maquinaDetalles.datos_en_rango.consumo_total.toLocaleString()} L</p>
+                  <p className="text-2xl font-bold text-purple-700">{formatNumber(calculos.datosEnRango.consumoTotal)} L</p>
                   <p className="text-xs text-purple-600">
-                    {maquinaDetalles.tipo_medicion === 'horometro'
-                      ? `${maquinaDetalles.datos_en_rango.horas_totales.toLocaleString()} horas totales`
-                      : `${maquinaDetalles.datos_en_rango.horas_totales.toLocaleString()} km totales`}
+                    {formatNumber(calculos.datosEnRango.diferenciaMedicionTotal)} {getUnidadMedicion()} totales
                   </p>
                 </div>
               </div>
 
-              {/* Barra de progreso */}
-              {maquinaDetalles.datos_en_rango.consumo_total > 0 && (
+              {/* Barra de progreso - MEJORADA */}
+              {calculos.datosEnRango.consumoTotal > 0 && (
                 <div className="mt-4">
                   <div className="h-4 bg-gray-200 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-blue-500"
                       style={{
-                        width: `${(maquinaDetalles.datos_en_rango.consumo_real / maquinaDetalles.datos_en_rango.consumo_total) * 100}%`,
+                        width: `${((calculos.datosEnRango.consumoReal || 0) / (calculos.datosEnRango.consumoTotal || 1)) * 100}%`,
                         transition: "width 0.5s ease-in-out"
                       }}
                     ></div>
                   </div>
                   <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>Real: {((maquinaDetalles.datos_en_rango.consumo_real / maquinaDetalles.datos_en_rango.consumo_total) * 100).toFixed(1)}%</span>
-                    <span>Proyectado: {((maquinaDetalles.datos_en_rango.consumo_proyectado / maquinaDetalles.datos_en_rango.consumo_total) * 100).toFixed(1)}%</span>
+                    <span>Real: {(((calculos.datosEnRango.consumoReal || 0) / (calculos.datosEnRango.consumoTotal || 1)) * 100).toFixed(1)}%</span>
+                    <span>Proyectado: {(((calculos.datosEnRango.consumoProyectado || 0) / (calculos.datosEnRango.consumoTotal || 1)) * 100).toFixed(1)}%</span>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Resumen de datos y cálculos */}
+            {/* Resumen de datos y cálculos - ACTUALIZADO */}
             <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 mb-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Información de la máquina */}
@@ -701,123 +527,101 @@ function MainSimulacion() {
                   <table className="min-w-full text-sm">
                     <tbody>
                       <tr>
-                        <td className="py-1 font-medium text-gray-600">ID:</td>
-                        <td className="py-1">{maquinaDetalles.id}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-1 font-medium text-gray-600">Nombre:</td>
-                        <td className="py-1">{maquinaDetalles.nombre}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-1 font-medium text-gray-600">Patente:</td>
-                        <td className="py-1">{maquinaDetalles.patente || "Sin patente"}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-1 font-medium text-gray-600">Tipo de Medición:</td>
-                        <td className="py-1 capitalize">{maquinaDetalles.tipo_medicion}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-1 font-medium text-gray-600">Estado:</td>
+                        <td className="py-1 font-medium text-gray-600">Último Registro:</td>
                         <td className="py-1">
-                          {maquinaDetalles.tiene_consumo_real
-                            ? <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Con consumo real</span>
-                            : <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">Solo proyección</span>
-                          }
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="py-1 font-medium text-gray-600">Total Registros:</td>
-                        <td className="py-1">{calculos.diasRegistrados + 1}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-1 font-medium text-gray-600">Último Consumo:</td>
-                        <td className="py-1">
-                          {maquinaDetalles.detalle_historico[maquinaDetalles.detalle_historico.length - 1].fecha}
+                          {maquinaDetalles.detalle_historico && maquinaDetalles.detalle_historico.length > 0
+                            ? maquinaDetalles.detalle_historico[maquinaDetalles.detalle_historico.length - 1].fecha
+                            : 'No disponible'}
                         </td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
 
-                {/* Resultados de cálculos */}
+                {/* Resultados de cálculos - MEJORADOS */}
                 <div>
                   <h3 className="text-md font-semibold mb-3 pb-2 border-b border-gray-200">Resultados de Cálculos</h3>
                   <table className="min-w-full text-sm">
                     <tbody>
                       <tr>
-                        <td className="py-1 font-medium text-gray-600">Total {maquinaDetalles.tipo_medicion === 'horometro' ? 'Horas' : 'Kilómetros'}:</td>
-                        <td className="py-1">{calculos.totalHoras.toLocaleString()} {maquinaDetalles.tipo_medicion === 'horometro' ? 'h' : 'km'}</td>
+                        <td className="py-1 font-medium text-gray-600">Total {getNombreMedicion()}:</td>
+                        <td className="py-1">{formatNumber(calculos.totalDiferenciaMedicion)} {getUnidadMedicion()}</td>
                       </tr>
                       <tr>
                         <td className="py-1 font-medium text-gray-600">Total Consumo:</td>
-                        <td className="py-1">{calculos.totalConsumo.toLocaleString()} L</td>
+                        <td className="py-1">{formatNumber(calculos.totalConsumo)} L</td>
                       </tr>
                       <tr>
                         <td className="py-1 font-medium text-gray-600">Rendimiento:</td>
-                        <td className="py-1">{calculos.rendimiento.toFixed(3)} {maquinaDetalles.tipo_medicion === 'horometro' ? 'h/L' : 'km/L'}</td>
+                        <td className="py-1">{calculos.rendimiento?.toFixed(3) || '0.000'} {getUnidadMedicion()}/L</td>
                       </tr>
                       <tr>
                         <td className="py-1 font-medium text-gray-600">Promedio Diario:</td>
-                        <td className="py-1">{calculos.promedioHoras.toFixed(2)} {maquinaDetalles.tipo_medicion === 'horometro' ? 'h/día' : 'km/día'}</td>
+                        <td className="py-1">{calculos.promedioDiferenciaMedicionDiaria?.toFixed(2) || '0.00'} {getUnidadMedicion()}/día</td>
                       </tr>
                       <tr>
                         <td className="py-1 font-medium text-gray-600">Consumo Simulado Diario:</td>
-                        <td className="py-1">{calculos.consumoSimuladoDiario.toFixed(2)} L/día</td>
+                        <td className="py-1">{calculos.consumoSimuladoDiario?.toFixed(2) || '0.00'} L/día</td>
                       </tr>
                       <tr>
                         <td className="py-1 font-medium text-gray-600">Días Proyectados:</td>
-                        <td className="py-1">{calculos.simulacion.length}</td>
+                        <td className="py-1">{calculos.simulacion?.length || 0}</td>
                       </tr>
                       <tr>
                         <td className="py-1 font-medium text-gray-600">Stock Actual:</td>
-                        <td className="py-1">{(calculos.simulacion[0]?.stock_inicial || 0).toLocaleString()} L</td>
+                        <td className="py-1">
+                          {calculos.simulacion && calculos.simulacion.length > 0
+                            ? formatNumber(calculos.simulacion[0].stock_inicial)
+                            : formatNumber(calculos.cargas && calculos.cargas.length > 0 ? calculos.cargas[calculos.cargas.length - 1] : 0)
+                          } L
+                        </td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
               </div>
 
-              {/* Gráfico mejorado */}
+              {/* Gráfico mejorado - ACTUALIZADO */}
               <div ref={graficoRef} className="mt-6 p-4 bg-white rounded-lg border border-gray-100">
                 <h3 className="text-md font-semibold mb-4 flex items-center">
                   <FaChartBar className="mr-2 text-blue-500" />
                   Gráfico de Consumo y Proyección
                 </h3>
-                <div className="h-120">
+                <div className="h-96">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart 
-                      data={datosGrafico} 
+                    <LineChart
+                      data={datosGrafico}
                       margin={{ top: 20, right: 30, left: 20, bottom: 50 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="dia" 
+                      <XAxis
+                        dataKey="dia"
                         height={60}
                         tick={<CustomizedAxisTick />}
                       />
                       <YAxis />
                       <Tooltip content={<CustomTooltip />} />
                       <Legend wrapperStyle={{ paddingTop: 10 }} />
-                      
+
                       {/* Línea de separación entre datos históricos y proyectados */}
                       {indiceSeparacion > 0 && (
-                        <ReferenceLine 
-                          x={datosGrafico[indiceSeparacion - 1]?.dia} 
-                          stroke="#888" 
+                        <ReferenceLine
+                          x={datosGrafico[indiceSeparacion - 1]?.dia}
+                          stroke="#888"
                           strokeDasharray="5 5"
-                          label={{ 
-                            value: 'Inicio Proyección', 
-                            position: 'top', 
+                          label={{
+                            value: 'Inicio Proyección',
+                            position: 'top',
                             fill: '#888',
                             fontSize: 12
-                          }} 
+                          }}
                         />
                       )}
-                      
+
                       <Line
                         type="monotone"
-                        dataKey="horas"
-                        name={maquinaDetalles.tipo_medicion === 'horometro' ? 'Horas Trabajadas' : 'Km Recorridos'}
+                        dataKey="diferenciaMedicion"
+                        name={`${getNombreMedicion()} Trabajadas`}
                         stroke="#3b82f6"
                         activeDot={{ r: 8 }}
                         strokeWidth={2}
@@ -845,7 +649,7 @@ function MainSimulacion() {
                 <div className="flex justify-center mt-4 text-sm text-gray-500">
                   <div className="flex items-center mr-4">
                     <div className="w-3 h-3 rounded-full bg-blue-500 mr-1"></div>
-                    <span>{maquinaDetalles.tipo_medicion === 'horometro' ? 'Horas Trabajadas' : 'Km Recorridos'}</span>
+                    <span>{getNombreMedicion()} Trabajadas</span>
                   </div>
                   <div className="flex items-center mr-4">
                     <div className="w-3 h-3 rounded-full bg-red-500 mr-1"></div>
@@ -880,7 +684,7 @@ function MainSimulacion() {
                 </ul>
               </div>
 
-              {/* Tabla de datos históricos */}
+              {/* Tabla de datos históricos - ACTUALIZADA */}
               <div id="tab-historico" className="mt-6">
                 <h3 className="text-md font-semibold mb-3 pb-2 border-b border-gray-200">Datos Históricos</h3>
                 <div className="overflow-x-auto">
@@ -890,36 +694,36 @@ function MainSimulacion() {
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Día</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {maquinaDetalles.tipo_medicion === 'horometro' ? 'Horómetro' : 'Kilometraje'}
+                          {maquinaDetalles.tipo_medicion === 'Kilometraje' ? 'Kilometraje' : 'Horómetro'}
                         </th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Carga (L)</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {maquinaDetalles.tipo_medicion === 'horometro' ? 'Horas Trabajadas' : 'Km Recorridos'}
+                          {getNombreMedicion()} Trabajadas
                         </th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Consumo Real (L)</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {calculos.horometro.map((h, index) => (
+                      {maquinaDetalles.detalle_historico?.map((d, index) => (
                         <tr key={`hist-${index}`} className={index === 0 ? 'bg-gray-50' : ''}>
-                          <td className="px-3 py-2">{index + 1}</td>
-                          <td className="px-3 py-2">{maquinaDetalles.detalle_historico[index]?.fecha || '-'}</td>
-                          <td className="px-3 py-2">{h.toLocaleString()}</td>
-                          <td className="px-3 py-2">{calculos.cargas[index].toLocaleString()}</td>
+                          <td className="px-3 py-2">{d.dia || index + 1}</td>
+                          <td className="px-3 py-2">{d.fecha || '-'}</td>
+                          <td className="px-3 py-2">{formatNumber(d.medicion)}</td>
+                          <td className="px-3 py-2">{formatNumber(d.carga)}</td>
                           <td className="px-3 py-2">
-                            {index === 0 ? '-' : calculos.horasTrabajadas[index].toLocaleString()}
+                            {index === 0 ? '-' : formatNumber(d.diferencia_medicion_diaria)}
                           </td>
                           <td className="px-3 py-2">
-                            {index === 0 ? '-' : calculos.consumoReal[index].toLocaleString()}
+                            {index === 0 ? '-' : formatNumber(d.consumo_real_diario)}
                           </td>
                         </tr>
-                      ))}
+                      )) || []}
                     </tbody>
                   </table>
                 </div>
               </div>
 
-              {/* Tabla de proyección */}
+              {/* Tabla de proyección - ACTUALIZADA */}
               <div id="tab-proyeccion" className="mt-6">
                 <h3 className="text-md font-semibold mb-3 pb-2 border-b border-gray-200">Proyección</h3>
                 <div className="overflow-x-auto">
@@ -929,7 +733,7 @@ function MainSimulacion() {
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Día</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          {maquinaDetalles.tipo_medicion === 'horometro' ? 'Horas Simuladas' : 'Km Simulados'}
+                          {getNombreMedicion()} Simuladas
                         </th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Consumo Simulado (L)</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock Inicial (L)</th>
@@ -937,29 +741,43 @@ function MainSimulacion() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {calculos.simulacion.map((sim, index) => (
-                        <tr key={`sim-${index}`} className={parseFloat(sim.stock_final) <= 0 ? 'bg-red-50' : ''}>
+                      {calculos.simulacion?.map((sim, index) => (
+                        <tr key={`sim-${index}`} className={parseFloat(sim.stock_final || 0) <= 0 ? 'bg-red-50' : ''}>
                           <td className="px-3 py-2">{sim.dia}</td>
                           <td className="px-3 py-2">{sim.fecha}</td>
-                          <td className="px-3 py-2">{parseFloat(sim.horas).toLocaleString()}</td>
-                          <td className="px-3 py-2">{parseFloat(sim.consumo).toLocaleString()}</td>
-                          <td className="px-3 py-2">{parseFloat(sim.stock_inicial).toLocaleString()}</td>
+                          <td className="px-3 py-2">{formatNumber(sim.medicion_diaria_proyectada)}</td>
+                          <td className="px-3 py-2">{formatNumber(sim.consumo_proyectado_diario)}</td>
+                          <td className="px-3 py-2">{formatNumber(sim.stock_inicial)}</td>
                           <td className="px-3 py-2">
-                            {parseFloat(sim.stock_final) <= 0 ? (
+                            {parseFloat(sim.stock_final || 0) <= 0 ? (
                               <span className="text-red-600 font-medium flex items-center">
                                 <FiAlertTriangle className="mr-1" />
-                                {parseFloat(sim.stock_final).toLocaleString()}
+                                {formatNumber(sim.stock_final)}
                               </span>
                             ) : (
-                              parseFloat(sim.stock_final).toLocaleString()
+                              formatNumber(sim.stock_final)
                             )}
                           </td>
                         </tr>
-                      ))}
+                      )) || []}
                     </tbody>
                   </table>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Debug: Mostrar información de depuración en desarrollo */}
+        {process.env.NODE_ENV === 'development' && maquinaDetalles && (
+          <div className="mb-6 bg-gray-100 p-4 rounded-lg">
+            <h3 className="font-semibold mb-2">Información de Depuración:</h3>
+            <div className="text-xs">
+              <p><strong>Tiene consumo real:</strong> {maquinaDetalles.tiene_consumo_real ? 'Sí' : 'No'}</p>
+              <p><strong>Tiene proyección:</strong> {maquinaDetalles.tiene_proyeccion ? 'Sí' : 'No'}</p>
+              <p><strong>Registros históricos:</strong> {maquinaDetalles.detalle_historico?.length || 0}</p>
+              <p><strong>Registros de proyección:</strong> {maquinaDetalles.detalle_proyeccion?.length || 0}</p>
+              <p><strong>Datos en rango disponibles:</strong> {maquinaDetalles.datos_en_rango ? 'Sí' : 'No'}</p>
             </div>
           </div>
         )}

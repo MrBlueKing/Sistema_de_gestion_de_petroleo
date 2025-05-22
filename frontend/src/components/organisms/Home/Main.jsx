@@ -45,7 +45,7 @@ const Main = () => {
           navigate("/administrador");
           break;
         case "toneladas":
-          navigate("/Distpach");
+          navigate("/IngresoToneladas");
           break;
         default:
           navigate("/login"); // En caso de que el rol no esté definido

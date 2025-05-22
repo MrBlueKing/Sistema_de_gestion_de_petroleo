@@ -1,6 +1,8 @@
 <?php
 
+
 namespace App\Http\Controllers\Api;
+
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -8,11 +10,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
+
 class ProyeccionConsumoController extends Controller
 {
     /**
      * Calcula la proyección avanzada de consumo para todas las máquinas en un rango de fechas
-     * incluyendo rendimientos y métricas para KPIs
+     * incluyendo rendimientos y métricas para KPIs.
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -24,7 +27,8 @@ class ProyeccionConsumoController extends Controller
             $faena = $request->query('faena', 'todas');
             $fechaDesde = $request->query('desde');
             $fechaHasta = $request->query('hasta');
-            $diasProyeccion = $request->query('dias_proyeccion', 4); // Por defecto 4 días como en tu ejemplo
+            $diasProyeccion = $request->query('dias_proyeccion', 4); // Por defecto 4 días
+
 
             // Validar fechas
             if (!$fechaDesde || !$fechaHasta) {
@@ -35,13 +39,16 @@ class ProyeccionConsumoController extends Controller
                 ], 400);
             }
 
+
             // Convertir fechas
             $fechaDesde = Carbon::parse($fechaDesde)->startOfDay();
-            $fechaHasta = Carbon::parse($fechaHasta)->startOfDay(); // No incluimos el último día completo
-            $hoy = Carbon::now()->endOfDay();
+            $fechaHasta = Carbon::parse($fechaHasta)->startOfDay();
+            $hoy = Carbon::now()->startOfDay(); // Usar startOfDay para coherencia
 
-            // Ajustar fecha hasta si es futura
+
+            // Ajustar fecha hasta si es futura (no se proyecta el futuro en datos reales)
             $fechaHastaEfectiva = $fechaHasta->gt($hoy) ? $hoy : $fechaHasta;
+
 
             // Estructuras para almacenar resultados
             $maquinasData = [];
@@ -55,6 +62,7 @@ class ProyeccionConsumoController extends Controller
                 'num_maquinas_horometro' => 0,
                 'num_maquinas_kilometraje' => 0,
             ];
+
 
             // 1. Obtener todas las máquinas que tienen datos de consumo
             $maquinasConRegistros = DB::table('consumos as c')
@@ -70,141 +78,221 @@ class ProyeccionConsumoController extends Controller
                 ->distinct()
                 ->get();
 
+
             // 2. Procesar cada máquina para obtener su historial completo y calcular proyección
             foreach ($maquinasConRegistros as $maquina) {
-                // Obtener TODO el historial de consumos ordenado por fecha (no limitado al rango de fechas)
+                // Obtener TODO el historial de consumos ordenado por fecha
                 $historialCompleto = DB::table('consumos')
                     ->where('id_equipo', $maquina->id)
                     ->orderBy('fecha_consumo', 'asc')
                     ->get();
+
 
                 // Si no hay suficientes datos (al menos 2 registros), no podemos proyectar
                 if ($historialCompleto->count() < 2) {
                     continue;
                 }
 
+
                 // Determinar tipo de medición
                 $tipoMedicion = $this->determinarTipoMedicion($maquina->id);
+                if (!$tipoMedicion) {
+                    Log::warning("No se pudo determinar el tipo de medición para la máquina interna ID: " . $maquina->id);
+                    $tipoMedicion = 'Horometro'; // Valor por defecto si no se encuentra
+                }
 
-                // Preparar arrays para los cálculos (similar a tu ejemplo React)
-                $fechas = [];
-                $horometro = [];
-                $cargas = [];
-                $horasTrabajadas = [];
-                $consumoReal = [];
-                $esReal = []; // Indica si el registro es real o proyectado
 
-                // Llenar los arrays con datos históricos
-                foreach ($historialCompleto as $index => $consumo) {
-                    $fechas[] = Carbon::parse($consumo->fecha_consumo)->format('Y-m-d');
-                    $horometro[] = floatval($consumo->medicion);
-                    $cargas[] = floatval($consumo->litros_consumidos);
-                    $esReal[] = true;
+                $fechasHistorial = [];
+                $medicionesHistorial = [];
+                $cargasHistorial = [];
 
-                    // Calcular horas trabajadas (a partir del segundo registro)
-                    if ($index > 0) {
-                        $horasTrabajadas[] = floatval($horometro[$index] - $horometro[$index - 1]);
-                    } else {
-                        $horasTrabajadas[] = 0; // El primer registro no tiene horas trabajadas previas
+
+                foreach ($historialCompleto as $consumo) {
+                    $fechasHistorial[] = Carbon::parse($consumo->fecha_consumo)->startOfDay();
+                    $medicionesHistorial[] = floatval($consumo->medicion);
+                    $cargasHistorial[] = floatval($consumo->litros_consumidos);
+                }
+
+
+                $intervalosValidos = [];
+                $primerFechaConActividad = null;
+                $ultimaFechaConActividad = null;
+
+
+                for ($i = 1; $i < count($medicionesHistorial); $i++) {
+                    $fechaAnterior = $fechasHistorial[$i - 1];
+                    $fechaActual = $fechasHistorial[$i];
+
+
+                    $medicionAnterior = $medicionesHistorial[$i - 1];
+                    $medicionActual = $medicionesHistorial[$i];
+
+
+                    $cargaAnterior = $cargasHistorial[$i - 1];
+
+
+                    // Calcular días transcurridos entre los registros (inclusive el día final)
+                    $diasTranscurridos = $fechaAnterior->diffInDays($fechaActual);
+
+
+                    // Si los registros son del mismo día o la medición no avanza, puede no ser un intervalo útil
+                    if ($diasTranscurridos === 0 && $medicionActual === $medicionAnterior) {
+                        continue;
                     }
 
-                    // El primer registro no tiene consumo real
-                    if ($index == 0) {
-                        $consumoReal[] = 0;
-                    } else {
-                        // El consumo real del día actual es la carga del día anterior
-                        $consumoReal[] = floatval($cargas[$index - 1]);
+
+                    $diferenciaMedicion = $medicionActual - $medicionAnterior;
+                    $consumoEnIntervalo = $cargaAnterior; // El consumo de este periodo es la carga del día anterior
+
+
+                    // Solo considerar intervalos con progreso y consumo válido
+                    if ($diferenciaMedicion >= 0 && $consumoEnIntervalo >= 0) {
+                        $intervalosValidos[] = [
+                            'dias' => $diasTranscurridos,
+                            'actividad' => $diferenciaMedicion,
+                            'consumo' => $consumoEnIntervalo,
+                            'fecha_inicio' => $fechaAnterior->format('Y-m-d'),
+                            'fecha_fin' => $fechaActual->format('Y-m-d'),
+                        ];
+
+
+                        if (is_null($primerFechaConActividad)) {
+                            $primerFechaConActividad = $fechaAnterior;
+                        }
+                        $ultimaFechaConActividad = $fechaActual;
                     }
                 }
 
-                // Calcular totales y rendimientos
-                $totalHoras = array_sum(array_slice($horasTrabajadas, 1)); // Excluir el primer día
-                $totalConsumo = array_sum(array_slice($consumoReal, 1)); // Excluir el primer día
 
-                // Evitar división por cero
-                $rendimiento = $totalConsumo > 0 ? $totalHoras / $totalConsumo : 0;
-                $diasRegistrados = count($horometro) - 1; // Excluir el primer día
-
-                $promedioHorasDiario = $diasRegistrados > 0 ? $totalHoras / $diasRegistrados : 0;
-                $consumoSimuladoDiario = $rendimiento > 0 ? $promedioHorasDiario / $rendimiento : 0;
-
-                // Verificar si hay datos reales en el rango seleccionado
-                $tieneConsumoRealEnRango = false;
-                $consumoRealEnRango = 0;
-                $horasTrabajadas_enRango = 0;
-
-                foreach ($historialCompleto as $index => $consumo) {
-                    $fechaConsumo = Carbon::parse($consumo->fecha_consumo);
-
-                    if ($fechaConsumo->between($fechaDesde, $fechaHastaEfectiva) && $index > 0) {
-                        $tieneConsumoRealEnRango = true;
-                        $consumoRealEnRango += $consumoReal[$index];
-                        $horasTrabajadas_enRango += $horasTrabajadas[$index];
-                    }
+                // Si no hay intervalos válidos para calcular promedios, saltar esta máquina
+                if (empty($intervalosValidos) || is_null($primerFechaConActividad) || is_null($ultimaFechaConActividad)) {
+                    continue;
                 }
 
-                // Realizar proyección (similar a tu lógica React)
+
+                $totalDiferenciaMedicionAcumulada = array_sum(array_column($intervalosValidos, 'actividad'));
+                $totalConsumoAcumulado = array_sum(array_column($intervalosValidos, 'consumo'));
+
+
+                $diasCubiertosPorHistorial = $primerFechaConActividad->diffInDays($ultimaFechaConActividad);
+                // Si el historial cubre 0 días (ej. solo 2 registros en el mismo día), no podemos proyectar
+                if ($diasCubiertosPorHistorial === 0) {
+                    continue;
+                }
+
+
+                // Calcular rendimiento promedio (actividad/litro)
+                $rendimientoPromedio = $totalConsumoAcumulado > 0 ? $totalDiferenciaMedicionAcumulada / $totalConsumoAcumulado : 0;
+
+
+                // Calcular promedio diario de actividad (actividad/día)
+                $promedioDiferenciaMedicionDiaria = $diasCubiertosPorHistorial > 0 ? $totalDiferenciaMedicionAcumulada / $diasCubiertosPorHistorial : 0;
+
+
+                // Calcular consumo diario simulado (litros/día)
+                $consumoSimuladoDiario = $rendimientoPromedio > 0 ? $promedioDiferenciaMedicionDiaria / $rendimientoPromedio : 0;
+
+
+                // Si el consumo simulado diario es 0 o el rendimiento es 0, no podemos proyectar de forma útil
+                if ($consumoSimuladoDiario <= 0 || $rendimientoPromedio <= 0) {
+                    continue;
+                }
+
+
+                // Preparar datos históricos detallados
+                $datosHistoricos = [];
+                for ($i = 0; $i < count($fechasHistorial); $i++) {
+                    // El consumo real para este día 'i' es la carga del día 'i-1'
+                    $consumoReal = ($i > 0) ? $cargasHistorial[$i - 1] : 0;
+                    // La diferencia de medición para este día 'i' es la diferencia entre medicion[i] y medicion[i-1]
+                    $diferenciaMedicion = ($i > 0) ? ($medicionesHistorial[$i] - $medicionesHistorial[$i - 1]) : 0;
+
+
+                    $datosHistoricos[] = [
+                        'dia' => $i + 1,
+                        'fecha' => $fechasHistorial[$i]->format('Y-m-d'),
+                        'medicion' => $medicionesHistorial[$i],
+                        'carga' => $cargasHistorial[$i],
+                        'diferencia_medicion_diaria' => round($diferenciaMedicion, 2),
+                        'consumo_real_diario' => round($consumoReal, 2),
+                        'es_real' => true
+                    ];
+                }
+
+
+                // Realizar proyección
                 $simulacion = [];
-                $ultimoIndice = count($horometro) - 1;
-                $stockInicial = $cargas[$ultimoIndice]; // Último valor de carga es el stock inicial
+                $ultimoIndiceReal = count($medicionesHistorial) - 1;
+                $ultimoStockReal = $cargasHistorial[$ultimoIndiceReal];
+                $ultimaFechaReal = $fechasHistorial[$ultimoIndiceReal];
+
+
+                $stockActualProyeccion = $ultimoStockReal;
+
 
                 for ($i = 1; $i <= $diasProyeccion; $i++) {
-                    $dia = $ultimoIndice + $i + 1; // +1 porque los índices empiezan en 0
-                    $consumo = $consumoSimuladoDiario;
-                    $stockFinal = max($stockInicial - $consumo, 0);
+                    $fechaProyectada = $ultimaFechaReal->copy()->addDays($i)->startOfDay();
+                    $consumoDiarioProyectado = $consumoSimuladoDiario;
+                    $stockFinalProyeccion = max($stockActualProyeccion - $consumoDiarioProyectado, 0);
+
 
                     $simulacion[] = [
-                        'dia' => $dia,
-                        'fecha' => Carbon::parse($fechas[$ultimoIndice])->addDays($i)->format('Y-m-d'),
-                        'horas' => round($promedioHorasDiario, 2),
-                        'consumo' => round($consumo, 2),
-                        'stock_inicial' => round($stockInicial, 2),
-                        'stock_final' => round($stockFinal, 2),
+                        'fecha' => $fechaProyectada->format('Y-m-d'),
+                        'medicion_diaria_proyectada' => round($promedioDiferenciaMedicionDiaria, 2),
+                        'consumo_proyectado_diario' => round($consumoDiarioProyectado, 2),
+                        'stock_inicial' => round($stockActualProyeccion, 2),
+                        'stock_final' => round($stockFinalProyeccion, 2),
                         'es_real' => false
                     ];
 
-                    $stockInicial = $stockFinal;
 
-                    // Si el stock llega a cero, detenemos la proyección
-                    if ($stockFinal <= 0) {
+                    $stockActualProyeccion = $stockFinalProyeccion;
+
+
+                    if ($stockFinalProyeccion <= 0) {
                         break;
                     }
                 }
 
-                // Determinar si algún dato proyectado cae en el rango seleccionado
-                $tieneProyeccionEnRango = false;
-                $consumoProyectadoEnRango = 0;
-                $horasProyectadasEnRango = 0;
 
-                foreach ($simulacion as $sim) {
-                    $fechaSim = Carbon::parse($sim['fecha']);
+                // Calcular consumo y actividad en el rango seleccionado (real + proyectado)
+                $consumoRealEnRango = 0;
+                $diferenciaMedicionRealEnRango = 0;
+                $tieneConsumoRealEnRango = false;
 
-                    if ($fechaSim->between($fechaDesde, $fechaHastaEfectiva)) {
-                        $tieneProyeccionEnRango = true;
-                        $consumoProyectadoEnRango += $sim['consumo'];
-                        $horasProyectadasEnRango += $sim['horas'];
+
+                foreach ($datosHistoricos as $dato) {
+                    $fechaDato = Carbon::parse($dato['fecha'])->startOfDay();
+                    if ($fechaDato->between($fechaDesde, $fechaHastaEfectiva)) {
+                        $consumoRealEnRango += $dato['consumo_real_diario'];
+                        $diferenciaMedicionRealEnRango += $dato['diferencia_medicion_diaria'];
+                        if ($dato['consumo_real_diario'] > 0 || $dato['diferencia_medicion_diaria'] > 0) {
+                            $tieneConsumoRealEnRango = true;
+                        }
                     }
                 }
+
+
+                $consumoProyectadoEnRango = 0;
+                $diferenciaMedicionProyectadaEnRango = 0;
+                $tieneProyeccionEnRango = false;
+
+
+                foreach ($simulacion as $sim) {
+                    $fechaSim = Carbon::parse($sim['fecha'])->startOfDay();
+                    if ($fechaSim->between($fechaDesde, $fechaHastaEfectiva)) {
+                        $consumoProyectadoEnRango += $sim['consumo_proyectado_diario'];
+                        $diferenciaMedicionProyectadaEnRango += $sim['medicion_diaria_proyectada'];
+                        $tieneProyeccionEnRango = true;
+                    }
+                }
+
 
                 // Solo incluir máquinas con datos en el rango (real o proyectado)
                 if (!$tieneConsumoRealEnRango && !$tieneProyeccionEnRango) {
                     continue;
                 }
 
-                // Generar datos detallados para esta máquina
-                $datosHistoricos = [];
-
-                for ($i = 0; $i < count($horometro); $i++) {
-                    $datosHistoricos[] = [
-                        'dia' => $i + 1,
-                        'fecha' => $fechas[$i],
-                        'medicion' => $horometro[$i],
-                        'carga' => $cargas[$i],
-                        'horas_trabajadas' => $horasTrabajadas[$i],
-                        'consumo_real' => $consumoReal[$i],
-                        'es_real' => true
-                    ];
-                }
 
                 // Preparar estructura de datos para esta máquina
                 $maquinaData = [
@@ -215,44 +303,49 @@ class ProyeccionConsumoController extends Controller
                     'tiene_consumo_real' => $tieneConsumoRealEnRango,
                     'tiene_proyeccion' => $tieneProyeccionEnRango,
                     'datos_totales' => [
-                        'total_registros' => count($horometro),
-                        'total_horas_trabajadas' => round($totalHoras, 2),
-                        'total_consumo_real' => round($totalConsumo, 2),
-                        'rendimiento' => round($rendimiento, 3),
-                        'promedio_horas_diario' => round($promedioHorasDiario, 2),
-                        'consumo_simulado_diario' => round($consumoSimuladoDiario, 2)
+                        'total_registros_historicos' => count($historialCompleto),
+                        'dias_cubiertos_historial' => $diasCubiertosPorHistorial,
+                        'total_diferencia_medicion_historica' => round($totalDiferenciaMedicionAcumulada, 2),
+                        'total_consumo_real_historico' => round($totalConsumoAcumulado, 2),
+                        'rendimiento_promedio_historico' => round($rendimientoPromedio, 3),
+                        'promedio_diferencia_medicion_diaria_calculado' => round($promedioDiferenciaMedicionDiaria, 2),
+                        'consumo_simulado_diario_calculado' => round($consumoSimuladoDiario, 2)
                     ],
                     'datos_en_rango' => [
                         'consumo_real' => round($consumoRealEnRango, 2),
-                        'horas_trabajadas' => round($horasTrabajadas_enRango, 2),
+                        'diferencia_medicion_real' => round($diferenciaMedicionRealEnRango, 2),
                         'consumo_proyectado' => round($consumoProyectadoEnRango, 2),
-                        'horas_proyectadas' => round($horasProyectadasEnRango, 2),
+                        'diferencia_medicion_proyectada' => round($diferenciaMedicionProyectadaEnRango, 2),
                         'consumo_total' => round($consumoRealEnRango + $consumoProyectadoEnRango, 2),
-                        'horas_totales' => round($horasTrabajadas_enRango + $horasProyectadasEnRango, 2)
+                        'diferencia_medicion_total' => round($diferenciaMedicionRealEnRango + $diferenciaMedicionProyectadaEnRango, 2)
                     ],
                     'detalle_historico' => $datosHistoricos,
                     'detalle_proyeccion' => $simulacion
                 ];
 
+
                 // Actualizar KPIs globales
-                if ($tipoMedicion == 'horometro') {
-                    $kpisGlobales['horas_trabajadas_total'] += $horasTrabajadas_enRango + $horasProyectadasEnRango;
+                if (strtolower($tipoMedicion) == 'horometro') {
+                    $kpisGlobales['horas_trabajadas_total'] += $maquinaData['datos_en_rango']['diferencia_medicion_total'];
                     $kpisGlobales['num_maquinas_horometro']++;
                 } else { // kilometraje
-                    $kpisGlobales['kilometros_recorridos_total'] += $horasTrabajadas_enRango + $horasProyectadasEnRango;
+                    $kpisGlobales['kilometros_recorridos_total'] += $maquinaData['datos_en_rango']['diferencia_medicion_total'];
                     $kpisGlobales['num_maquinas_kilometraje']++;
                 }
 
-                $kpisGlobales['consumo_total_real'] += $consumoRealEnRango;
-                $kpisGlobales['consumo_total_proyectado'] += $consumoProyectadoEnRango;
+
+                $kpisGlobales['consumo_total_real'] += $maquinaData['datos_en_rango']['consumo_real'];
+                $kpisGlobales['consumo_total_proyectado'] += $maquinaData['datos_en_rango']['consumo_proyectado'];
+
 
                 $maquinasData[] = $maquinaData;
             }
 
+
             // Calcular KPIs globales finales
             $consumoTotalGeneral = $kpisGlobales['consumo_total_real'] + $kpisGlobales['consumo_total_proyectado'];
 
-            // Rendimiento promedio (evitar división por cero)
+
             if ($consumoTotalGeneral > 0) {
                 if ($kpisGlobales['num_maquinas_horometro'] > 0) {
                     $kpisGlobales['rendimiento_promedio_horometro'] = round(
@@ -260,6 +353,7 @@ class ProyeccionConsumoController extends Controller
                         3
                     );
                 }
+
 
                 if ($kpisGlobales['num_maquinas_kilometraje'] > 0) {
                     $kpisGlobales['rendimiento_promedio_kilometraje'] = round(
@@ -269,13 +363,14 @@ class ProyeccionConsumoController extends Controller
                 }
             }
 
-            // Agregar porcentajes y valores completos
+
             $kpisGlobales['consumo_total'] = round($consumoTotalGeneral, 2);
             $kpisGlobales['porcentaje_proyectado'] = $consumoTotalGeneral > 0
                 ? round(($kpisGlobales['consumo_total_proyectado'] / $consumoTotalGeneral) * 100, 2)
                 : 0;
 
-            // Ordenar las máquinas (primero reales, luego proyecciones)
+
+            // Ordenar las máquinas
             usort($maquinasData, function ($a, $b) {
                 if ($a['tiene_consumo_real'] != $b['tiene_consumo_real']) {
                     return $b['tiene_consumo_real'] - $a['tiene_consumo_real']; // Primero los reales
@@ -283,15 +378,16 @@ class ProyeccionConsumoController extends Controller
                 return strcmp($a['nombre'], $b['nombre']); // Luego por nombre
             });
 
+
             // Preparar la respuesta
             $respuesta = [
                 'status' => 'success',
                 'data' => [
                     'periodo' => [
                         'desde' => $fechaDesde->toDateString(),
-                        'hasta' => $fechaHasta->toDateString(), // La fecha original seleccionada
+                        'hasta' => $fechaHasta->toDateString(),
                         'fecha_hasta_efectiva' => $fechaHastaEfectiva->toDateString(),
-                        'dias_totales' => $fechaDesde->diffInDays($fechaHasta) + 1
+                        'dias_totales_periodo_seleccionado' => $fechaDesde->diffInDays($fechaHasta) + 1
                     ],
                     'kpis_globales' => $kpisGlobales,
                     'total_maquinas' => count($maquinasData),
@@ -305,9 +401,612 @@ class ProyeccionConsumoController extends Controller
                 ]
             ];
 
+
             return response()->json($respuesta);
         } catch (\Exception $e) {
             Log::error('Error al obtener proyección avanzada', [
+                'error' => $e->getMessage(),
+                'linea' => $e->getLine(),
+                'archivo' => $e->getFile()
+            ]);
+
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al procesar la solicitud: ' . $e->getMessage(),
+                'data' => []
+            ], 500);
+        }
+    }
+
+
+    /**
+     * Devuelve todas las máquinas cuyo consumo real o proyectado alcanza hasta el día de ayer.
+     * Incluye los datos específicos de consumo y actividad para "ayer".
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getMaquinasConConsumoHastaAyer(Request $request)
+    {
+        try {
+            $faena = $request->query('faena', 'todas');
+
+
+            // La fecha objetivo es siempre "ayer"
+            $fechaHastaObjetivo = Carbon::now()->subDay()->startOfDay(); // Usamos startOfDay para la comparación precisa del día
+
+
+            $maquinasResultantes = [];
+
+
+            // 1. Obtener todas las máquinas que tienen datos de consumo
+            $maquinasConRegistros = DB::table('consumos as c')
+                ->join('maquinas_internas as mi', 'c.id_equipo', '=', 'mi.id_maquina_interna')
+                ->when($faena !== 'todas', function ($query) use ($faena) {
+                    return $query->where('c.id_faena', $faena);
+                })
+                ->select(
+                    'mi.id_maquina_interna as id',
+                    'mi.nombre',
+                    'mi.patente'
+                )
+                ->distinct()
+                ->get();
+
+
+            foreach ($maquinasConRegistros as $maquina) {
+                $historialCompleto = DB::table('consumos')
+                    ->where('id_equipo', $maquina->id)
+                    ->orderBy('fecha_consumo', 'asc')
+                    ->get();
+
+
+                if ($historialCompleto->count() < 2) {
+                    continue;
+                }
+
+
+                $tipoMedicion = $this->determinarTipoMedicion($maquina->id);
+                if (!$tipoMedicion) {
+                    Log::warning("No se pudo determinar el tipo de medición para la máquina interna ID: " . $maquina->id);
+                    $tipoMedicion = 'Horometro'; // Valor por defecto
+                }
+
+
+                $fechasHistorial = [];
+                $medicionesHistorial = [];
+                $cargasHistorial = [];
+
+
+                foreach ($historialCompleto as $consumo) {
+                    $fechasHistorial[] = Carbon::parse($consumo->fecha_consumo)->startOfDay();
+                    $medicionesHistorial[] = floatval($consumo->medicion);
+                    $cargasHistorial[] = floatval($consumo->litros_consumidos);
+                }
+
+
+                $intervalosValidos = [];
+                $primerFechaConActividad = null;
+                $ultimaFechaConActividad = null;
+
+
+                for ($i = 1; $i < count($medicionesHistorial); $i++) {
+                    $fechaAnterior = $fechasHistorial[$i - 1];
+                    $fechaActual = $fechasHistorial[$i];
+
+
+                    $medicionAnterior = $medicionesHistorial[$i - 1];
+                    $medicionActual = $medicionesHistorial[$i];
+
+
+                    $cargaAnterior = $cargasHistorial[$i - 1];
+
+
+                    $diasTranscurridos = $fechaAnterior->diffInDays($fechaActual);
+
+
+                    if ($diasTranscurridos === 0 && $medicionActual === $medicionAnterior) {
+                        continue;
+                    }
+
+
+                    $diferenciaMedicion = $medicionActual - $medicionAnterior;
+                    $consumoEnIntervalo = $cargaAnterior;
+
+
+                    if ($diferenciaMedicion >= 0 && $consumoEnIntervalo >= 0) {
+                        $intervalosValidos[] = [
+                            'dias' => $diasTranscurridos,
+                            'actividad' => $diferenciaMedicion,
+                            'consumo' => $consumoEnIntervalo,
+                            'fecha_inicio' => $fechaAnterior->format('Y-m-d'),
+                            'fecha_fin' => $fechaActual->format('Y-m-d'),
+                        ];
+
+
+                        if (is_null($primerFechaConActividad)) {
+                            $primerFechaConActividad = $fechaAnterior;
+                        }
+                        $ultimaFechaConActividad = $fechaActual;
+                    }
+                }
+
+
+                if (empty($intervalosValidos) || is_null($primerFechaConActividad) || is_null($ultimaFechaConActividad)) {
+                    continue;
+                }
+
+
+                $totalDiferenciaMedicionAcumulada = array_sum(array_column($intervalosValidos, 'actividad'));
+                $totalConsumoAcumulado = array_sum(array_column($intervalosValidos, 'consumo'));
+
+
+                $diasCubiertosPorHistorial = $primerFechaConActividad->diffInDays($ultimaFechaConActividad);
+                if ($diasCubiertosPorHistorial === 0) {
+                    continue;
+                }
+
+
+                $rendimientoPromedio = $totalConsumoAcumulado > 0 ? $totalDiferenciaMedicionAcumulada / $totalConsumoAcumulado : 0;
+                $promedioDiferenciaMedicionDiaria = $diasCubiertosPorHistorial > 0 ? $totalDiferenciaMedicionAcumulada / $diasCubiertosPorHistorial : 0;
+                $consumoSimuladoDiario = $rendimientoPromedio > 0 ? $promedioDiferenciaMedicionDiaria / $rendimientoPromedio : 0;
+
+
+                if ($consumoSimuladoDiario <= 0 || $rendimientoPromedio <= 0) {
+                    continue;
+                }
+
+
+                $alcanzaHastaAyer = false;
+                $consumoTotalAcumuladoHastaAyer = 0;
+                $diferenciaMedicionAcumuladaHastaAyer = 0;
+
+
+                $consumoAyer = 0;
+                $medicionAyer = 0;
+                $tipoDatoAyer = '';
+
+
+                // 1. Acumular y capturar datos reales hasta ayer
+                for ($i = 0; $i < count($fechasHistorial); $i++) {
+                    $fechaActualRegistro = $fechasHistorial[$i];
+
+                    // Si el registro actual es anterior o igual a ayer
+                    if ($fechaActualRegistro->lte($fechaHastaObjetivo)) {
+                        $alcanzaHastaAyer = true; // Al menos un registro real alcanza o supera ayer
+
+
+                        // Calcular actividad y consumo para este día/intervalo real
+                        $diferenciaMedicionIntervalo = ($i > 0) ? ($medicionesHistorial[$i] - $medicionesHistorial[$i - 1]) : 0;
+                        $consumoRealIntervalo = ($i > 0) ? $cargasHistorial[$i - 1] : 0; // Carga del día anterior
+
+
+                        // Acumular totales hasta ayer
+                        $consumoTotalAcumuladoHastaAyer += $consumoRealIntervalo;
+                        $diferenciaMedicionAcumuladaHastaAyer += $diferenciaMedicionIntervalo;
+
+
+                        // Si este registro es el de "ayer", capturarlo
+                        if ($fechaActualRegistro->eq($fechaHastaObjetivo)) {
+                            $consumoAyer = $consumoRealIntervalo;
+                            $medicionAyer = $diferenciaMedicionIntervalo;
+                            $tipoDatoAyer = 'real';
+                        }
+                    } else {
+                        // Si ya pasamos la fecha objetivo, no seguir acumulando reales
+                        break;
+                    }
+                }
+
+
+                // 2. Proyectar si el último registro real es anterior a ayer
+                $ultimoFechaRegistroReal = $fechasHistorial[count($fechasHistorial) - 1];
+                $ultimoStockReal = $cargasHistorial[count($cargasHistorial) - 1];
+
+
+                if ($ultimoFechaRegistroReal->lessThan($fechaHastaObjetivo)) {
+                    $stockActualProyeccion = $ultimoStockReal;
+                    $diasParaProyectarDesdeUltimoReal = $ultimoFechaRegistroReal->diffInDays($fechaHastaObjetivo);
+
+
+                    for ($i = 1; $i <= $diasParaProyectarDesdeUltimoReal; $i++) {
+                        $fechaProyectada = $ultimoFechaRegistroReal->copy()->addDays($i)->startOfDay();
+
+
+                        // Si la proyección se extiende más allá de ayer, no la usamos para "ayer"
+                        if ($fechaProyectada->greaterThan($fechaHastaObjetivo)) {
+                            break;
+                        }
+
+                        $consumoDiarioProyectado = $consumoSimuladoDiario;
+                        $medicionDiariaProyectada = $promedioDiferenciaMedicionDiaria;
+                        $stockFinalProyeccion = max($stockActualProyeccion - $consumoDiarioProyectado, 0);
+
+
+                        // Acumular los datos proyectados hasta ayer
+                        $consumoTotalAcumuladoHastaAyer += $consumoDiarioProyectado;
+                        $diferenciaMedicionAcumuladaHastaAyer += $medicionDiariaProyectada;
+                        $alcanzaHastaAyer = true;
+
+
+                        // Si la fecha proyectada es exactamente AYER, capturarla
+                        if ($fechaProyectada->eq($fechaHastaObjetivo)) {
+                            $consumoAyer = $consumoDiarioProyectado;
+                            $medicionAyer = $medicionDiariaProyectada;
+                            $tipoDatoAyer = 'proyectado';
+                        }
+
+
+                        $stockActualProyeccion = $stockFinalProyeccion;
+
+
+                        if ($stockFinalProyeccion <= 0) {
+                            // Se acabó el stock antes de llegar a ayer por proyección
+                            $alcanzaHastaAyer = false; // Ajustar si el stock se agota antes de ayer
+                            break;
+                        }
+                    }
+                }
+
+                // Si la máquina no alcanzó ayer (ni por datos reales ni por proyección), la omitimos.
+                if (!$alcanzaHastaAyer || $stockActualProyeccion <= 0 && $ultimoFechaRegistroReal->lessThan($fechaHastaObjetivo)) {
+                    continue;
+                }
+
+
+                // Si la máquina alcanzó ayer, pero no hubo actividad ni real ni proyectada ESE DÍA
+                if ($tipoDatoAyer === '') {
+                    $consumoAyer = 0;
+                    $medicionAyer = 0;
+                    $tipoDatoAyer = 'n/a';
+                }
+
+
+                $maquinasResultantes[] = [
+                    'id' => $maquina->id,
+                    'nombre' => $maquina->nombre,
+                    'patente' => $maquina->patente,
+                    'tipo_medicion' => $tipoMedicion,
+                    'fecha_corte_datos' => $fechaHastaObjetivo->toDateString(),
+                    'consumo_total_acumulado_hasta_ayer' => round($consumoTotalAcumuladoHastaAyer, 2),
+                    'diferencia_medicion_acumulada_hasta_ayer' => round($diferenciaMedicionAcumuladaHastaAyer, 2),
+                    'rendimiento_promedio_hasta_ayer' => $consumoTotalAcumuladoHastaAyer > 0 ? round($diferenciaMedicionAcumuladaHastaAyer / $consumoTotalAcumuladoHastaAyer, 3) : 0,
+                    'datos_ayer' => [
+                        'consumo_ayer' => round($consumoAyer, 2),
+                        'medicion_ayer' => round($medicionAyer, 2),
+                        'tipo_dato_ayer' => $tipoDatoAyer
+                    ]
+                ];
+            }
+
+
+            // Ordenar las máquinas por nombre
+            usort($maquinasResultantes, function ($a, $b) {
+                return strcmp($a['nombre'], $b['nombre']);
+            });
+
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Máquinas con consumo real o proyectado hasta el día de ayer, incluyendo detalles de ayer.',
+                'fecha_corte_solicitada' => $fechaHastaObjetivo->toDateString(),
+                'total_maquinas_encontradas' => count($maquinasResultantes),
+                'data' => $maquinasResultantes
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener máquinas con consumo hasta ayer', [
+                'error' => $e->getMessage(),
+                'linea' => $e->getLine(),
+                'archivo' => $e->getFile()
+            ]);
+
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al procesar la solicitud: ' . $e->getMessage(),
+                'data' => []
+            ], 500);
+        }
+    }
+
+
+    /**
+     * Determina el tipo de medición ('Horometro' o 'Kilometraje') para una máquina
+     * basándose en la categoría asociada en la base de datos.
+     *
+     * @param int $idMaquinaInterna El ID de la tabla 'maquinas_internas'.
+     * @return string|null 'Horometro' o 'Kilometraje', o null si no se encuentra.
+     */
+    private function determinarTipoMedicion($idMaquinaInterna)
+    {
+        try {
+            // Unir maquinas_internas con maquinas y luego con categoria_maquina
+            $tipoMedicion = DB::table('maquinas_internas as mi')
+                ->join('maquinas as m', 'mi.id_maquina', '=', 'm.id_maquina')
+                ->join('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria')
+                ->where('mi.id_maquina_interna', $idMaquinaInterna)
+                ->select('cm.tipo_medicion')
+                ->first();
+
+            if ($tipoMedicion && !empty($tipoMedicion->tipo_medicion)) {
+                return $tipoMedicion->tipo_medicion;
+            }
+
+            // Por defecto, si no se encuentra, asumimos Horometro
+            return null; // tipo de medición no determinado
+        } catch (\Exception $e) {
+            Log::error('Error al determinar tipo de medición desde DB', [
+                'id_maquina_interna' => $idMaquinaInterna,
+                'error' => $e->getMessage()
+            ]);
+            return null; // tipo de medición no determinado
+        }
+    }
+
+    /**
+     * Obtiene un resumen agregado de consumo y actividad para una faena en una fecha específica
+     * Pensado para alimentar el componente DailyKpiCalculator
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getResumenConsumoParaFecha(Request $request)
+    {
+        try {
+            $faena = $request->query('faena', 'todas');
+            $fecha = $request->query('fecha'); // Fecha específica (normalmente ayer)
+
+            // Validar fecha
+            if (!$fecha) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'El parámetro fecha es obligatorio',
+                    'data' => []
+                ], 400);
+            }
+
+            $fechaObjetivo = Carbon::parse($fecha)->startOfDay();
+            $maquinasConDatos = [];
+
+            // 1. Obtener todas las máquinas que tienen datos de consumo para la faena
+            $maquinasConRegistros = DB::table('consumos as c')
+                ->join('maquinas_internas as mi', 'c.id_equipo', '=', 'mi.id_maquina_interna')
+                ->when($faena !== 'todas', function ($query) use ($faena) {
+                    return $query->where('c.id_faena', $faena);
+                })
+                ->select(
+                    'mi.id_maquina_interna as id',
+                    'mi.nombre',
+                    'mi.patente'
+                )
+                ->distinct()
+                ->get();
+
+            $totalMaquinas = 0;
+            $maquinasConConsumoReal = 0;
+            $maquinasConProyeccion = 0;
+            $maquinasHorometro = 0;
+            $maquinasKilometraje = 0;
+
+            $consumoTotalReal = 0;
+            $consumoTotalProyectado = 0;
+            $horasTrabajadas = 0;
+            $kilometrosRecorridos = 0;
+
+            foreach ($maquinasConRegistros as $maquina) {
+                $historialCompleto = DB::table('consumos')
+                    ->where('id_equipo', $maquina->id)
+                    ->orderBy('fecha_consumo', 'asc')
+                    ->get();
+
+                if ($historialCompleto->count() < 2) {
+                    continue;
+                }
+
+                $tipoMedicion = $this->determinarTipoMedicion($maquina->id);
+                if (!$tipoMedicion) {
+                    $tipoMedicion = 'Horometro';
+                }
+
+                $fechasHistorial = [];
+                $medicionesHistorial = [];
+                $cargasHistorial = [];
+
+                foreach ($historialCompleto as $consumo) {
+                    $fechasHistorial[] = Carbon::parse($consumo->fecha_consumo)->startOfDay();
+                    $medicionesHistorial[] = floatval($consumo->medicion);
+                    $cargasHistorial[] = floatval($consumo->litros_consumidos);
+                }
+
+                // Calcular intervalos válidos y promedios (mismo lógica que en getMaquinasConConsumoHastaAyer)
+                $intervalosValidos = [];
+                $primerFechaConActividad = null;
+                $ultimaFechaConActividad = null;
+
+                for ($i = 1; $i < count($medicionesHistorial); $i++) {
+                    $fechaAnterior = $fechasHistorial[$i - 1];
+                    $fechaActual = $fechasHistorial[$i];
+                    $medicionAnterior = $medicionesHistorial[$i - 1];
+                    $medicionActual = $medicionesHistorial[$i];
+                    $cargaAnterior = $cargasHistorial[$i - 1];
+
+                    $diasTranscurridos = $fechaAnterior->diffInDays($fechaActual);
+
+                    if ($diasTranscurridos === 0 && $medicionActual === $medicionAnterior) {
+                        continue;
+                    }
+
+                    $diferenciaMedicion = $medicionActual - $medicionAnterior;
+                    $consumoEnIntervalo = $cargaAnterior;
+
+                    if ($diferenciaMedicion >= 0 && $consumoEnIntervalo >= 0) {
+                        $intervalosValidos[] = [
+                            'dias' => $diasTranscurridos,
+                            'actividad' => $diferenciaMedicion,
+                            'consumo' => $consumoEnIntervalo,
+                            'fecha_inicio' => $fechaAnterior->format('Y-m-d'),
+                            'fecha_fin' => $fechaActual->format('Y-m-d'),
+                        ];
+
+                        if (is_null($primerFechaConActividad)) {
+                            $primerFechaConActividad = $fechaAnterior;
+                        }
+                        $ultimaFechaConActividad = $fechaActual;
+                    }
+                }
+
+                if (empty($intervalosValidos) || is_null($primerFechaConActividad) || is_null($ultimaFechaConActividad)) {
+                    continue;
+                }
+
+                $totalDiferenciaMedicionAcumulada = array_sum(array_column($intervalosValidos, 'actividad'));
+                $totalConsumoAcumulado = array_sum(array_column($intervalosValidos, 'consumo'));
+                $diasCubiertosPorHistorial = $primerFechaConActividad->diffInDays($ultimaFechaConActividad);
+
+                if ($diasCubiertosPorHistorial === 0) {
+                    continue;
+                }
+
+                $rendimientoPromedio = $totalConsumoAcumulado > 0 ? $totalDiferenciaMedicionAcumulada / $totalConsumoAcumulado : 0;
+                $promedioDiferenciaMedicionDiaria = $diasCubiertosPorHistorial > 0 ? $totalDiferenciaMedicionAcumulada / $diasCubiertosPorHistorial : 0;
+                $consumoSimuladoDiario = $rendimientoPromedio > 0 ? $promedioDiferenciaMedicionDiaria / $rendimientoPromedio : 0;
+
+                if ($consumoSimuladoDiario <= 0 || $rendimientoPromedio <= 0) {
+                    continue;
+                }
+
+                // Determinar si hay datos reales para la fecha objetivo
+                $tieneConsumoRealEnFecha = false;
+                $consumoRealEnFecha = 0;
+                $actividadRealEnFecha = 0;
+
+                for ($i = 0; $i < count($fechasHistorial); $i++) {
+                    $fechaActualRegistro = $fechasHistorial[$i];
+
+                    if ($fechaActualRegistro->eq($fechaObjetivo)) {
+                        $actividadRealEnFecha = ($i > 0) ? ($medicionesHistorial[$i] - $medicionesHistorial[$i - 1]) : 0;
+                        $consumoRealEnFecha = ($i > 0) ? $cargasHistorial[$i - 1] : 0;
+                        $tieneConsumoRealEnFecha = true;
+                        break;
+                    }
+                }
+
+                // Si no hay datos reales para la fecha, usar proyección
+                $tieneProyeccionEnFecha = false;
+                $consumoProyectadoEnFecha = 0;
+                $actividadProyectadaEnFecha = 0;
+
+                $ultimoFechaRegistroReal = $fechasHistorial[count($fechasHistorial) - 1];
+
+                if (!$tieneConsumoRealEnFecha && $ultimoFechaRegistroReal->lessThan($fechaObjetivo)) {
+                    $consumoProyectadoEnFecha = $consumoSimuladoDiario;
+                    $actividadProyectadaEnFecha = $promedioDiferenciaMedicionDiaria;
+                    $tieneProyeccionEnFecha = true;
+                }
+
+                // Solo incluir máquinas que tengan datos para la fecha objetivo
+                if (!$tieneConsumoRealEnFecha && !$tieneProyeccionEnFecha) {
+                    continue;
+                }
+
+                $totalMaquinas++;
+
+                // Contadores por tipo de dato
+                if ($tieneConsumoRealEnFecha) {
+                    $maquinasConConsumoReal++;
+                }
+                if ($tieneProyeccionEnFecha) {
+                    $maquinasConProyeccion++;
+                }
+
+                // Contadores por tipo de medición
+                if (strtolower($tipoMedicion) == 'horometro') {
+                    $maquinasHorometro++;
+                } else {
+                    $maquinasKilometraje++;
+                }
+
+                // Acumular totales
+                $consumoTotalReal += $consumoRealEnFecha;
+                $consumoTotalProyectado += $consumoProyectadoEnFecha;
+
+                if (strtolower($tipoMedicion) == 'horometro') {
+                    $horasTrabajadas += $actividadRealEnFecha + $actividadProyectadaEnFecha;
+                } else {
+                    $kilometrosRecorridos += $actividadRealEnFecha + $actividadProyectadaEnFecha;
+                }
+
+                // Datos detallados de la máquina
+                $maquinasConDatos[] = [
+                    'id' => $maquina->id,
+                    'nombre' => $maquina->nombre,
+                    'patente' => $maquina->patente,
+                    'tipo_medicion' => $tipoMedicion,
+                    'tiene_consumo_real' => $tieneConsumoRealEnFecha,
+                    'tiene_proyeccion' => $tieneProyeccionEnFecha,
+                    'datos_totales' => [
+                        'total_registros' => count($historialCompleto),
+                        'rendimiento' => round($rendimientoPromedio, 3)
+                    ],
+                    'datos_en_rango' => [
+                        'consumo_real' => round($consumoRealEnFecha, 2),
+                        'consumo_proyectado' => round($consumoProyectadoEnFecha, 2),
+                        'consumo_total' => round($consumoRealEnFecha + $consumoProyectadoEnFecha, 2),
+                        'diferencia_medicion_real' => round($actividadRealEnFecha, 2),
+                        'diferencia_medicion_proyectada' => round($actividadProyectadaEnFecha, 2),
+                        'diferencia_medicion_total' => round($actividadRealEnFecha + $actividadProyectadaEnFecha, 2)
+                    ]
+                ];
+            }
+
+            // Calcular totales y promedios
+            $consumoTotal = $consumoTotalReal + $consumoTotalProyectado;
+            $porcentajeProyectado = $consumoTotal > 0 ? round(($consumoTotalProyectado / $consumoTotal) * 100, 2) : 0;
+
+            $rendimientoHorometro = 0;
+            $rendimientoKilometraje = 0;
+
+            if ($consumoTotal > 0) {
+                if ($maquinasHorometro > 0) {
+                    $rendimientoHorometro = round($horasTrabajadas / $consumoTotal, 3);
+                }
+                if ($maquinasKilometraje > 0) {
+                    $rendimientoKilometraje = round($kilometrosRecorridos / $consumoTotal, 3);
+                }
+            }
+
+            $promedioConsumoPorMaquina = $totalMaquinas > 0 ? round($consumoTotal / $totalMaquinas, 2) : 0;
+
+            // Estructura de respuesta optimizada para DailyKpiCalculator
+            $respuesta = [
+                'status' => 'success',
+                'message' => "Resumen de consumo para la fecha {$fechaObjetivo->toDateString()}",
+                'fecha_consultada' => $fechaObjetivo->toDateString(),
+                'data' => [
+                    'resumen' => [
+                        'consumo_total' => round($consumoTotal, 2),
+                        'consumo_total_real' => round($consumoTotalReal, 2),
+                        'consumo_total_proyectado' => round($consumoTotalProyectado, 2),
+                        'porcentaje_proyectado' => $porcentajeProyectado,
+                        'horas_trabajadas' => round($horasTrabajadas, 2),
+                        'kilometros_recorridos' => round($kilometrosRecorridos, 2),
+                        'total_maquinas' => $totalMaquinas,
+                        'maquinas_horometro' => $maquinasHorometro,
+                        'maquinas_kilometraje' => $maquinasKilometraje,
+                        'maquinas_con_consumo_real' => $maquinasConConsumoReal,
+                        'maquinas_con_proyeccion' => $maquinasConProyeccion,
+                        'rendimiento_horometro' => $rendimientoHorometro,
+                        'rendimiento_kilometraje' => $rendimientoKilometraje,
+                        'promedio_consumo_por_maquina' => $promedioConsumoPorMaquina
+                    ],
+                    'detalle_maquinas' => $maquinasConDatos
+                ]
+            ];
+
+            return response()->json($respuesta);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener resumen de consumo para fecha', [
                 'error' => $e->getMessage(),
                 'linea' => $e->getLine(),
                 'archivo' => $e->getFile()
@@ -320,81 +1019,4 @@ class ProyeccionConsumoController extends Controller
             ], 500);
         }
     }
-
-    /**
-     * Determina si una máquina usa horometro o kilometraje basado en su historial
-     * 
-     * @param int $idMaquina
-     * @return string 'horometro' o 'kilometraje'
-     */
-    private function determinarTipoMedicion($idMaquina)
-    {
-        // Esta implementación es una aproximación. Se debería adaptar según tu esquema de base de datos.
-        // Si tienes un campo que indica el tipo, úsalo directamente.
-        try {
-            // Intentar determinar por el nombre de la máquina
-            $maquina = DB::table('maquinas_internas')
-                ->where('id_maquina_interna', $idMaquina)
-                ->first();
-
-            if ($maquina) {
-                $nombre = strtolower($maquina->nombre);
-
-                // Verificar por palabras clave en el nombre
-                if (
-                    strpos($nombre, 'camion') !== false ||
-                    strpos($nombre, 'camión') !== false ||
-                    strpos($nombre, 'vehiculo') !== false ||
-                    strpos($nombre, 'vehículo') !== false
-                ) {
-                    return 'kilometraje';
-                }
-
-                if (
-                    strpos($nombre, 'excavadora') !== false ||
-                    strpos($nombre, 'tractor') !== false ||
-                    strpos($nombre, 'cargador') !== false ||
-                    strpos($nombre, 'retroexcavadora') !== false ||
-                    strpos($nombre, 'maquinaria') !== false
-                ) {
-                    return 'horometro';
-                }
-            }
-
-            // Si no podemos determinar por el nombre, verificamos el rango de mediciones
-            $ultimosMeses = Carbon::now()->subMonths(6);
-
-            $consumos = DB::table('consumos')
-                ->where('id_equipo', $idMaquina)
-                ->where('fecha_consumo', '>=', $ultimosMeses)
-                ->orderBy('fecha_consumo', 'desc')
-                ->limit(10)
-                ->get();
-
-            if ($consumos->isNotEmpty()) {
-                $minMedicion = $consumos->min('medicion');
-                $maxMedicion = $consumos->max('medicion');
-
-                // Si las mediciones son muy altas, probablemente es kilometraje
-                if ($maxMedicion > 10000) {
-                    return 'kilometraje';
-                } else {
-                    return 'horometro';
-                }
-            }
-
-            // Por defecto
-            return 'horometro';
-        } catch (\Exception $e) {
-            Log::warning('Error al determinar tipo de medición', [
-                'id_maquina' => $idMaquina,
-                'error' => $e->getMessage()
-            ]);
-
-            // Si hay error, asumir horometro por defecto
-            return 'horometro';
-        }
-    }
-
-    /* Los demás métodos del controlador se mantienen igual... */
 }

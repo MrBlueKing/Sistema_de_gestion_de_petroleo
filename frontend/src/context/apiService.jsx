@@ -165,6 +165,88 @@ const consumoService = {
       //console.log("ApiService: Using mock data after error:");
     }
   },
+
+  /**
+   * Obtiene los datos de consumo y proyección de máquinas para una faena específica y fecha
+   * @param {string|number} faena - ID de la faena o 'todas' para todas las faenas
+   * @param {string} fecha - Fecha en formato YYYY-MM-DD para la que se requiere la información
+   * @param {number} diasProyeccion - Número de días para proyectar (opcional, por defecto 1)
+   * @returns {Promise<Object>} - Resultado de la operación con datos de consumo y proyección
+   */
+  getConsumoProyeccionMaquinas: async (faena = 'todas', fecha = null, diasProyeccion = 1) => {
+    try {
+      // Si no se proporciona fecha, usar ayer
+      if (!fecha) {
+        const ayer = new Date();
+        ayer.setDate(ayer.getDate() - 1);
+        fecha = ayer.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+      }
+
+      // La fecha desde y hasta es la misma para obtener datos de un día específico
+      const params = {
+        faena: faena,
+        desde: fecha,
+        hasta: fecha,
+        dias_proyeccion: diasProyeccion
+      };
+
+      console.log('Solicitando proyección de consumo con los siguientes parámetros:', params);
+
+      // Llamar al endpoint de proyección avanzada
+      const response = await axios.get('/api/proyeccion-consumo', { params });
+
+      // Validar la respuesta
+      if (response.data && response.data.status === 'success' && response.data.data) {
+        console.log('Datos de proyección recibidos correctamente');
+        return {
+          status: 'success',
+          data: response.data.data
+        };
+      } else {
+        console.warn('La respuesta de la API no contiene los datos esperados', response.data);
+        return {
+          status: 'warning',
+          message: 'No se encontraron datos para los parámetros especificados',
+          data: null
+        };
+      }
+    } catch (error) {
+      console.error('Error al obtener consumo y proyección de máquinas:', error);
+
+      // Verificar el tipo de error para dar un mensaje más informativo
+      let errorMessage = 'Error al procesar la solicitud';
+
+      if (error.response) {
+        // Error de respuesta del servidor
+        errorMessage = `Error del servidor: ${error.response.status} - ${error.response.data?.message || 'No hay detalles'}`;
+      } else if (error.request) {
+        // Error sin respuesta (problemas de red)
+        errorMessage = 'No se pudo contactar con el servidor. Verifique su conexión.';
+      }
+
+      return {
+        status: 'error',
+        message: errorMessage,
+        data: null
+      };
+    }
+  },
+
+  /**
+   * Obtiene el consumo de máquinas específicamente para el día anterior
+   * (Método conveniente que encapsula getConsumoProyeccionMaquinas)
+   * @param {string|number} faena - ID de la faena o 'todas' para todas las faenas
+   * @returns {Promise<Object>} - Resultado de la operación con datos de consumo del día anterior
+   */
+  getConsumoMaquinasAyer: async (faena = 'todas') => {
+    // Calcular la fecha de ayer
+    const ayer = new Date();
+    ayer.setDate(ayer.getDate() - 1);
+    const fechaAyer = ayer.toISOString().split('T')[0];
+
+    // Usar la función principal con la fecha de ayer
+    return await consumoService.getConsumoProyeccionMaquinas(faena, fechaAyer, 0); // 0 días de proyección
+  }
 };
 
 // Servicio para gerencia - Actualización para soportar filtrado por faena
@@ -225,10 +307,10 @@ const gerenteService = {
         valoresEntrada.precio_combustible;
 
       const kpisCalculados = {
-        consumo_total: combustibleConsumido,
-        toneladas: toneladasExtraidas,
-        concentracion: leyMineral,
-        camionadas: numeroViajes,
+        consumo_total: valoresEntrada.combustible_consumido,
+        toneladas: valoresEntrada.toneladas_extraidas,
+        concentracion: valoresEntrada.ley_mineral,
+        camionadas: valoresEntrada.numero_viajes,
         costoTotal: costoTotal,
         costoTonelada:
           valoresEntrada.toneladas_extraidas > 0
@@ -329,7 +411,10 @@ const gerenteService = {
     }
   },
 
-  // Dentro del objeto consumoService
+  /**
+   * Obtiene las faenas disponibles en el sistema
+   * @returns {Promise<Object>} - Lista de faenas disponibles
+   */
   getFaenasDisponibles: async () => {
     try {
       const response = await axios.get("/api/faenas-disponibles");
@@ -347,6 +432,126 @@ const gerenteService = {
     } catch (error) {
       console.error("Error al obtener faenas disponibles:", error);
       return { status: 'error', data: [], message: 'Error al conectar con el servidor' };
+    }
+  },
+
+  /**
+   * NUEVA FUNCIÓN: Obtiene un resumen agregado de consumo para una fecha específica
+   * Optimizada para alimentar el componente DailyKpiCalculator
+   * @param {string|number} faena - ID de la faena o 'todas' para todas las faenas
+   * @param {string} fecha - Fecha en formato YYYY-MM-DD (por defecto, usa ayer)
+   * @returns {Promise<Object>} - Resumen agregado de consumo y actividad
+   */
+  getResumenConsumoParaFecha: async (faena = 'todas', fecha = null) => {
+    try {
+      // Si no se proporciona fecha, usar ayer
+      if (!fecha) {
+        const ayer = new Date();
+        ayer.setDate(ayer.getDate() - 1);
+        fecha = ayer.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+      }
+
+      const params = {
+        faena: faena,
+        fecha: fecha
+      };
+
+      console.log('Solicitando resumen de consumo para fecha con parámetros:', params);
+
+      // Llamar al nuevo endpoint de resumen para fecha específica
+      const response = await axios.get('/api/consumo-resumen-fecha', { params });
+
+      // Validar la respuesta
+      if (response.data && response.data.status === 'success' && response.data.data) {
+        console.log('Resumen de consumo recibido correctamente para fecha:', fecha);
+        return {
+          status: 'success',
+          data: response.data.data,
+          fecha_consultada: response.data.fecha_consultada,
+          message: response.data.message
+        };
+      } else {
+        console.warn('La respuesta de la API no contiene los datos esperados', response.data);
+        return {
+          status: 'warning',
+          message: 'No se encontraron datos para la fecha especificada',
+          data: null
+        };
+      }
+    } catch (error) {
+      console.error('Error al obtener resumen de consumo para fecha:', error);
+
+      // Verificar el tipo de error para dar un mensaje más informativo
+      let errorMessage = 'Error al procesar la solicitud';
+
+      if (error.response) {
+        // Error de respuesta del servidor
+        errorMessage = `Error del servidor: ${error.response.status} - ${error.response.data?.message || 'No hay detalles'}`;
+      } else if (error.request) {
+        // Error sin respuesta (problemas de red)
+        errorMessage = 'No se pudo contactar con el servidor. Verifique su conexión.';
+      }
+
+      return {
+        status: 'error',
+        message: errorMessage,
+        data: null
+      };
+    }
+  },
+
+  /**
+   * MÉTODO ACTUALIZADO: Obtiene las proyecciones de consumo de máquinas
+   * Ahora usa la nueva función de resumen para el DailyKpiCalculator
+   * @param {string|number} faena - ID de la faena o 'todas' para todas las faenas
+   * @param {string} fecha - Fecha opcional en formato YYYY-MM-DD (por defecto, usa ayer)
+   * @returns {Promise<Object>} - Proyecciones de consumo de máquinas
+   */
+  getConsumoProyeccionMaquinas: async (faena = 'todas', fecha = null) => {
+    try {
+      // Para el DailyKpiCalculator, usar la nueva función optimizada
+      const resultado = await gerenteService.getResumenConsumoParaFecha(faena, fecha);
+
+      if (resultado.status !== 'success' || !resultado.data) {
+        return resultado; // Devolver el error o advertencia original
+      }
+
+      // Los datos ya vienen en el formato correcto desde el nuevo endpoint
+      return {
+        status: 'success',
+        data: resultado.data,
+        fecha_consultada: resultado.fecha_consultada
+      };
+    } catch (error) {
+      console.error('Error al procesar proyecciones para gerencia:', error);
+      return {
+        status: 'error',
+        message: 'Error al obtener datos de proyección: ' + error.message,
+        data: null
+      };
+    }
+  },
+
+  /**
+   * FUNCIÓN ALTERNATIVA: Para casos que necesiten datos detallados de proyección
+   * Usa el endpoint original con rangos de fechas y proyecciones completas
+   * @param {string|number} faena - ID de la faena o 'todas' para todas las faenas
+   * @param {string} fechaDesde - Fecha de inicio en formato YYYY-MM-DD
+   * @param {string} fechaHasta - Fecha de fin en formato YYYY-MM-DD
+   * @param {number} diasProyeccion - Días de proyección futura
+   * @returns {Promise<Object>} - Datos completos de proyección por rango
+   */
+  getProyeccionCompletaPorRango: async (faena = 'todas', fechaDesde = null, fechaHasta = null, diasProyeccion = 7) => {
+    try {
+      // Usar el servicio original para datos completos
+      return await consumoService.getConsumoProyeccionMaquinas(faena, fechaDesde, diasProyeccion);
+    } catch (error) {
+      console.error('Error al obtener proyección completa por rango:', error);
+      return {
+        status: 'error',
+        message: 'Error al obtener proyección completa: ' + error.message,
+        data: null
+      };
     }
   }
 };
