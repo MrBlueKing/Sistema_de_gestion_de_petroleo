@@ -338,28 +338,24 @@ const EstanquesModal = ({
         style={{ height: isMobile ? "100vh" : "auto" }}
       >
         {/* Encabezado del modal */}
-        <div className="bg-orange-600 px-6 py-4 md:px-8 md:py-5 sticky top-0 z-10">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-white text-lg md:text-xl font-semibold tracking-tight">
-                {paso === "inicial"
-                  ? "Registro de Niveles Iniciales"
-                  : "Registro de Niveles Finales"}
-              </h2>
-              <p className="text-orange-100 text-xs md:text-sm mt-1 max-w-2xl">
-                {paso === "inicial"
-                  ? "Ingrese las mediciones de altura de combustible antes de la recepción"
-                  : "Ingrese las mediciones de altura después de la recepción"}
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-white opacity-80 hover:opacity-100 focus:outline-none p-2 hover:bg-orange-700 rounded-lg transition-all"
-              aria-label="Cerrar"
-            >
-              <FaTimes size={18} />
-            </button>
-          </div>
+        <div className="bg-orange-600 px-6 py-4 md:px-8 md:py-5 sticky top-0 z-10 relative">
+          <h2 className="text-white text-lg md:text-xl font-semibold tracking-tight text-center">
+            {paso === "inicial"
+              ? "Registro de Niveles Iniciales"
+              : "Registro de Niveles Finales"}
+          </h2>
+          <p className="text-orange-100 text-xs md:text-sm mt-1 text-center max-w-2xl mx-auto">
+            {paso === "inicial"
+              ? "Ingrese las mediciones de altura de combustible antes de la recepción"
+              : "Ingrese las mediciones de altura después de la recepción"}
+          </p>
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 text-white opacity-80 hover:opacity-100 focus:outline-none p-2 hover:bg-orange-700 rounded-lg transition-all"
+            aria-label="Cerrar"
+          >
+            <FaTimes size={18} />
+          </button>
         </div>
 
         {/* Contenido del modal */}
