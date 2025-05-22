@@ -121,7 +121,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 Route::middleware('auth:sanctum')->get('/usuarios/recientes', [UserController::class, 'recientes']);
 
 // Ruta para GERENTE
-Route::apiResource('kpi-valores-entrada', KpiValoresEntradaController::class);
+Route::apiResource('/kpi-valores-entrada', KpiValoresEntradaController::class);
 Route::get('/informes-kpi', [InformeKpiController::class, 'index']);
 Route::get('/informes-kpi/test', [InformeKpiController::class, 'test']);
 Route::get('/informes-kpi/mes-anterior', [InformeKpiController::class, 'obtenerValoresMesAnterior']);
@@ -130,25 +130,27 @@ Route::get('/informes-kpi/mes-anterior', [InformeKpiController::class, 'obtenerV
 Route::get('/proyeccion-consumo', [ProyeccionConsumoController::class, 'getProyeccionAvanzada']);
 Route::get('/proyeccion-consumo/equipos', [ProyeccionConsumoController::class, 'getEquiposConUltimoConsumo']);
 
+// Ruta para proyeccion de consumos del dia de ayer
+Route::get('/proyeccion-consumo-ayer', [ProyeccionConsumoController::class, 'getMaquinasConConsumoHastaAyer']);
+
+// Ruta para proyeccion de consumo del dia de ayer v2
+Route::get('/consumo-resumen-fecha', [ProyeccionConsumoController::class, 'getResumenConsumoParaFecha']);
+
+
 // Nuevas rutas para proyección en rango
 Route::get('/proyeccion-consumo/rango', [ProyeccionConsumoController::class, 'getMaquinasConConsumoEnRango']);
 Route::get('/proyeccion-consumo/reporte', [ProyeccionConsumoController::class, 'getReporteProyeccionPorPeriodo']);
 
 // Ruta para obtener lista de faenas (usada en los filtros)
-Route::get('/faenas', function () {
-    return \Illuminate\Support\Facades\DB::table('faenas')
-        ->select('id_faena', 'ubicacion')
-        ->orderBy('ubicacion')
-        ->get();
-});
-// Ruta para obtener lista de faenas (usada en los filtros)
-Route::get('/faenas', function () {
+Route::get('/faenas-2', function () {
     return \Illuminate\Support\Facades\DB::table('faenas')
         ->select('id_faena', 'ubicacion')
         ->orderBy('ubicacion')
         ->get();
 });
 
+
+// Calculo de kpis de Distpach
 Route::post('/calcular-kpis', [KpiCalculoController::class, 'calcular']);
 
 Route::get('/datos-mes-anterior', [InformeKpiController::class, 'obtenerValoresMesAnterior']);

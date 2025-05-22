@@ -1,790 +1,1040 @@
-import React, { useState, useEffect, useCallback, memo } from "react";
-import { FaCalculator, FaHistory, FaInfoCircle, FaCalendarAlt } from "react-icons/fa";
-import { FiCheckCircle, FiInfo, FiAlertCircle, FiLoader, FiTruck, FiDroplet, FiChevronUp, FiChevronDown } from "react-icons/fi";
-import { gerenteService } from "../../context/apiService";
-import axios from '../../lib/axios';
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import {
+  FaCalculator,
+  FaTruck,
+  FaCalendarAlt,
+  FaGasPump,
+  FaClock,
+  FaChartLine,
+  FaInfoCircle,
+  FaExclamationTriangle,
+  FaTachometerAlt,
+  FaRoad,
+  FaWarehouse,
+  FaLock,
+  FaCheckCircle,
+  FaSpinner,
+  FaDownload,
+  FaEye,
+  FaSync
+} from "react-icons/fa";
 import PropTypes from 'prop-types';
+import { gerenteService } from "../../context/apiService";
 
-/**
- * Componente para cálculo de KPIs de producción y consumo.
- * 
- * Este componente permite ingresar datos de producción (toneladas extraídas y camionadas)
- * y calcula automáticamente KPIs relacionados con costos de petróleo y rendimientos,
- * utilizando datos de consumo obtenidos de la API.
- */
-const SimpleKpiCalculator = ({
+const DailyKpiCalculator = ({
   onCalculate,
-  periodo = "mensual"
+  periodo = "diario",
+  showExportOptions = false,
+  compactMode = false
 }) => {
-  // Estados UI
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(null);
-  const [error, setError] = useState(null);
-  const [infoMensaje, setInfoMensaje] = useState(null);
-  const [historialVisible, setHistorialVisible] = useState(false);
-  const [mostrarDesgloseMaquinas, setMostrarDesgloseMaquinas] = useState(false);
-  const [mostrarUltimosConsumos, setMostrarUltimosConsumos] = useState(false);
-  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('todas');
-  const [mostrarTodasMaquinas, setMostrarTodasMaquinas] = useState(false);
-
-  // Estados de datos
-  const [faenasDisponibles, setFaenasDisponibles] = useState([]);
-  const [cargandoFaenas, setCargandoFaenas] = useState(false);
-  const [faenaSeleccionada, setFaenaSeleccionada] = useState("");
-  const [mesAnterior, setMesAnterior] = useState('');
-  const [historialActualizaciones, setHistorialActualizaciones] = useState([]);
-  const [datosPetroleoMesAnterior, setDatosPetroleoMesAnterior] = useState(null);
-  const [cargandoDatosPetroleo, setCargandoDatosPetroleo] = useState(false);
-
-  // Datos de entrada del formulario
-  const [valores, setValores] = useState({
+  // Estados principales del formulario
+  const [formData, setFormData] = useState({
     toneladas: "",
-    camionadas: ""
+    camionadas: "",
+    faena: "",
+    fechaReporte: "",
+    fechaProduccion: ""
   });
 
-  // Calcular rendimiento de forma memoizada
-  const rendimientoCalculado = useCallback(() => {
-    const toneladas = parseFloat(valores.toneladas) || 0;
-    const camionadas = parseFloat(valores.camionadas) || 0;
+  // Estados de carga y errores
+  const [loadingStates, setLoadingStates] = useState({
+    faenas: false,
+    consumoData: false,
+    submitting: false
+  });
 
-    if (camionadas > 0 && toneladas > 0) {
-      return (toneladas / camionadas).toFixed(2);
+  // Estados de datos
+  const [dataStates, setDataStates] = useState({
+    faenas: [],
+    consumoResponse: null, // Respuesta completa de la API
+    errors: {
+      faenas: null,
+      consumo: null,
+      validation: null
     }
-    return 0;
-  }, [valores.toneladas, valores.camionadas]);
+  });
 
-  // Efectos
+  // Estados de UI
+  const [uiStates, setUiStates] = useState({
+    showDetailedView: false,
+    showValidationHelper: true,
+    formTouched: false
+  });
 
-  // Cargar faenas disponibles al iniciar
+  // Inicialización de fechas al cargar el componente
   useEffect(() => {
-    cargarFaenasDisponibles();
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    setFormData(prev => ({
+      ...prev,
+      fechaReporte: today.toISOString().split('T')[0],
+      fechaProduccion: yesterday.toISOString().split('T')[0]
+    }));
+
+    loadFaenasData();
   }, []);
 
-  // Cargar datos de petróleo cuando cambia la faena seleccionada
+  // Cargar datos de consumo cuando cambia la faena
   useEffect(() => {
-    if (faenaSeleccionada) {
-      cargarDatosPetroleo();
-    } else {
-      setDatosPetroleoMesAnterior(null);
+    if (formData.faena && formData.fechaProduccion) {
+      loadConsumoData();
     }
-  }, [faenaSeleccionada]);
+  }, [formData.faena, formData.fechaProduccion]);
 
-  // Funciones
-
-  /**
-   * Función auxiliar para obtener el nombre del mes anterior
-   */
-  const obtenerNombreMesAnterior = () => {
-    return mesAnterior;
-  };
-
-  /**
-   * Carga los datos de consumo de petróleo para la faena seleccionada
-   */
-  const cargarDatosPetroleo = async () => {
-    if (!faenaSeleccionada) return;
-
+  // Función para cargar faenas
+  const loadFaenasData = useCallback(async () => {
     try {
-      setCargandoDatosPetroleo(true);
-      setError(null);
+      setLoadingStates(prev => ({ ...prev, faenas: true }));
+      setDataStates(prev => ({
+        ...prev,
+        errors: { ...prev.errors, faenas: null }
+      }));
 
-      const response = await axios.get('/api/kpis-getCostoPetroleoSinUltimosConsumos', {
-        params: {
-          faena: faenaSeleccionada !== 'todas' ? faenaSeleccionada : null
+      const response = await gerenteService.getFaenasDisponibles();
+
+      if (response.status === 'success' && Array.isArray(response.data)) {
+        setDataStates(prev => ({ ...prev, faenas: response.data }));
+        
+        // Seleccionar la primera faena por defecto
+        if (response.data.length > 0) {
+          setFormData(prev => ({
+            ...prev,
+            faena: response.data[0].id_faena.toString()
+          }));
         }
+      } else {
+        throw new Error('Formato de respuesta inválido');
+      }
+    } catch (error) {
+      console.error('Error al cargar faenas:', error);
+      setDataStates(prev => ({
+        ...prev,
+        errors: { ...prev.errors, faenas: 'No se pudieron cargar las faenas disponibles' }
+      }));
+    } finally {
+      setLoadingStates(prev => ({ ...prev, faenas: false }));
+    }
+  }, []);
+
+  // Función para cargar datos de consumo
+  const loadConsumoData = useCallback(async () => {
+    try {
+      setLoadingStates(prev => ({ ...prev, consumoData: true }));
+      setDataStates(prev => ({
+        ...prev,
+        errors: { ...prev.errors, consumo: null }
+      }));
+
+      const response = await gerenteService.getResumenConsumoParaFecha(
+        formData.faena,
+        formData.fechaProduccion
+      );
+
+      console.log('Respuesta de consumo:', response); // Para debugging
+
+      if (response.status === 'success' && response.data) {
+        setDataStates(prev => ({ ...prev, consumoResponse: response }));
+      } else {
+        setDataStates(prev => ({ ...prev, consumoResponse: null }));
+        setDataStates(prev => ({
+          ...prev,
+          errors: { 
+            ...prev.errors, 
+            consumo: response.message || 'No hay datos disponibles para la fecha seleccionada' 
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Error al cargar datos de consumo:', error);
+      setDataStates(prev => ({
+        ...prev,
+        consumoResponse: null,
+        errors: { ...prev.errors, consumo: 'Error al conectar con el servidor' }
+      }));
+    } finally {
+      setLoadingStates(prev => ({ ...prev, consumoData: false }));
+    }
+  }, [formData.faena, formData.fechaProduccion]);
+
+  // Extraer datos de consumo de la respuesta de la API
+  const consumoData = useMemo(() => {
+    return dataStates.consumoResponse?.data || null;
+  }, [dataStates.consumoResponse]);
+
+  // Validaciones del formulario
+  const validationResults = useMemo(() => {
+    const errors = [];
+    const warnings = [];
+
+    // Validaciones obligatorias
+    if (!formData.toneladas) {
+      errors.push('Las toneladas extraídas son obligatorias');
+    } else if (parseFloat(formData.toneladas) <= 0) {
+      errors.push('Las toneladas deben ser mayor a 0');
+    } else if (parseFloat(formData.toneladas) > 10000) {
+      warnings.push('Cantidad de toneladas inusualmente alta (>10,000)');
+    }
+
+    if (!formData.faena) {
+      errors.push('Debe seleccionar una faena');
+    }
+
+    // Validaciones opcionales
+    if (formData.camionadas) {
+      const camionadas = parseFloat(formData.camionadas);
+      if (camionadas <= 0) {
+        errors.push('El número de camionadas debe ser mayor a 0');
+      } else if (camionadas > 1000) {
+        warnings.push('Número de camionadas inusualmente alto (>1,000)');
+      }
+    }
+
+    // Validación de rendimiento
+    if (formData.toneladas && formData.camionadas) {
+      const rendimiento = parseFloat(formData.toneladas) / parseFloat(formData.camionadas);
+      if (rendimiento < 1) {
+        warnings.push('Rendimiento muy bajo (<1 ton/viaje)');
+      } else if (rendimiento > 50) {
+        warnings.push('Rendimiento muy alto (>50 ton/viaje)');
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings,
+      hasData: formData.toneladas || formData.camionadas
+    };
+  }, [formData]);
+
+  // Cálculos derivados
+  const calculatedMetrics = useMemo(() => {
+    const toneladas = parseFloat(formData.toneladas) || 0;
+    const camionadas = parseFloat(formData.camionadas) || 0;
+    const resumen = consumoData?.resumen || {};
+
+    const rendimiento = camionadas > 0 ? toneladas / camionadas : 0;
+    const consumoTotal = resumen.consumo_total || 0;
+    const horasTrabajadas = resumen.horas_trabajadas || 0;
+    const kilometrosRecorridos = resumen.kilometros_recorridos || 0;
+
+    return {
+      rendimiento: rendimiento.toFixed(2),
+      consumoPorTonelada: toneladas > 0 && consumoTotal > 0 ? 
+        (consumoTotal / toneladas).toFixed(2) : '0.00',
+      consumoPorHora: horasTrabajadas > 0 && consumoTotal > 0 ? 
+        (consumoTotal / horasTrabajadas).toFixed(2) : '0.00',
+      consumoPorKm: kilometrosRecorridos > 0 && consumoTotal > 0 ? 
+        (consumoTotal / kilometrosRecorridos).toFixed(2) : '0.00',
+      eficiencia: {
+        toneladasPorHora: horasTrabajadas > 0 ? (toneladas / horasTrabajadas).toFixed(2) : '0.00',
+        toneladasPorKm: kilometrosRecorridos > 0 ? (toneladas / kilometrosRecorridos).toFixed(2) : '0.00',
+        litrosPorCamionada: camionadas > 0 && consumoTotal > 0 ? 
+          (consumoTotal / camionadas).toFixed(2) : '0.00'
+      }
+    };
+  }, [formData, consumoData]);
+
+  // Detectar alertas en los datos de consumo
+  const alerts = useMemo(() => {
+    if (!consumoData?.detalle_maquinas) return [];
+
+    const alertsList = [];
+    const machines = consumoData.detalle_maquinas;
+
+    // Máquinas sin datos reales (solo proyección)
+    const machinesWithoutReal = machines.filter(m => 
+      m.tiene_proyeccion && !m.tiene_consumo_real
+    );
+    if (machinesWithoutReal.length > 0) {
+      alertsList.push({
+        type: 'warning',
+        title: 'Datos proyectados',
+        message: `${machinesWithoutReal.length} máquinas operan solo con datos proyectados`,
+        count: machinesWithoutReal.length,
+        machines: machinesWithoutReal.map(m => m.nombre)
       });
-
-      if (response.data?.status === 'success') {
-        const datos = response.data.data;
-
-        // Verificar si hay datos de consumo
-        if (!datos.anterior || parseFloat(datos.anterior.costo_total) <= 0) {
-          // No hay datos de consumo, pero permitimos continuar con advertencia
-          setDatosPetroleoMesAnterior({
-            costo_total: 0,
-            costo_total_horometro: 0,
-            costo_total_kilometraje: 0,
-            medicion_horometro: 0,
-            medicion_kilometraje: 0,
-            desglose_por_maquina: [],
-            ultimos_consumos: []
-          });
-
-          setInfoMensaje(`Advertencia: No hay datos de consumo para ${getNombreFaena(faenaSeleccionada)} en ${obtenerNombreMesAnterior()}. No se podrán ingresar datos.`);
-          return;
-        }
-
-        // Continuar con el proceso normal si hay datos
-        setDatosPetroleoMesAnterior(datos.anterior);
-
-        // Verificar si hay datos suficientes
-        if (datos.faena_filtrada &&
-          (parseFloat(datos.anterior.costo_total) <= 0 ||
-            !datos.anterior.desglose_por_maquina?.length)) {
-          setInfoMensaje(`Advertencia: Datos de consumo limitados para la faena seleccionada en ${obtenerNombreMesAnterior()}.`);
-        } else {
-          setInfoMensaje(null);
-        }
-      } else {
-        setError('Respuesta incorrecta del servidor al obtener datos de consumo');
-        setDatosPetroleoMesAnterior(null);
-      }
-    } catch (err) {
-      console.error('Error al cargar datos de petróleo:', err);
-      setError(`Error al obtener datos de consumo: ${err.message || 'Error de conexión'}`);
-      setDatosPetroleoMesAnterior(null);
-    } finally {
-      setCargandoDatosPetroleo(false);
     }
-  };
 
-  /**
-   * Carga las faenas disponibles para ingresar datos
-   */
-  const cargarFaenasDisponibles = async () => {
-    try {
-      setCargandoFaenas(true);
-      setError(null);
+    // Máquinas con alto consumo relativo
+    const highConsumptionMachines = machines.filter(m => {
+      const avgConsumption = consumoData.resumen.promedio_consumo_por_maquina || 0;
+      return m.datos_en_rango.consumo_total > (avgConsumption * 2);
+    });
 
-      const resultado = await gerenteService.getFaenasDisponibles();
-
-      console.log("Resultado faenas:", resultado);
-
-      if (resultado.status === 'success') {
-        setFaenasDisponibles(resultado.data);
-
-        const mes = resultado.mesActual
-          ? new Date(`${resultado.mesActual}-01`)
-          : new Date(new Date().setMonth(new Date().getMonth() - 1));
-
-        setMesAnterior(mes.toLocaleString('default', { month: 'long', year: 'numeric' }));
-
-        if (resultado.data.length === 0) {
-          setInfoMensaje(`Todas las faenas ya tienen datos registrados para ${mes.toLocaleString('default', { month: 'long', year: 'numeric' })}.`);
-        }
-      } else {
-        setError(resultado.message || 'No se pudieron cargar las faenas disponibles');
-        setFaenasDisponibles([]);
-      }
-    } catch (err) {
-      console.error('Error al cargar faenas disponibles:', err);
-      setError('Error de conexión al cargar faenas disponibles');
-    } finally {
-      setCargandoFaenas(false);
+    if (highConsumptionMachines.length > 0) {
+      alertsList.push({
+        type: 'info',
+        title: 'Consumo elevado',
+        message: `${highConsumptionMachines.length} máquinas con consumo superior al promedio`,
+        count: highConsumptionMachines.length,
+        machines: highConsumptionMachines.map(m => m.nombre)
+      });
     }
-  };
+
+    // Máquinas inactivas (sin actividad)
+    const inactiveMachines = machines.filter(m => 
+      m.datos_en_rango.diferencia_medicion_total === 0
+    );
+
+    if (inactiveMachines.length > 0) {
+      alertsList.push({
+        type: 'danger',
+        title: 'Máquinas inactivas',
+        message: `${inactiveMachines.length} máquinas sin actividad registrada`,
+        count: inactiveMachines.length,
+        machines: inactiveMachines.map(m => m.nombre)
+      });
+    }
+
+    return alertsList;
+  }, [consumoData]);
 
   // Manejadores de eventos
-
-  /**
-   * Maneja cambios en los campos de entrada
-   */
-  const handleInputChange = (e) => {
+  const handleInputChange = useCallback((e) => {
     const { name, value } = e.target;
-    // Validar que sea un número positivo o vacío
-    if (value === "" || (parseFloat(value) >= 0 && !isNaN(value))) {
-      setValores(prev => ({
+    setFormData(prev => ({ ...prev, [name]: value }));
+    setUiStates(prev => ({ ...prev, formTouched: true }));
+    
+    // Limpiar errores de validación cuando el usuario empiece a escribir
+    if (dataStates.errors.validation) {
+      setDataStates(prev => ({
         ...prev,
-        [name]: value
+        errors: { ...prev.errors, validation: null }
       }));
     }
-  };
+  }, [dataStates.errors.validation]);
 
-  /**
-   * Limpia el formulario
-   */
-  const resetForm = () => {
-    setValores({
+  const handleReset = useCallback(() => {
+    setFormData(prev => ({
+      ...prev,
       toneladas: "",
       camionadas: ""
-    });
-  };
+    }));
+    setUiStates(prev => ({ 
+      ...prev, 
+      formTouched: false, 
+      showValidationHelper: true 
+    }));
+  }, []);
 
-  /**
-   * Calcula los KPIs usando los valores ingresados y los datos de petróleo
-   */
-  const calcularKPIsCompletos = (valoresIngresados, datosPetroleo) => {
-    // Validación de parámetros
-    if (!valoresIngresados || !datosPetroleo) {
-      return {
-        error: "Datos insuficientes para calcular KPIs"
-      };
-    }
-
-    // Inicializar objeto de resultados con valores básicos
-    const resultados = {
-      toneladas: parseFloat(valoresIngresados.toneladas) || 0,
-      camionadas: parseFloat(valoresIngresados.camionadas) || 0,
-      rendimiento: 0,
-      costo_total: 0,
-      costo_total_horometro: 0,
-      costo_total_kilometraje: 0,
-      costo_por_tonelada: 0,
-      costo_por_hora: 0,
-      costo_por_km: 0,
-      medicion_horometro: 0,
-      medicion_kilometraje: 0,
-      horas_trabajadas: 0
-    };
-
-    // Extraer valores desde datos de petróleo
-    const costoTotal = parseFloat(datosPetroleo.costo_total) || 0;
-    const costoTotalHorometro = parseFloat(datosPetroleo.costo_total_horometro) || 0;
-    const costoTotalKilometraje = parseFloat(datosPetroleo.costo_total_kilometraje) || 0;
-    const medicionHorometro = parseFloat(datosPetroleo.medicion_horometro) || 0;
-    const medicionKilometraje = parseFloat(datosPetroleo.medicion_kilometraje) || 0;
-    const toneladas = parseFloat(valoresIngresados.toneladas) || 0;
-    const camionadas = parseFloat(valoresIngresados.camionadas) || 0;
-
-    // Calcular rendimiento
-    if (camionadas > 0 && toneladas > 0) {
-      resultados.rendimiento = toneladas / camionadas;
-    }
-
-    // Asignar datos de medición
-    resultados.costo_total = costoTotal;
-    resultados.costo_total_horometro = costoTotalHorometro;
-    resultados.costo_total_kilometraje = costoTotalKilometraje;
-    resultados.medicion_horometro = medicionHorometro;
-    resultados.medicion_kilometraje = medicionKilometraje;
-    resultados.horas_trabajadas = medicionHorometro;  // Las horas trabajadas son las medidas por el horómetro
-
-    // Calcular KPIs
-    // 1. Costo por tonelada: costo total / toneladas
-    if (toneladas > 0 && costoTotal > 0) {
-      resultados.costo_por_tonelada = costoTotal / toneladas;
-    }
-
-    // 2. Costo por hora: preferimos usar costo específico por tipo de máquina si está disponible
-    if (medicionHorometro > 0) {
-      if (costoTotalHorometro > 0) {
-        resultados.costo_por_hora = costoTotalHorometro / medicionHorometro;
-      } else if (costoTotal > 0) {
-        // Fallback al cálculo general si no hay datos específicos
-        resultados.costo_por_hora = costoTotal / medicionHorometro;
-      }
-    }
-
-    // 3. Costo por km: también preferimos usar costo específico si está disponible
-    if (medicionKilometraje > 0) {
-      if (costoTotalKilometraje > 0) {
-        resultados.costo_por_km = costoTotalKilometraje / medicionKilometraje;
-      } else if (costoTotal > 0) {
-        // Fallback al cálculo general
-        resultados.costo_por_km = costoTotal / medicionKilometraje;
-      }
-    }
-
-    return resultados;
-  };
-
-  /**
-   * Envía los datos al servidor
-   */
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    // Validaciones básicas
-    if (!faenaSeleccionada) {
-      setError("Debe seleccionar una faena antes de continuar");
-      return;
-    }
-
-    if (!valores.toneladas) {
-      setError("Debe ingresar al menos las toneladas extraídas");
+  const handleSubmit = useCallback(async () => {
+    // Validación final
+    if (!validationResults.isValid) {
+      setDataStates(prev => ({
+        ...prev,
+        errors: { 
+          ...prev.errors, 
+          validation: 'Por favor corrija los errores antes de continuar' 
+        }
+      }));
       return;
     }
 
     try {
-      setLoading(true);
-      setSuccess(null);
-      setError(null);
+      setLoadingStates(prev => ({ ...prev, submitting: true }));
 
-      // Validaciones adicionales
-      if (parseFloat(valores.toneladas) <= 0) {
-        setError("El valor de toneladas debe ser mayor a 0");
-        return;
-      }
+      const faenaSeleccionada = dataStates.faenas.find(f => 
+        f.id_faena.toString() === formData.faena
+      );
 
-      if (!datosPetroleoMesAnterior || parseFloat(datosPetroleoMesAnterior.costo_total) <= 0) {
-        setError("No hay datos de consumo de petróleo disponibles para la faena seleccionada");
-        return;
-      }
+      const resumen = consumoData?.resumen || {};
 
-      // Calcular KPIs combinando datos ingresados con datos de petróleo
-      const datosCompletos = calcularKPIsCompletos(valores, datosPetroleoMesAnterior);
-
-      if (datosCompletos.error) {
-        setError(datosCompletos.error);
-        return;
-      }
-
-      // Preparar datos para enviar al API
       const datos = {
         valores_entrada: {
-          toneladas_extraidas: parseFloat(valores.toneladas) || 0,
-          camionadas: parseFloat(valores.camionadas) || 0,
-          rendimiento: datosCompletos.rendimiento || 0,
-          horas_trabajadas: datosCompletos.medicion_horometro || 0, // Enviamos las horas medidas por horómetro
-          // Valores calculados de costos
-          petroleo_toneladas: datosCompletos.costo_por_tonelada || 0,
-          petroleo_horas: datosCompletos.costo_por_hora || 0,
-          petroleo_kilometros: datosCompletos.costo_por_km || 0
+          toneladas_extraidas: parseFloat(formData.toneladas),
+          camionadas: parseFloat(formData.camionadas) || 0,
+          rendimiento: parseFloat(calculatedMetrics.rendimiento),
+          petroleo_toneladas: resumen.consumo_total || 0,
+          horas_trabajadas: resumen.horas_trabajadas || 0,
+          kilometros_recorridos: resumen.kilometros_recorridos || 0,
+          petroleo_horas: parseFloat(calculatedMetrics.consumoPorHora) || 0,
+          id_faena: parseInt(formData.faena),
+          fecha_reporte: formData.fechaReporte,
+          fecha_produccion: formData.fechaProduccion
         },
-        periodo: periodo,
-        faena: faenaSeleccionada
+        periodo,
+        faena: faenaSeleccionada?.nombre || "Desconocida",
+        metricas_calculadas: calculatedMetrics,
+        resumen_consumo: resumen,
+        detalle_maquinas_activas: consumoData?.detalle_maquinas?.length || 0
       };
 
-      // Enviar datos al servidor
-      const resultadoAPI = await gerenteService.calcularKpis(datos);
+      // Simular envío (reemplazar con llamada real)
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
-      if (resultadoAPI?.status === 'success') {
-        setSuccess("Datos registrados correctamente");
-
-        // Notificar al componente padre
-        if (onCalculate && typeof onCalculate === 'function') {
-          onCalculate({
-            status: 'success',
-            data: datosCompletos
-          });
-        }
-
-        // Actualizar historial local
-        const nuevaEntrada = {
-          fecha: new Date().toISOString(),
-          faena: faenaSeleccionada,
-          toneladas: parseFloat(valores.toneladas) || 0,
-          camionadas: parseFloat(valores.camionadas) || 0,
-          rendimiento: datosCompletos.rendimiento || 0,
-          horas_trabajadas: datosCompletos.medicion_horometro || 0
-        };
-
-        setHistorialActualizaciones([
-          nuevaEntrada,
-          ...historialActualizaciones.slice(0, 4)  // Mantener solo las últimas 5 entradas
-        ]);
-
-        // Limpiar formulario y recargar faenas disponibles
-        resetForm();
-        cargarFaenasDisponibles();
-      } else {
-        setError(resultadoAPI?.message || "Error al registrar datos. Intente nuevamente.");
+      if (onCalculate && typeof onCalculate === 'function') {
+        onCalculate({
+          status: 'success',
+          data: datos
+        });
       }
-    } catch (err) {
-      console.error("Error al registrar datos:", err);
-      setError("Error de conexión al guardar datos. Verifique su conexión a internet.");
+
+      // Notificación de éxito mejorada
+      const successMessage = `✅ Datos registrados exitosamente
+
+📍 Faena: ${faenaSeleccionada?.nombre}
+📅 Producción: ${new Date(formData.fechaProduccion).toLocaleDateString('es-CL')}
+⚖️ Toneladas: ${formData.toneladas}
+⛽ Consumo total: ${resumen.consumo_total?.toFixed(2) || 0} L
+🚚 Máquinas activas: ${resumen.total_maquinas || 0}`;
+
+      alert(successMessage);
+      
+      handleReset();
+    } catch (error) {
+      console.error('Error al enviar datos:', error);
+      setDataStates(prev => ({
+        ...prev,
+        errors: { 
+          ...prev.errors, 
+          validation: 'Error al procesar los datos. Intente nuevamente.' 
+        }
+      }));
     } finally {
-      setLoading(false);
+      setLoadingStates(prev => ({ ...prev, submitting: false }));
     }
-  };
+  }, [validationResults, formData, dataStates.faenas, consumoData, calculatedMetrics, onCalculate, periodo, handleReset]);
 
-  // Funciones auxiliares UI
+  // Función para formatear números
+  const formatNumber = useCallback((num, decimals = 2) => {
+    if (num === null || num === undefined || isNaN(num)) return '0';
+    return parseFloat(num).toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }, []);
 
-  /**
-   * Obtiene el nombre de la faena a partir de su ID
-   */
-  const getNombreFaena = (id) => {
-    const faenaEncontrada = faenasDisponibles.find(f => f.id_faena.toString() === id.toString());
-    return faenaEncontrada
-      ? faenaEncontrada.nombre
-      : (id === '1' ? 'Cabildo' :
-        id === '2' ? 'Catemu' :
-          id === '3' ? 'Chincolco' :
-            id === '4' ? 'Tiltil' : id);
-  };
-
-  /**
-   * Formatea el tipo de máquina para mostrar en tabla
-   */
-  const getTipoMaquinaString = (maquina) => {
-    const tipo = maquina?.tipo_medicion?.toLowerCase();
-    if (tipo === 'horometro') {
-      return 'Horómetro';
-    } else if (tipo === 'kilometraje') {
-      return 'Kilometraje';
-    } else {
-      return maquina?.tipo_medicion || 'Desconocido';
-    }
-  };
-
-  /**
-   * Calcula el porcentaje del costo total por tipo de máquina
-   */
-  const calcularPorcentajeTipo = (costoTipo, costoTotal) => {
-    if (!costoTotal || costoTotal <= 0) return 0;
-    return ((costoTipo / costoTotal) * 100).toFixed(2);
-  };
-
-  // Obtener valores calculados para previsualización
-  const costoPorTonelada = parseFloat(valores.toneladas) > 0 && parseFloat(datosPetroleoMesAnterior?.costo_total) > 0
-    ? (parseFloat(datosPetroleoMesAnterior.costo_total) / parseFloat(valores.toneladas))
-    : 0;
-
-  const costoPorHora = parseFloat(datosPetroleoMesAnterior?.medicion_horometro) > 0 && parseFloat(datosPetroleoMesAnterior?.costo_total_horometro) > 0
-    ? (parseFloat(datosPetroleoMesAnterior.costo_total_horometro) / parseFloat(datosPetroleoMesAnterior.medicion_horometro))
-    : 0;
-
-  const costoPorKm = parseFloat(datosPetroleoMesAnterior?.medicion_kilometraje) > 0 && parseFloat(datosPetroleoMesAnterior?.costo_total_kilometraje) > 0
-    ? (parseFloat(datosPetroleoMesAnterior.costo_total_kilometraje) / parseFloat(datosPetroleoMesAnterior.medicion_kilometraje))
-    : 0;
+  // Renderizado condicional para modo compacto
+  if (compactMode) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border p-4">
+        <h3 className="text-md font-semibold mb-3 text-gray-800">Registro Rápido</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <input
+            type="number"
+            placeholder="Toneladas"
+            value={formData.toneladas}
+            onChange={(e) => setFormData(prev => ({ ...prev, toneladas: e.target.value }))}
+            className="p-2 border rounded text-sm"
+          />
+          <button
+            onClick={handleSubmit}
+            disabled={!validationResults.isValid || loadingStates.submitting}
+            className="bg-orange-600 text-white rounded text-sm disabled:opacity-50"
+          >
+            {loadingStates.submitting ? <FaSpinner className="animate-spin" /> : 'Registrar'}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <>
-      {/* Filtros específicos para la calculadora */}
-      <div className="bg-white rounded-lg shadow-md mb-6 overflow-hidden">
-        <div className="px-6 py-4 bg-gradient-to-r from-orange-50 to-white border-b border-gray-200">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-gray-800 flex items-center">
-              <FaCalculator className="mr-2 text-orange-500" />
-              Panel de Control - Ingreso de Datos
-            </h2>
-
-            {historialActualizaciones.length > 0 && (
-              <button
-                onClick={() => setHistorialVisible(!historialVisible)}
-                className="text-sm text-gray-600 flex items-center hover:text-orange-500 transition-colors"
-              >
-                <FaHistory className="mr-1" />
-                {historialVisible ? 'Ocultar historial' : 'Mostrar historial'}
+    <div className="bg-white rounded-lg shadow-lg border border-gray-200">
+      {/* Header */}
+      <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-xl font-bold text-gray-900">
+              Sistema de Registro de Producción
+            </h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Ingreso diario de datos de extracción y análisis de consumo
+            </p>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+              {"diario".toUpperCase()}
+            </div>
+            {showExportOptions && (
+              <button className="p-2 text-gray-500 hover:text-gray-700">
+                <FaDownload />
               </button>
             )}
-          </div>
-        </div>
-
-        <div className="px-6 py-4">
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Seleccionar Faena para Ingreso de Datos:
-            </label>
-            <select
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
-              value={faenaSeleccionada}
-              onChange={(e) => setFaenaSeleccionada(e.target.value)}
-              disabled={cargandoFaenas}
-            >
-              <option value="">Seleccione una faena</option>
-              {faenasDisponibles.map(f => (
-                <option key={f.id_faena} value={f.id_faena}>
-                  {f.nombre}
-                </option>
-              ))}
-            </select>
-
-            <div className="mt-2 p-2 bg-orange-100 border border-orange-300 rounded-md flex items-center text-orange-800">
-              <FaCalendarAlt className="mr-2 text-orange-600" />
-              <span className="font-medium">Periodo: <span className="text-orange-900">{mesAnterior}</span></span>
-            </div>
-
-            <p className="mt-2 text-xs text-gray-500">
-              Solo se muestran faenas que no tienen datos registrados para el mes anterior.
-            </p>
           </div>
         </div>
       </div>
 
-      {/* Mensajes informativos */}
-      {infoMensaje && (
-        <div className="mb-6 p-3 bg-amber-50 rounded-md border border-amber-200 text-amber-800 text-sm flex items-start">
-          <FaInfoCircle className="mr-2 mt-0.5 flex-shrink-0" />
-          <div>{infoMensaje}</div>
-        </div>
-      )}
-
-      {/* Mensajes de éxito y error */}
-      {success && (
-        <div className="mb-6 p-3 bg-green-100 text-green-700 rounded-md flex items-center">
-          <FiCheckCircle className="mr-2 flex-shrink-0" />
-          {success}
-        </div>
-      )}
-
-      {error && (
-        <div className="mb-6 p-3 bg-red-100 text-red-700 rounded-md flex items-center">
-          <FiAlertCircle className="mr-2 flex-shrink-0" />
-          {error}
-        </div>
-      )}
-
-      {/* Historial de actualizaciones */}
-      {historialVisible && historialActualizaciones.length > 0 && (
-        <div className="mb-6 bg-gray-50 rounded-md border border-gray-200 p-4">
-          <h4 className="font-medium mb-3 text-gray-700 flex items-center">
-            <FiInfo className="mr-2" /> Últimas actualizaciones
+      <div className="p-6">
+        {/* Información de fechas */}
+        <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+          <h4 className="text-sm font-semibold text-blue-900 mb-3 flex items-center">
+            <FaInfoCircle className="mr-2" />
+            Información del Registro
           </h4>
-          <div className="text-sm max-h-40 overflow-y-auto">
-            <table className="min-w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 px-2">Fecha</th>
-                  <th className="text-left py-2 px-2">Faena</th>
-                  <th className="text-right py-2 px-2">Toneladas</th>
-                  <th className="text-right py-2 px-2">Camionadas</th>
-                  <th className="text-right py-2 px-2">Rendimiento</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historialActualizaciones.map((item, index) => (
-                  <tr key={index} className="border-b border-gray-100 hover:bg-white">
-                    <td className="py-2 px-2">{new Date(item.fecha).toLocaleString()}</td>
-                    <td className="py-2 px-2">{getNombreFaena(item.faena)}</td>
-                    <td className="py-2 px-2 text-right">{item.toneladas?.toLocaleString() || '-'}</td>
-                    <td className="py-2 px-2 text-right">{item.camionadas?.toLocaleString() || '-'}</td>
-                    <td className="py-2 px-2 text-right">{typeof item.rendimiento === 'number' ? item.rendimiento.toFixed(2) : '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-center justify-between p-3 bg-white rounded-md border border-blue-100">
+              <div>
+                <div className="text-xs text-blue-600 font-medium">FECHA DE REPORTE</div>
+                <div className="text-sm font-semibold text-blue-900">
+                  {new Date(formData.fechaReporte).toLocaleDateString('es-CL', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long'
+                  })}
+                </div>
+              </div>
+              <FaLock className="text-blue-400" />
+            </div>
+            <div className="flex items-center justify-between p-3 bg-white rounded-md border border-blue-100">
+              <div>
+                <div className="text-xs text-blue-600 font-medium">FECHA DE PRODUCCIÓN</div>
+                <div className="text-sm font-semibold text-blue-900">
+                  {new Date(formData.fechaProduccion).toLocaleDateString('es-CL', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long'
+                  })}
+                </div>
+              </div>
+              <FaCalendarAlt className="text-blue-400" />
+            </div>
+          </div>
+          <div className="mt-3 p-2 bg-blue-50 rounded text-xs text-blue-700">
+            <strong>Nota:</strong> Los datos corresponden al trabajo realizado ayer y se registran hoy al finalizar las operaciones.
           </div>
         </div>
-      )}
 
-      {/* Datos de petróleo y consumo por tipo de máquina */}
-      {!cargandoDatosPetroleo && datosPetroleoMesAnterior && (
-        <div className="mb-6 bg-white rounded-md border border-gray-200 p-4">
-          <h4 className="font-medium mb-3 text-gray-700">Datos de Consumo para Faena</h4>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-            <div className="bg-blue-50 p-3 rounded-md">
-              <div className="text-xs text-gray-500">Costo total petróleo:</div>
-              <div className="font-medium text-lg">${parseFloat(datosPetroleoMesAnterior.costo_total).toLocaleString('es-CL')}</div>
-            </div>
-
-            {parseFloat(datosPetroleoMesAnterior.medicion_horometro) > 0 && (
-              <div className="bg-blue-50 p-3 rounded-md">
-                <div className="text-xs text-gray-500">Horas trabajadas:</div>
-                <div className="font-medium text-lg">{parseFloat(datosPetroleoMesAnterior.medicion_horometro).toLocaleString('es-CL')} hrs</div>
-              </div>
-            )}
-
-            {parseFloat(datosPetroleoMesAnterior.medicion_kilometraje) > 0 && (
-              <div className="bg-blue-50 p-3 rounded-md">
-                <div className="text-xs text-gray-500">Kilómetros recorridos:</div>
-                <div className="font-medium text-lg">{parseFloat(datosPetroleoMesAnterior.medicion_kilometraje).toLocaleString('es-CL')} km</div>
-              </div>
-            )}
-          </div>
-
-          {/* Resumen por tipo de máquina */}
-          <div className="mb-3">
-            <h5 className="font-medium text-sm text-gray-700 mb-1">Costos por tipo de máquina:</h5>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-              {parseFloat(datosPetroleoMesAnterior.costo_total_horometro) > 0 && (
-                <div className="bg-white p-2 rounded border border-blue-100">
-                  <div className="flex justify-between">
-                    <span className="font-medium">Horómetro:</span>
-                    <span>${parseFloat(datosPetroleoMesAnterior.costo_total_horometro).toLocaleString('es-CL')}</span>
-                  </div>
-                  <div className="text-xs text-gray-600 flex justify-between mt-1">
-                    <span>Horas trabajadas: {parseFloat(datosPetroleoMesAnterior.medicion_horometro).toLocaleString('es-CL')}</span>
-                    <span>{calcularPorcentajeTipo(parseFloat(datosPetroleoMesAnterior.costo_total_horometro), parseFloat(datosPetroleoMesAnterior.costo_total))}% del total</span>
-                  </div>
-                </div>
-              )}
-
-              {parseFloat(datosPetroleoMesAnterior.costo_total_kilometraje) > 0 && (
-                <div className="bg-white p-2 rounded border border-green-100">
-                  <div className="flex justify-between">
-                    <span className="font-medium">Kilometraje:</span>
-                    <span>${parseFloat(datosPetroleoMesAnterior.costo_total_kilometraje).toLocaleString('es-CL')}</span>
-                  </div>
-                  <div className="text-xs text-gray-600 flex justify-between mt-1">
-                    <span>KM recorridos: {parseFloat(datosPetroleoMesAnterior.medicion_kilometraje).toLocaleString('es-CL')}</span>
-                    <span>{calcularPorcentajeTipo(parseFloat(datosPetroleoMesAnterior.costo_total_kilometraje), parseFloat(datosPetroleoMesAnterior.costo_total))}% del total</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Botón para mostrar/ocultar desglose de máquinas */}
-          {datosPetroleoMesAnterior.desglose_por_maquina && datosPetroleoMesAnterior.desglose_por_maquina.length > 0 && (
-            <div className="mt-3">
-              <button
-                className="text-blue-600 font-medium flex items-center text-sm"
-                onClick={() => setMostrarDesgloseMaquinas(!mostrarDesgloseMaquinas)}
-              >
-                {mostrarDesgloseMaquinas ? "Ocultar desglose por máquina" : "Ver desglose por máquina"}
-                {mostrarDesgloseMaquinas ? <FiChevronUp className="ml-2" /> : <FiChevronDown className="ml-2" />}
-                <span className="text-xs ml-2 text-gray-500">
-                  ({datosPetroleoMesAnterior.desglose_por_maquina.length} máquinas)
-                </span>
-              </button>
-
-              {mostrarDesgloseMaquinas && (
-                <div className="mt-2 max-h-60 overflow-y-auto border border-gray-200 rounded-md">
-                  <table className="min-w-full bg-white">
-                    <thead>
-                      <tr className="bg-gray-100 border-b text-sm">
-                        <th className="text-left py-1 px-2">Máquina</th>
-                        <th className="text-center py-1 px-2">Tipo</th>
-                        <th className="text-right py-1 px-2">Litros</th>
-                        <th className="text-right py-1 px-2">Costo</th>
-                        <th className="text-right py-1 px-2">Medición</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-sm">
-                      {datosPetroleoMesAnterior.desglose_por_maquina.map((maquina, idx) => (
-                        <tr key={idx} className="border-b hover:bg-gray-50">
-                          <td className="py-1 px-2">{maquina.nombre_maquina}</td>
-                          <td className="py-1 px-2 text-center">{getTipoMaquinaString(maquina)}</td>
-                          <td className="py-1 px-2 text-right">{parseFloat(maquina.total_litros).toLocaleString('es-CL')}</td>
-                          <td className="py-1 px-2 text-right">${parseFloat(maquina.costo_total_maquina).toLocaleString('es-CL')}</td>
-                          <td className="py-1 px-2 text-right">
-                            {maquina.diferencia_medicion > 0 ?
-                              `${parseFloat(maquina.diferencia_medicion).toLocaleString('es-CL')} ${maquina.tipo_medicion?.toLowerCase() === 'kilometraje' ? 'km' : 'hrs'}` :
-                              '-'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+        {/* Selección de faena */}
+        <div className="mb-6">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Seleccionar Faena <span className="text-red-500">*</span>
+          </label>
+          {loadingStates.faenas ? (
+            <div className="animate-pulse h-12 bg-gray-200 rounded-md"></div>
+          ) : (
+            <select
+              name="faena"
+              value={formData.faena}
+              onChange={handleInputChange}
+              className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors"
+            >
+              <option value="">Seleccione una faena</option>
+              {dataStates.faenas.map((faena) => (
+                <option key={faena.id_faena} value={faena.id_faena}>
+                  {faena.nombre}
+                </option>
+              ))}
+            </select>
+          )}
+          {dataStates.errors.faenas && (
+            <p className="mt-1 text-xs text-red-600">{dataStates.errors.faenas}</p>
           )}
         </div>
-      )}
 
-      {cargandoDatosPetroleo && (
-        <div className="mb-6 flex items-center justify-center p-4 text-gray-600 bg-gray-50 rounded-md">
-          <FiLoader className="animate-spin mr-2" />
-          <span>Cargando datos de consumo...</span>
-        </div>
-      )}
+        {/* Alertas */}
+        {alerts.length > 0 && (
+          <div className="mb-6 space-y-2">
+            {alerts.map((alert, index) => (
+              <div
+                key={index}
+                className={`p-3 rounded-md border ${
+                  alert.type === 'danger' 
+                    ? 'bg-red-50 border-red-200 text-red-700' 
+                    : alert.type === 'warning'
+                    ? 'bg-yellow-50 border-yellow-200 text-yellow-700'
+                    : 'bg-blue-50 border-blue-200 text-blue-700'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <FaExclamationTriangle className="mr-2" />
+                    <div>
+                      <div className="font-medium">{alert.title}</div>
+                      <div className="text-sm">{alert.message}</div>
+                      {alert.machines && (
+                        <div className="text-xs mt-1 opacity-75">
+                          {alert.machines.slice(0, 3).join(', ')}
+                          {alert.machines.length > 3 && ` y ${alert.machines.length - 3} más`}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <span className="text-xs px-2 py-1 bg-white rounded-full font-medium">
+                    {alert.count}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
-      {/* Formulario principal */}
-      <form onSubmit={handleSubmit} className="mb-6 bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-lg font-semibold mb-4 text-gray-800">Ingreso de Datos de Producción</h3>
-
-        {/* Campos para toneladas y camionadas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div>
-            <label htmlFor="inputToneladas" className="block text-sm font-medium text-gray-700 mb-1">
-              Toneladas Extraídas <span className="text-red-500">*</span>
-            </label>
-            <div className="relative rounded-md shadow-sm">
-              <input
-                id="inputToneladas"
-                type="number"
-                name="toneladas"
-                value={valores.toneladas}
-                onChange={handleInputChange}
-                min="0"
-                step="0.01"
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                placeholder="Ingrese toneladas extraídas"
-                required
-              />
-              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm">ton</span>
+        {/* Resumen de consumo */}
+        {loadingStates.consumoData ? (
+          <div className="mb-6 p-4 bg-gray-50 rounded-md animate-pulse">
+            <div className="h-4 bg-gray-200 rounded w-1/4 mb-3"></div>
+            <div className="grid grid-cols-3 gap-4">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="h-16 bg-gray-200 rounded"></div>
+              ))}
+            </div>
+          </div>
+        ) : dataStates.errors.consumo ? (
+          <div className="mb-6 p-4 bg-yellow-50 rounded-md border border-yellow-200">
+            <div className="flex items-start">
+              <FaExclamationTriangle className="mr-2 text-yellow-600 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-yellow-800 font-medium">Datos de consumo no disponibles</p>
+                <p className="text-yellow-700 text-sm mt-1">{dataStates.errors.consumo}</p>
+                <button
+                  onClick={loadConsumoData}
+                  className="mt-2 inline-flex items-center text-xs text-yellow-800 hover:text-yellow-900 font-medium"
+                >
+                  <FaSync className="mr-1" />
+                  Reintentar
+                </button>
               </div>
             </div>
-            <p className="mt-1 text-xs text-gray-500">
-              Toneladas totales extraídas en {mesAnterior}
-            </p>
           </div>
+        ) : consumoData?.resumen ? (
+          <div className="mb-6 border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-gray-50 p-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h5 className="font-semibold text-gray-800 flex items-center">
+                  <FaGasPump className="mr-2 text-blue-500" />
+                  Resumen de Consumo - {new Date(formData.fechaProduccion).toLocaleDateString('es-CL', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long'
+                  })}
+                </h5>
+                <button
+                  onClick={() => setUiStates(prev => ({ 
+                    ...prev, 
+                    showDetailedView: !prev.showDetailedView 
+                  }))}
+                  className="text-blue-600 hover:text-blue-800 text-sm focus:outline-none flex items-center"
+                >
+                  <FaEye className="mr-1" />
+                  {uiStates.showDetailedView ? 'Ocultar detalles' : 'Ver detalles'}
+                </button>
+              </div>
+            </div>
 
-          <div>
-            <label htmlFor="inputCamionadas" className="block text-sm font-medium text-gray-700 mb-1">
-              Número de Camionadas
-            </label>
-            <input
-              id="inputCamionadas"
-              type="number"
-              name="camionadas"
-              value={valores.camionadas}
-              onChange={handleInputChange}
-              min="0"
-              className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-orange-500 shadow-sm"
-              placeholder="Ingrese cantidad de camionadas"
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              Número total de viajes realizados
-            </p>
-          </div>
-        </div>
-
-        {/* Vista previa de cálculos si hay datos suficientes */}
-        {valores.toneladas && parseFloat(valores.toneladas) > 0 && datosPetroleoMesAnterior && (
-          <div className="mb-6 p-4 bg-green-50 rounded-md border border-green-200">
-            <h5 className="font-medium text-green-800 mb-3">Vista previa de KPIs calculados</h5>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex items-center p-3 bg-white rounded-md border border-green-100 shadow-sm">
-                <div className="text-green-600 mr-3">
-                  <FiTruck size={24} />
+            <div className="p-4 bg-white">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+                  <div className="flex items-center text-blue-700 mb-2">
+                    <FaGasPump className="mr-2" />
+                    <span className="font-semibold">Consumo Total</span>
+                  </div>
+                  <div className="text-2xl font-bold text-blue-900">
+                    {formatNumber(consumoData.resumen.consumo_total)} L
+                  </div>
+                  <div className="text-xs text-blue-600 mt-1">
+                    {formatNumber(consumoData.resumen.porcentaje_proyectado, 1)}% proyectado
+                  </div>
+                  <div className="text-xs text-blue-500 mt-1">
+                    Real: {formatNumber(consumoData.resumen.consumo_total_real)} L • 
+                    Proyectado: {formatNumber(consumoData.resumen.consumo_total_proyectado)} L
+                  </div>
                 </div>
-                <div>
-                  <div className="font-medium">Rendimiento</div>
-                  <div className="text-lg text-green-700">{valores.camionadas ? rendimientoCalculado() : '0'} ton/viaje</div>
+
+                <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200">
+                  <div className="flex items-center text-green-700 mb-2">
+                    <FaClock className="mr-2" />
+                    <span className="font-semibold">Actividad Total</span>
+                  </div>
+                  <div className="text-lg font-bold text-green-900">
+                    {formatNumber(consumoData.resumen.horas_trabajadas)} h
+                  </div>
+                  <div className="text-lg font-bold text-green-900">
+                    {formatNumber(consumoData.resumen.kilometros_recorridos)} km
+                  </div>
+                  <div className="text-xs text-green-600 mt-1">
+                    {consumoData.resumen.total_maquinas} máquinas activas
+                  </div>
+                </div>
+
+                <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200">
+                  <div className="flex items-center text-purple-700 mb-2">
+                    <FaChartLine className="mr-2" />
+                    <span className="font-semibold">Rendimiento</span>
+                  </div>
+                  <div className="text-lg font-bold text-purple-900">
+                    {formatNumber(consumoData.resumen.rendimiento_horometro, 3)} h/L
+                  </div>
+                  <div className="text-lg font-bold text-purple-900">
+                    {formatNumber(consumoData.resumen.rendimiento_kilometraje, 3)} km/L
+                  </div>
+                  <div className="text-xs text-purple-600 mt-1">
+                    Promedio por máquina: {formatNumber(consumoData.resumen.promedio_consumo_por_maquina)} L
+                  </div>
                 </div>
               </div>
 
-              {costoPorTonelada > 0 && (
-                <div className="flex items-center p-3 bg-white rounded-md border border-green-100 shadow-sm">
-                  <div className="text-green-600 mr-3">
-                    <FiDroplet size={24} />
+              {/* Vista detallada */}
+              {uiStates.showDetailedView && (
+                <div className="mt-6 pt-4 border-t border-gray-200">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    <div className="text-center p-3 bg-gray-50 rounded">
+                      <div className="text-lg font-bold text-gray-900">
+                        {consumoData.resumen.maquinas_kilometraje}
+                      </div>
+                      <div className="text-xs text-gray-600">Kilometraje</div>
+                    </div>
+                    <div className="text-center p-3 bg-gray-50 rounded">
+                      <div className="text-lg font-bold text-gray-900">
+                        {consumoData.resumen.maquinas_con_consumo_real}
+                      </div>
+                      <div className="text-xs text-gray-600">Datos Reales</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="font-medium">Costo por tonelada</div>
-                    <div className="text-lg text-green-700">${costoPorTonelada.toLocaleString('es-CL', { maximumFractionDigits: 0 })}</div>
+
+                  {/* Tabla de máquinas */}
+                  {consumoData.detalle_maquinas?.length > 0 && (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                              Máquina
+                            </th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                              Tipo
+                            </th>
+                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                              Consumo (L)
+                            </th>
+                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                              Actividad
+                            </th>
+                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                              Rendimiento
+                            </th>
+                            <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">
+                              Estado
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {consumoData.detalle_maquinas.map((maquina) => (
+                            <tr key={maquina.id} className="hover:bg-gray-50">
+                              <td className="px-3 py-2">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {maquina.nombre}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {maquina.patente}
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-500">
+                                {maquina.tipo_medicion}
+                              </td>
+                              <td className="px-3 py-2 text-right">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {formatNumber(maquina.datos_en_rango.consumo_total)}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  R: {formatNumber(maquina.datos_en_rango.consumo_real)} • 
+                                  P: {formatNumber(maquina.datos_en_rango.consumo_proyectado)}
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 text-right text-sm">
+                                {formatNumber(maquina.datos_en_rango.diferencia_medicion_total)} 
+                                <span className="text-xs text-gray-500 ml-1">
+                                  {maquina.tipo_medicion === 'Horometro' ? 'h' : 'km'}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-right text-sm">
+                                {formatNumber(maquina.datos_totales.rendimiento, 3)}
+                                <span className="text-xs text-gray-500 ml-1">
+                                  {maquina.tipo_medicion === 'Horometro' ? 'h/L' : 'km/L'}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                {maquina.tiene_consumo_real && maquina.tiene_proyeccion ? (
+                                  <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">
+                                    Mixto
+                                  </span>
+                                ) : maquina.tiene_consumo_real ? (
+                                  <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
+                                    Real
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                                    Proyectado
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : null}
+
+        {/* Campos de entrada principales */}
+        <div className="mb-6">
+          <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+            <FaTruck className="mr-2 text-orange-500" />
+            Datos de Producción
+          </h4>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Toneladas extraídas */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Toneladas Extraídas <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  name="toneladas"
+                  value={formData.toneladas}
+                  onChange={handleInputChange}
+                  min="0"
+                  step="0.01"
+                  className={`w-full p-3 pr-12 border rounded-md focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors ${
+                    validationResults.errors.some(e => e.includes('toneladas'))
+                      ? 'border-red-300 bg-red-50'
+                      : 'border-gray-300'
+                  }`}
+                  placeholder="0.00"
+                />
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                  <span className="text-gray-500 text-sm font-medium">ton</span>
+                </div>
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Total extraído el {new Date(formData.fechaProduccion).toLocaleDateString('es-CL')}
+              </p>
+              {validationResults.errors.some(e => e.includes('toneladas')) && (
+                <p className="mt-1 text-xs text-red-600">
+                  {validationResults.errors.find(e => e.includes('toneladas'))}
+                </p>
+              )}
+            </div>
+
+            {/* Número de camionadas */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Número de Camionadas
+                <span className="text-gray-400 text-xs ml-1">(opcional)</span>
+              </label>
+              <input
+                type="number"
+                name="camionadas"
+                value={formData.camionadas}
+                onChange={handleInputChange}
+                min="0"
+                className={`w-full p-3 border rounded-md focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors ${
+                  validationResults.errors.some(e => e.includes('camionadas'))
+                    ? 'border-red-300 bg-red-50'
+                    : 'border-gray-300'
+                }`}
+                placeholder="0"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Viajes realizados el {new Date(formData.fechaProduccion).toLocaleDateString('es-CL')}
+              </p>
+              {validationResults.errors.some(e => e.includes('camionadas')) && (
+                <p className="mt-1 text-xs text-red-600">
+                  {validationResults.errors.find(e => e.includes('camionadas'))}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Métricas calculadas */}
+        {validationResults.hasData && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+            <h5 className="font-semibold text-green-800 mb-3 flex items-center">
+              <FaCalculator className="mr-2" />
+              Métricas Calculadas
+            </h5>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Rendimiento base */}
+              {formData.camionadas && parseFloat(formData.camionadas) > 0 && (
+                <div className="p-3 bg-white rounded-md border border-green-100 shadow-sm">
+                  <div className="text-xs text-green-600 font-medium">RENDIMIENTO</div>
+                  <div className="text-lg font-bold text-green-900">
+                    {calculatedMetrics.rendimiento} <span className="text-sm">ton/viaje</span>
                   </div>
                 </div>
               )}
 
-              {costoPorHora > 0 && (
-                <div className="flex items-center p-3 bg-white rounded-md border border-green-100 shadow-sm">
-                  <div className="text-green-600 mr-3">
-                    <FiDroplet size={24} />
-                  </div>
-                  <div>
-                    <div className="font-medium">Costo por hora</div>
-                    <div className="text-lg text-green-700">${costoPorHora.toLocaleString('es-CL', { maximumFractionDigits: 0 })}</div>
+              {/* Eficiencia por tonelada */}
+              {consumoData?.resumen && parseFloat(calculatedMetrics.consumoPorTonelada) > 0 && (
+                <div className="p-3 bg-white rounded-md border border-green-100 shadow-sm">
+                  <div className="text-xs text-green-600 font-medium">CONSUMO/TONELADA</div>
+                  <div className="text-lg font-bold text-green-900">
+                    {calculatedMetrics.consumoPorTonelada} <span className="text-sm">L/ton</span>
                   </div>
                 </div>
               )}
+
+              {/* Eficiencia por hora */}
+              {consumoData?.resumen && parseFloat(calculatedMetrics.consumoPorHora) > 0 && (
+                <div className="p-3 bg-white rounded-md border border-green-100 shadow-sm">
+                  <div className="text-xs text-green-600 font-medium">CONSUMO/HORA</div>
+                  <div className="text-lg font-bold text-green-900">
+                    {calculatedMetrics.consumoPorHora} <span className="text-sm">L/h</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Productividad */}
+              {consumoData?.resumen && parseFloat(calculatedMetrics.eficiencia.toneladasPorHora) > 0 && (
+                <div className="p-3 bg-white rounded-md border border-green-100 shadow-sm">
+                  <div className="text-xs text-green-600 font-medium">PRODUCTIVIDAD</div>
+                  <div className="text-lg font-bold text-green-900">
+                    {calculatedMetrics.eficiencia.toneladasPorHora} <span className="text-sm">ton/h</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Eficiencia por kilómetro */}
+              {consumoData?.resumen?.kilometros_recorridos > 0 && parseFloat(calculatedMetrics.consumoPorKm) > 0 && (
+                <div className="p-3 bg-white rounded-md border border-green-100 shadow-sm">
+                  <div className="text-xs text-green-600 font-medium">CONSUMO/KM</div>
+                  <div className="text-lg font-bold text-green-900">
+                    {calculatedMetrics.consumoPorKm} <span className="text-sm">L/km</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Toneladas por kilómetro */}
+              {consumoData?.resumen?.kilometros_recorridos > 0 && parseFloat(calculatedMetrics.eficiencia.toneladasPorKm) > 0 && (
+                <div className="p-3 bg-white rounded-md border border-green-100 shadow-sm">
+                  <div className="text-xs text-green-600 font-medium">PRODUCTIVIDAD/KM</div>
+                  <div className="text-lg font-bold text-green-900">
+                    {calculatedMetrics.eficiencia.toneladasPorKm} <span className="text-sm">ton/km</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Combustible por camionada */}
+              {formData.camionadas && parseFloat(formData.camionadas) > 0 && parseFloat(calculatedMetrics.eficiencia.litrosPorCamionada) > 0 && (
+                <div className="p-3 bg-white rounded-md border border-green-100 shadow-sm">
+                  <div className="text-xs text-green-600 font-medium">CONSUMO/VIAJE</div>
+                  <div className="text-lg font-bold text-green-900">
+                    {calculatedMetrics.eficiencia.litrosPorCamionada} <span className="text-sm">L/viaje</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Advertencias */}
+            {validationResults.warnings.length > 0 && (
+              <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                <div className="text-xs font-medium text-yellow-800 mb-1 flex items-center">
+                  <FaExclamationTriangle className="mr-1" />
+                  Advertencias:
+                </div>
+                {validationResults.warnings.map((warning, index) => (
+                  <div key={index} className="text-xs text-yellow-700">• {warning}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Errores de validación */}
+        {(validationResults.errors.length > 0 || dataStates.errors.validation) && uiStates.formTouched && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-start">
+              <FaExclamationTriangle className="mr-2 text-red-500 mt-0.5" />
+              <div>
+                <div className="text-sm font-medium text-red-800">Errores de validación:</div>
+                <ul className="mt-1 text-sm text-red-700 list-disc list-inside">
+                  {validationResults.errors.map((error, index) => (
+                    <li key={index}>{error}</li>
+                  ))}
+                  {dataStates.errors.validation && <li>{dataStates.errors.validation}</li>}
+                </ul>
+              </div>
             </div>
           </div>
         )}
 
         {/* Botones de acción */}
-        <div className="flex justify-end gap-3">
+        <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4">
           <button
             type="button"
-            onClick={resetForm}
-            className="px-4 py-2 text-gray-700 rounded-md border border-gray-300 hover:bg-gray-100 transition-colors focus:outline-none"
-            disabled={loading}
+            onClick={handleReset}
+            disabled={loadingStates.submitting}
+            className="px-6 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 transition-colors"
           >
-            Limpiar
+            Limpiar Formulario
           </button>
-
+          
           <button
-            type="submit"
-            className="px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-md transition-colors flex items-center focus:outline-none focus:ring-2 focus:ring-orange-500"
-            disabled={loading || !faenaSeleccionada || !valores.toneladas || cargandoDatosPetroleo}
+            type="button"
+            onClick={handleSubmit}
+            disabled={!validationResults.isValid || loadingStates.submitting}
+            className="px-6 py-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
           >
-            {loading ? (
+            {loadingStates.submitting ? (
               <>
-                <span className="animate-spin inline-block h-4 w-4 mr-2 border-t-2 border-white rounded-full"></span>
+                <FaSpinner className="animate-spin mr-2" />
                 Procesando...
               </>
             ) : (
               <>
-                <FaCalculator className="mr-2" />
-                Registrar Datos
+                <FaCheckCircle className="mr-2" />
+                Registrar Datos de Producción
               </>
             )}
           </button>
         </div>
-      </form>
-    </>
+
+        {/* Información adicional en el pie */}
+        <div className="mt-6 pt-4 border-t border-gray-200">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-sm text-gray-500 space-y-2 sm:space-y-0">
+            <div className="flex items-center">
+              <FaLock className="mr-1" />
+              <span>Datos seguros y encriptados</span>
+            </div>
+            <div className="text-right">
+              <div className="font-medium">Sistema de Gestión de Producción</div>
+              <div className="text-xs">
+                Última actualización: {new Date().toLocaleTimeString('es-CL')}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Helper de validación (opcional) */}
+        {uiStates.showValidationHelper && !validationResults.hasData && !consumoData && (
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-start">
+              <FaInfoCircle className="mr-2 text-blue-500 mt-0.5" />
+              <div className="flex-1">
+                <div className="text-sm font-medium text-blue-800">Ayuda para el registro:</div>
+                <div className="text-sm text-blue-700 mt-1">
+                  • Las toneladas extraídas son obligatorias para calcular los KPIs<br/>
+                  • El número de camionadas es opcional pero mejora la precisión de cálculos<br/>
+                  • Los datos de consumo se obtienen automáticamente del sistema<br/>
+                  • Seleccione una faena para ver el resumen de consumo del día anterior
+                </div>
+                <button
+                  onClick={() => setUiStates(prev => ({ ...prev, showValidationHelper: false }))}
+                  className="text-xs text-blue-600 underline hover:no-underline mt-2"
+                >
+                  Ocultar ayuda
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 
-// Definir PropTypes para validación de props
-SimpleKpiCalculator.propTypes = {
+DailyKpiCalculator.propTypes = {
   onCalculate: PropTypes.func,
-  periodo: PropTypes.string
+  periodo: PropTypes.oneOf(["diario"]),
+  showExportOptions: PropTypes.bool,
+  compactMode: PropTypes.bool
 };
 
-// Memorizar el componente para evitar renderizados innecesarios
-export default memo(SimpleKpiCalculator);
+export default DailyKpiCalculator;

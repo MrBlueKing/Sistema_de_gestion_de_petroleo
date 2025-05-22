@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Validator;
 
 class KpiCalculoController extends Controller
 {
-   /**
+    /**
      * Calcula y guarda los KPIs basados en los datos de entrada
      */
     public function calcular(Request $request)
@@ -51,11 +51,11 @@ class KpiCalculoController extends Controller
             // Si se especificó un mes y año para el registro, usarlos
             // Si no, usar el mes anterior al actual por defecto
             $periodoDate = Carbon::now();
-            
+
             // Obtener el mes y año de registro (si se especificaron)
             $mesRegistro = $request->input('mes_registro');
             $anoRegistro = $request->input('ano_registro');
-            
+
             // Si no se especifican mes/año en la petición, usar el mes anterior al actual
             if (!$mesRegistro || !$anoRegistro) {
                 $periodoDate = Carbon::now()->subMonth();
@@ -71,12 +71,12 @@ class KpiCalculoController extends Controller
             $informe->id_usuario = $userId;
             $informe->id_faena = $request->faena;
             $informe->periodo = $request->periodo;
-            
+
             // Determinar fechas de inicio y fin basadas en el período y el mes/año especificados
             $fechasPeriodo = $this->determinarFechasPeriodo($request->periodo, $periodoDate);
             $informe->fecha_inicio_periodo = $fechasPeriodo['inicio'];
             $informe->fecha_fin_periodo = $fechasPeriodo['fin'];
-            
+
             // Generar un título descriptivo incluyendo el período y la fecha actual de creación
             $nombreMes = $periodoDate->locale('es')->monthName;
             $informe->titulo = "Informe KPI " . ucfirst($request->periodo) . " - $nombreMes $anoRegistro";
@@ -138,7 +138,7 @@ class KpiCalculoController extends Controller
         // Clonar las fechas para evitar modificar la original
         $fechaInicio = clone $fechaBase;
         $fechaFin = clone $fechaBase;
-        
+
         switch ($periodo) {
             case 'diario':
                 $fechaInicio = $fechaInicio->startOfDay();
@@ -166,7 +166,7 @@ class KpiCalculoController extends Controller
                 $fechaFin = $fechaFin->endOfMonth();
                 break;
         }
-        
+
         return [
             'inicio' => $fechaInicio,
             'fin' => $fechaFin
@@ -329,12 +329,15 @@ class KpiCalculoController extends Controller
     /**
      * Obtiene las faenas que aún no tienen datos ingresados en el mes actual
      */
+    /**
+     * Obtiene las faenas disponibles para ingreso diario (sin registros de ayer)
+     */
     public function getFaenasDisponibles(Request $request)
     {
         try {
-            // Obtener el primer día del mes actual
-            $inicioMes = Carbon::now()->startOfMonth();
-            $finMes = Carbon::now()->endOfMonth();
+            // Obtener la fecha de ayer (todo el día)
+            $ayerInicio = Carbon::now()->subDay()->startOfDay();
+            $ayerFin = Carbon::now()->subDay()->endOfDay();
 
             // Obtener todas las faenas
             $todasFaenas = DB::table('faenas')
@@ -342,16 +345,16 @@ class KpiCalculoController extends Controller
                 ->where('id_faena', '>', 0)
                 ->get();
 
-            // Obtener las faenas con registros en el mes actual
+            // Obtener las faenas con registros diarios de ayer
             $faenasConRegistros = DB::table('informes_kpi')
                 ->select('id_faena')
-                ->whereBetween('fecha_creacion', [$inicioMes, $finMes])
-                ->where('periodo', 'mensual')
+                ->whereBetween('fecha_creacion', [$ayerInicio, $ayerFin])
+                ->where('periodo', 'diario')
                 ->distinct()
                 ->pluck('id_faena')
                 ->toArray();
 
-            // Filtrar las faenas disponibles (las que no tienen registros)
+            // Filtrar las faenas disponibles (sin registros de ayer)
             $faenasDisponibles = $todasFaenas->filter(function ($faena) use ($faenasConRegistros) {
                 return !in_array($faena->id_faena, $faenasConRegistros);
             })->values();
@@ -360,7 +363,7 @@ class KpiCalculoController extends Controller
             return response()->json([
                 'status' => 'success',
                 'data' => $faenasDisponibles,
-                'mes_actual' => Carbon::now()->format('Y-m')
+                'fecha' => Carbon::now()->subDay()->format('Y-m-d')
             ]);
         } catch (\Exception $e) {
             Log::error('Error al obtener faenas disponibles: ' . $e->getMessage());
