@@ -9,6 +9,12 @@ import {
   FaExclamationTriangle,
   FaTimes,
   FaRuler,
+  FaCheck,
+  FaFileAlt,
+  FaGasPump,
+  FaCalculator,
+  FaDollarSign,
+  FaArrowRight,
 } from "react-icons/fa";
 import { UserContext } from "../../../context/userContext";
 import axios from "../../../lib/axios";
@@ -22,6 +28,210 @@ const formatNumber = (num) => {
     return "0.00";
   }
   return parseFloat(num).toFixed(2);
+};
+
+// Función para formatear números con separadores de miles
+const formatNumberWithSeparators = (num) => {
+  if (num === undefined || num === null || isNaN(parseFloat(num))) {
+    return "0,00";
+  }
+  return parseFloat(num).toLocaleString("es-CL", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
+// Función para formatear moneda
+const formatCurrency = (amount) => {
+  return parseFloat(amount).toLocaleString("es-CL", {
+    style: "currency",
+    currency: "CLP",
+  });
+};
+
+// COMPONENTE MODAL DE ÉXITO INTEGRADO
+const ModalExitoRecepcion = ({
+  isOpen,
+  onConfirm,
+  datosRecepcion
+}) => {
+  if (!isOpen) return null;
+
+  const {
+    numeroGuia,
+    litrosDocumentados,
+    litrosCalculados,
+    diferencia,
+    precioTotal,
+    stockInicial,
+    precio
+  } = datosRecepcion;
+
+  // Determinar si la diferencia es significativa
+  const diferenciaMagnitud = Math.abs(diferencia);
+  const esDiferenciaSignificativa = diferenciaMagnitud > 50;
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-hidden bg-transparent bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-fadeInScale">
+        
+        {/* Header del modal */}
+        <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-5 text-white">
+          <div className="flex items-center justify-center">
+            <div className="bg-white bg-opacity-20 p-3 rounded-full mr-4">
+              <FaCheck className="text-2xl" />
+            </div>
+            <div className="text-center">
+              <h2 className="text-xl font-bold">¡Recepción Registrada Exitosamente!</h2>
+              <p className="text-orange-100 text-sm mt-1">
+                La recepción de petróleo ha sido procesada correctamente
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Contenido del modal */}
+        <div className="flex-grow overflow-y-auto p-6">
+          
+          {/* Alerta de diferencia si es significativa */}
+          {esDiferenciaSignificativa && (
+            <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start">
+              <FaExclamationTriangle className="text-amber-500 mt-0.5 mr-3 flex-shrink-0" />
+              <div>
+                <h4 className="font-medium text-amber-800 mb-1">
+                  Diferencia Significativa Detectada
+                </h4>
+                <p className="text-amber-700 text-sm">
+                  Se detectó una diferencia de {formatNumberWithSeparators(diferenciaMagnitud)} litros. 
+                  Esta información ha sido registrada para seguimiento.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Resumen de datos en grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            
+            {/* Información de la Guía */}
+            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+              <div className="flex items-center mb-3">
+                <div className="bg-blue-500 p-2 rounded-lg mr-3">
+                  <FaFileAlt className="text-white text-sm" />
+                </div>
+                <h3 className="font-semibold text-blue-800">Información de Guía</h3>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-blue-700 text-sm">N° Guía:</span>
+                  <span className="font-bold text-blue-900">{numeroGuia}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-blue-700 text-sm">Litros Documentados:</span>
+                  <span className="font-bold text-blue-900">{formatNumberWithSeparators(litrosDocumentados)} L</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-blue-700 text-sm">Precio por Litro:</span>
+                  <span className="font-bold text-blue-900">{formatCurrency(precio)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Cálculos Realizados */}
+            <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+              <div className="flex items-center mb-3">
+                <div className="bg-orange-500 p-2 rounded-lg mr-3">
+                  <FaCalculator className="text-white text-sm" />
+                </div>
+                <h3 className="font-semibold text-orange-800">Mediciones</h3>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-orange-700 text-sm">Stock Inicial:</span>
+                  <span className="font-bold text-orange-900">{formatNumberWithSeparators(stockInicial)} L</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-orange-700 text-sm">Litros Calculados:</span>
+                  <span className="font-bold text-orange-900">{formatNumberWithSeparators(litrosCalculados)} L</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-orange-700 text-sm">Diferencia:</span>
+                  <span className={`font-bold ${
+                    esDiferenciaSignificativa ? 'text-red-600' : 'text-orange-500'
+                  }`}>
+                    {formatNumberWithSeparators(diferenciaMagnitud)} L
+                    <span className="text-xs ml-1">
+                      ({diferencia > 0 ? 'Excedente' : 'Faltante'})
+                    </span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Resumen financiero */}
+          <div className="bg-green-50 rounded-lg p-4 border border-green-200 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="bg-green-500 p-2 rounded-lg mr-3">
+                  <FaDollarSign className="text-white text-sm" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-green-800">Total de la Recepción</h3>
+                  <p className="text-green-600 text-sm">Basado en litros documentados</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-2xl font-bold text-green-800">
+                  {formatCurrency(precioTotal)}
+                </div>
+                <div className="text-green-600 text-sm">
+                  {formatNumberWithSeparators(litrosDocumentados)} L × {formatCurrency(precio)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Información adicional */}
+          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+            <h4 className="font-medium text-gray-700 mb-2 flex items-center">
+              <FaGasPump className="mr-2 text-gray-500" />
+              Información Adicional
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-gray-600">Estado del Registro:</span>
+                <span className="ml-2 font-medium text-orange-600">✓ Completado</span>
+              </div>
+              <div>
+                <span className="text-gray-600">Precisión:</span>
+                <span className={`ml-2 font-medium ${
+                  esDiferenciaSignificativa ? 'text-amber-600' : 'text-orange-600'
+                }`}>
+                  {esDiferenciaSignificativa ? 'Requiere Revisión' : 'Dentro de Tolerancia'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Footer con botón */}
+        <div className="border-t border-gray-200 px-6 py-4 bg-gray-50">
+          <div className="flex justify-end">
+            <button
+              onClick={onConfirm}
+              className="flex items-center px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-700 text-white font-medium rounded-lg hover:from-orange-600 hover:to-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-all shadow-sm"
+            >
+              <span>Ir al Dashboard</span>
+              <FaArrowRight className="ml-2" />
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
 };
 
 const FormRecepcion = () => {
@@ -48,6 +258,10 @@ const FormRecepcion = () => {
     message: "",
     type: "",
   });
+
+  // NUEVO: Estado para el modal de éxito
+  const [showExitoModal, setShowExitoModal] = useState(false);
+  const [datosRecepcionExitosa, setDatosRecepcionExitosa] = useState(null);
 
   // Estados para datos de combustible
   const [estanques, setEstanques] = useState([]);
@@ -87,6 +301,8 @@ const FormRecepcion = () => {
   useEffect(() => {
     validateField();
   }, [formData]);
+
+  const [stockInicial, setStockInicial] = useState(0);
 
   // Función para cargar los estanques de una faena
   const cargarEstanques = async (idFaena) => {
@@ -535,7 +751,15 @@ const FormRecepcion = () => {
     return alturas;
   };
 
-  // Manejar el envío del formulario
+  // NUEVO: Función para manejar el cierre del modal de éxito
+  const handleExitoModalConfirm = () => {
+    setShowExitoModal(false);
+    setDatosRecepcionExitosa(null);
+    // Redirigir directamente sin resetear el formulario
+    window.location.href = "/bombero";
+  };
+
+  // Manejar el envío del formulario - MODIFICADO
   const handleSubmit = async () => {
     // Marcar todos los campos como tocados para validar
     setTouched({
@@ -607,6 +831,7 @@ const FormRecepcion = () => {
         observacion: formData.observacion,
         id_faena: formData.id_faena,
         diferencia: diferencia,
+        stock_inicial: stockInicial,
         alturas_estanques: alturas,
       };
 
@@ -620,11 +845,23 @@ const FormRecepcion = () => {
         },
       });
 
-      // Mostrar mensaje de éxito
-      mostrarAlerta("success", "Recepción de petróleo registrada con éxito");
+      // NUEVO: Preparar datos para el modal de éxito
+      const datosParaModalExito = {
+        numeroGuia: formData.numeroGuia,
+        litrosDocumentados: parseFloat(formData.litrosRecibidos),
+        litrosCalculados: calculoPetroleo.litrosCalculados,
+        diferencia: diferencia,
+        precioTotal: precioTotal,
+        stockInicial: stockInicial,
+        precio: parseFloat(formData.precio)
+      };
 
-      // Limpiar el formulario pero mantener la faena
-      resetearFormulario();
+      // NUEVO: Mostrar modal de éxito en lugar del alert
+      setDatosRecepcionExitosa(datosParaModalExito);
+      setShowExitoModal(true);
+
+      // NO resetear el formulario aquí - solo después de confirmar en el modal
+
     } catch (error) {
       console.error("Error al enviar los datos:", error);
       manejarErrorEnvio(error);
@@ -685,231 +922,248 @@ const FormRecepcion = () => {
   }
 
   return (
-    <div className="flex flex-col space-y-4 bg-gray-50 p-5 rounded-lg shadow-sm">
-      {/* Mostrar alertas */}
-      {alert.show && (
-        <div
-          className={`flex items-center p-3 rounded-lg ${
-            alert.type === "success"
-              ? "bg-green-100 text-green-800 border-l-4 border-green-500"
-              : "bg-red-100 text-red-800 border-l-4 border-red-500"
-          }`}
-        >
-          {alert.type === "error" && <FaExclamationTriangle className="mr-2" />}
-          {alert.message}
-        </div>
-      )}
-
-      <h2 className="text-xl font-semibold text-gray-700 border-b pb-2 mb-2">
-        Registro de Recepción de Petróleo
-      </h2>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="flex flex-col">
-          <label className="text-sm font-medium text-gray-600 mb-1">
-            N° Guía de Despacho *
-          </label>
-          <InputField
-            placeholder="Ingrese número de guía"
-            value={formData.numeroGuia}
-            onChange={(e) => handleChange("numeroGuia", e.target.value)}
-            onBlur={() => handleBlur("numeroGuia")}
-            className={`bg-white rounded-md text-gray-800 ${
-              errors.numeroGuia ? "border-red-500" : "border-gray-300"
+    <>
+      <div className="flex flex-col space-y-4 bg-gray-50 p-5 rounded-lg shadow-sm">
+        {/* Mostrar alertas */}
+        {alert.show && (
+          <div
+            className={`flex items-center p-3 rounded-lg ${
+              alert.type === "success"
+                ? "bg-green-100 text-green-800 border-l-4 border-green-500"
+                : "bg-red-100 text-red-800 border-l-4 border-red-500"
             }`}
-          />
-          {errors.numeroGuia && (
-            <span className="text-red-500 text-xs mt-1">
-              {errors.numeroGuia}
-            </span>
-          )}
-        </div>
-
-        <div className="flex flex-col">
-          <label className="text-sm font-medium text-gray-600 mb-1">
-            Litros Recibidos *
-          </label>
-          <InputField
-            placeholder="Ingrese cantidad de litros"
-            type="number"
-            value={formData.litrosRecibidos}
-            onChange={(e) => handleChange("litrosRecibidos", e.target.value)}
-            onBlur={() => handleBlur("litrosRecibidos")}
-            className={`bg-white rounded-md text-gray-800 ${
-              errors.litrosRecibidos ? "border-red-500" : "border-gray-300"
-            }`}
-          />
-          {errors.litrosRecibidos && (
-            <span className="text-red-500 text-xs mt-1">
-              {errors.litrosRecibidos}
-            </span>
-          )}
-        </div>
-
-        <div className="flex flex-col">
-          <label className="text-sm font-medium text-gray-600 mb-1">
-            Precio del Petróleo (por litro) *
-          </label>
-          <InputField
-            placeholder="Ingrese precio por litro"
-            type="number"
-            value={formData.precio}
-            onChange={(e) => handleChange("precio", e.target.value)}
-            onBlur={() => handleBlur("precio")}
-            className={`bg-white rounded-md text-gray-800 ${
-              errors.precio ? "border-red-500" : "border-gray-300"
-            }`}
-          />
-          {errors.precio && (
-            <span className="text-red-500 text-xs mt-1">{errors.precio}</span>
-          )}
-        </div>
-
-        <div className="flex flex-col">
-          <label className="text-sm font-medium text-gray-600 mb-1">
-            Alturas de Estanques *
-          </label>
-          <div className="flex">
-            <Button
-              text="Ingresar Alturas"
-              color="orange"
-              icon={<FaRuler className="mr-2 text-white" />}
-              onClick={() => setShowEstanquesModal(true)}
-              className="bg-orange-600 hover:bg-orange-700 text-white text-sm px-4 py-2 rounded-md flex items-center w-full"
-              disabled={!formData.id_faena || !formData.litrosRecibidos}
-            />
-            {calculoPetroleo.calculoRealizado && (
-              <span className="ml-3 text-green-600 flex items-center text-sm">
-                ✓ Alturas ingresadas
-              </span>
-            )}
-          </div>
-          {!formData.id_faena ? (
-            <span className="text-amber-600 text-xs mt-1">
-              No se ha podido identificar la faena
-            </span>
-          ) : !formData.litrosRecibidos ? (
-            <span className="text-amber-600 text-xs mt-1">
-              Debe ingresar primero la cantidad de litros recibidos
-            </span>
-          ) : (
-            !calculoPetroleo.calculoRealizado && (
-              <span className="text-red-500 text-xs mt-1">
-                Debe ingresar las alturas para calcular la diferencia
-              </span>
-            )
-          )}
-        </div>
-      </div>
-
-      {/* Calcular total estimado si hay litros y precio */}
-      {formData.litrosRecibidos &&
-        formData.precio &&
-        !errors.litrosRecibidos &&
-        !errors.precio && (
-          <div className="bg-blue-50 p-3 rounded-lg text-center border border-blue-200 mt-2">
-            <p className="text-sm text-blue-600">Total Estimado:</p>
-            <p className="font-bold text-gray-800 text-lg">
-              {(
-                parseFloat(formData.litrosRecibidos) *
-                parseFloat(formData.precio)
-              ).toLocaleString("es-CL", {
-                style: "currency",
-                currency: "CLP",
-              })}
-            </p>
+          >
+            {alert.type === "error" && <FaExclamationTriangle className="mr-2" />}
+            {alert.message}
           </div>
         )}
 
-      {calculoPetroleo.calculoRealizado && (
-        <div
-          className={`p-3 rounded-lg text-center border mt-2 ${
-            Math.abs(calculoPetroleo.diferencia) > 50
-              ? "bg-red-50 border-red-200"
-              : "bg-green-50 border-green-200"
-          }`}
-        >
-          <p
-            className={`text-sm ${
+        <h2 className="text-xl font-semibold text-gray-700 border-b pb-2 mb-2">
+          Registro de Recepción de Petróleo
+        </h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="flex flex-col">
+            <label className="text-sm font-medium text-gray-600 mb-1">
+              N° Guía de Despacho *
+            </label>
+            <InputField
+              placeholder="Ingrese número de guía"
+              value={formData.numeroGuia}
+              onChange={(e) => handleChange("numeroGuia", e.target.value)}
+              onBlur={() => handleBlur("numeroGuia")}
+              className={`bg-white rounded-md text-gray-800 ${
+                errors.numeroGuia ? "border-red-500" : "border-gray-300"
+              }`}
+            />
+            {errors.numeroGuia && (
+              <span className="text-red-500 text-xs mt-1">
+                {errors.numeroGuia}
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-col">
+            <label className="text-sm font-medium text-gray-600 mb-1">
+              Litros Recibidos *
+            </label>
+            <InputField
+              placeholder="Ingrese cantidad de litros"
+              type="number"
+              value={formData.litrosRecibidos}
+              onChange={(e) => handleChange("litrosRecibidos", e.target.value)}
+              onBlur={() => handleBlur("litrosRecibidos")}
+              className={`bg-white rounded-md text-gray-800 ${
+                errors.litrosRecibidos ? "border-red-500" : "border-gray-300"
+              }`}
+            />
+            {errors.litrosRecibidos && (
+              <span className="text-red-500 text-xs mt-1">
+                {errors.litrosRecibidos}
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-col">
+            <label className="text-sm font-medium text-gray-600 mb-1">
+              Precio del Petróleo (por litro) *
+            </label>
+            <InputField
+              placeholder="Ingrese precio por litro"
+              type="number"
+              value={formData.precio}
+              onChange={(e) => handleChange("precio", e.target.value)}
+              onBlur={() => handleBlur("precio")}
+              className={`bg-white rounded-md text-gray-800 ${
+                errors.precio ? "border-red-500" : "border-gray-300"
+              }`}
+            />
+            {errors.precio && (
+              <span className="text-red-500 text-xs mt-1">{errors.precio}</span>
+            )}
+          </div>
+
+          <div className="flex flex-col">
+            <label className="text-sm font-medium text-gray-600 mb-1">
+              Alturas de Estanques *
+            </label>
+            <div className="flex">
+              <Button
+                text="Ingresar Alturas"
+                color="orange"
+                icon={<FaRuler className="mr-2 text-white" />}
+                onClick={() => setShowEstanquesModal(true)}
+                className="bg-orange-600 hover:bg-orange-700 text-white text-sm px-4 py-2 rounded-md flex items-center w-full"
+                disabled={!formData.id_faena || !formData.litrosRecibidos}
+              />
+              {calculoPetroleo.calculoRealizado && (
+                <span className="ml-3 text-green-600 flex items-center text-sm">
+                  ✓ Alturas ingresadas
+                </span>
+              )}
+            </div>
+            {!formData.id_faena ? (
+              <span className="text-amber-600 text-xs mt-1">
+                No se ha podido identificar la faena
+              </span>
+            ) : !formData.litrosRecibidos ? (
+              <span className="text-amber-600 text-xs mt-1">
+                Debe ingresar primero la cantidad de litros recibidos
+              </span>
+            ) : (
+              !calculoPetroleo.calculoRealizado && (
+                <span className="text-red-500 text-xs mt-1">
+                  Debe ingresar las alturas para calcular la diferencia
+                </span>
+              )
+            )}
+          </div>
+        </div>
+
+        {/* Calcular total estimado si hay litros y precio */}
+        {formData.litrosRecibidos &&
+          formData.precio &&
+          !errors.litrosRecibidos &&
+          !errors.precio && (
+            <div className="bg-blue-50 p-3 rounded-lg text-center border border-blue-200 mt-2">
+              <p className="text-sm text-blue-600">Total Estimado:</p>
+              <p className="font-bold text-gray-800 text-lg">
+                {(
+                  parseFloat(formData.litrosRecibidos) *
+                  parseFloat(formData.precio)
+                ).toLocaleString("es-CL", {
+                  style: "currency",
+                  currency: "CLP",
+                })}
+              </p>
+            </div>
+          )}
+
+        {calculoPetroleo.calculoRealizado && (
+          <div
+            className={`p-3 rounded-lg text-center border mt-2 ${
               Math.abs(calculoPetroleo.diferencia) > 50
-                ? "text-red-600"
-                : "text-green-600"
+                ? "bg-red-50 border-red-200"
+                : "bg-green-50 border-green-200"
             }`}
           >
-            Resultado del cálculo:
-          </p>
-          <div className="font-medium text-gray-800">
-            <p>
-              Litros según guía:{" "}
-              {formatNumber(parseFloat(formData.litrosRecibidos))}
-            </p>
-            <p>
-              Litros ingresados calculados:{" "}
-              {formatNumber(calculoPetroleo.litrosCalculados)}
-            </p>
             <p
-              className={`font-bold ${
+              className={`text-sm ${
                 Math.abs(calculoPetroleo.diferencia) > 50
                   ? "text-red-600"
                   : "text-green-600"
               }`}
             >
-              Diferencia: {formatNumber(Math.abs(calculoPetroleo.diferencia))}{" "}
-              litros {calculoPetroleo.diferencia > 0 ? "de más" : "de menos"}
+              Resultado del cálculo:
             </p>
+            <div className="font-medium text-gray-800">
+              <p>
+                Litros según guía:{" "}
+                {formatNumber(parseFloat(formData.litrosRecibidos))}
+              </p>
+              <p>
+                Litros ingresados calculados:{" "}
+                {formatNumber(calculoPetroleo.litrosCalculados)}
+              </p>
+              <p
+                className={`font-bold ${
+                  Math.abs(calculoPetroleo.diferencia) > 50
+                    ? "text-red-600"
+                    : "text-green-600"
+                }`}
+              >
+                Diferencia: {formatNumber(Math.abs(calculoPetroleo.diferencia))}{" "}
+                litros {calculoPetroleo.diferencia > 0 ? "de más" : "de menos"}
+              </p>
+            </div>
           </div>
+        )}
+
+        <div className="flex flex-col col-span-full mt-2">
+          <label className="text-sm font-medium text-gray-600 mb-1">
+            Observación
+          </label>
+          <InputField
+            placeholder="Ingrese sus observaciones"
+            isTextarea={true}
+            value={formData.observacion}
+            onChange={(e) => handleChange("observacion", e.target.value)}
+            className="bg-white rounded-md px-3 py-2 min-h-[80px] text-gray-800 border-gray-300"
+          />
         </div>
+
+        <div className="flex items-center mt-4 pt-2 border-t">
+          <Button
+            to="/Bombero"
+            className="flex items-center justify-center bg-orange-600 hover:bg-orange-700 text-white text-sm px-4 py-2 rounded-md"
+            icon={<FaHome className="mr-2 text-white" />}
+            text="Volver"
+          />
+
+          <Button
+            text={isSubmitting ? "Procesando..." : "Ingresar Recepción"}
+            color="orange"
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            className={`bg-orange-600 hover:bg-orange-700 text-white text-sm px-6 py-2 rounded-md ml-auto ${
+              isSubmitting ? "opacity-70 cursor-wait" : ""
+            }`}
+          />
+        </div>
+
+        <div className="text-xs text-gray-500 mt-2">
+          Los campos marcados con * son obligatorios
+        </div>
+
+        {/* MODAL DE ESTANQUES */}
+        <EstanquesModal
+          isOpen={showEstanquesModal}
+          onClose={(stockSistema = null) => {
+            // Si se proporciona stockSistema, actualizarlo
+            if (stockSistema !== null) {
+              setStockInicial(stockSistema);
+            }
+            setShowEstanquesModal(false);
+          }}
+          estanques={estanques}
+          alturasEstanques={alturasEstanques}
+          handleAlturaChange={handleAlturaChange}
+          calcularLitrosPetroleo={calcularLitrosPetroleo}
+          modalAlert={modalAlert}
+          capacidadDisponible={capacidadDisponible}
+          litrosRecibidos={parseFloat(formData.litrosRecibidos) || 0}
+        />
+      </div>
+
+      {/* NUEVO: MODAL DE ÉXITO INTEGRADO */}
+      {datosRecepcionExitosa && (
+        <ModalExitoRecepcion
+          isOpen={showExitoModal}
+          onConfirm={handleExitoModalConfirm}
+          datosRecepcion={datosRecepcionExitosa}
+        />
       )}
-
-      <div className="flex flex-col col-span-full mt-2">
-        <label className="text-sm font-medium text-gray-600 mb-1">
-          Observación
-        </label>
-        <InputField
-          placeholder="Ingrese sus observaciones"
-          isTextarea={true}
-          value={formData.observacion}
-          onChange={(e) => handleChange("observacion", e.target.value)}
-          className="bg-white rounded-md px-3 py-2 min-h-[80px] text-gray-800 border-gray-300"
-        />
-      </div>
-
-      <div className="flex items-center mt-4 pt-2 border-t">
-        <Button
-          to="/Bombero"
-          className="flex items-center justify-center bg-orange-600 hover:bg-orange-700 text-white text-sm px-4 py-2 rounded-md"
-          icon={<FaHome className="mr-2 text-white" />}
-          text="Volver"
-        />
-
-        <Button
-          text={isSubmitting ? "Procesando..." : "Ingresar Recepción"}
-          color="orange"
-          onClick={handleSubmit}
-          disabled={isSubmitting}
-          className={`bg-orange-600 hover:bg-orange-700 text-white text-sm px-6 py-2 rounded-md ml-auto ${
-            isSubmitting ? "opacity-70 cursor-wait" : ""
-          }`}
-        />
-      </div>
-
-      <div className="text-xs text-gray-500 mt-2">
-        Los campos marcados con * son obligatorios
-      </div>
-
-      {/* MODAL DE ESTANQUES */}
-      <EstanquesModal
-        isOpen={showEstanquesModal}
-        onClose={() => setShowEstanquesModal(false)}
-        estanques={estanques}
-        alturasEstanques={alturasEstanques}
-        handleAlturaChange={handleAlturaChange}
-        calcularLitrosPetroleo={calcularLitrosPetroleo}
-        modalAlert={modalAlert}
-        capacidadDisponible={capacidadDisponible}
-        litrosRecibidos={parseFloat(formData.litrosRecibidos) || 0} // Pasamos los litros de la guía
-      />
-    </div>
+    </>
   );
 };
 

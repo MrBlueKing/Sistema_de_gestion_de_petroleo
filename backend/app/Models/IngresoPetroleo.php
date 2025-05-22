@@ -27,7 +27,8 @@ class IngresoPetroleo extends Model
         'recibo_conforme',
         'observacion',
         'id_faena',
-        'diferencia'
+        'diferencia',
+        'stock_inicial' 
     ];
     
     // Relación con el usuario que registró el ingreso
@@ -48,3 +49,5 @@ class IngresoPetroleo extends Model
         return $this->hasMany(VerificacionAltura::class, 'id_ingreso');
     }
 }
+
+

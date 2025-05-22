@@ -47,6 +47,7 @@ class IngresoPetroleoController extends Controller
             'recibo_conforme' => 'required|boolean',
             'observacion' => 'nullable|string|max:255',
             'id_faena' => 'required|exists:faenas,id_faena',
+            'stock_inicial' => 'required|numeric|min:0', // 👈 NUEVA VALIDACIÓN
             'diferencia' => 'required|numeric',
             'alturas_estanques' => 'required|array',
             'alturas_estanques.*.id_estanque' => 'required|exists:estanques,id_estanque',
@@ -98,6 +99,7 @@ class IngresoPetroleoController extends Controller
             $ingreso->recibo_conforme = $request->recibo_conforme;
             $ingreso->observacion = $request->observacion;
             $ingreso->diferencia = $request->diferencia;
+            $ingreso->stock_inicial = $request->stock_inicial; // 👈 NUEVO CAMPO
             $ingreso->save();
 
             // Validar y guardar las verificaciones de altura

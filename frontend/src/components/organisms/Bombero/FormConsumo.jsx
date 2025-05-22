@@ -20,9 +20,6 @@ const ConsumoForm = ({
   const showHorometro = tipoMedicion === "Horometro";
   const showKilometraje = tipoMedicion === "Kilometraje";
   
-  // Estado para controlar si mostramos el selector de estanques
-  const [mostrarSelectorEstanques, setMostrarSelectorEstanques] = useState(false);
-  
   // Log para depuración
   useEffect(() => {
     
@@ -46,24 +43,22 @@ const ConsumoForm = ({
                           && formData.numeralFinal 
                           && formData.numeralInicial;
 
-  // Mostrar selector de estanques una vez que se hayan ingresado litros válidos
-  useEffect(() => {
-    if (formData.litros && parseFloat(formData.litros) > 0) {
-      setMostrarSelectorEstanques(true);
-    } else {
-      setMostrarSelectorEstanques(false);
-    }
-  }, [formData.litros]);
-  
   // Asegurarse de que idFaena sea un valor numérico
   const faenaIdForSelector = idFaena !== undefined && idFaena !== null ? Number(idFaena) : null;
   
-  // Log cada vez que se va a renderizar el selector de estanques
-  useEffect(() => {
-    if (mostrarSelectorEstanques) {
-      console.log("Mostrando selector de estanques con idFaena:", faenaIdForSelector);
-    }
-  }, [mostrarSelectorEstanques, faenaIdForSelector]);
+  // Verificar si tenemos estanque suficiente para el consumo
+  const tieneStockSuficiente = estanqueSeleccionado && 
+    estanqueSeleccionado.stock_actual >= parseFloat(formData.litros || 0);
+  
+  // Verificar si el formulario está completo para habilitar el botón
+  const formularioCompleto = estanqueSeleccionado && 
+    formData.numeralInicial && 
+    formData.numeralFinal && 
+    !hasNumeralError &&
+    (showHorometro ? formData.horometro : true) &&
+    (showKilometraje ? formData.kilometraje : true) &&
+    parseFloat(formData.litros) > 0 &&
+    tieneStockSuficiente;
   
   return (
     <div className="space-y-4">
@@ -93,188 +88,228 @@ const ConsumoForm = ({
           Tipo de medición: <span className="font-bold text-orange-800">{tipoMedicion}</span>
         </span>
       </div>
-     
-     
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {/* Fecha como campo de solo lectura */}
-        <div className="col-span-1">
-          <label className="block text-left text-gray-700 text-xs sm:text-sm font-medium mb-1">
-            Fecha y Hora de Registro
-          </label>
-          <div className="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg text-left text-sm text-gray-700 font-medium">
-            {formatDate(formData.fechaHora)}
-          </div>
-        </div>
-        
-        {/* Campo de medición específico según tipo */}
-        {showHorometro && (
-          <div className="col-span-1">
-            <label className="block text-left text-gray-700 text-xs sm:text-sm font-medium mb-1">
-              <span className="flex items-center">
-                <FaClock className="text-gray-500 mr-1" size={14} />
-                Horómetro Actual <span className="text-red-500">*</span>
-              </span>
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              value={formData.horometro}
-              onChange={(e) => handleChange("horometro", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              placeholder="Ej: 1234"
-            />
-          </div>
-        )}
-        
-        {showKilometraje && (
-          <div className="col-span-1">
-            <label className="block text-left text-gray-700 text-xs sm:text-sm font-medium mb-1">
-              <span className="flex items-center">
-                <FaTachometerAlt className="text-gray-500 mr-1" size={14} />
-                Kilometraje Actual <span className="text-red-500">*</span>
-              </span>
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              value={formData.kilometraje}
-              onChange={(e) => handleChange("kilometraje", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              placeholder="Ej: 1234"
-            />
-          </div>
-        )}
-        
-        {/* Numeral Inicial */}
-        <div className="col-span-1">
-          <label className="block text-left text-gray-700 text-xs sm:text-sm font-medium mb-1">
-            Numeral Inicial <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="number"
-            step="0.01"
-            value={formData.numeralInicial}
-            onChange={(e) => handleChange("numeralInicial", e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            placeholder="Ej: 100.5"
-          />
-        </div>
-        
-        {/* Numeral Final */}
-        <div className="col-span-1">
-          <label className="block text-left text-gray-700 text-xs sm:text-sm font-medium mb-1">
-            Numeral Final <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="number"
-            step="0.01"
-            value={formData.numeralFinal}
-            onChange={(e) => handleChange("numeralFinal", e.target.value)}
-            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
-              hasNumeralError ? "border-red-500 bg-red-50" : "border-gray-300"
-            }`}
-            placeholder="Ej: 150.5"
-          />
-          {hasNumeralError && (
-            <p className="text-left text-xs text-red-500 mt-1">
-              El numeral final debe ser mayor que el inicial
-            </p>
-          )}
-        </div>
-        
-        {/* Litros */}
-        <div className="col-span-1">
-          <label className="block text-left text-gray-700 text-xs sm:text-sm font-medium mb-1">
-            Litros <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="number"
-            step="0.01"
-            value={formData.litros}
-            onChange={(e) => handleChange("litros", e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-gray-50"
-            placeholder="Ej: 50"
-            readOnly
-          />
-          <p className="text-left text-xs text-gray-500 mt-1">
-            Calculado automáticamente (Numeral Final - Numeral Inicial)
+
+      {/* PASO 1: Selector de Estanques - Ahora al inicio */}
+      <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+        <div className="mb-3">
+          <h3 className="text-left text-gray-800 font-semibold text-sm sm:text-base flex items-center">
+            <FaGasPump className="text-blue-600 mr-2" />
+            Paso 1: Seleccione el estanque a utilizar
+          </h3>
+          <p className="text-xs text-gray-600 mt-1">
+            Elija el estanque del cual extraerá el combustible antes de registrar los datos de consumo
           </p>
         </div>
-      </div>
-      
-      {/* Selector de Estanques - Solo aparece cuando se han ingresado litros válidos */}
-      {mostrarSelectorEstanques && (
-        <div className="mt-6">
-          <div className="border-t border-gray-200 pt-4 mb-3">
-            <h3 className="text-left text-gray-700 font-medium text-sm sm:text-base flex items-center">
-              <FaGasPump className="text-orange-500 mr-2" />
-              {estanqueSeleccionado
-                ? "Estanque seleccionado para este consumo"
-                : "Seleccione el estanque para descontar el combustible"}
-            </h3>
+        
+        {faenaIdForSelector ? (
+          <SelectorEstanques 
+            idFaena={faenaIdForSelector}
+            onEstanqueSelect={onEstanqueSelect}
+            estanqueSeleccionado={estanqueSeleccionado}
+            litrosRequeridos={parseFloat(formData.litros) || 0}
+            disabled={isSaving}
+          />
+        ) : (
+          <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-3 rounded">
+            <div className="flex items-start">
+              <FaInfoCircle className="text-yellow-500 mt-0.5 mr-2 flex-shrink-0" />
+              <span className="text-sm">
+                No se ha podido determinar la faena para cargar los estanques disponibles. 
+                Por favor, contacte al administrador del sistema.
+              </span>
+            </div>
           </div>
-          
-          {faenaIdForSelector ? (
-            <SelectorEstanques 
-              idFaena={faenaIdForSelector} // Asegurarnos de que sea un número
-              onEstanqueSelect={onEstanqueSelect}
-              estanqueSeleccionado={estanqueSeleccionado}
-              litrosRequeridos={parseFloat(formData.litros) || 0}
-              disabled={isSaving}
-            />
-          ) : (
-            <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-3 rounded">
-              <div className="flex items-start">
-                <FaInfoCircle className="text-yellow-500 mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-sm">
-                  No se ha podido determinar la faena para cargar los estanques disponibles. 
-                  Por favor, contacte al administrador del sistema.
+        )}
+
+        {/* Información del estanque seleccionado */}
+        {estanqueSeleccionado && (
+          <div className="mt-3 bg-white rounded-lg p-3 border border-blue-300">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-800">
+                  Estanque seleccionado: {estanqueSeleccionado.nombre}
+                </p>
+                <p className="text-xs text-gray-600">
+                  Stock disponible: {estanqueSeleccionado.stock_actual.toLocaleString()} litros
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  ✓ Seleccionado
                 </span>
               </div>
             </div>
-          )}
+          </div>
+        )}
+      </div>
 
-          {/* Nota sobre el estanque seleccionado */}
-          {estanqueSeleccionado && (
-            <div className="mt-3 text-left">
-              <p className="text-sm text-gray-600">
-                Estanque seleccionado: <span className="font-medium text-gray-800">{estanqueSeleccionado.nombre}</span>
-                {estanqueSeleccionado.stock_actual < parseFloat(formData.litros) && (
-                  <span className="text-red-600 ml-2">
-                    (Stock insuficiente: {estanqueSeleccionado.stock_actual.toLocaleString()} litros)
-                  </span>
-                )}
-              </p>
+      {/* PASO 2: Datos de consumo - Solo se muestra cuando hay estanque seleccionado */}
+      {estanqueSeleccionado && (
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+          <div className="mb-3">
+            <h3 className="text-left text-gray-800 font-semibold text-sm sm:text-base flex items-center">
+              <GiGasPump className="text-gray-600 mr-2" />
+              Paso 2: Registre los datos de consumo
+            </h3>
+            <p className="text-xs text-gray-600 mt-1">
+              Ingrese los datos que muestra la bomba después del suministro de combustible
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* Fecha como campo de solo lectura */}
+            <div className="col-span-1">
+              <label className="block text-left text-gray-700 text-xs sm:text-sm font-medium mb-1">
+                Fecha y Hora de Registro
+              </label>
+              <div className="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg text-left text-sm text-gray-700 font-medium">
+                {formatDate(formData.fechaHora)}
+              </div>
             </div>
-          )}
+            
+            {/* Campo de medición específico según tipo */}
+            {showHorometro && (
+              <div className="col-span-1">
+                <label className="block text-left text-gray-700 text-xs sm:text-sm font-medium mb-1">
+                  <span className="flex items-center">
+                    <FaClock className="text-gray-500 mr-1" size={14} />
+                    Horómetro Actual <span className="text-red-500">*</span>
+                  </span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.horometro}
+                  onChange={(e) => handleChange("horometro", e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  placeholder="Ej: 1234"
+                />
+              </div>
+            )}
+            
+            {showKilometraje && (
+              <div className="col-span-1">
+                <label className="block text-left text-gray-700 text-xs sm:text-sm font-medium mb-1">
+                  <span className="flex items-center">
+                    <FaTachometerAlt className="text-gray-500 mr-1" size={14} />
+                    Kilometraje Actual <span className="text-red-500">*</span>
+                  </span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.kilometraje}
+                  onChange={(e) => handleChange("kilometraje", e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  placeholder="Ej: 1234"
+                />
+              </div>
+            )}
+            
+            {/* Numeral Inicial */}
+            <div className="col-span-1">
+              <label className="block text-left text-gray-700 text-xs sm:text-sm font-medium mb-1">
+                Numeral Inicial <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.numeralInicial}
+                onChange={(e) => handleChange("numeralInicial", e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                placeholder="Ej: 100.5"
+              />
+            </div>
+            
+            {/* Numeral Final */}
+            <div className="col-span-1">
+              <label className="block text-left text-gray-700 text-xs sm:text-sm font-medium mb-1">
+                Numeral Final <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.numeralFinal}
+                onChange={(e) => handleChange("numeralFinal", e.target.value)}
+                className={`w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                  hasNumeralError ? "border-red-500 bg-red-50" : "border-gray-300"
+                }`}
+                placeholder="Ej: 150.5"
+              />
+              {hasNumeralError && (
+                <p className="text-left text-xs text-red-500 mt-1">
+                  El numeral final debe ser mayor que el inicial
+                </p>
+              )}
+            </div>
+            
+            {/* Litros - Calculado automáticamente */}
+            <div className="col-span-1 md:col-span-2">
+              <label className="block text-left text-gray-700 text-xs sm:text-sm font-medium mb-1">
+                Litros Consumidos
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.litros}
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium cursor-not-allowed"
+                  placeholder="Se calcula automáticamente"
+                />
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                  <span className="text-gray-500 sm:text-sm">L</span>
+                </div>
+              </div>
+              <p className="text-left text-xs text-gray-500 mt-1">
+                Calculado automáticamente: Numeral Final - Numeral Inicial
+              </p>
+              
+              {/* Validación de stock suficiente */}
+              {formData.litros && estanqueSeleccionado && (
+                <div className="mt-2">
+                  {tieneStockSuficiente ? (
+                    <div className="flex items-center text-green-600 text-xs">
+                      <FaCheckCircle className="mr-1" />
+                      Stock suficiente en el estanque seleccionado
+                    </div>
+                  ) : (
+                    <div className="flex items-center text-red-600 text-xs">
+                      <FaExclamationTriangle className="mr-1" />
+                      Stock insuficiente. Disponible: {estanqueSeleccionado.stock_actual.toLocaleString()} L
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Observaciones */}
+          <div className="mt-4">
+            <label className="block text-left text-gray-700 text-xs sm:text-sm font-medium mb-1">
+              Observaciones
+            </label>
+            <textarea
+              value={formData.observacion}
+              onChange={(e) => handleChange("observacion", e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              placeholder="Observaciones adicionales (opcional)"
+              rows="3"
+            ></textarea>
+          </div>
         </div>
       )}
-      
-      {/* Observaciones */}
-      <div>
-        <label className="block text-left text-gray-700 text-xs sm:text-sm font-medium mb-1">
-          Observaciones
-        </label>
-        <textarea
-          value={formData.observacion}
-          onChange={(e) => handleChange("observacion", e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-          placeholder="Observaciones adicionales (opcional)"
-          rows="3"
-        ></textarea>
-      </div>
       
       {/* Botón de guardar */}
       <div className="pt-2">
         <button
           onClick={handleSubmit}
-          disabled={isSaving || isSaved || hasNumeralError || !estanqueSeleccionado || (estanqueSeleccionado && estanqueSeleccionado.stock_actual < parseFloat(formData.litros))}
+          disabled={isSaving || isSaved || !formularioCompleto}
           className={`w-full md:w-auto px-6 py-2.5 rounded-lg flex items-center justify-center transition-colors ${
             isSaved 
               ? "bg-green-600 hover:bg-green-700 text-white" 
               : "bg-orange-500 hover:bg-orange-600 text-white"
-          } ${(isSaving || isSaved || hasNumeralError || !estanqueSeleccionado || (estanqueSeleccionado && estanqueSeleccionado.stock_actual < parseFloat(formData.litros))) ? "opacity-80 cursor-not-allowed" : ""}`}
+          } ${(isSaving || isSaved || !formularioCompleto) ? "opacity-80 cursor-not-allowed" : ""}`}
         >
           {isSaving ? (
             <>
@@ -286,18 +321,30 @@ const ConsumoForm = ({
               <FaCheckCircle className="mr-2" />
               <span>Guardado</span>
             </>
-          ) : !estanqueSeleccionado && formData.litros ? (
+          ) : !estanqueSeleccionado ? (
             <>
               <FaGasPump className="mr-2" />
-              <span>Seleccione un estanque</span>
+              <span>Seleccione un estanque primero</span>
+            </>
+          ) : !tieneStockSuficiente && formData.litros ? (
+            <>
+              <FaExclamationTriangle className="mr-2" />
+              <span>Stock insuficiente</span>
             </>
           ) : (
             <>
               <FaSave className="mr-2" />
-              <span>Guardar</span>
+              <span>Guardar Consumo</span>
             </>
           )}
         </button>
+        
+        {/* Ayuda adicional */}
+        {!estanqueSeleccionado && (
+          <p className="text-xs text-gray-500 mt-2 text-center">
+            Debe seleccionar un estanque antes de registrar los datos de consumo
+          </p>
+        )}
       </div>
     </div>
   );

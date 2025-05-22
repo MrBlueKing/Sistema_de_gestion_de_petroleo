@@ -103,60 +103,6 @@ const StatCard = ({
   </div>
 );
 
-// Indicador de progreso optimizado para mobile
-const ProgressIndicator = ({ steps, currentStep }) => {
-  return (
-    <div className="w-full max-w-xs mx-auto">
-      <div className="relative flex items-center justify-between">
-        {steps.map((step, index) => {
-          const isActive = index <= currentStep;
-          const isCurrentStep = index === currentStep;
-
-          return (
-            <React.Fragment key={index}>
-              {index > 0 && (
-                <div
-                  className={`h-1 flex-1 mx-2 rounded-full transition-colors ${
-                    isActive ? "bg-orange-500" : "bg-gray-300"
-                  }`}
-                />
-              )}
-              <div className="relative">
-                <div
-                  className={`w-8 h-8 flex items-center justify-center rounded-full transition-all ${
-                    isActive
-                      ? "bg-orange-500 text-white"
-                      : "bg-gray-200 text-gray-500"
-                  } ${isCurrentStep ? "ring-4 ring-orange-100" : ""}`}
-                >
-                  {isActive ? (
-                    index < currentStep ? (
-                      <FaCheck className="w-3 h-3" />
-                    ) : (
-                      index + 1
-                    )
-                  ) : (
-                    index + 1
-                  )}
-                </div>
-                <div
-                  className={`absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap text-xs font-medium ${
-                    isActive ? "text-orange-800" : "text-gray-500"
-                  }`}
-                >
-                  {/* Nombres de pasos abreviados para mobile */}
-                  <span className="hidden sm:inline">{step}</span>
-                  <span className="inline sm:hidden">{step.split(" ")[0]}</span>
-                </div>
-              </div>
-            </React.Fragment>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
 const EstanquesModal = ({
   isOpen,
   onClose,
@@ -327,43 +273,177 @@ const EstanquesModal = ({
     return Math.min(100, Math.round((stock / estanque.capacidad) * 100));
   };
 
+  // Determinar el paso actual basado en el estado
+  const getCurrentStep = () => {
+    if (resultadoCalculo) return 2; // Paso 3: Resultados
+    if (paso === "final") return 1; // Paso 2: Niveles Finales
+    return 0; // Paso 1: Niveles Iniciales
+  };
+
+  // Función para manejar el cierre del modal
+  const handleModalClose = (passStockSistema = false) => {
+    if (passStockSistema && typeof onClose === 'function') {
+      // Pasar el stock del sistema al componente padre
+      onClose(stockTotalSistema);
+    } else if (typeof onClose === 'function') {
+      // Cerrar sin pasar datos
+      onClose();
+    }
+  };
+
   // Si el modal no está abierto, no renderizar nada
   if (!isOpen) return null;
 
+  const currentStep = getCurrentStep();
+  const isResultadosStep = currentStep === 2;
+
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-black bg-opacity-60 backdrop-blur-sm flex items-start md:items-center justify-center">
+    <div className="fixed inset-0 z-50 overflow-hidden bg-transparent bg-opacity-60 backdrop-blur-sm flex items-start md:items-center justify-center">
       <div
         ref={modalRef}
-        className="bg-white rounded-lg shadow-2xl w-full md:max-w-5xl max-h-[100vh] md:max-h-[90vh] flex flex-col animate-fadeInScale overflow-hidden"
+        className="bg-white rounded-lg shadow-2xl w-full md:max-w-7xl max-h-[100vh] md:max-h-[90vh] flex flex-col animate-fadeInScale overflow-hidden"
         style={{ height: isMobile ? "100vh" : "auto" }}
       >
         {/* Encabezado del modal */}
-        <div className="bg-orange-600 px-6 py-4 md:px-8 md:py-5 sticky top-0 z-10">
-          <div className="flex justify-between items-center">
-            <div>
+        <div className="bg-orange-600 px-6 py-4 md:px-8 md:py-5 sticky top-0 z-10 relative">
+          <div className="flex items-center justify-between">
+            {/* Título y descripción */}
+            <div className="flex-1">
               <h2 className="text-white text-lg md:text-xl font-semibold tracking-tight">
-                {paso === "inicial"
+                {isResultadosStep
+                  ? "Dashboard de Análisis de Combustible"
+                  : paso === "inicial"
                   ? "Registro de Niveles Iniciales"
                   : "Registro de Niveles Finales"}
               </h2>
-              <p className="text-orange-100 text-xs md:text-sm mt-1 max-w-2xl">
-                {paso === "inicial"
-                  ? "Ingrese las mediciones de altura de combustible antes de la recepción"
-                  : "Ingrese las mediciones de altura después de la recepción"}
-              </p>
             </div>
-            <button
-              onClick={onClose}
-              className="text-white opacity-80 hover:opacity-100 focus:outline-none p-2 hover:bg-orange-700 rounded-lg transition-all"
-              aria-label="Cerrar"
-            >
-              <FaTimes size={18} />
-            </button>
+
+            {/* Indicador de progreso en el header */}
+            <div className="flex items-center space-x-4">
+              {/* Tooltip de ayuda */}
+              {!isResultadosStep && (
+                <div className="relative">
+                  <button
+                    onClick={() => setMostrarAyuda(!mostrarAyuda)}
+                    onMouseEnter={() => setMostrarAyuda(true)}
+                    className="text-white opacity-80 hover:opacity-100 focus:outline-none p-2 hover:bg-orange-700 rounded-lg transition-all"
+                    aria-label="Ayuda"
+                  >
+                    <FaQuestionCircle size={16} />
+                  </button>
+
+                  {/* Tooltip flotante */}
+                  {mostrarAyuda && (
+                    <>
+                      {/* Overlay transparente para cerrar el tooltip */}
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setMostrarAyuda(false)}
+                      />
+
+                      {/* Contenido del tooltip */}
+                      <div className="absolute right-0 top-12 w-80 md:w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden">
+                        <div className="bg-gradient-to-r from-orange-50 to-orange-100 px-4 py-3 border-b border-orange-200">
+                          <h4 className="font-medium text-orange-800 flex items-center text-sm">
+                            <FaInfoCircle className="text-orange-600 mr-2" />
+                            Cómo medir el nivel de combustible
+                          </h4>
+                        </div>
+                        <div className="p-4 max-h-64 overflow-y-auto">
+                          <div className="text-sm text-gray-700 space-y-2">
+                            <p className="font-medium text-gray-800">
+                              Siga estos pasos para una medición precisa:
+                            </p>
+                            <ol className="list-decimal pl-4 space-y-1.5 text-xs">
+                              <li>
+                                Localice la varilla calibrada del estanque
+                              </li>
+                              <li>Asegúrese de que esté completamente seca</li>
+                              <li>
+                                Inserte verticalmente hasta tocar el fondo
+                              </li>
+                              <li>Retire y observe la marca del combustible</li>
+                              <li>
+                                Mida la distancia en centímetros desde el fondo
+                              </li>
+                            </ol>
+                            <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-xs">
+                              <div className="flex">
+                                <FaExclamationTriangle className="text-amber-500 mt-0.5 mr-2 flex-shrink-0" />
+                                <p>
+                                  Una diferencia de pocos milímetros puede
+                                  representar cientos de litros en estanques
+                                  grandes.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Indicador de progreso compacto */}
+              <div className="flex items-center space-x-2">
+                {["Inicial", "Final", "Dashboard"].map((step, index) => {
+                  const isActive = index <= currentStep;
+                  const isCurrentStep = index === currentStep;
+
+                  return (
+                    <React.Fragment key={index}>
+                      {index > 0 && (
+                        <div
+                          className={`h-0.5 w-4 rounded-full transition-colors ${
+                            isActive
+                              ? "bg-orange-200"
+                              : "bg-orange-800 opacity-30"
+                          }`}
+                        />
+                      )}
+                      <div className="relative group">
+                        <div
+                          className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-medium transition-all ${
+                            isActive
+                              ? "bg-white text-orange-600"
+                              : "bg-orange-800 text-orange-300 opacity-50"
+                          } ${isCurrentStep ? "ring-2 ring-orange-200" : ""}`}
+                        >
+                          {isActive ? (
+                            index < currentStep ? (
+                              <FaCheck className="w-2.5 h-2.5" />
+                            ) : (
+                              index + 1
+                            )
+                          ) : (
+                            index + 1
+                          )}
+                        </div>
+                        {/* Tooltip del paso */}
+                        <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity bg-black bg-opacity-75 text-white text-xs rounded px-2 py-1 pointer-events-none">
+                          {step}
+                        </div>
+                      </div>
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+
+              {/* Botón cerrar */}
+              <button
+                onClick={() => handleModalClose(false)}
+                className="text-white opacity-80 hover:opacity-100 focus:outline-none p-2 hover:bg-orange-700 rounded-lg transition-all"
+                aria-label="Cerrar"
+              >
+                <FaTimes size={16} />
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Contenido del modal */}
-        <div className="overflow-y-auto flex-grow bg-gray-50 p-4 md:p-8">
+        <div className="overflow-y-auto flex-grow bg-gray-50 p-4 md:p-6">
           {/* Alertas */}
           {modalAlert && modalAlert.show && (
             <div ref={errorRef}>
@@ -371,383 +451,368 @@ const EstanquesModal = ({
             </div>
           )}
 
-          {/* Indicador de progreso */}
-          <div className="mb-8 md:mb-12 mt-2 md:mt-4">
-            <ProgressIndicator
-              steps={["Niveles Iniciales", "Niveles Finales", "Resultados"]}
-              currentStep={paso === "inicial" ? 0 : resultadoCalculo ? 2 : 1}
-            />
-          </div>
-
-          {/* Información de stock en el sistema - 3 tarjetas premium */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-5 mb-6 md:mb-8">
-            {/* Stock total del sistema */}
-            <StatCard
-              icon={
-                <FaGasPump
-                  className="text-orange-600"
-                  size={isMobile ? 16 : 20}
-                />
-              }
-              title="Stock Sistema"
-              value={formatNumber(stockTotalSistema)}
-              colorClass="border-orange-100"
-              iconBgClass="bg-orange-100"
-            />
-
-            {/* Litros recibidos según guía */}
-            <StatCard
-              icon={
-                <FaOilCan
-                  className="text-amber-600"
-                  size={isMobile ? 16 : 20}
-                />
-              }
-              title="Litros Guía"
-              value={formatNumber(litrosRecibidos)}
-              colorClass="border-amber-100"
-              iconBgClass="bg-amber-100"
-            />
-          </div>
-
-          {/* Resultado del cálculo completo */}
-          {resultadoCalculo && (
-            <div className="mb-6 md:mb-8 bg-white rounded-lg border border-green-200 shadow-sm overflow-hidden">
-              <div className="bg-gradient-to-r from-green-50 to-green-100 px-4 md:px-5 py-3 border-b border-green-200">
-                <h3 className="text-green-800 font-medium flex items-center text-sm md:text-base">
-                  <FaCheck className="mr-2 text-green-600" />
-                  Cálculo Completado
-                </h3>
-              </div>
-
-              <div className="p-4 md:p-5">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <div className="flex items-center mb-2">
-                      <div className="w-3 h-3 rounded-full bg-orange-500 mr-2"></div>
-                      <span className="text-xs md:text-sm font-medium text-gray-700">
-                        Volumen Inicial
-                      </span>
-                    </div>
-                    <div className="text-xl md:text-2xl font-bold text-gray-800">
-                      {formatNumber(resultadoCalculo.volInicial)}
-                      <span className="text-xs font-normal text-gray-500 ml-1">
-                        L
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <div className="flex items-center mb-2">
-                      <div className="w-3 h-3 rounded-full bg-amber-500 mr-2"></div>
-                      <span className="text-xs md:text-sm font-medium text-gray-700">
-                        Litros Según Guía
-                      </span>
-                    </div>
-                    <div className="text-xl md:text-2xl font-bold text-gray-800">
-                      {formatNumber(litrosRecibidos)}
-                      <span className="text-xs font-normal text-gray-500 ml-1">
-                        L
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <div className="flex items-center mb-2">
-                      <div className="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
-                      <span className="text-xs md:text-sm font-medium text-gray-700">
-                        Volumen Final
-                      </span>
-                    </div>
-                    <div className="text-xl md:text-2xl font-bold text-gray-800">
-                      {formatNumber(resultadoCalculo.volFinal)}
-                      <span className="text-xs font-normal text-gray-500 ml-1">
-                        L
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  className={`p-4 rounded-lg ${
-                    Math.abs(
-                      resultadoCalculo.volFinal -
-                        (resultadoCalculo.volInicial + litrosRecibidos)
-                    ) > 50
-                      ? "bg-red-50 border border-red-200"
-                      : "bg-green-50 border border-green-200"
-                  }`}
-                >
-                  <h4 className="font-medium text-gray-800 mb-3 text-sm md:text-base">
-                    Resultado de la Comparación
-                  </h4>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-gray-600 font-medium text-sm">
-                          Volumen inicial:
-                        </span>
-                        <span className="font-semibold text-gray-800">
-                          {formatNumber(resultadoCalculo.volInicial)} L
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-gray-600 font-medium text-sm">
-                          Volumen final:
-                        </span>
-                        <span className="font-semibold text-gray-800">
-                          {formatNumber(resultadoCalculo.volFinal)} L
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-gray-600 font-medium text-sm">
-                          Litros según guía:
-                        </span>
-                        <span className="font-semibold text-gray-800">
-                          {formatNumber(litrosRecibidos)} L
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-gray-600 font-medium text-sm">
-                          Volumen esperado:
-                        </span>
-                        <span className="font-semibold text-gray-800">
-                          {formatNumber(
-                            resultadoCalculo.volInicial + litrosRecibidos
-                          )}{" "}
-                          L
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start bg-white p-3 rounded-lg border border-gray-200">
-                      <div
-                        className={`p-2 rounded-full mt-0.5 mr-3 flex-shrink-0 ${
-                          Math.abs(
-                            resultadoCalculo.volFinal -
-                              (resultadoCalculo.volInicial + litrosRecibidos)
-                          ) > 50
-                            ? "bg-red-100"
-                            : "bg-green-100"
-                        }`}
-                      >
-                        {Math.abs(
-                          resultadoCalculo.volFinal -
-                            (resultadoCalculo.volInicial + litrosRecibidos)
-                        ) > 50 ? (
-                          <FaExclamationTriangle
-                            className={`text-red-500 ${
-                              isMobile ? "text-xs" : "text-sm"
-                            }`}
-                          />
-                        ) : (
-                          <FaCheck
-                            className={`text-green-500 ${
-                              isMobile ? "text-xs" : "text-sm"
-                            }`}
-                          />
-                        )}
-                      </div>
-                      <div>
-                        <div className="font-medium text-gray-700 text-sm mb-1">
-                          Diferencia:{" "}
-                          {formatNumber(
-                            Math.abs(
-                              resultadoCalculo.volFinal -
-                                (resultadoCalculo.volInicial + litrosRecibidos)
-                            )
-                          )}{" "}
-                          L (
-                          {resultadoCalculo.volFinal >
-                          resultadoCalculo.volInicial + litrosRecibidos
-                            ? "Excedente"
-                            : "Faltante"}
-                          )
+          {/* DISEÑO COMPLETAMENTE NUEVO PARA RESULTADOS */}
+          {isResultadosStep && resultadoCalculo ? (
+            <div className="space-y-4">
+              {/* Dashboard Principal */}
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                {/* Panel principal - Métricas y análisis */}
+                <div className="xl:col-span-3 space-y-4">
+                  {/* Fila superior - Métricas clave */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    {/* Stock Sistema */}
+                    <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-4 text-white shadow-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-blue-100 text-xs font-medium uppercase tracking-wide">
+                            Stock Sistema
+                          </p>
+                          <p className="text-2xl font-bold mt-1">
+                            {formatNumber(stockTotalSistema)}
+                          </p>
+                          <p className="text-blue-200 text-xs">
+                            Litros totales
+                          </p>
                         </div>
-                        <p
-                          className={`text-xs ${
-                            Math.abs(
-                              resultadoCalculo.volFinal -
-                                (resultadoCalculo.volInicial + litrosRecibidos)
-                            ) > 50
-                              ? "text-red-700"
-                              : "text-green-700"
-                          }`}
-                        >
-                          {Math.abs(
-                            resultadoCalculo.volFinal -
-                              (resultadoCalculo.volInicial + litrosRecibidos)
-                          ) > 50
-                            ? "Se detectó una diferencia significativa. Verificar las mediciones."
-                            : "La diferencia está dentro del rango aceptable."}
-                        </p>
+                        <FaGasPump className="text-blue-200 text-2xl opacity-80" />
+                      </div>
+                    </div>
+
+                    {/* Medición Inicial */}
+                    <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-4 text-white shadow-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-orange-100 text-xs font-medium uppercase tracking-wide">
+                            Inicial
+                          </p>
+                          <p className="text-2xl font-bold mt-1">
+                            {formatNumber(resultadoCalculo.volInicial)}
+                          </p>
+                          <p className="text-orange-200 text-xs">
+                            Antes recepción
+                          </p>
+                        </div>
+                        <div className="w-8 h-8 bg-orange-400 rounded-full flex items-center justify-center">
+                          <span className="text-orange-900 font-bold text-sm">
+                            1
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Litros Guía */}
+                    <div className="bg-gradient-to-br from-amber-500 to-yellow-500 rounded-xl p-4 text-white shadow-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-amber-100 text-xs font-medium uppercase tracking-wide">
+                            Según Guía
+                          </p>
+                          <p className="text-2xl font-bold mt-1">
+                            {formatNumber(litrosRecibidos)}
+                          </p>
+                          <p className="text-amber-200 text-xs">Documentado</p>
+                        </div>
+                        <FaOilCan className="text-amber-200 text-2xl opacity-80" />
+                      </div>
+                    </div>
+
+                    {/* Medición Final */}
+                    <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white shadow-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-green-100 text-xs font-medium uppercase tracking-wide">
+                            Final
+                          </p>
+                          <p className="text-2xl font-bold mt-1">
+                            {formatNumber(resultadoCalculo.volFinal)}
+                          </p>
+                          <p className="text-green-200 text-xs">
+                            Después recepción
+                          </p>
+                        </div>
+                        <div className="w-8 h-8 bg-green-400 rounded-full flex items-center justify-center">
+                          <span className="text-green-900 font-bold text-sm">
+                            2
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Análisis detallado */}
+                  <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-200">
+                    <div className="flex items-center mb-4">
+                      <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+                        <FaCalculator className="mr-2 text-orange-500" />
+                        Detalles del Cálculo
+                      </h3>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Volúmenes medidos */}
+                      <div>
+                        <h4 className="font-medium text-gray-700 mb-3">
+                          Volúmenes Inicial
+                        </h4>
+                        <div className="space-y-2">
+                          <div className="flex justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                            <span className="text-gray-600">
+                              Volumen inicial:
+                            </span>
+                            <span className="font-semibold">
+                              {formatNumber(resultadoCalculo.volInicial)} L
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                            <span className="text-gray-600">
+                              Litros según guía:
+                            </span>
+                            <span className="font-semibold">
+                              {formatNumber(litrosRecibidos)} L
+                            </span>
+                          </div>
+                          <div className="flex justify-between py-2 px-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <span className="text-blue-700 font-medium">
+                              Volumen esperado:
+                            </span>
+                            <span className="font-bold text-blue-800">
+                              {formatNumber(
+                                resultadoCalculo.volInicial + litrosRecibidos
+                              )}{" "}
+                              L
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Cálculos derivados */}
+                      <div>
+                        <h4 className="font-medium text-gray-700 mb-3">
+                          Volúmenes Finales
+                        </h4>
+                        <div className="space-y-2">
+                          <div className="flex justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                            <span className="text-gray-600">
+                              Volumen final:
+                            </span>
+                            <span className="font-semibold">
+                              {formatNumber(resultadoCalculo.volFinal)} L
+                            </span>
+                          </div>
+                          <div className="flex justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                            <span className="text-gray-600">
+                              Litros ingresados (medido):
+                            </span>
+                            <span className="font-semibold">
+                              {formatNumber(
+                                resultadoCalculo.volFinal -
+                                  resultadoCalculo.volInicial
+                              )}{" "}
+                              L
+                            </span>
+                          </div>
+                          <div className="flex justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                            <span className="text-gray-600">Diferencia:</span>
+                            <span
+                              className={`font-semibold ${
+                                Math.abs(
+                                  resultadoCalculo.volFinal -
+                                    (resultadoCalculo.volInicial +
+                                      litrosRecibidos)
+                                ) > 50
+                                  ? "text-red-600"
+                                  : "text-green-600"
+                              }`}
+                            >
+                              {formatNumber(
+                                Math.abs(
+                                  resultadoCalculo.volFinal -
+                                    (resultadoCalculo.volInicial +
+                                      litrosRecibidos)
+                                )
+                              )}{" "}
+                              L (
+                              {resultadoCalculo.volFinal >
+                              resultadoCalculo.volInicial + litrosRecibidos
+                                ? "Excedente"
+                                : "Faltante"}
+                              )
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          )}
-
-          {/* Ayuda sobre cómo medir niveles (ícono desplegable) */}
-          <div className="mb-4 md:mb-6">
-            <button
-              onClick={() => setMostrarAyuda(!mostrarAyuda)}
-              className="flex items-center text-orange-600 hover:text-orange-700 text-sm font-medium focus:outline-none transition-colors bg-orange-50 px-3 py-2 md:px-4 md:py-2 rounded-lg w-full md:w-auto justify-center md:justify-start"
-            >
-              <FaQuestionCircle className="mr-2" />
-              <span>Instrucciones para medir</span>
-              <span className="ml-2 px-2 py-0.5 bg-orange-100 text-orange-800 rounded-md text-xs font-medium">
-                {mostrarAyuda ? "Ocultar" : "Ver"}
-              </span>
-            </button>
-
-            {mostrarAyuda && (
-              <div className="mt-3 bg-white border border-orange-200 rounded-lg shadow-sm overflow-hidden">
-                <div className="bg-gradient-to-r from-orange-50 to-orange-100 px-4 py-3 border-b border-orange-200">
-                  <h4 className="font-medium text-orange-800 flex items-center text-sm">
-                    <FaInfoCircle className="text-orange-600 mr-2" />
-                    Cómo medir el nivel de combustible correctamente
-                  </h4>
-                </div>
-                <div className="p-4">
-                  <div className="flex">
-                    <div className="text-sm text-gray-700 space-y-2">
-                      <p className="font-medium text-gray-800">
-                        Siga estos pasos para asegurar una medición precisa:
-                      </p>
-                      <ol className="list-decimal pl-5 space-y-1.5">
-                        <li>
-                          Localice la varilla calibrada asignada al estanque.
-                        </li>
-                        <li>
-                          Asegúrese de que la varilla esté completamente seca.
-                        </li>
-                        <li>
-                          Inserte la varilla verticalmente hasta tocar el fondo.
-                        </li>
-                        <li>
-                          Retire la varilla y observe la marca del combustible.
-                        </li>
-                        <li>
-                          Mida la distancia en centímetros desde el fondo.
-                        </li>
-                      </ol>
-                      <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-xs">
-                        <div className="flex">
-                          <FaExclamationTriangle className="text-amber-500 mt-0.5 mr-2 flex-shrink-0" />
-                          <p>
-                            Es crucial realizar esta medición con precisión. Una
-                            diferencia de pocos milímetros puede representar
-                            cientos de litros en estanques grandes.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Título del paso actual */}
-          <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4 md:mb-6">
-            {paso === "inicial"
-              ? "Ingrese las alturas iniciales de cada estanque"
-              : "Ingrese las alturas finales después de la recepción"}
-          </h3>
-
-          {/* Estanques para el paso actual */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            {Array.isArray(estanques) &&
-              estanques.map((estanque) => {
-                // Simplemente obtenemos las alturas, sin calcular nada
-                const alturas = alturasEstanques[estanque.id_estanque] || {};
-                const capacidadPorcentaje = getCapacidadPorcentaje(estanque);
-
-                return (
-                  <div
-                    key={estanque.id_estanque}
-                    className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden transition-all hover:shadow-md hover:border-orange-200"
-                  >
-                    <div className="bg-gradient-to-r from-gray-50 to-white p-3 md:p-4 border-b relative">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-medium text-gray-800 text-base md:text-lg">
-                            {estanque.nombre}
-                          </h3>
-                          <div className="text-xs text-gray-500 mt-0.5">
-                            ID: {estanque.id_estanque}
-                          </div>
-                        </div>
-                        <div className="bg-white px-2 py-1 rounded-lg border border-gray-200 text-xs font-medium text-gray-700">
-                          {formatNumber(estanque.capacidad)} L
-                        </div>
-                      </div>
-
-                      <div className="mt-2 md:mt-3">
-                        <div className="flex justify-between text-xs text-gray-600 mb-1">
-                          <span>Stock Actual</span>
-                          <span className="font-medium">
-                            {formatNumber(estanque.stock_actual || 0)} L (
-                            {capacidadPorcentaje}%)
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full ${
-                              capacidadPorcentaje > 75
-                                ? "bg-green-500"
-                                : capacidadPorcentaje > 30
-                                ? "bg-blue-500"
-                                : "bg-amber-500"
-                            }`}
-                            style={{ width: `${capacidadPorcentaje}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-4">
-                      <InputNivel
-                        label={
-                          paso === "inicial" ? "Altura Inicial" : "Altura Final"
-                        }
-                        value={
-                          paso === "inicial"
-                            ? alturas.inicial || ""
-                            : alturas.final || ""
-                        }
-                        onChange={(e) => {
-                          if (paso === "inicial") {
-                            handleAlturaChange(estanque.id_estanque, {
-                              inicial: e.target.value,
-                              final: alturas.final || "",
-                            });
-                          } else {
-                            handleAlturaChange(estanque.id_estanque, {
-                              inicial: alturas.inicial || "",
-                              final: e.target.value,
-                            });
-                          }
-                        }}
-                        placeholder="Ingrese altura"
-                        disabled={loading}
+          ) : (
+            <>
+              {/* Diseño original para pasos 1 y 2 */}
+              {!resultadoCalculo && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
+                  <StatCard
+                    icon={
+                      <FaGasPump
+                        className="text-orange-600"
+                        size={isMobile ? 18 : 22}
                       />
-                    </div>
+                    }
+                    title="Stock Sistema"
+                    value={formatNumber(stockTotalSistema)}
+                    colorClass="border-orange-100"
+                    iconBgClass="bg-orange-100"
+                  />
+
+                  <StatCard
+                    icon={
+                      <FaOilCan
+                        className="text-amber-600"
+                        size={isMobile ? 18 : 22}
+                      />
+                    }
+                    title="Litros Guía"
+                    value={formatNumber(litrosRecibidos)}
+                    colorClass="border-amber-100"
+                    iconBgClass="bg-amber-100"
+                  />
+                </div>
+              )}
+
+              {/* Sección de ingreso de alturas - SOLO se muestra si NO estamos en el paso de resultados */}
+              {!isResultadosStep && (
+                <>
+                  {/* Título del paso actual */}
+                  <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-4 md:mb-6">
+                    {paso === "inicial"
+                      ? "Ingrese las alturas iniciales de cada estanque"
+                      : "Ingrese las alturas finales después de la recepción"}
+                  </h3>
+
+                  {/* Estanques para el paso actual */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                    {Array.isArray(estanques) &&
+                      estanques.map((estanque) => {
+                        // Simplemente obtenemos las alturas, sin calcular nada
+                        const alturas =
+                          alturasEstanques[estanque.id_estanque] || {};
+                        const capacidadPorcentaje =
+                          getCapacidadPorcentaje(estanque);
+
+                        return (
+                          <div
+                            key={estanque.id_estanque}
+                            className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden transition-all hover:shadow-md hover:border-orange-200"
+                          >
+                            <div className="bg-gradient-to-r from-gray-50 to-white p-3 md:p-4 border-b relative">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <h3 className="font-medium text-gray-800 text-base md:text-lg">
+                                    {estanque.nombre}
+                                  </h3>
+                                  <div className="text-xs text-gray-500 mt-0.5">
+                                    ID: {estanque.id_estanque}
+                                  </div>
+                                </div>
+                                <div className="bg-white px-2 py-1 rounded-lg border border-gray-200 text-xs font-medium text-gray-700">
+                                  {formatNumber(estanque.capacidad)} L
+                                </div>
+                              </div>
+
+                              <div className="mt-2 md:mt-3">
+                                <div className="flex justify-between text-xs text-gray-600 mb-1">
+                                  <span>Stock Actual</span>
+                                  <span className="font-medium">
+                                    {formatNumber(estanque.stock_actual || 0)} L
+                                    ({capacidadPorcentaje}%)
+                                  </span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div
+                                    className={`h-2 rounded-full ${
+                                      capacidadPorcentaje > 75
+                                        ? "bg-green-500"
+                                        : capacidadPorcentaje > 30
+                                        ? "bg-blue-500"
+                                        : "bg-amber-500"
+                                    }`}
+                                    style={{ width: `${capacidadPorcentaje}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="p-4">
+                              <InputNivel
+                                label={
+                                  paso === "inicial"
+                                    ? "Altura Inicial"
+                                    : "Altura Final"
+                                }
+                                value={
+                                  paso === "inicial"
+                                    ? alturas.inicial || ""
+                                    : alturas.final || ""
+                                }
+                                onChange={(e) => {
+                                  if (paso === "inicial") {
+                                    handleAlturaChange(estanque.id_estanque, {
+                                      inicial: e.target.value,
+                                      final: alturas.final || "",
+                                    });
+                                  } else {
+                                    handleAlturaChange(estanque.id_estanque, {
+                                      inicial: alturas.inicial || "",
+                                      final: e.target.value,
+                                    });
+                                  }
+                                }}
+                                placeholder="Ingrese altura"
+                                disabled={loading}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
                   </div>
-                );
-              })}
-          </div>
+                </>
+              )}
+            </>
+          )}
         </div>
 
         {/* Pie del modal */}
         <div className="border-t border-gray-200 px-6 py-4 md:px-8 md:py-5 flex justify-between items-center bg-white sticky bottom-0 z-10 shadow-lg">
-          {paso === "inicial" ? (
+          {isResultadosStep ? (
+            // Botones para el paso de resultados
             <>
               <button
-                onClick={onClose}
+                onClick={() => {
+                  setResultadoCalculo(null);
+                  setPaso("final");
+                }}
+                className="px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all font-medium text-sm shadow-sm"
+              >
+                <span className="flex items-center">
+                  <FaArrowRight className="mr-2 transform rotate-180" />
+                  <span className="hidden sm:inline">Volver a Editar</span>
+                  <span className="sm:hidden">Volver</span>
+                </span>
+              </button>
+              <button
+                onClick={() => handleModalClose(true)} // ← Pasar true para enviar el stock
+                className="flex items-center px-5 py-2.5 rounded-lg text-white font-medium text-sm shadow-sm bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all"
+              >
+                <FaCheck className="mr-2" />
+                <span>Confirmar Análisis</span>
+              </button>
+            </>
+          ) : paso === "inicial" ? (
+            // Botones para el paso inicial
+            <>
+              <button
+                onClick={() => handleModalClose(false)}
                 className="px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all font-medium text-sm shadow-sm"
               >
                 Cancelar
@@ -776,6 +841,7 @@ const EstanquesModal = ({
               </button>
             </>
           ) : (
+            // Botones para el paso final
             <>
               <button
                 onClick={() => setPaso("inicial")}
@@ -810,7 +876,7 @@ const EstanquesModal = ({
                     <span className="hidden sm:inline">
                       Calcular Diferencia
                     </span>
-                    <span className="sm:hidden">Calcular</span>
+                    <span className="sm:inline">Calcular</span>
                   </>
                 )}
               </button>
