@@ -1,10 +1,10 @@
 import React from "react";
-import Distpach from "../../components/templates/Distpach/Distpach";
+import Mantencion from "../../components/templates/Mantencion/Mantencion";
 
 const MenuPrincipalDistpach = () => {
   return (
     <div>
-      <h1>Hola Mantención</h1>
+      <Mantencion />
     </div>    
   );
 };

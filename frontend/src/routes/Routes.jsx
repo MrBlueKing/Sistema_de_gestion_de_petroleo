@@ -26,6 +26,7 @@ import BomberoNavigation from "../pages/Bombero/BomberoNavigation";
 
 import Distpach from "../pages/Distpach/MenuPrincipalDistpach";
 
+import Mantenimiento from "../pages/Mantencion/MenuPrincipalMantencion"
 
 const AppRoutes = () => {
   return (
@@ -220,6 +221,17 @@ const AppRoutes = () => {
         element={
           <PrivateRoute requiredRole="toneladas">
             <Distpach />
+          </PrivateRoute>
+        }
+      />
+
+
+      {/* Ruta protegida para Mantenimiento*/}
+      <Route
+        path="/Mantenimiento"
+        element={
+          <PrivateRoute requiredRole="planificador">
+            <Mantenimiento />
           </PrivateRoute>
         }
       />

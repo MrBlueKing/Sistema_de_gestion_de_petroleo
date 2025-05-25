@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\KpiCalculadoraController;
 use App\Http\Controllers\Api\KpiCalculoController;
 use App\Http\Controllers\Api\KpiHistoricoController;
 use App\Http\Controllers\Api\KpiValoresEntradaController;
+use App\Http\Controllers\Api\MantenimientoController;
 use App\Http\Controllers\Api\PersonalExternoController;
 use App\Http\Controllers\Api\ProyeccionConsumoController;
 use App\Http\Controllers\Api\TonelajeController;
@@ -204,3 +205,95 @@ Route::get('/tonelajes/{id}/historial', [TonelajeController::class, 'getHistoria
 
 // Verificar si un registro puede ser editado
 Route::get('/tonelajes/{id}/puede-editar', [TonelajeController::class, 'puedeEditar']);
+
+
+    
+// Rutas para el sistema de mantenimiento
+Route::prefix('mantenimiento')->group(function () {
+
+    // Obtener estado general de mantenimiento
+    Route::get('/', [MantenimientoController::class, 'index']);
+
+    // Registrar nuevo mantenimiento
+    Route::post('/', [MantenimientoController::class, 'store']);
+
+    // Obtener historial de una máquina específica
+    Route::get('{id}/historial', [MantenimientoController::class, 'historial']);
+
+    // Marcar máquina como operativa después del mantenimiento
+    Route::put('{id}/operativa', [MantenimientoController::class, 'marcarOperativa']);
+
+    // Obtener estadísticas de mantenimiento
+    Route::get('estadisticas', [MantenimientoController::class, 'estadisticas']);
+
+    // Rutas adicionales para funcionalidades avanzadas
+
+    // Programar mantenimiento futuro
+    Route::post('programar', [MantenimientoController::class, 'programarMantenimiento']);
+
+    // Obtener alertas de mantenimiento
+    Route::get('alertas', [MantenimientoController::class, 'obtenerAlertas']);
+
+    // Exportar reporte de mantenimiento
+    Route::get('reporte/export', [MantenimientoController::class, 'exportarReporte']);
+
+    // Obtener costos de mantenimiento por período
+    Route::get('costos', [MantenimientoController::class, 'obtenerCostos']);
+
+    // Dashboard de mantenimiento
+    Route::get('dashboard', [MantenimientoController::class, 'dashboard']);
+});
+
+// Rutas específicas para máquinas
+Route::prefix('maquinas')->group(function () {
+
+    // Obtener todas las máquinas con su estado
+    Route::get('/', [MantenimientoController::class, 'obtenerMaquinas']);
+
+    // Obtener detalles de una máquina específica
+    Route::get('{id}', [MantenimientoController::class, 'obtenerMaquina']);
+
+    // Actualizar configuración de mantenimiento de una máquina
+    Route::put('{id}/configuracion', [MantenimientoController::class, 'actualizarConfiguracion']);
+
+    // Obtener métricas de rendimiento de una máquina
+    Route::get('{id}/metricas', [MantenimientoController::class, 'obtenerMetricas']);
+});
+
+// Rutas para categorías de máquinas
+Route::prefix('categorias')->group(function () {
+
+    // Obtener todas las categorías
+    Route::get('/', [MantenimientoController::class, 'obtenerCategorias']);
+
+    // Crear nueva categoría
+    Route::post('/', [MantenimientoController::class, 'crearCategoria']);
+
+    // Actualizar categoría
+    Route::put('{id}', [MantenimientoController::class, 'actualizarCategoria']);
+
+    // Eliminar categoría
+    Route::delete('{id}', [MantenimientoController::class, 'eliminarCategoria']);
+});
+
+// Middleware de autenticación para todas las rutas
+Route::middleware(['auth:sanctum'])->group(function () {
+    // Todas las rutas anteriores estarán protegidas por autenticación
+});
+
+
+// Ruta de prueba para verificar que la API funciona
+Route::get('/test-mantenimiento', function () {
+    return response()->json([
+        'status' => 'success',
+        'message' => 'API de mantenimiento funcionando correctamente',
+        'timestamp' => now(),
+        'endpoints' => [
+            'GET /api/mantenimiento' => 'Obtener estado de máquinas',
+            'POST /api/mantenimiento' => 'Registrar mantenimiento',
+            'GET /api/mantenimiento/{id}/historial' => 'Obtener historial',
+            'PUT /api/mantenimiento/{id}/operativa' => 'Marcar como operativa',
+            'GET /api/mantenimiento/estadisticas' => 'Obtener estadísticas'
+        ]
+    ]);
+});

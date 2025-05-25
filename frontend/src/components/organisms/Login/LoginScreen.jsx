@@ -35,6 +35,9 @@ const LoginScreen = () => {
       case "toneladas":
         navigate("/IngresoToneladas");
         break;
+      case "planificador":
+        navigate("/Mantenimiento");
+        break;
       default:
         navigate("/");
     }
