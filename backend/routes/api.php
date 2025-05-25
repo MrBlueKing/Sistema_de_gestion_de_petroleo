@@ -23,82 +23,221 @@ use App\Http\Controllers\Api\KpiValoresEntradaController;
 use App\Http\Controllers\Api\MantenimientoController;
 use App\Http\Controllers\Api\PersonalExternoController;
 use App\Http\Controllers\Api\ProyeccionConsumoController;
+use App\Http\Controllers\Api\ReporteController;
 use App\Http\Controllers\Api\TonelajeController;
 use App\Http\Controllers\DatabaseCheckController;
 
-// Rutas públicas
+/*
+|--------------------------------------------------------------------------
+| 🔐 AUTENTICACIÓN
+|--------------------------------------------------------------------------
+*/
 Route::post('/login', [AuthController::class, 'login']);
-
 Route::post('/register', [AuthController::class, 'register']);
 
-// Ruta para obtener un usuario por ID
+// Rutas protegidas por Sanctum
+Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout']);
+Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
+    return $request->user();
+});
+Route::middleware('auth:sanctum')->get('/usuarios/recientes', [UserController::class, 'recientes']);
+
+/*
+|--------------------------------------------------------------------------
+| 👥 USUARIOS
+|--------------------------------------------------------------------------
+*/
 Route::get('/user/{id}', [UserController::class, 'show']);
 
-//RUTAS DE BODEGA
-// Ruta para obtener todo el personal de bodega (personas y maquinarias mezcladas)
+/*
+|--------------------------------------------------------------------------
+| 📦 BODEGA
+|--------------------------------------------------------------------------
+*/
 Route::get('/maquinarias-bodega', [BodegaController::class, 'obtenerMaquinarias']);
-// Ruta para obtener solo el personal de bodega (personas y maquinarias mezcladas)
 Route::middleware('auth:sanctum')->get('/personal-bodega', [BodegaController::class, 'index']);
-
-Route::get('/solicitantes', [PersonalInternoController::class, 'listarSolicitantes']);
-
-// Ruta para obtener solo el personal de bodega (personas y maquinarias mezcladas) con RUT inválido
 Route::get('/personal-bodega-invalidos', [BodegaController::class, 'rutInvalidos']);
-//Ruta para obtener las maquinarias de la bodega.
 Route::get('/maquinarias', [BodegaController::class, 'getMaquinarias']);
 
+/*
+|--------------------------------------------------------------------------
+| 👨‍💼 PERSONAL INTERNO
+|--------------------------------------------------------------------------
+*/
+Route::get('/solicitantes', [PersonalInternoController::class, 'listarSolicitantes']);
+Route::post('/registrarUsuarioInterno', [PersonalInternoController::class, 'register']);
+Route::get('/personal-internos', [PersonalInternoController::class, 'index']);
+Route::post('/asignarPermisoSolicitante', [PersonalInternoController::class, 'asignarPermisoSolicitante']);
+Route::get('/personal-internos-externos', [PersonalInternoController::class, 'indexInternoExterno']);
 
-//RUTAS DE MAQUINARIAS
-// Ruta para insertar una nueva maquinaria en la base de datos.
-Route::apiResource('categorias-maquinas', CategoriaMaquinaController::class);
-//Ruta para obtener todas las categorías de máquinas.
-Route::get('/categorias', [CategoriaMaquinaController::class, 'index']);
-//Ruta registro maquinas internas
-Route::post('/maquinas-internas', [MaquinaInternaController::class, 'store']);
-//Ruta para obtener todas las maquinas internas registradas
-Route::get('/maquinas-internas-registradas', [MaquinaInternaController::class, 'index']);
-//Ruta para obtener todas las maquinas internas registradas con permisos dadas por el administrador
-Route::get('/maquinas-internas-permiso', [MaquinaInternaController::class, 'indexConPermisos']);
-
-
-
-//RUTAS DE Entidades EXTERNAS
+/*
+|--------------------------------------------------------------------------
+| 🏢 EMPRESAS EXTERNAS Y PERSONAL EXTERNO
+|--------------------------------------------------------------------------
+*/
 Route::post('/ingresos-empresas-externas', [EmpresaExternaController::class, 'store']);
 Route::get('/empresas-disponibles', [EmpresaExternaController::class, 'index']);
 Route::post('/registrar-personal-externo', [PersonalExternoController::class, 'store']);
 Route::get('/personal-externos', [PersonalExternoController::class, 'index']);
 
+/*
+|--------------------------------------------------------------------------
+| 🚛 MAQUINARIAS
+|--------------------------------------------------------------------------
+*/
+Route::apiResource('categorias-maquinas', CategoriaMaquinaController::class);
+Route::get('/categorias', [CategoriaMaquinaController::class, 'index']);
+Route::post('/maquinas-internas', [MaquinaInternaController::class, 'store']);
+Route::get('/maquinas-internas-registradas', [MaquinaInternaController::class, 'index']);
+Route::get('/maquinas-internas-permiso', [MaquinaInternaController::class, 'indexConPermisos']);
 
-//RUTAS DE SOLICITANTES INTERNOS
-// Ruta para registrar un nuevo usuario interno en la base de datos.
-Route::post('/registrarUsuarioInterno', [PersonalInternoController::class, 'register']);
-Route::get('/personal-internos', [PersonalInternoController::class, 'index']);
+/*
+|--------------------------------------------------------------------------
+| 🏭 FAENAS
+|--------------------------------------------------------------------------
+*/
+Route::get('/faenas', [FaenaController::class, 'index']);
 Route::get('/faenas-disponibles/{id_solicitante}', [FaenaController::class, 'faenasDisponibles']);
-Route::post('/asignarPermisoSolicitante', [PersonalInternoController::class, 'asignarPermisoSolicitante']);
 Route::get('/permisosFaenas', [FaenaController::class, 'getPermisosFaenas']);
 Route::get('/verificarPermiso', [FaenaController::class, 'verificarPermiso']);
 Route::get('/faenasDisponibles', [FaenaController::class, 'getFaenasDisponibles']);
 
-Route::get('/personal-internos-externos', [PersonalInternoController::class, 'indexInternoExterno']);
-
-
-
-//RUTAS RECEPCION PETROLEO
+/*
+|--------------------------------------------------------------------------
+| ⛽ GESTIÓN PETROLERA
+|--------------------------------------------------------------------------
+*/
+// Ingresos de petróleo
 Route::get('/ingresos-petroleo', [IngresoPetroleoController::class, 'index']);
 Route::post('/ingresos-petroleo', [IngresoPetroleoController::class, 'store']);
 
-//RUTAS ESTANQUES
+// Estanques
 Route::get('/estanques/{id_faena}', [EstanqueController::class, 'estanquesPorFaena']);
 Route::post('/calcular-litros-petroleo', [EstanqueController::class, 'calcularLitrosPetroleo']);
 Route::get('/capacidad-disponible/{id_faena}', [EstanqueController::class, 'capacidadDisponible']);
 
-//RUTAS DE FAENAS
-// Ruta para obtener todas las faenas
-Route::get('/faenas', [FaenaController::class, 'index']);
-
-
-//RUTAS PARA EL CONSUMO
+// Consumos
 Route::post('/consumos', [ConsumoController::class, 'store']);
+
+/*
+|--------------------------------------------------------------------------
+| 📊 KPIs Y ANÁLISIS
+|--------------------------------------------------------------------------
+*/
+Route::apiResource('/kpi-valores-entrada', KpiValoresEntradaController::class);
+Route::get('/informes-kpi', [InformeKpiController::class, 'index']);
+Route::get('/informes-kpi/test', [InformeKpiController::class, 'test']);
+Route::get('/informes-kpi/mes-anterior', [InformeKpiController::class, 'obtenerValoresMesAnterior']);
+
+// Cálculos de KPIs
+Route::post('/calcular-kpis', [KpiCalculoController::class, 'calcular']);
+Route::get('/datos-mes-anterior', [InformeKpiController::class, 'obtenerValoresMesAnterior']);
+Route::get('/faenas-disponibles', [KpiCalculoController::class, 'getFaenasDisponibles']);
+Route::get('/kpis-comparativos', [KpiCalculoController::class, 'obtenerKpisComparativos']);
+Route::get('/kpis-getCostoPetroleoSinUltimosConsumos', [KpiCalculoController::class, 'getCostoPetroleoSinUltimosConsumos']);
+
+// Valores de entrada KPI
+Route::get('/kpi-valores-entrada/verificar-permiso', [App\Http\Controllers\Api\KpiValoresEntradaController::class, 'verificarPermiso']);
+Route::get('/kpi-valores-entrada-historial', [KpiValoresEntradaController::class, 'obtenerHistorial']);
+Route::get('/kpi-valores-entrada-historial', [KpiValoresEntradaController::class, 'getHistorialGeneral']);
+Route::get('/kpi-valores-entrada-historial/faena/{idFaena}', [KpiValoresEntradaController::class, 'getHistorialPorFaena']);
+Route::get('/kpi-estadisticas-por-faena', [KpiValoresEntradaController::class, 'getEstadisticasPorFaena']);
+Route::get('/kpi-totales-acumulados', [KpiValoresEntradaController::class, 'getTotalesAcumulados']);
+Route::get('/kpi-valores-entrada-historial-filtrado', [KpiValoresEntradaController::class, 'getHistorialFiltrado']);
+
+// Informes específicos
+Route::get('/informes-kpi/consumo-maquinas', [App\Http\Controllers\Api\InformesController::class, 'getConsumoMaquinas']);
+Route::get('/informes-kpi/balance-combustible', [App\Http\Controllers\Api\InformesController::class, 'getBalanceCombustible']);
+
+/*
+|--------------------------------------------------------------------------
+| 📈 PROYECCIONES DE CONSUMO
+|--------------------------------------------------------------------------
+*/
+Route::get('/proyeccion-consumo', [ProyeccionConsumoController::class, 'getProyeccionAvanzada']);
+Route::get('/proyeccion-consumo/equipos', [ProyeccionConsumoController::class, 'getEquiposConUltimoConsumo']);
+Route::get('/proyeccion-consumo-ayer', [ProyeccionConsumoController::class, 'getMaquinasConConsumoHastaAyer']);
+Route::get('/consumo-resumen-fecha', [ProyeccionConsumoController::class, 'getResumenConsumoParaFecha']);
+Route::get('/proyeccion-consumo/rango', [ProyeccionConsumoController::class, 'getMaquinasConConsumoEnRango']);
+Route::get('/proyeccion-consumo/reporte', [ProyeccionConsumoController::class, 'getReporteProyeccionPorPeriodo']);
+
+/*
+|--------------------------------------------------------------------------
+| ⚖️ TONELAJES
+|--------------------------------------------------------------------------
+*/
+Route::get('/faenas', [TonelajeController::class, 'getFaenas']);
+Route::get('/faenas/{id}/padrones', [TonelajeController::class, 'getPadrones']);
+Route::get('/registros', [TonelajeController::class, 'getRegistros']);
+
+// CRUD básico de tonelajes
+Route::get('/tonelajes', [TonelajeController::class, 'index']);
+Route::post('/tonelajes', [TonelajeController::class, 'store']);
+Route::get('/tonelajes/{id}', [TonelajeController::class, 'show']);
+Route::put('/tonelajes/{id}', [TonelajeController::class, 'update']);
+Route::delete('/tonelajes/{id}', [TonelajeController::class, 'destroy']);
+Route::get('/tonelajes/{id}/historial', [TonelajeController::class, 'getHistorial']);
+Route::get('/tonelajes/{id}/puede-editar', [TonelajeController::class, 'puedeEditar']);
+
+/*
+|--------------------------------------------------------------------------
+| 🔧 MANTENIMIENTO
+|--------------------------------------------------------------------------
+*/
+Route::prefix('mantenimiento')->group(function () {
+    Route::get('/', [MantenimientoController::class, 'index']);
+    Route::post('/', [MantenimientoController::class, 'store']);
+    Route::get('{id}/historial', [MantenimientoController::class, 'historial']);
+    Route::put('{id}/operativa', [MantenimientoController::class, 'marcarOperativa']);
+    Route::get('estadisticas', [MantenimientoController::class, 'estadisticas']);
+    Route::post('programar', [MantenimientoController::class, 'programarMantenimiento']);
+    Route::get('alertas', [MantenimientoController::class, 'obtenerAlertas']);
+    Route::get('reporte/export', [MantenimientoController::class, 'exportarReporte']);
+    Route::get('costos', [MantenimientoController::class, 'obtenerCostos']);
+    Route::get('dashboard', [MantenimientoController::class, 'dashboard']);
+});
+
+Route::prefix('maquinas')->group(function () {
+    Route::get('/', [MantenimientoController::class, 'obtenerMaquinas']);
+    Route::get('{id}', [MantenimientoController::class, 'obtenerMaquina']);
+    Route::put('{id}/configuracion', [MantenimientoController::class, 'actualizarConfiguracion']);
+    Route::get('{id}/metricas', [MantenimientoController::class, 'obtenerMetricas']);
+});
+
+Route::prefix('categorias')->group(function () {
+    Route::get('/', [MantenimientoController::class, 'obtenerCategorias']);
+    Route::post('/', [MantenimientoController::class, 'crearCategoria']);
+    Route::put('{id}', [MantenimientoController::class, 'actualizarCategoria']);
+    Route::delete('{id}', [MantenimientoController::class, 'eliminarCategoria']);
+});
+
+Route::middleware(['auth:sanctum'])->group(function () {
+    // Las rutas que necesiten autenticación pueden ir aquí cuando estés listo
+});
+
+/*
+|--------------------------------------------------------------------------
+| 📄 REPORTES PDF
+|--------------------------------------------------------------------------
+*/
+Route::get('/reporte/pdf', [ReporteController::class, 'generarPDF']);
+
+Route::group(['prefix' => 'reportes'], function () {
+    Route::get('/prueba', [ReporteController::class, 'generarReportePrueba']);
+    Route::get('/pdf', [ReporteController::class, 'generarPDF']);
+    Route::post('/completo', [ReporteController::class, 'generarReporteCompleto']);
+    Route::post('/consumos', [ReporteController::class, 'reporteConsumosPorPeriodo']);
+    Route::post('/stock', [ReporteController::class, 'reporteStockActual']);
+    Route::post('/rendimiento', [ReporteController::class, 'reporteRendimientoMaquinas']);
+    Route::post('/preview', [ReporteController::class, 'previewReporte']);
+});
+
+/*
+|--------------------------------------------------------------------------
+| 🧪 TESTING Y VERIFICACIÓN
+|--------------------------------------------------------------------------
+*/
+Route::get('/check-databases', [DatabaseCheckController::class, 'check']);
 
 Route::get('/test-bodega', function () {
     try {
@@ -115,174 +254,6 @@ Route::get('/test-bodega', function () {
     }
 });
 
-// Ruta protegida por Sanctum
-Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout']);
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
-});
-Route::middleware('auth:sanctum')->get('/usuarios/recientes', [UserController::class, 'recientes']);
-
-// Ruta para GERENTE
-Route::apiResource('/kpi-valores-entrada', KpiValoresEntradaController::class);
-Route::get('/informes-kpi', [InformeKpiController::class, 'index']);
-Route::get('/informes-kpi/test', [InformeKpiController::class, 'test']);
-Route::get('/informes-kpi/mes-anterior', [InformeKpiController::class, 'obtenerValoresMesAnterior']);
-
-// Rutas para proyección de consumo
-Route::get('/proyeccion-consumo', [ProyeccionConsumoController::class, 'getProyeccionAvanzada']);
-Route::get('/proyeccion-consumo/equipos', [ProyeccionConsumoController::class, 'getEquiposConUltimoConsumo']);
-
-// Ruta para proyeccion de consumos del dia de ayer
-Route::get('/proyeccion-consumo-ayer', [ProyeccionConsumoController::class, 'getMaquinasConConsumoHastaAyer']);
-
-// Ruta para proyeccion de consumo del dia de ayer v2
-Route::get('/consumo-resumen-fecha', [ProyeccionConsumoController::class, 'getResumenConsumoParaFecha']);
-
-
-// Nuevas rutas para proyección en rango
-Route::get('/proyeccion-consumo/rango', [ProyeccionConsumoController::class, 'getMaquinasConConsumoEnRango']);
-Route::get('/proyeccion-consumo/reporte', [ProyeccionConsumoController::class, 'getReporteProyeccionPorPeriodo']);
-
-
-// Calculo de kpis de Distpach
-Route::post('/calcular-kpis', [KpiCalculoController::class, 'calcular']);
-
-Route::get('/datos-mes-anterior', [InformeKpiController::class, 'obtenerValoresMesAnterior']);
-
-Route::get('/faenas-disponibles', [KpiCalculoController::class, 'getFaenasDisponibles']);
-
-Route::get('/kpis-comparativos', [KpiCalculoController::class, 'obtenerKpisComparativos']);
-
-Route::get('/kpis-getCostoPetroleoSinUltimosConsumos', [KpiCalculoController::class, 'getCostoPetroleoSinUltimosConsumos']);
-
-// Rutas para valores de entrada
-Route::get('/kpi-valores-entrada/verificar-permiso', [App\Http\Controllers\Api\KpiValoresEntradaController::class, 'verificarPermiso']);
-Route::get('/kpi-valores-entrada-historial', [KpiValoresEntradaController::class, 'obtenerHistorial']);
-
-//PROBANDO ESTAS APIS 
-// Historial general de valores KPI
-Route::get('/kpi-valores-entrada-historial', [KpiValoresEntradaController::class, 'getHistorialGeneral']);
-// Historial de valores KPI por faena específica
-Route::get('/kpi-valores-entrada-historial/faena/{idFaena}', [KpiValoresEntradaController::class, 'getHistorialPorFaena']);
-// Estadísticas de KPI agrupadas por faena
-Route::get('/kpi-estadisticas-por-faena', [KpiValoresEntradaController::class, 'getEstadisticasPorFaena']);
-// Totales acumulados de todos los valores KPI
-Route::get('/kpi-totales-acumulados', [KpiValoresEntradaController::class, 'getTotalesAcumulados']);
-
-Route::get('/kpi-valores-entrada-historial-filtrado', [KpiValoresEntradaController::class, 'getHistorialFiltrado']);
-
-// Rutas específicas para informes
-Route::get('/informes-kpi/consumo-maquinas', [App\Http\Controllers\Api\InformesController::class, 'getConsumoMaquinas']);
-Route::get('/informes-kpi/balance-combustible', [App\Http\Controllers\Api\InformesController::class, 'getBalanceCombustible']);
-
-
-
-//PROBAR CONEXION BASE DE DATOS REAL 
-Route::get('/check-databases', [DatabaseCheckController::class, 'check']);
-
-
-
-
-// En routes/api.php
-// Obtener faenas disponibles
-Route::get('/faenas', [TonelajeController::class, 'getFaenas']);
-
-// Obtener padrones de una faena
-Route::get('/faenas/{id}/padrones', [TonelajeController::class, 'getPadrones']);
-
-// Obtener registros del día
-Route::get('/registros', [TonelajeController::class, 'getRegistros']);
-
-// CRUD básico de tonelajes
-Route::get('/tonelajes', [TonelajeController::class, 'index']);
-Route::post('/tonelajes', [TonelajeController::class, 'store']);
-Route::get('/tonelajes/{id}', [TonelajeController::class, 'show']);
-Route::put('/tonelajes/{id}', [TonelajeController::class, 'update']);
-Route::delete('/tonelajes/{id}', [TonelajeController::class, 'destroy']);
-
-// Historial de un tonelaje
-Route::get('/tonelajes/{id}/historial', [TonelajeController::class, 'getHistorial']);
-
-// Verificar si un registro puede ser editado
-Route::get('/tonelajes/{id}/puede-editar', [TonelajeController::class, 'puedeEditar']);
-
-
-    
-// Rutas para el sistema de mantenimiento
-Route::prefix('mantenimiento')->group(function () {
-
-    // Obtener estado general de mantenimiento
-    Route::get('/', [MantenimientoController::class, 'index']);
-
-    // Registrar nuevo mantenimiento
-    Route::post('/', [MantenimientoController::class, 'store']);
-
-    // Obtener historial de una máquina específica
-    Route::get('{id}/historial', [MantenimientoController::class, 'historial']);
-
-    // Marcar máquina como operativa después del mantenimiento
-    Route::put('{id}/operativa', [MantenimientoController::class, 'marcarOperativa']);
-
-    // Obtener estadísticas de mantenimiento
-    Route::get('estadisticas', [MantenimientoController::class, 'estadisticas']);
-
-    // Rutas adicionales para funcionalidades avanzadas
-
-    // Programar mantenimiento futuro
-    Route::post('programar', [MantenimientoController::class, 'programarMantenimiento']);
-
-    // Obtener alertas de mantenimiento
-    Route::get('alertas', [MantenimientoController::class, 'obtenerAlertas']);
-
-    // Exportar reporte de mantenimiento
-    Route::get('reporte/export', [MantenimientoController::class, 'exportarReporte']);
-
-    // Obtener costos de mantenimiento por período
-    Route::get('costos', [MantenimientoController::class, 'obtenerCostos']);
-
-    // Dashboard de mantenimiento
-    Route::get('dashboard', [MantenimientoController::class, 'dashboard']);
-});
-
-// Rutas específicas para máquinas
-Route::prefix('maquinas')->group(function () {
-
-    // Obtener todas las máquinas con su estado
-    Route::get('/', [MantenimientoController::class, 'obtenerMaquinas']);
-
-    // Obtener detalles de una máquina específica
-    Route::get('{id}', [MantenimientoController::class, 'obtenerMaquina']);
-
-    // Actualizar configuración de mantenimiento de una máquina
-    Route::put('{id}/configuracion', [MantenimientoController::class, 'actualizarConfiguracion']);
-
-    // Obtener métricas de rendimiento de una máquina
-    Route::get('{id}/metricas', [MantenimientoController::class, 'obtenerMetricas']);
-});
-
-// Rutas para categorías de máquinas
-Route::prefix('categorias')->group(function () {
-
-    // Obtener todas las categorías
-    Route::get('/', [MantenimientoController::class, 'obtenerCategorias']);
-
-    // Crear nueva categoría
-    Route::post('/', [MantenimientoController::class, 'crearCategoria']);
-
-    // Actualizar categoría
-    Route::put('{id}', [MantenimientoController::class, 'actualizarCategoria']);
-
-    // Eliminar categoría
-    Route::delete('{id}', [MantenimientoController::class, 'eliminarCategoria']);
-});
-
-// Middleware de autenticación para todas las rutas
-Route::middleware(['auth:sanctum'])->group(function () {
-    // Todas las rutas anteriores estarán protegidas por autenticación
-});
-
-
-// Ruta de prueba para verificar que la API funciona
 Route::get('/test-mantenimiento', function () {
     return response()->json([
         'status' => 'success',

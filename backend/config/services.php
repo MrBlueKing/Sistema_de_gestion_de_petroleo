@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    'fastapi' => [
+        'url' => env('FASTAPI_URL'),
+        'secret' => env('FASTAPI_TOKEN'),
+        'timeout' => env('FASTAPI_TIMEOUT', 120), // 2 minutos para reportes complejos
+    ],
+    
+
+
 ];
