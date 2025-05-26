@@ -126,15 +126,17 @@ class EstanqueController extends Controller
 
                 // Si es un ingreso, verificamos que no exceda la capacidad
                 if ($tipoMovimiento === 'ingreso') {
-                    // Para ingresos, la altura nueva debe ser mayor que la altura actual
-                    if ($alturaMedida < $alturaActual) {
-                        return response()->json([
-                            'success' => false,
-                            'message' => "Para registrar un ingreso, la altura del estanque '{$estanque->nombre}' debe ser mayor que la altura actual ({$alturaActual} cm)"
-                        ], 400);
-                    }
+                    // ❌ COMENTADA: Para ingresos, la altura nueva debe ser mayor que la altura actual
+                    /*
+                if ($alturaMedida < $alturaActual) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Para registrar un ingreso, la altura del estanque '{$estanque->nombre}' debe ser mayor que la altura actual ({$alturaActual} cm)"
+                    ], 400);
+                }
+                */
 
-                    // Verificar si el volumen calculado excede la capacidad
+                    // ✅ MANTENER: Verificar si el volumen calculado excede la capacidad
                     if ($volumenCalculado > $estanque->capacidad) {
                         return response()->json([
                             'success' => false,
@@ -143,7 +145,7 @@ class EstanqueController extends Controller
                     }
                 }
 
-                // AQUÍ añadimos la validación de capacidad excedida, después de calcular el volumen
+                // ✅ MANTENER: Validación de capacidad excedida (duplicada pero se mantiene)
                 if ($volumenCalculado > $estanque->capacidad) {
                     return response()->json([
                         'success' => false,
@@ -152,15 +154,15 @@ class EstanqueController extends Controller
                 }
 
                 // Log detallado del cálculo
-                Log::info('Cálculo de volumen para estanque', [
-                    'id_estanque' => $idEstanque,
-                    'nombre_estanque' => $estanque->nombre,
-                    'altura_medida' => $alturaMedida,
-                    'altura_nominal' => $estanque->altura_nominal,
-                    'capacidad' => $estanque->capacidad,
-                    'formula' => "($alturaMedida / {$estanque->altura_nominal}) * {$estanque->capacidad}",
-                    'volumen_calculado' => $volumenCalculado
-                ]);
+                //Log::info('Cálculo de volumen para estanque', [
+                //    'id_estanque' => $idEstanque,
+                //    'nombre_estanque' => $estanque->nombre,
+                //    'altura_medida' => $alturaMedida,
+                //    'altura_nominal' => $estanque->altura_nominal,
+                //    'capacidad' => $estanque->capacidad,
+                //    'formula' => "($alturaMedida / {$estanque->altura_nominal}) * {$estanque->capacidad}",
+                //    'volumen_calculado' => $volumenCalculado
+                //]);
 
                 $litrosTotales += $volumenCalculado;
 

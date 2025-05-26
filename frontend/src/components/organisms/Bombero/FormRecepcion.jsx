@@ -78,37 +78,17 @@ const ModalExitoRecepcion = ({
         {/* Header del modal */}
         <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-5 text-white">
           <div className="flex items-center justify-center">
-            <div className="bg-white bg-opacity-20 p-3 rounded-full mr-4">
+            <div className="bg-transparent bg-opacity-20 p-3 rounded-full mr-4">
               <FaCheck className="text-2xl" />
             </div>
             <div className="text-center">
               <h2 className="text-xl font-bold">¡Recepción Registrada Exitosamente!</h2>
-              <p className="text-orange-100 text-sm mt-1">
-                La recepción de petróleo ha sido procesada correctamente
-              </p>
             </div>
           </div>
         </div>
 
         {/* Contenido del modal */}
         <div className="flex-grow overflow-y-auto p-6">
-          
-          {/* Alerta de diferencia si es significativa */}
-          {esDiferenciaSignificativa && (
-            <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start">
-              <FaExclamationTriangle className="text-amber-500 mt-0.5 mr-3 flex-shrink-0" />
-              <div>
-                <h4 className="font-medium text-amber-800 mb-1">
-                  Diferencia Significativa Detectada
-                </h4>
-                <p className="text-amber-700 text-sm">
-                  Se detectó una diferencia de {formatNumberWithSeparators(diferenciaMagnitud)} litros. 
-                  Esta información ha sido registrada para seguimiento.
-                </p>
-              </div>
-            </div>
-          )}
-
           {/* Resumen de datos en grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             
@@ -223,7 +203,7 @@ const ModalExitoRecepcion = ({
               onClick={onConfirm}
               className="flex items-center px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-700 text-white font-medium rounded-lg hover:from-orange-600 hover:to-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-all shadow-sm"
             >
-              <span>Ir al Dashboard</span>
+              <span>Volver</span>
               <FaArrowRight className="ml-2" />
             </button>
           </div>
@@ -755,7 +735,6 @@ const FormRecepcion = () => {
   const handleExitoModalConfirm = () => {
     setShowExitoModal(false);
     setDatosRecepcionExitosa(null);
-    // Redirigir directamente sin resetear el formulario
     window.location.href = "/bombero";
   };
 
