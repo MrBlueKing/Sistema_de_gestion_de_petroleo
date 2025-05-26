@@ -41,13 +41,13 @@ class IngresoPetroleoController extends Controller
             'id_usuario' => 'required|exists:users,id',
             'numero_guia' => 'required|string',
             'litros_documentados' => 'required|numeric|min:0',
-            'litros_recibidos' => 'required|numeric|min:0',
+            'litros_recibidos' => 'required',
             'precio' => 'required|numeric|min:0',
             'precio_total' => 'required|numeric|min:0',
             'recibo_conforme' => 'required|boolean',
             'observacion' => 'nullable|string|max:255',
             'id_faena' => 'required|exists:faenas,id_faena',
-            'stock_inicial' => 'required|numeric|min:0', // 👈 NUEVA VALIDACIÓN
+            'stock_inicial' => 'required|numeric|min:0', // Stock inicial TOTAL
             'diferencia' => 'required|numeric',
             'alturas_estanques' => 'required|array',
             'alturas_estanques.*.id_estanque' => 'required|exists:estanques,id_estanque',
@@ -58,7 +58,6 @@ class IngresoPetroleoController extends Controller
             // Iniciar transacción para garantizar consistencia
             DB::beginTransaction();
 
-            // NUEVA VALIDACIÓN: Verificar la capacidad disponible de los estanques
             $idFaena = $request->id_faena;
             $litrosRecibidos = $request->litros_recibidos;
 
@@ -79,6 +78,7 @@ class IngresoPetroleoController extends Controller
 
             $capacidadDisponible = $capacidadTotal - $stockActual;
 
+            // Validación de capacidad disponible
             if ($litrosRecibidos > $capacidadDisponible) {
                 DB::rollBack();
                 return response()->json([
@@ -87,7 +87,7 @@ class IngresoPetroleoController extends Controller
                 ], 400);
             }
 
-            // Crear el registro de ingreso con los campos según tu estructura de BD
+            // Crear el registro de ingreso
             $ingreso = new IngresoPetroleo();
             $ingreso->id_usuario = $request->id_usuario;
             $ingreso->id_faena = $request->id_faena;
@@ -99,7 +99,7 @@ class IngresoPetroleoController extends Controller
             $ingreso->recibo_conforme = $request->recibo_conforme;
             $ingreso->observacion = $request->observacion;
             $ingreso->diferencia = $request->diferencia;
-            $ingreso->stock_inicial = $request->stock_inicial; // 👈 NUEVO CAMPO
+            $ingreso->stock_inicial = $request->stock_inicial; // Stock inicial TOTAL
             $ingreso->save();
 
             // Validar y guardar las verificaciones de altura
@@ -111,10 +111,14 @@ class IngresoPetroleoController extends Controller
                     // Obtener información del estanque
                     $estanque = Estanque::find($idEstanque);
 
+                    // 🔍 OBTENER EL STOCK INICIAL DE ESTE ESTANQUE ESPECÍFICO
+                    $estanqueStock = EstanqueStock::where('id_estanque', $idEstanque)->first();
+                    $stockInicialEstanque = $estanqueStock ? $estanqueStock->stock_actual : 0;
+
                     // Calcular volumen
                     $volumenCalculado = ($alturaMedida / $estanque->altura_nominal) * $estanque->capacidad;
 
-                    // NUEVA VALIDACIÓN: Verificar que el nuevo volumen no exceda la capacidad del estanque
+                    // Verificar que el nuevo volumen no exceda la capacidad del estanque
                     if ($volumenCalculado > $estanque->capacidad) {
                         DB::rollBack();
                         return response()->json([
@@ -123,26 +127,24 @@ class IngresoPetroleoController extends Controller
                         ], 400);
                     }
 
-                    // NUEVA VALIDACIÓN: Verificar que la altura nueva sea mayor que la anterior para ingresos
-                    $ultimaMedicion = EstanqueStock::where('id_estanque', $idEstanque)->first();
-                    $alturaActual = $ultimaMedicion ? $ultimaMedicion->altura_actual : 0;
-
-                    if ($alturaMedida < $alturaActual) {
-                        DB::rollBack();
-                        return response()->json([
-                            'success' => false,
-                            'message' => "Para registrar un ingreso, la altura del estanque '{$estanque->nombre}' debe ser mayor que la altura actual ({$alturaActual} cm)"
-                        ], 400);
-                    }
-
-                    // Guardar verificación de altura
+                    // Guardar verificación de altura CON EL STOCK INICIAL DEL ESTANQUE
                     $verificacion = new VerificacionAltura();
                     $verificacion->id_estanque = $idEstanque;
                     $verificacion->id_ingreso = $ingreso->id_ingreso;
                     $verificacion->altura_medicion = $alturaMedida;
                     $verificacion->volumen_calculado = $volumenCalculado;
+                    $verificacion->stock_inicial = $stockInicialEstanque; // 👈 STOCK INICIAL DE ESTE ESTANQUE ESPECÍFICO
                     $verificacion->verificado = true;
                     $verificacion->save();
+
+                    // Log para verificar que se está guardando correctamente
+                    Log::info('Verificación de altura guardada', [
+                        'id_estanque' => $idEstanque,
+                        'nombre_estanque' => $estanque->nombre,
+                        'stock_inicial_estanque' => $stockInicialEstanque,
+                        'altura_medicion' => $alturaMedida,
+                        'volumen_calculado' => $volumenCalculado
+                    ]);
 
                     // Actualizar estanque si tiene el campo litros_disponibles
                     if (isset($estanque->litros_disponibles)) {

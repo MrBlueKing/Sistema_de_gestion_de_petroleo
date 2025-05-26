@@ -4,13 +4,14 @@ import Home from "../pages/HomePage";
 import LoginPage from "../pages/LoginPage";
 import PrivateRoute from "./PrivateRoutes";
 
+// 👤 Importaciones Gerente
 import GerentePage from "../pages/Gerente/GerentePage";
 import MainIngresoDatos from "../components/organisms/Gerente/MainIngresoDatos";
 import MainKpis from "../components/organisms/Gerente/Main Antiguo";
 import MainMantenimiento from "../components/organisms/Gerente/MainMantenimiento";
 import MainSimulacion from "../components/organisms/Gerente/MainSimulacion";
 
-
+// 🛠️ Importaciones Administrador
 import AdministradorPage from "../pages/Administrador/AdministradorPage";
 import AdministradorUserRegister from "../components/templates/Administrador/AdministradorUserRegister";
 import GestionarTipoMaquina from "../pages/Administrador/GestionarTipoMaquina";
@@ -19,32 +20,43 @@ import GestionarPersonal from "../pages/Administrador/GestionarPersonalPage";
 import GestionarPermisoPersonalInterno from "../pages/Administrador/GestionarPermisoPersonalPage";
 import GestionarPersonalExternoPersonalPage from "../pages/Administrador/GestionarPersonalExternoPage";
 
-import BomberoIngresoExterno from "../pages/Bombero/BomberoIngresoExterno";
+// 🚒 Importaciones Bombero
 import BomberoPage from "../pages/Bombero/BomberoPage";
 import BomberoRecepcionPage from "../pages/Bombero/BomberoRecepcionPage";
 import BomberoNavigation from "../pages/Bombero/BomberoNavigation";
+import BomberoIngresoExterno from "../pages/Bombero/BomberoIngresoExterno";
 
+// ⚖️ Importaciones Distpach (Toneladas)
 import Distpach from "../pages/Distpach/MenuPrincipalDistpach";
 
+// 🔧 Importaciones Mantenimiento
+import Mantenimiento from "../pages/Mantencion/MenuPrincipalMantencion";
 
 const AppRoutes = () => {
   return (
     <Routes>
+      {/* 
+      |--------------------------------------------------------------------------
+      | 🏠 RUTAS PÚBLICAS
+      |--------------------------------------------------------------------------
+      */}
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<LoginPage />} />
 
-      {/* Ruta protegida para Gerente */}
+      {/* 
+      |--------------------------------------------------------------------------
+      | 👤 RUTAS DEL GERENTE
+      |--------------------------------------------------------------------------
+      */}
       <Route
         path="/gerente"
         element={
           <PrivateRoute requiredRole="gerente">
-            {" "}
-            {/* Aquí asumo que el rol de "admin" es el que se asigna en tu backend */}
             <GerentePage />
           </PrivateRoute>
         }
       />
-      {/* Ruta para dashborads de gerente*/}
+      
       <Route
         path="/gerente/ingreso-datos"
         element={
@@ -54,7 +66,6 @@ const AppRoutes = () => {
         }
       />
 
-      {/* Ruta para gráficos de gerente*/}
       <Route
         path="/gerente/graficos"
         element={
@@ -64,7 +75,6 @@ const AppRoutes = () => {
         }
       />
 
-      {/* Ruta para Mantenimieto de gerente*/}
       <Route
         path="/gerente/mantenimiento"
         element={
@@ -74,7 +84,6 @@ const AppRoutes = () => {
         }
       />
 
-      {/* Ruta para Mantenimieto de gerente*/}
       <Route
         path="/gerente/simulacion"
         element={
@@ -84,42 +93,61 @@ const AppRoutes = () => {
         }
       />
 
-
-      {/* Ruta protegida para Administrador */}
+      {/* 
+      |--------------------------------------------------------------------------
+      | 🛠️ RUTAS DEL ADMINISTRADOR
+      |--------------------------------------------------------------------------
+      */}
       <Route
         path="/administrador"
         element={
           <PrivateRoute requiredRole="admin">
-            {" "}
-            {/* Aquí asumo que el rol de "admin" es el que se asigna en tu backend */}
             <AdministradorPage />
           </PrivateRoute>
         }
       />
 
-      {/* Ruta protegida para Administrador */}
+      {/* Alias para administrador (mantener compatibilidad) */}
       <Route
         path="/inicio"
         element={
           <PrivateRoute requiredRole="admin">
-            {" "}
-            {/* Aquí asumo que el rol de "admin" es el que se asigna en tu backend */}
             <AdministradorPage />
           </PrivateRoute>
         }
       />
-      {/* Ruta protegida para Administrador */}
+
+      {/* Gestión de Usuarios */}
       <Route
-        path="/registroUsuario"
+        path="/administrador/registro-usuario"
         element={
           <PrivateRoute requiredRole="admin">
-            {" "}
-            {/* Aquí asumo que el rol de "admin" es el que se asigna en tu backend */}
             <AdministradorUserRegister />
           </PrivateRoute>
         }
       />
-      {/* Ruta protegida para Administrador Gestionar Personal Interno */}
+
+      {/* Mantener ruta antigua para compatibilidad */}
+      <Route
+        path="/registroUsuario"
+        element={
+          <PrivateRoute requiredRole="admin">
+            <AdministradorUserRegister />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Gestión de Personal */}
+      <Route
+        path="/administrador/personal-interno"
+        element={
+          <PrivateRoute requiredRole="admin">
+            <GestionarPersonal />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Mantener ruta antigua */}
       <Route
         path="/GestionarPersonalInterno"
         element={
@@ -129,7 +157,16 @@ const AppRoutes = () => {
         }
       />
 
-      {/* Ruta protegida para Administrador Gestionar Permiso Personal Interno */}
+      <Route
+        path="/administrador/permisos-personal"
+        element={
+          <PrivateRoute requiredRole="admin">
+            <GestionarPermisoPersonalInterno />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Mantener ruta antigua */}
       <Route
         path="/GestionarPermisoPersonalInterno"
         element={
@@ -139,7 +176,16 @@ const AppRoutes = () => {
         }
       />
 
-      {/* Ruta protegida para Administrador Gestionar Permiso Personal Interno */}
+      <Route
+        path="/administrador/personal-externo"
+        element={
+          <PrivateRoute requiredRole="admin">
+            <GestionarPersonalExternoPersonalPage />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Mantener ruta antigua */}
       <Route
         path="/GestionarPersonalExterno"
         element={
@@ -149,7 +195,17 @@ const AppRoutes = () => {
         }
       />
 
-      {/* Ruta protegida para Consumo Bombero */}
+      {/* Gestión de Maquinaria */}
+      <Route
+        path="/administrador/tipos-maquina"
+        element={
+          <PrivateRoute requiredRole="admin">
+            <GestionarTipoMaquina />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Mantener ruta antigua */}
       <Route
         path="/AñadirTipoMaquina"
         element={
@@ -159,7 +215,16 @@ const AppRoutes = () => {
         }
       />
 
-      {/* Ruta protegida para Categorizar Maquinas Bombero */}
+      <Route
+        path="/administrador/categorias-maquina"
+        element={
+          <PrivateRoute requiredRole="admin">
+            <GestionarMaquinaCategoria />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Mantener ruta antigua */}
       <Route
         path="/GestionarMaquinaCategoria"
         element={
@@ -169,41 +234,68 @@ const AppRoutes = () => {
         }
       />
 
-      {/* Ruta protegida para Bombero */}
+      {/* 
+      |--------------------------------------------------------------------------
+      | 🚒 RUTAS DEL BOMBERO
+      |--------------------------------------------------------------------------
+      */}
       <Route
         path="/bombero"
         element={
           <PrivateRoute requiredRole="bombero">
-            {" "}
-            {/* Aquí asumo que el rol de "admin" es el que se asigna en tu backend */}
             <BomberoPage />
           </PrivateRoute>
         }
       />
-      {/* Ruta protegida para Recepcion Bombero */}
+
       <Route
-        path="/bomberoRecepcion"
+        path="/bombero/recepcion"
         element={
           <PrivateRoute requiredRole="bombero">
-            {" "}
-            {/* Aquí asumo que el rol de "Bombero" es el que se asigna en tu backend */}
             <BomberoRecepcionPage />
           </PrivateRoute>
         }
       />
-      {/* Ruta protegida para Consumo Bombero */}
+
+      {/* Mantener ruta antigua */}
       <Route
-        path="/BomberoNavigation"
+        path="/bomberoRecepcion"
         element={
           <PrivateRoute requiredRole="bombero">
-            {" "}
-            {/* Aquí asumo que el rol de "Bombero" es el que se asigna en tu backend */}
+            <BomberoRecepcionPage />
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/bombero/navegacion"
+        element={
+          <PrivateRoute requiredRole="bombero">
             <BomberoNavigation />
           </PrivateRoute>
         }
       />
 
-      {/* Ruta protegida para Consumo Bombero */}
+      {/* Mantener ruta antigua */}
+      <Route
+        path="/BomberoNavigation"
+        element={
+          <PrivateRoute requiredRole="bombero">
+            <BomberoNavigation />
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/bombero/ingreso-externo"
+        element={
+          <PrivateRoute requiredRole="bombero">
+            <BomberoIngresoExterno />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Mantener ruta antigua */}
       <Route
         path="/IngresoExterno"
         element={
@@ -213,8 +305,30 @@ const AppRoutes = () => {
         }
       />
 
+      {/* 
+      |--------------------------------------------------------------------------
+      | ⚖️ RUTAS DE DISTPACH (TONELADAS)
+      |--------------------------------------------------------------------------
+      */}
+      <Route
+        path="/distpach"
+        element={
+          <PrivateRoute requiredRole="toneladas">
+            <Distpach />
+          </PrivateRoute>
+        }
+      />
 
-      {/* Ruta protegida para Distpach*/}
+      <Route
+        path="/distpach/toneladas"
+        element={
+          <PrivateRoute requiredRole="toneladas">
+            <Distpach />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Mantener ruta antigua */}
       <Route
         path="/IngresoToneladas"
         element={
@@ -222,6 +336,58 @@ const AppRoutes = () => {
             <Distpach />
           </PrivateRoute>
         }
+      />
+
+      {/* 
+      |--------------------------------------------------------------------------
+      | 🔧 RUTAS DE MANTENIMIENTO
+      |--------------------------------------------------------------------------
+      */}
+      <Route
+        path="/mantenimiento"
+        element={
+          <PrivateRoute requiredRole="planificador">
+            <Mantenimiento />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Mantener ruta antigua */}
+      <Route
+        path="/Mantenimiento"
+        element={
+          <PrivateRoute requiredRole="planificador">
+            <Mantenimiento />
+          </PrivateRoute>
+        }
+      />
+
+      {/* 
+      |--------------------------------------------------------------------------
+      | 🚫 RUTA 404 - NO ENCONTRADA
+      |--------------------------------------------------------------------------
+      */}
+      <Route 
+        path="*" 
+        element={
+          <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-6 text-center">
+              <div className="text-6xl mb-4">🔍</div>
+              <h1 className="text-2xl font-bold text-gray-800 mb-2">
+                Página no encontrada
+              </h1>
+              <p className="text-gray-600 mb-4">
+                La página que buscas no existe o ha sido movida.
+              </p>
+              <button
+                onClick={() => window.history.back()}
+                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+              >
+                Volver atrás
+              </button>
+            </div>
+          </div>
+        } 
       />
     </Routes>
   );

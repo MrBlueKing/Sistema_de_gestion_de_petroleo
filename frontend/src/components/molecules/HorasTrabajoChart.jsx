@@ -93,6 +93,27 @@ const HorasTrabajoChart = ({ faenaSeleccionada = 'todas' }) => {
     return faenas[id] || 'Faena Seleccionada';
   };
 
+  //Petición a la base de datos para poder reestablecer la mantencion de un vehiculo.
+  const handleMantencion = async (item) => {
+    const confirm = window.confirm(`¿Estás seguro de que quieres restablecer la mantención para ${item.equipo}?`);
+    if (!confirm) return;
+
+    try {
+      // Aquí haces la llamada al backend
+      await consumoService.post(`/api/mantencion/restablecer`, {
+        id_equipo: item.id, // o el identificador necesario
+      });
+
+      // Opcionalmente recargar o actualizar la tabla
+      alert('Mantención restablecida con éxito');
+      fetchData(); // o setFilteredData con nuevo estado
+    } catch (error) {
+      console.error(error);
+      alert('Error al restablecer la mantención');
+    }
+  };
+
+
   // Filtrar datos según el filtro de tiempo seleccionado
   const filterDataByTime = (data) => {
     if (timeFilter === 'all') return data;
@@ -332,7 +353,7 @@ const HorasTrabajoChart = ({ faenaSeleccionada = 'todas' }) => {
 
             <div className="mt-2 bg-gray-100 p-2 rounded text-sm">
               <span className={`font-medium ${data.estado === 'crítico' ? 'text-red-600' :
-                  data.estado === 'advertencia' ? 'text-yellow-600' : 'text-green-600'
+                data.estado === 'advertencia' ? 'text-yellow-600' : 'text-green-600'
                 }`}>
                 {data.proximaMantencion}
               </span>
@@ -500,8 +521,8 @@ const HorasTrabajoChart = ({ faenaSeleccionada = 'todas' }) => {
             <button
               onClick={() => setViewMode('barras')}
               className={`px-3 py-1.5 border border-r-0 rounded-l-md text-sm font-medium flex items-center transition-colors ${viewMode === 'barras'
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                 }`}
             >
               <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -512,8 +533,8 @@ const HorasTrabajoChart = ({ faenaSeleccionada = 'todas' }) => {
             <button
               onClick={() => setViewMode('pastel')}
               className={`px-3 py-1.5 border rounded-r-md text-sm font-medium flex items-center transition-colors ${viewMode === 'pastel'
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                 }`}
             >
               <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -563,8 +584,8 @@ const HorasTrabajoChart = ({ faenaSeleccionada = 'todas' }) => {
           <button
             onClick={() => setMostrarDetalles(!mostrarDetalles)}
             className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center transition-colors ${mostrarDetalles
-                ? 'bg-blue-100 text-blue-600 border border-blue-200'
-                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              ? 'bg-blue-100 text-blue-600 border border-blue-200'
+              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
               }`}
           >
             <FiTool className="mr-1.5" size={14} />
@@ -863,6 +884,7 @@ const HorasTrabajoChart = ({ faenaSeleccionada = 'todas' }) => {
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Disponible</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Último Mantenimiento</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Realizar Mantención</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -901,16 +923,28 @@ const HorasTrabajoChart = ({ faenaSeleccionada = 'todas' }) => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${item.estado === 'crítico'
-                          ? 'bg-red-100 text-red-800'
-                          : item.estado === 'advertencia'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-green-100 text-green-800'
+                        ? 'bg-red-100 text-red-800'
+                        : item.estado === 'advertencia'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-green-100 text-green-800'
                         }`}>
                         {item.estado.charAt(0).toUpperCase() + item.estado.slice(1)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {item.lastMaintenance}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {item.estado === 'crítico' ? (
+                        <button
+                          onClick={() => handleMantencion(item)}
+                          className="text-sm bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition"
+                        >
+                          Restablecer
+                        </button>
+                      ) : (
+                        <span className="text-sm text-gray-400">N/A</span>
+                      )}
                     </td>
                   </tr>
                 ))}

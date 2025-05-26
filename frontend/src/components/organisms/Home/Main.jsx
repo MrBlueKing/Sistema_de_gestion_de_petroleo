@@ -47,6 +47,9 @@ const Main = () => {
         case "toneladas":
           navigate("/IngresoToneladas");
           break;
+        case "planificador":
+          navigate("/Mantenimiento");
+          break;
         default:
           navigate("/login"); // En caso de que el rol no esté definido
       }
