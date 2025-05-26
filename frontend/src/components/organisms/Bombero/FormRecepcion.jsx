@@ -1005,11 +1005,11 @@ const FormRecepcion = () => {
 
           <div className="flex flex-col">
             <label className="text-sm font-medium text-gray-600 mb-1">
-              Alturas de Estanques *
+              Niveles de Estanques *
             </label>
             <div className="flex">
               <Button
-                text="Ingresar Alturas"
+                text="Ingresar Niveles"
                 color="orange"
                 icon={<FaRuler className="mr-2 text-white" />}
                 onClick={() => setShowEstanquesModal(true)}
