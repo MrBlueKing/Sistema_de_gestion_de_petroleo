@@ -9,7 +9,7 @@ const tonelajeService = {
   getFaenasDisponibles: async (fecha = null) => {
     try {
       if (!fecha) {
-        fecha = tonelajeService.getFechaAyer();
+        fecha = tonelajeService.getFechaHoy(); // ← Cambio: usar HOY por defecto
       }
 
       console.log('🏭 Obteniendo faenas para:', fecha);
@@ -41,13 +41,52 @@ const tonelajeService = {
   },
 
   /**
+   * Obtiene padrones de una faena específica
+   * GET /api/faenas/{idFaena}/padrones
+   */
+  getPadronesByFaena: async (idFaena, fecha = null) => {
+    try {
+      console.log(`🚛 Obteniendo padrones para faena: ${idFaena}`);
+      
+      // Usar la fecha actual si no se proporciona
+      if (!fecha) {
+        fecha = tonelajeService.getFechaHoy(); // ← Cambio: usar HOY por defecto
+      }
+      
+      const response = await axios.get(`/api/faenas/${idFaena}/padrones?fecha=${fecha}`);
+      
+      if (response.data && response.data.status === 'success') {
+        console.log('✅ Padrones obtenidos:', response.data.data);
+        return {
+          status: 'success',
+          data: response.data.data,
+          message: `Padrones obtenidos para faena ${idFaena}`
+        };
+      } else {
+        return {
+          status: 'warning',
+          data: [],
+          message: 'No se encontraron padrones para esta faena'
+        };
+      }
+    } catch (error) {
+      console.error('❌ Error al obtener padrones:', error);
+      return {
+        status: 'error',
+        data: [],
+        message: error.response?.data?.message || 'Error al obtener padrones'
+      };
+    }
+  },
+
+  /**
    * Obtiene padrones de una faena
    * GET /api/faenas/{id}/padrones?fecha=2025-05-21
    */
   getPadronesDisponiblesByFaena: async (faenaId, fecha = null) => {
     try {
       if (!fecha) {
-        fecha = tonelajeService.getFechaAyer();
+        fecha = tonelajeService.getFechaHoy(); // ← Cambio: usar HOY por defecto
       }
 
       console.log(`🏗️ Obteniendo padrones para faena ${faenaId}:`, fecha);
@@ -146,7 +185,7 @@ const tonelajeService = {
   getTonelajesDelDia: async (fecha = null) => {
     try {
       if (!fecha) {
-        fecha = tonelajeService.getFechaAyer();
+        fecha = tonelajeService.getFechaHoy(); // ← Cambio: usar HOY por defecto
       }
 
       console.log('📊 Obteniendo registros del día:', fecha);

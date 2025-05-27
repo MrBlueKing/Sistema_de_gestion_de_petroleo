@@ -1,20 +1,10 @@
 import React, { useState } from "react";
 import { FaHome, FaBars, FaUser, FaCog, FaSun } from "react-icons/fa";
-import NotificationDropdown from "../../molecules/NotificationDropdown";
 import UserProfileDropdown from "../../molecules/UserProfileDropdown";
 import IconButton from "../../atoms/Button/IconButton";
-import Sidebar from "../../molecules/SideBard"; // Asegúrate de importar correctamente el Sidebar
 import { useNavigate } from "react-router-dom"; // Para redirigir al login
 
 const Header = () => {
-  const [notifications] = useState([
-    { id: 1, message: 'Nuevo usuario registrado', time: '5 min' },
-    { id: 2, message: 'Ingreso Petróleo ', time: '10 min' },
-  ]);
-  // Lista de elementos del Sidebar
-  const menuItems = [
-    { name: "Inicio", link: "/gerente", icon: <FaHome /> },
-  ];
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);  // Estado para abrir/cerrar el Sidebar
   const navigate = useNavigate(); // Hook para redirigir al login
@@ -50,11 +40,6 @@ const Header = () => {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Notificaciones */}
-            <div className="flex items-center gap-4">
-              <NotificationDropdown notifications={notifications} />
-            </div>
-
             {/* Dropdown de usuario */}
             <UserProfileDropdown 
               userMenuOpen={userMenuOpen} 

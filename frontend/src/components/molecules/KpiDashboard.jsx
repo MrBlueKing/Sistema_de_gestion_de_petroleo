@@ -6,7 +6,7 @@ import KpiCard from "../molecules/KpiCard";
 import { UserContext } from "../../context/userContext";
 
 // El KpiDashboard ahora recibe los filtros como props
-const KpiDashboard = ({ fechaDesde, fechaHasta, faenaSeleccionada, faenas = [] }) => {
+const   KpiDashboard = ({ fechaDesde, fechaHasta, faenaSeleccionada, faenas = [] }) => {
     const { user } = useContext(UserContext);
 
     // Estados para datos

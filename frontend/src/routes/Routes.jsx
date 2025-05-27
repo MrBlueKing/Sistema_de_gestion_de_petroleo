@@ -6,10 +6,10 @@ import PrivateRoute from "./PrivateRoutes";
 
 // 👤 Importaciones Gerente
 import GerentePage from "../pages/Gerente/GerentePage";
-import MainIngresoDatos from "../components/organisms/Gerente/MainIngresoDatos";
-import MainKpis from "../components/organisms/Gerente/Main Antiguo";
+import GraficosPetroleo from "../components/organisms/Gerente/Graficos";
 import MainMantenimiento from "../components/organisms/Gerente/MainMantenimiento";
 import MainSimulacion from "../components/organisms/Gerente/MainSimulacion";
+import GestionProduccion from "../components/organisms/Gerente/GestionProduccion";
 
 // 🛠️ Importaciones Administrador
 import AdministradorPage from "../pages/Administrador/AdministradorPage";
@@ -56,21 +56,12 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
-      
-      <Route
-        path="/gerente/ingreso-datos"
-        element={
-          <PrivateRoute requiredRole="gerente">
-            <MainIngresoDatos />
-          </PrivateRoute>
-        }
-      />
 
       <Route
         path="/gerente/graficos"
         element={
           <PrivateRoute requiredRole="gerente">
-            <MainKpis />
+            <GraficosPetroleo />
           </PrivateRoute>
         }
       />
@@ -89,6 +80,15 @@ const AppRoutes = () => {
         element={
           <PrivateRoute requiredRole="gerente">
             <MainSimulacion />
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/gerente/produccion"
+        element={
+          <PrivateRoute requiredRole="gerente">
+            <GestionProduccion />
           </PrivateRoute>
         }
       />
@@ -367,8 +367,8 @@ const AppRoutes = () => {
       | 🚫 RUTA 404 - NO ENCONTRADA
       |--------------------------------------------------------------------------
       */}
-      <Route 
-        path="*" 
+      <Route
+        path="*"
         element={
           <div className="min-h-screen flex items-center justify-center bg-gray-50">
             <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-6 text-center">
@@ -387,7 +387,7 @@ const AppRoutes = () => {
               </button>
             </div>
           </div>
-        } 
+        }
       />
     </Routes>
   );

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from '../../../lib/axios';
+import Header from '../Gerente/Header';
 
 import {
     FiDroplet, FiLoader, FiX, FiCheckCircle,
@@ -18,7 +19,7 @@ import TopEquiposChart from "../../molecules/TopEquiposChart";
 import FaenasChart from "../../molecules/FaenasChart";
 import ConsumoTendenciaChart from "../../molecules/ConsumoTendenciaChart";
 
-const MainGerente = ({ children }) => {
+const Graficos = ({ children }) => {
     // Estados básicos necesarios
     const [faenaSeleccionada, setFaenaSeleccionada] = useState("todas");
     const [ultimaActualizacion, setUltimaActualizacion] = useState(new Date());
@@ -93,7 +94,7 @@ const MainGerente = ({ children }) => {
                 setRefreshTrigger(prev => prev + 1);
             }
         }, 500);
-        
+
         return () => clearTimeout(timer);
     }, [faenaSeleccionada, fechaDesde, fechaHasta]);
 
@@ -104,6 +105,7 @@ const MainGerente = ({ children }) => {
 
     return (
         <div className="flex-1 overflow-auto bg-gray-50">
+            <Header />
             <div className="container mx-auto px-4 py-6">
                 {/* Mensajes de estado */}
                 {cargando && (
@@ -142,34 +144,32 @@ const MainGerente = ({ children }) => {
                     <div className="flex justify-between items-center mb-4 bg-white p-4 rounded-lg shadow-sm">
                         <h2 className="text-lg font-semibold text-gray-800 flex items-center">
                             <FiDroplet className="mr-2 text-blue-500" />
-                            Consumo de Petróleo
+                            Control de Petróleo 
                         </h2>
-                        
+
                         <div className="flex items-center space-x-4">
                             {/* Selector de vista */}
                             <div className="bg-gray-100 rounded-lg p-1 flex">
                                 <button
                                     onClick={() => setVistaActiva("tablas")}
-                                    className={`px-3 py-1 rounded-md transition-colors ${
-                                        vistaActiva === "tablas"
-                                            ? "bg-blue-500 text-white"
-                                            : "text-gray-600 hover:bg-gray-200"
-                                    }`}
+                                    className={`px-3 py-1 rounded-md transition-colors ${vistaActiva === "tablas"
+                                        ? "bg-blue-500 text-white"
+                                        : "text-gray-600 hover:bg-gray-200"
+                                        }`}
                                 >
                                     Tablas
                                 </button>
                                 <button
                                     onClick={() => setVistaActiva("graficos")}
-                                    className={`px-3 py-1 rounded-md transition-colors ${
-                                        vistaActiva === "graficos"
-                                            ? "bg-blue-500 text-white"
-                                            : "text-gray-600 hover:bg-gray-200"
-                                    }`}
+                                    className={`px-3 py-1 rounded-md transition-colors ${vistaActiva === "graficos"
+                                        ? "bg-blue-500 text-white"
+                                        : "text-gray-600 hover:bg-gray-200"
+                                        }`}
                                 >
                                     Gráficos
                                 </button>
                             </div>
-                            
+
                             {/* Botón refrescar */}
                             <button
                                 onClick={refrescarDatos}
@@ -185,7 +185,7 @@ const MainGerente = ({ children }) => {
                     {/* Componente de filtros reutilizable */}
                     <div className="mb-6 bg-white rounded-lg shadow-md p-4">
                         <h3 className="text-md font-medium text-gray-800 mb-4">Filtros de Visualización</h3>
-                        <FiltrosComponent 
+                        <FiltrosComponent
                             fechaDesde={fechaDesde}
                             setFechaDesde={handleFechaDesdeChange}
                             fechaHasta={fechaHasta}
@@ -200,26 +200,26 @@ const MainGerente = ({ children }) => {
                         <>
                             {/* Componente de tarjetas de resumen financiero */}
                             {datosConsumo && datosConsumo.resumen_financiero && (
-                                <ResumenFinancieroCards 
-                                    resumenFinanciero={datosConsumo.resumen_financiero} 
+                                <ResumenFinancieroCards
+                                    resumenFinanciero={datosConsumo.resumen_financiero}
                                 />
                             )}
 
                             {/* Componente de tabla de consumo por máquina */}
                             {datosConsumo && datosConsumo.consumo_por_maquina && (
-                                <ConsumoPorMaquinaTable 
-                                    consumoPorMaquina={datosConsumo.consumo_por_maquina} 
+                                <ConsumoPorMaquinaTable
+                                    consumoPorMaquina={datosConsumo.consumo_por_maquina}
                                 />
                             )}
 
                             {/* Componentes de tablas de consumo e ingresos por faena */}
                             {datosConsumo && datosConsumo.consumo_por_faena && datosConsumo.ingresos_por_faena && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                                    <ConsumoPorFaenaTable 
-                                        consumoPorFaena={datosConsumo.consumo_por_faena} 
+                                    <ConsumoPorFaenaTable
+                                        consumoPorFaena={datosConsumo.consumo_por_faena}
                                     />
-                                    <IngresosPorFaenaTable 
-                                        ingresosPorFaena={datosConsumo.ingresos_por_faena} 
+                                    <IngresosPorFaenaTable
+                                        ingresosPorFaena={datosConsumo.ingresos_por_faena}
                                     />
                                 </div>
                             )}
@@ -231,11 +231,11 @@ const MainGerente = ({ children }) => {
                         <>
                             {/* Tarjetas de resumen financiero (visibles en ambas vistas) */}
                             {datosConsumo && datosConsumo.resumen_financiero && (
-                                <ResumenFinancieroCards 
-                                    resumenFinanciero={datosConsumo.resumen_financiero} 
+                                <ResumenFinancieroCards
+                                    resumenFinanciero={datosConsumo.resumen_financiero}
                                 />
                             )}
-                            
+
                             {/* Contenedor de gráficos */}
                             <div className="mt-6">
                                 <div className="bg-white p-4 rounded-lg shadow-md mb-6">
@@ -243,7 +243,7 @@ const MainGerente = ({ children }) => {
                                         <FiBarChart2 className="mr-2 text-blue-500" />
                                         Visualización de Datos
                                     </h3>
-                                    
+
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         {/* Top Equipos - Renderizar siempre que tengamos fechas */}
                                         <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
@@ -259,7 +259,7 @@ const MainGerente = ({ children }) => {
                                                 />
                                             )}
                                         </div>
-                                        
+
                                         {/* Faenas - Renderizar siempre que tengamos fechas */}
                                         <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
                                             <h4 className="text-sm font-medium text-gray-700 mb-3">
@@ -276,7 +276,7 @@ const MainGerente = ({ children }) => {
                                             )}
                                         </div>
                                     </div>
-                                    
+
                                     {/* Tendencia de Consumo - Renderizar siempre que tenemos faena */}
                                     <div className="mt-6 bg-white rounded-lg shadow-sm p-4 border border-gray-100">
                                         <h4 className="text-sm font-medium text-gray-700 mb-3">
@@ -318,4 +318,4 @@ const MainGerente = ({ children }) => {
     );
 };
 
-export default MainGerente;
+export default Graficos;
