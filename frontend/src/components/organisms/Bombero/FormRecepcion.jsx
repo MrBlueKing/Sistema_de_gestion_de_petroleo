@@ -49,7 +49,7 @@ const formatCurrency = (amount) => {
   });
 };
 
-// COMPONENTE MODAL DE ÉXITO INTEGRADO
+// COMPONENTE MODAL DE ÉXITO INTEGRADO - CON LÓGICA DE COLORES CORREGIDA
 const ModalExitoRecepcion = ({
   isOpen,
   onConfirm,
@@ -67,9 +67,10 @@ const ModalExitoRecepcion = ({
     precio
   } = datosRecepcion;
 
-  // Determinar si la diferencia es significativa
+  // CORREGIDO: Determinar si la diferencia es significativa (umbral 0.5)
   const diferenciaMagnitud = Math.abs(diferencia);
-  const esDiferenciaSignificativa = diferenciaMagnitud > 50;
+  const esDiferenciaSignificativa = diferenciaMagnitud > 0.5;
+  const esExcedente = diferencia > 0;
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-transparent bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -135,12 +136,15 @@ const ModalExitoRecepcion = ({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-orange-700 text-sm">Diferencia:</span>
+                  {/* CORREGIDO: Nueva lógica de colores */}
                   <span className={`font-bold ${
-                    esDiferenciaSignificativa ? 'text-red-600' : 'text-orange-500'
+                    esDiferenciaSignificativa 
+                      ? (esExcedente ? 'text-green-600' : 'text-red-600') 
+                      : 'text-gray-600'
                   }`}>
                     {formatNumberWithSeparators(diferenciaMagnitud)} L
                     <span className="text-xs ml-1">
-                      ({diferencia > 0 ? 'Excedente' : 'Faltante'})
+                      ({esExcedente ? 'Excedente' : 'Faltante'})
                     </span>
                   </span>
                 </div>
@@ -185,8 +189,11 @@ const ModalExitoRecepcion = ({
               </div>
               <div>
                 <span className="text-gray-600">Precisión:</span>
+                {/* CORREGIDO: Nueva lógica para precisión */}
                 <span className={`ml-2 font-medium ${
-                  esDiferenciaSignificativa ? 'text-amber-600' : 'text-orange-600'
+                  esDiferenciaSignificativa 
+                    ? 'text-amber-600' 
+                    : 'text-green-600'
                 }`}>
                   {esDiferenciaSignificativa ? 'Requiere Revisión' : 'Dentro de Tolerancia'}
                 </span>
@@ -650,10 +657,13 @@ const FormRecepcion = () => {
     const litrosIngresados = stockFinal - stockInicial;
     const litrosGuia = parseFloat(formData.litrosRecibidos);
 
+    // CAMBIO: Ahora es litros calculados - litros guía
+    const diferencia = litrosIngresados - litrosGuia;
+
     // Guardar en el estado del componente
     setCalculoPetroleo({
       litrosCalculados: litrosIngresados,
-      diferencia: litrosGuia - litrosIngresados,
+      diferencia: diferencia, // Este valor ahora será correcto
       calculoRealizado: true,
     });
 
@@ -668,16 +678,18 @@ const FormRecepcion = () => {
       volInicial: stockInicial,
       volFinal: stockFinal,
       discrepanciaIni: stockInicial - 200,
-      discrepanciaCam: litrosGuia - litrosIngresados,
+      discrepanciaCam: diferencia, // Usar la nueva diferencia
     };
   };
-
+ 
   // Generar texto de observación basado en diferencia
   const generarObservacionDiferencia = (litrosGuia, litrosIngresados) => {
+    const diferencia = litrosIngresados - litrosGuia; // CAMBIO: Nuevo orden
+    
     return `Según cálculo de alturas, se detecta una diferencia de ${formatNumber(
-      Math.abs(litrosGuia - litrosIngresados)
+      Math.abs(diferencia)
     )} litros ${
-      litrosGuia > litrosIngresados ? "de menos" : "de más"
+      diferencia > 0 ? "de más" : "de menos"
     } en la recepción. Litros según guía: ${formatNumber(
       litrosGuia
     )}. Litros calculados: ${formatNumber(litrosIngresados)}.`;
@@ -791,9 +803,8 @@ const FormRecepcion = () => {
       const precioTotal =
         parseFloat(formData.litrosRecibidos) * parseFloat(formData.precio);
 
-      // Calcular diferencia entre litros recibidos y calculados
-      const diferencia =
-        parseFloat(formData.litrosRecibidos) - calculoPetroleo.litrosCalculados;
+      // CAMBIO: Calcular diferencia como litros calculados - litros guía
+      const diferencia = calculoPetroleo.litrosCalculados - parseFloat(formData.litrosRecibidos);
 
       // Preparar datos para el formato esperado por la API
       const alturas = prepararDatosAlturas();
@@ -809,7 +820,7 @@ const FormRecepcion = () => {
         recibo_conforme: true,
         observacion: formData.observacion,
         id_faena: formData.id_faena,
-        diferencia: diferencia,
+        diferencia: diferencia, // Usar la nueva diferencia
         stock_inicial: stockInicial,
         alturas_estanques: alturas,
       };
@@ -829,7 +840,7 @@ const FormRecepcion = () => {
         numeroGuia: formData.numeroGuia,
         litrosDocumentados: parseFloat(formData.litrosRecibidos),
         litrosCalculados: calculoPetroleo.litrosCalculados,
-        diferencia: diferencia,
+        diferencia: diferencia, // Usar la nueva diferencia
         precioTotal: precioTotal,
         stockInicial: stockInicial,
         precio: parseFloat(formData.precio)
@@ -1038,19 +1049,24 @@ const FormRecepcion = () => {
             </div>
           )}
 
+        {/* CORREGIDO: Resultado del cálculo con nueva lógica de colores */}
         {calculoPetroleo.calculoRealizado && (
           <div
             className={`p-3 rounded-lg text-center border mt-2 ${
-              Math.abs(calculoPetroleo.diferencia) > 50
-                ? "bg-red-50 border-red-200"
-                : "bg-green-50 border-green-200"
+              Math.abs(calculoPetroleo.diferencia) <= 0.5
+                ? "bg-gray-50 border-gray-200"  // Diferencia mínima
+                : calculoPetroleo.diferencia > 0
+                ? "bg-green-50 border-green-200"  // Excedente - VERDE
+                : "bg-red-50 border-red-200"     // Faltante - ROJO
             }`}
           >
             <p
               className={`text-sm ${
-                Math.abs(calculoPetroleo.diferencia) > 50
-                  ? "text-red-600"
-                  : "text-green-600"
+                Math.abs(calculoPetroleo.diferencia) <= 0.5
+                  ? "text-gray-600"      // Diferencia mínima
+                  : calculoPetroleo.diferencia > 0
+                  ? "text-green-600"     // Excedente - VERDE
+                  : "text-red-600"       // Faltante - ROJO
               }`}
             >
               Resultado del cálculo:
@@ -1066,9 +1082,11 @@ const FormRecepcion = () => {
               </p>
               <p
                 className={`font-bold ${
-                  Math.abs(calculoPetroleo.diferencia) > 50
-                    ? "text-red-600"
-                    : "text-green-600"
+                  Math.abs(calculoPetroleo.diferencia) <= 0.5
+                    ? "text-gray-600"      // Diferencia mínima
+                    : calculoPetroleo.diferencia > 0
+                    ? "text-green-600"     // Excedente - VERDE
+                    : "text-red-600"       // Faltante - ROJO
                 }`}
               >
                 Diferencia: {formatNumber(Math.abs(calculoPetroleo.diferencia))}{" "}

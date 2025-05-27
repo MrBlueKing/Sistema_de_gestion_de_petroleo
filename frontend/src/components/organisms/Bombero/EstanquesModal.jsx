@@ -35,9 +35,11 @@ const InputNivel = ({
         onChange={onChange}
         placeholder={placeholder}
         disabled={disabled}
-        className={`w-full border ${disabled ? "bg-gray-100" : "bg-white"
-          } rounded-lg p-3 pr-14 text-base md:text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all shadow-sm ${!disabled && "group-hover:border-orange-300"
-          } appearance-none`}
+        className={`w-full border ${
+          disabled ? "bg-gray-100" : "bg-white"
+        } rounded-lg p-3 pr-14 text-base md:text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all shadow-sm ${
+          !disabled && "group-hover:border-orange-300"
+        } appearance-none`}
         style={{
           WebkitAppearance: "none",
           MozAppearance: "textfield",
@@ -55,12 +57,13 @@ const InputNivel = ({
 // Componente de notificación/alerta optimizado
 const InfoBox = ({ type, message }) => (
   <div
-    className={`p-4 rounded-lg mb-4 flex items-start ${type === "info"
-      ? "bg-blue-50 text-blue-800 border-l-4 border-blue-500"
-      : type === "error"
+    className={`p-4 rounded-lg mb-4 flex items-start ${
+      type === "info"
+        ? "bg-blue-50 text-blue-800 border-l-4 border-blue-500"
+        : type === "error"
         ? "bg-red-50 text-red-800 border-l-4 border-red-500"
         : "bg-green-50 text-green-800 border-l-4 border-green-500"
-      }`}
+    }`}
   >
     <div className="flex-shrink-0 mr-3 mt-0.5">
       {type === "info" ? (
@@ -254,13 +257,13 @@ const EstanquesModal = ({
   // Calcular el stock total del sistema (este es el valor que viene del sistema, NO se debe reemplazar)
   const stockTotalSistema = Array.isArray(estanques)
     ? estanques.reduce((total, estanque) => {
-      const stockActual =
-        estanque.stock_actual !== undefined && estanque.stock_actual !== null
-          ? parseFloat(estanque.stock_actual)
-          : 0;
+        const stockActual =
+          estanque.stock_actual !== undefined && estanque.stock_actual !== null
+            ? parseFloat(estanque.stock_actual)
+            : 0;
 
-      return total + stockActual;
-    }, 0)
+        return total + stockActual;
+      }, 0)
     : 0;
 
   // Calcular el porcentaje de capacidad utilizada
@@ -279,10 +282,10 @@ const EstanquesModal = ({
 
   // Función para manejar el cierre del modal
   const handleModalClose = (passStockSistema = false) => {
-    if (passStockSistema && typeof onClose === 'function') {
+    if (passStockSistema && typeof onClose === "function") {
       // Pasar el stock del sistema al componente padre
       onClose(stockTotalSistema);
-    } else if (typeof onClose === 'function') {
+    } else if (typeof onClose === "function") {
       // Cerrar sin pasar datos
       onClose();
     }
@@ -306,17 +309,17 @@ const EstanquesModal = ({
           <div className="flex items-center justify-center space-x-4 md:space-x-2">
             {/* Título y descripción */}
             <div className="relative flex-1">
-              <h2 className="absolute inset-0 flex justify-center items-center text-white text md:text-xl font-semibold tracking-tight text-center"
+              <h2
+                className="absolute inset-0 flex justify-center items-center text-white text md:text-xl font-semibold tracking-tight text-center"
                 style={{ right: "-12rem" }} // Ajusta este valor según necesites
               >
                 {isResultadosStep
                   ? "Panel de Control de Combustible"
                   : paso === "inicial"
-                    ? "Registro de Niveles Iniciales"
-                    : "Registro de Niveles Finales"}
+                  ? "Registro de Niveles Iniciales"
+                  : "Registro de Niveles Finales"}
               </h2>
             </div>
-
 
             {/* Indicador de progreso en el header */}
             <div className="flex items-center space-x-4">
@@ -395,18 +398,20 @@ const EstanquesModal = ({
                     <React.Fragment key={index}>
                       {index > 0 && (
                         <div
-                          className={`h-0.5 w-4 rounded-full transition-colors ${isActive
-                            ? "bg-orange-200"
-                            : "bg-orange-800 opacity-30"
-                            }`}
+                          className={`h-0.5 w-4 rounded-full transition-colors ${
+                            isActive
+                              ? "bg-orange-200"
+                              : "bg-orange-800 opacity-30"
+                          }`}
                         />
                       )}
                       <div className="relative group">
                         <div
-                          className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-medium transition-all ${isActive
-                            ? "bg-white text-orange-600"
-                            : "bg-orange-800 text-orange-300 opacity-50"
-                            } ${isCurrentStep ? "ring-2 ring-orange-200" : ""}`}
+                          className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-medium transition-all ${
+                            isActive
+                              ? "bg-white text-orange-600"
+                              : "bg-orange-800 text-orange-300 opacity-50"
+                          } ${isCurrentStep ? "ring-2 ring-orange-200" : ""}`}
                         >
                           {isActive ? (
                             index < currentStep ? (
@@ -605,7 +610,7 @@ const EstanquesModal = ({
                             <span className="font-semibold">
                               {formatNumber(
                                 resultadoCalculo.volFinal -
-                                resultadoCalculo.volInicial
+                                  resultadoCalculo.volInicial
                               )}{" "}
                               L
                             </span>
@@ -613,28 +618,42 @@ const EstanquesModal = ({
                           <div className="flex justify-between py-2 px-3 bg-gray-50 rounded-lg">
                             <span className="text-gray-600">Diferencia:</span>
                             <span
-                              className={`font-semibold ${Math.abs(
-                                resultadoCalculo.volFinal -
-                                (resultadoCalculo.volInicial +
-                                  litrosRecibidos)
-                              ) > 0.1
-                                ? "text-red-600"
-                                : "text-green-600"
-                                }`}
-                            >
-                              {formatNumber(
-                                Math.abs(
+                              className={`font-semibold flex items-center ${(() => {
+                                const litrosMedidos =
                                   resultadoCalculo.volFinal -
-                                  (resultadoCalculo.volInicial +
-                                    litrosRecibidos)
-                                )
-                              )}{" "}
-                              L (
-                              {resultadoCalculo.volFinal >
-                                resultadoCalculo.volInicial + litrosRecibidos
-                                ? "Excedente"
-                                : "Faltante"}
-                              )
+                                  resultadoCalculo.volInicial;
+                                const diferencia =
+                                  litrosMedidos - litrosRecibidos;
+
+                                if (Math.abs(diferencia) <= 0.5) {
+                                  return "text-gray-600";
+                                } else if (diferencia > 0) {
+                                  return "text-green-600";
+                                } else {
+                                  return "text-red-600";
+                                }
+                              })()}`}
+                            >
+                              {(() => {
+                                const litrosMedidos =
+                                  resultadoCalculo.volFinal -
+                                  resultadoCalculo.volInicial;
+                                const diferencia =
+                                  litrosMedidos - litrosRecibidos;
+                                const esExcedente = diferencia > 0;
+
+                                return (
+                                  <>
+                                    {Math.abs(diferencia) > 0.5 && (
+                                      <span className="mr-1">
+                                        {esExcedente ? "📈" : "📉"}
+                                      </span>
+                                    )}
+                                    {formatNumber(Math.abs(diferencia))} L (
+                                    {esExcedente ? "Excedente" : "Faltante"})
+                                  </>
+                                );
+                              })()}
                             </span>
                           </div>
                         </div>
@@ -727,12 +746,13 @@ const EstanquesModal = ({
                                 </div>
                                 <div className="w-full bg-gray-200 rounded-full h-2">
                                   <div
-                                    className={`h-2 rounded-full ${capacidadPorcentaje > 75
-                                      ? "bg-green-500"
-                                      : capacidadPorcentaje > 30
+                                    className={`h-2 rounded-full ${
+                                      capacidadPorcentaje > 75
+                                        ? "bg-green-500"
+                                        : capacidadPorcentaje > 30
                                         ? "bg-blue-500"
                                         : "bg-amber-500"
-                                      }`}
+                                    }`}
                                     style={{ width: `${capacidadPorcentaje}%` }}
                                   ></div>
                                 </div>
@@ -817,10 +837,11 @@ const EstanquesModal = ({
               <button
                 onClick={avanzarANivelesFinales}
                 disabled={!nivelesInicialesCompletos() || loading}
-                className={`flex items-center px-5 py-2.5 rounded-lg text-white font-medium text-sm shadow-sm transition-all ${!nivelesInicialesCompletos() || loading
-                  ? "bg-orange-400 cursor-not-allowed opacity-70"
-                  : "bg-orange-600 hover:bg-orange-700"
-                  } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500`}
+                className={`flex items-center px-5 py-2.5 rounded-lg text-white font-medium text-sm shadow-sm transition-all ${
+                  !nivelesInicialesCompletos() || loading
+                    ? "bg-orange-400 cursor-not-allowed opacity-70"
+                    : "bg-orange-600 hover:bg-orange-700"
+                } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500`}
               >
                 {loading ? (
                   <>
@@ -854,10 +875,11 @@ const EstanquesModal = ({
               <button
                 onClick={handleCalcular}
                 disabled={!nivelesFinalesCompletos() || loading}
-                className={`flex items-center px-5 py-2.5 rounded-lg text-white font-medium text-sm shadow-sm ${loading || !nivelesFinalesCompletos()
-                  ? "bg-orange-400 cursor-not-allowed opacity-70"
-                  : "bg-orange-600 hover:bg-orange-700"
-                  } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all`}
+                className={`flex items-center px-5 py-2.5 rounded-lg text-white font-medium text-sm shadow-sm ${
+                  loading || !nivelesFinalesCompletos()
+                    ? "bg-orange-400 cursor-not-allowed opacity-70"
+                    : "bg-orange-600 hover:bg-orange-700"
+                } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all`}
               >
                 {loading ? (
                   <>
