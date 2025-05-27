@@ -219,8 +219,6 @@ class InformeKpiController extends Controller
         }
     }
 
-
-
     // También corregir getConsumoFaenas, getConsumoMensual y getKpisConsumo
     // con los nombres correctos de columnas
 
