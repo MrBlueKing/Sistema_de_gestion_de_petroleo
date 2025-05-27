@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useContext } from "react";
 import {
   FaTruck,
   FaIndustry,
@@ -15,8 +15,10 @@ import {
   FaCheck
 } from "react-icons/fa";
 import tonelajeService from "../../context/tonelajeService";
+import { UserContext } from "../../context/UserContext"; // Importar el contexto
 
 const ProductionTableComponent = ({ fechaProduccion, onDataChange }) => {
+  const { user, loading: userLoading } = useContext(UserContext); // Obtener datos del usuario
   const [faenasData, setFaenasData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -27,61 +29,125 @@ const ProductionTableComponent = ({ fechaProduccion, onDataChange }) => {
   const [mostrarExito, setMostrarExito] = useState(false);
   const [mensajeExito, setMensajeExito] = useState({});
 
-  // Cargar datos iniciales
-  useEffect(() => {
-    if (fechaProduccion) {
-      cargarDatosFaenas();
-    }
-  }, [fechaProduccion]);
+  // Helper para formatear números con 2 decimales
+  const formatearNumero = (numero) => {
+    const valor = parseFloat(numero || 0);
+    return valor === 0 ? "N/a" : valor.toFixed(2);
+  };
 
-  const cargarDatosFaenas = useCallback(async () => {
+  // Helper para formatear porcentaje con 2 decimales
+  const formatearPorcentaje = (numero) => {
+    const valor = parseFloat(numero || 0);
+    return valor === 0 ? "N/a" : `${valor.toFixed(2)}%`;
+  };
+
+  // Cargar datos iniciales - ahora depende del usuario
+  useEffect(() => {
+    if (fechaProduccion && user && user.id_faena) {
+      cargarDatosFaenas(fechaProduccion); // Pasar la fecha exacta
+    } else if (fechaProduccion && !userLoading && !user?.id_faena) {
+      setError('Usuario sin faena asignada');
+      setLoading(false);
+    }
+  }, [fechaProduccion, user]);
+
+  const cargarDatosFaenas = useCallback(async (fechaAUsar = null) => {
     try {
       setLoading(true);
       setError(null);
 
-      // Obtener faenas disponibles y registros del día
-      const [faenasResult, registrosResult] = await Promise.all([
-        tonelajeService.getFaenasDisponibles(fechaProduccion),
-        tonelajeService.getTonelajesDelDia(fechaProduccion)
+      // Usar la fecha proporcionada como prop, sin modificaciones
+      const fecha = fechaAUsar || fechaProduccion;
+
+      if (!fecha) {
+        setError('No se proporcionó fecha de producción');
+        setLoading(false);
+        return;
+      }
+
+      console.log('🔍 DEBUGGING - Fecha de producción EXACTA:', fecha);
+      console.log('🔍 DEBUGGING - Fecha original prop:', fechaProduccion);
+      console.log('🔍 DEBUGGING - Usuario:', user);
+      console.log('🔍 DEBUGGING - ID Faena del usuario:', user?.id_faena);
+
+      // Obtener padrones de la faena del usuario y registros del día
+      const [padronesResult, registrosResult] = await Promise.all([
+        tonelajeService.getPadronesByFaena(user.id_faena, fecha), // Pasamos la fecha exacta
+        tonelajeService.getTonelajesDelDia(fecha)
       ]);
 
-      if (faenasResult.status === 'success') {
-        // Combinar datos de faenas con registros existentes
-        const faenasConDatos = faenasResult.data.map(faena => {
-          // Buscar registros existentes para esta faena
-          const registrosFaena = registrosResult.status === 'success' 
-            ? registrosResult.data.find(r => r.faena.id_faena === faena.id_faena)?.registros || []
-            : [];
+      console.log('🔍 DEBUGGING - Resultado padrones:', padronesResult);
+      console.log('🔍 DEBUGGING - Resultado registros:', registrosResult);
 
-          return {
-            ...faena,
-            registros: registrosFaena
-          };
-        });
+      // Buscar registros existentes para esta faena
+      const registrosFaena = registrosResult.status === 'success' 
+        ? registrosResult.data.find(r => r.faena.id_faena === user.id_faena)?.registros || []
+        : [];
+
+      console.log('🔍 DEBUGGING - Registros de la faena:', registrosFaena);
+
+      let padronesParaUsar = [];
+
+      if (padronesResult.status === 'success' && padronesResult.data.length > 0) {
+        // Usar padrones del servicio (padrones sin registros)
+        padronesParaUsar = padronesResult.data;
+        console.log('🔍 DEBUGGING - Usando padrones del servicio (sin registros)');
+      } else if (registrosFaena.length > 0) {
+        // Si no hay padrones disponibles pero sí hay registros, construir padrones desde los registros
+        console.log('🔍 DEBUGGING - Construyendo padrones desde registros existentes');
+        padronesParaUsar = registrosFaena.map(registro => ({
+          id_padron: registro.padron.id_padron,
+          nombre: registro.padron.nombre,
+          empresa: registro.padron.empresa || 'N/A',
+          capacidad: registro.padron.capacidad || 0,
+          planta: {
+            nombre: registro.planta?.nombre || 'N/A'
+          }
+        }));
+      }
+
+      console.log('🔍 DEBUGGING - Padrones para usar:', padronesParaUsar);
+
+      if (padronesParaUsar.length > 0) {
+        // Crear la estructura de faena con sus padrones
+        const faenaConDatos = {
+          id_faena: user.id_faena,
+          nombre: user.faena.ubicacion || `Faena ${user.id_faena}`, // Usar nombre del contexto
+          padrones: padronesParaUsar,
+          registros: registrosFaena
+        };
+
+        console.log('🔍 DEBUGGING - Faena con datos:', faenaConDatos);
 
         // Inicializar datos del formulario
         const datosIniciales = {};
-        faenasConDatos.forEach(faena => {
-          faena.padrones?.forEach(padron => {
-            const registroExistente = faena.registros.find(r => r.padron?.id_padron === padron.id_padron);
-            datosIniciales[padron.id_padron] = {
-              tonelaje: registroExistente ? registroExistente.tonelaje.toString() : "",
-              ley: registroExistente ? (registroExistente.ley ? registroExistente.ley.toString() : "") : "",
-              viajes: registroExistente ? registroExistente.viajes.toString() : "",
-              id_tonelaje: registroExistente ? registroExistente.id_tonelaje : null,
-              fue_modificado: registroExistente ? registroExistente.fue_modificado : false
-            };
+        faenaConDatos.padrones?.forEach(padron => {
+          const registroExistente = registrosFaena.find(r => r.padron?.id_padron === padron.id_padron);
+          
+          console.log(`🔍 DEBUGGING - Padrón ${padron.nombre}:`, {
+            padron: padron,
+            registroExistente: registroExistente
           });
+          
+          datosIniciales[padron.id_padron] = {
+            tonelaje: registroExistente ? registroExistente.tonelaje.toString() : "",
+            ley: registroExistente ? (registroExistente.ley ? registroExistente.ley.toString() : "") : "",
+            viajes: registroExistente ? registroExistente.viajes.toString() : "",
+            id_tonelaje: registroExistente ? registroExistente.id_tonelaje : null,
+            fue_modificado: registroExistente ? registroExistente.fue_modificado : false
+          };
         });
 
-        setFaenasData(faenasConDatos);
+        console.log('🔍 DEBUGGING - Datos iniciales del formulario:', datosIniciales);
+
+        setFaenasData([faenaConDatos]); // Array con una sola faena
         setDatosFormulario(datosIniciales);
         
         if (onDataChange) {
-          onDataChange(faenasConDatos);
+          onDataChange([faenaConDatos]);
         }
       } else {
-        setError('Error al cargar datos de faenas');
+        setError(`No se encontraron padrones para la faena ${user.id_faena}`);
       }
     } catch (error) {
       console.error('❌ Error al cargar datos:', error);
@@ -89,7 +155,7 @@ const ProductionTableComponent = ({ fechaProduccion, onDataChange }) => {
     } finally {
       setLoading(false);
     }
-  }, [fechaProduccion, onDataChange]);
+  }, [fechaProduccion, user, onDataChange]);
 
   // Manejar cambios en los inputs
   const handleInputChange = (padronId, campo, valor) => {
@@ -291,53 +357,69 @@ const ProductionTableComponent = ({ fechaProduccion, onDataChange }) => {
     setMensajeExito({});
   };
 
-  // Calcular totales por planta
-  const calcularTotalesPorPlanta = () => {
+  // Función para calcular ley ponderada de padrones con datos del formulario
+  const calcularLeyPonderadaFormulario = () => {
     const totales = {};
     
     faenasData.forEach(faena => {
-      faena.registros.forEach(registro => {
-        const plantaNombre = registro.planta?.nombre || 'Sin Planta';
+      faena.padrones?.forEach(padron => {
+        const datos = datosFormulario[padron.id_padron] || {};
+        const plantaNombre = padron.planta?.nombre || 'Sin Planta';
         
         if (!totales[plantaNombre]) {
           totales[plantaNombre] = {
             tonelaje: 0,
-            viajes: 0,
-            ley_ponderada: 0,
             total_ley_tonelaje: 0,
             total_tonelaje_con_ley: 0
           };
         }
         
-        const tonelaje = parseFloat(registro.tonelaje) || 0;
-        const viajes = parseInt(registro.viajes) || 0;
-        const ley = parseFloat(registro.ley) || 0;
+        const tonelaje = parseFloat(datos.tonelaje) || 0;
+        const ley = parseFloat(datos.ley) || 0;
         
-        totales[plantaNombre].tonelaje += tonelaje;
-        totales[plantaNombre].viajes += viajes;
-        
-        // Cálculo correcto de ley ponderada
-        if (ley > 0 && tonelaje > 0) {
-          totales[plantaNombre].total_ley_tonelaje += (ley * tonelaje);
-          totales[plantaNombre].total_tonelaje_con_ley += tonelaje;
+        if (tonelaje > 0) {
+          totales[plantaNombre].tonelaje += tonelaje;
+          
+          if (ley > 0) {
+            totales[plantaNombre].total_ley_tonelaje += (ley * tonelaje);
+            totales[plantaNombre].total_tonelaje_con_ley += tonelaje;
+          }
         }
       });
     });
 
-    // Calcular ley ponderada final
+    // Calcular ley ponderada para cada planta con 2 decimales
     Object.keys(totales).forEach(planta => {
-      if (totales[planta].total_tonelaje_con_ley > 0) {
-        totales[planta].ley_ponderada = (
-          totales[planta].total_ley_tonelaje / 
-          totales[planta].total_tonelaje_con_ley
-        ).toFixed(2);
-      } else {
-        totales[planta].ley_ponderada = "0.00";
-      }
+      totales[planta].ley_ponderada = totales[planta].total_tonelaje_con_ley > 0
+        ? parseFloat((totales[planta].total_ley_tonelaje / totales[planta].total_tonelaje_con_ley).toFixed(2))
+        : 0.00;
     });
 
     return totales;
   };
+
+  if (userLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <FaSpinner className="animate-spin text-3xl text-orange-500 mr-3" />
+        <span className="text-lg text-gray-600">Cargando información del usuario...</span>
+      </div>
+    );
+  }
+
+  if (!user?.id_faena) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+        <div className="flex items-center">
+          <FaExclamationTriangle className="text-red-500 mr-2" />
+          <span className="text-red-700 font-medium">Usuario sin faena asignada</span>
+        </div>
+        <p className="text-red-600 text-sm mt-2">
+          Contacte al administrador para asignar una faena a su usuario.
+        </p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -365,8 +447,8 @@ const ProductionTableComponent = ({ fechaProduccion, onDataChange }) => {
     );
   }
 
-  const totalesPorPlanta = calcularTotalesPorPlanta();
   const { registrosValidos, registrosInvalidos } = obtenerRegistrosParaGuardar();
+  const totalesFormulario = calcularLeyPonderadaFormulario();
 
   return (
     <div className="space-y-6">
@@ -377,12 +459,12 @@ const ProductionTableComponent = ({ fechaProduccion, onDataChange }) => {
             <div>
               <h2 className="text-xl font-bold flex items-center">
                 <FaTruck className="mr-3" />
-                Producción {new Date(fechaProduccion).toLocaleDateString('es-CL', { 
+                Producción {fechaProduccion ? new Date(fechaProduccion + 'T00:00:00').toLocaleDateString('es-CL', { 
                   weekday: 'long', 
                   day: 'numeric', 
                   month: 'long', 
                   year: 'numeric' 
-                })}
+                }) : 'Fecha no disponible'}
               </h2>
               <p className="text-blue-100 text-sm mt-1">Envío Diario - Cumplimiento de camiones a la fecha</p>
             </div>
@@ -448,7 +530,7 @@ const ProductionTableComponent = ({ fechaProduccion, onDataChange }) => {
                   <tr className="bg-blue-50 border-b border-gray-300">
                     <td colSpan="7" className="p-3 font-bold text-blue-800 border-r border-gray-400 text-center">
                       <FaIndustry className="inline mr-2" />
-                      {faena.nombre.toUpperCase()}
+                      {"Faena " + faena.nombre.toUpperCase()}
                     </td>
                   </tr>
                   
@@ -462,7 +544,10 @@ const ProductionTableComponent = ({ fechaProduccion, onDataChange }) => {
                       <tr key={padron.id_padron} className="border-b border-gray-300 hover:bg-gray-50">
                         {/* Capacidad */}
                         <td className="p-3 border-r border-gray-300 text-center font-medium">
-                          {padron.capacidad} Ton
+                          {padron.capacidad && parseFloat(padron.capacidad) > 0 
+                            ? `${padron.capacidad} Ton` 
+                            : 'N/a'
+                          }
                         </td>
                         
                         {/* Padrón */}
@@ -564,27 +649,37 @@ const ProductionTableComponent = ({ fechaProduccion, onDataChange }) => {
                 </React.Fragment>
               ))}
 
-              {/* Totales por Planta */}
-              {Object.keys(totalesPorPlanta).length > 0 && (
+              {/* Totales por Planta - Solo Formulario Actual */}
+              {Object.keys(totalesFormulario).some(planta => totalesFormulario[planta].tonelaje > 0) && (
                 <>
                   <tr className="bg-gray-200 border-t-2 border-gray-500">
                     <td colSpan="7" className="p-2 font-bold text-center text-gray-700 border-r border-gray-400">
                       TOTALES POR PLANTA
                     </td>
                   </tr>
-                  {Object.entries(totalesPorPlanta).map(([planta, totales]) => (
+                  {Object.entries(totalesFormulario)
+                    .filter(([planta, totales]) => totales.tonelaje > 0)
+                    .map(([planta, totales]) => (
                     <tr key={planta} className="bg-yellow-50 border-b border-gray-400">
-                      <td className="p-3 border-r border-gray-400 font-bold text-center">TOTAL MES</td>
-                      <td className="p-3 border-r border-gray-400 font-bold text-center">{planta}</td>
-                      <td className="p-3 border-r border-gray-400 font-bold text-center">N/a</td>
+                      <td className="p-3 border-r border-gray-400 font-bold text-center">TOTAL</td>
+                      <td colSpan="2" className="p-3 border-r border-gray-400 font-bold text-center">{planta}</td>
                       <td className="p-3 text-center border-r border-gray-400 font-bold text-lg">
-                        {totales.tonelaje.toFixed(2)}
+                        {formatearNumero(totales.tonelaje)}
                       </td>
                       <td className="p-3 text-center border-r border-gray-400 font-bold">
-                        {totales.ley_ponderada}%
+                        {formatearPorcentaje(totales.ley_ponderada)}
                       </td>
                       <td className="p-3 text-center border-r border-gray-400 font-bold">
-                        {totales.viajes}
+                        {/* Calcular viajes desde formulario */}
+                        {faenasData.reduce((totalViajes, faena) => {
+                          return totalViajes + (faena.padrones?.reduce((viajesPadron, padron) => {
+                            if (padron.planta?.nombre === planta) {
+                              const datos = datosFormulario[padron.id_padron] || {};
+                              return viajesPadron + (parseInt(datos.viajes) || 0);
+                            }
+                            return viajesPadron;
+                          }, 0) || 0);
+                        }, 0)}
                       </td>
                       <td className="p-3 text-center">
                         <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
@@ -597,19 +692,35 @@ const ProductionTableComponent = ({ fechaProduccion, onDataChange }) => {
                   {/* Total General */}
                   <tr className="bg-gray-800 text-white border-t-2 border-gray-600">
                     <td className="p-3 border-r border-gray-600 font-bold text-center">Total General</td>
-                    <td className="p-3 border-r border-gray-600 font-bold text-center">-</td>
-                    <td className="p-3 border-r border-gray-600 font-bold text-center">-</td>
+                    <td colSpan="2" className="p-3 border-r border-gray-600 font-bold text-center">-</td>
                     <td className="p-3 text-center border-r border-gray-600 font-bold text-lg">
-                      {Object.values(totalesPorPlanta).reduce((sum, t) => sum + t.tonelaje, 0).toFixed(2)}
+                      {formatearNumero(Object.values(totalesFormulario).reduce((sum, t) => sum + t.tonelaje, 0))}
                     </td>
                     <td className="p-3 text-center border-r border-gray-600 font-bold">
-                      {Object.values(totalesPorPlanta).length > 0 
-                        ? (Object.values(totalesPorPlanta).reduce((sum, t) => sum + parseFloat(t.ley_ponderada || 0), 0) / Object.values(totalesPorPlanta).length).toFixed(2)
-                        : '0.00'
-                      }%
+                      {(() => {
+                        // Calcular ley ponderada general del formulario
+                        let totalLeyTonelaje = 0;
+                        let totalTonelajeConLey = 0;
+                        
+                        Object.values(totalesFormulario).forEach(total => {
+                          totalLeyTonelaje += total.total_ley_tonelaje;
+                          totalTonelajeConLey += total.total_tonelaje_con_ley;
+                        });
+                        
+                        const leyPonderadaGeneral = totalTonelajeConLey > 0 
+                          ? (totalLeyTonelaje / totalTonelajeConLey)
+                          : 0;
+                        
+                        return formatearPorcentaje(leyPonderadaGeneral);
+                      })()}
                     </td>
                     <td className="p-3 text-center border-r border-gray-600 font-bold">
-                      {Object.values(totalesPorPlanta).reduce((sum, t) => sum + t.viajes, 0)}
+                      {faenasData.reduce((total, faena) => {
+                        return total + (faena.padrones?.reduce((suma, padron) => {
+                          const datos = datosFormulario[padron.id_padron] || {};
+                          return suma + (parseInt(datos.viajes) || 0);
+                        }, 0) || 0);
+                      }, 0)}
                     </td>
                     <td className="p-3 text-center">
                       <FaCheckCircle className="text-green-400" />
@@ -628,7 +739,7 @@ const ProductionTableComponent = ({ fechaProduccion, onDataChange }) => {
               <strong>Envío Diario</strong> - Cumplimiento de camiones a la fecha
             </div>
             <div className="flex items-center space-x-4">
-              <span>Fecha: {new Date(fechaProduccion).toLocaleDateString('es-CL')}</span>
+              <span>Fecha: {fechaProduccion ? new Date(fechaProduccion + 'T00:00:00').toLocaleDateString('es-CL') : 'N/A'}</span>
               <span>•</span>
               <span>% Cumplimiento: {faenasData.length > 0 ? Math.round((faenasData.filter(f => f.registros.length > 0).length / faenasData.length) * 100) : 0}%</span>
             </div>
@@ -638,7 +749,7 @@ const ProductionTableComponent = ({ fechaProduccion, onDataChange }) => {
 
       {/* Modal de Éxito Profesional */}
       {mostrarExito && (
-        <div className="fixed inset-0 bg-transparent bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-md w-full shadow-2xl">
             <div className="text-center p-8">
               {/* Icono de éxito */}
@@ -705,7 +816,7 @@ const ProductionTableComponent = ({ fechaProduccion, onDataChange }) => {
 
       {/* Modal de Historial */}
       {mostrandoHistorial && (
-        <div className="fixed inset-0 bg-transparent bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center p-4 border-b bg-gray-50">
               <h3 className="text-lg font-bold flex items-center">

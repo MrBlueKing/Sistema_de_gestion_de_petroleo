@@ -37,9 +37,19 @@ Route::post('/register', [AuthController::class, 'register']);
 
 // Rutas protegidas por Sanctum
 Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout']);
+
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
+    $user = $request->user();
+    
+    // Cargar la relación con la faena
+    $user->load('faena');
+    
+    // Agregar el nombre de la faena a la respuesta
+    $userData = $user->toArray();
+      
+    return response()->json($userData);
 });
+
 Route::middleware('auth:sanctum')->get('/usuarios/recientes', [UserController::class, 'recientes']);
 
 /*
@@ -100,7 +110,8 @@ Route::get('/faenas', [FaenaController::class, 'index']);
 Route::get('/faenas-disponibles/{id_solicitante}', [FaenaController::class, 'faenasDisponibles']);
 Route::get('/permisosFaenas', [FaenaController::class, 'getPermisosFaenas']);
 Route::get('/verificarPermiso', [FaenaController::class, 'verificarPermiso']);
-Route::get('/faenasDisponibles', [FaenaController::class, 'getFaenasDisponibles']);
+Route::get('/faenasDisponibles', [FaenaController::class, 'getFaenasDisponibles']); 
+
 
 /*
 |--------------------------------------------------------------------------
