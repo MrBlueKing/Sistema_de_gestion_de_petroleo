@@ -79,13 +79,13 @@ class IngresoPetroleoController extends Controller
             $capacidadDisponible = $capacidadTotal - $stockActual;
 
             // Validación de capacidad disponible
-            if ($litrosRecibidos > $capacidadDisponible) {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => "No hay suficiente capacidad disponible en los estanques. Capacidad disponible: {$capacidadDisponible} litros."
-                ], 400);
-            }
+            // if ($litrosRecibidos > $capacidadDisponible) {
+            //    DB::rollBack();
+            //return response()->json([
+            //                    'success' => false,
+            //                  'message' => "No hay suficiente capacidad disponible en los estanques. Capacidad disponible: {$capacidadDisponible} litros."
+            //            ], 400);
+            //      }
 
             // Crear el registro de ingreso
             $ingreso = new IngresoPetroleo();

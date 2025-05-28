@@ -9,10 +9,12 @@ import {
   FiMapPin,
   FiDollarSign,
   FiTool,
-  FiActivity,
+    FiActivity,
   FiShield,
   FiClock
 } from "react-icons/fi";
+
+import { FaGasPump } from "react-icons/fa";
 const Main = () => {
   const navigationItems = [
     // ÁREA DE COMBUSTIBLE
@@ -39,6 +41,16 @@ const Main = () => {
       path: "/gerente/equipos",
       color: "bg-orange-50 hover:bg-orange-100 border-orange-200"
     },
+
+    // ÁREA OPERACIONAL RECEPCION PETROLEO
+    {
+      title: "Gestión de Ingresos",
+      description: "Comprobación de Recepción",
+      icon: <FaGasPump className="w-10 h-10 text-red-500" />,
+      path: "/gerente/VerificacionIngresos",
+      color: "bg-green-50 hover:bg-orange-100 "
+    },
+
     // ÁREA FINANCIERA Y ANÁLISIS
     {
       title: "Reportes y KPIs",

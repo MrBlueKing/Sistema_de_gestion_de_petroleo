@@ -28,6 +28,8 @@ use App\Http\Controllers\Api\ReporteController;
 use App\Http\Controllers\Api\TonelajeController;
 use App\Http\Controllers\DatabaseCheckController;
 use App\Http\Controllers\Api\ProduccionController;
+use App\Http\Controllers\Api\VerificacionIngresosController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -43,13 +45,13 @@ Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logo
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     $user = $request->user();
-    
+
     // Cargar la relación con la faena
     $user->load('faena');
-    
+
     // Agregar el nombre de la faena a la respuesta
     $userData = $user->toArray();
-      
+
     return response()->json($userData);
 });
 
@@ -113,7 +115,7 @@ Route::get('/faenas', [FaenaController::class, 'index']);
 Route::get('/faenas-disponibles/{id_solicitante}', [FaenaController::class, 'faenasDisponibles']);
 Route::get('/permisosFaenas', [FaenaController::class, 'getPermisosFaenas']);
 Route::get('/verificarPermiso', [FaenaController::class, 'verificarPermiso']);
-Route::get('/faenasDisponibles', [FaenaController::class, 'getFaenasDisponibles']); 
+Route::get('/faenasDisponibles', [FaenaController::class, 'getFaenasDisponibles']);
 
 
 /*
@@ -301,7 +303,7 @@ Route::prefix('produccion')->controller(ProduccionController::class)->group(func
     Route::get('/tendencia/{dias?}', 'getTendenciaProduccion');
     Route::get('/diaria/ultima', 'getProduccionDiariaUltima');
     Route::get('/diaria', 'getProduccionDiariaPorFecha');
-    
+
     // NUEVAS RUTAS PARA FILTROS AVANZADOS
     Route::get('/faenasProd', 'getFaenas');
     Route::get('/filtrada', 'getProduccionFiltrada');
@@ -316,20 +318,20 @@ Route::prefix('combustible')->controller(CombustibleController::class)->group(fu
     // Dashboard principal
     Route::get('/dashboard', 'dashboard');
     Route::get('/dashboard/{idFaena?}', 'dashboardPorFaena');
-    
+
     // Stock y estanques
     Route::get('/stock/general', 'getStockGeneral');
     Route::get('/stock/por-faena', 'getStockPorFaena');
     Route::get('/stock/detalle/{idFaena}', 'getDetalleStockFaena');
     Route::get('/estanques/capacidad', 'getCapacidadEstanques');
     Route::get('/estanques/alertas', 'getAlertasStock');
-    
+
     // Ingresos de combustible
     Route::get('/ingresos/historial', 'getHistorialIngresos');
     Route::get('/ingresos/ultimos/{dias?}', 'getIngresosRecientes');
     Route::get('/ingresos/estadisticas', 'getEstadisticasIngresos');
     Route::get('/ingresos/por-periodo', 'getIngresosPorPeriodo');
-    
+
     // Consumos
     Route::get('/consumos/resumen', 'getResumenConsumos');
     Route::get('/consumos/por-equipo', 'getConsumosPorEquipo');
@@ -337,21 +339,31 @@ Route::prefix('combustible')->controller(CombustibleController::class)->group(fu
     Route::get('/consumos/tendencia', 'getTendenciaConsumos');
     Route::get('/consumos/eficiencia', 'getEficienciaConsumos');
     Route::get('/consumos/ultimos/{dias?}', 'getConsumosRecientes');
-    
+
     // Análisis financiero
     Route::get('/costos/resumen', 'getResumenCostos');
     Route::get('/costos/por-periodo', 'getCostosPorPeriodo');
     Route::get('/costos/proyeccion', 'getProyeccionCostos');
     Route::get('/precios/historial', 'getHistorialPrecios');
-    
+
     // Análisis y proyecciones
     Route::get('/analisis/rendimiento', 'getAnalisisRendimiento');
     Route::get('/proyecciones/stock', 'getProyeccionStock');
     Route::get('/alertas/sistema', 'getAlertasSistema');
     Route::get('/movimientos/historial', 'getHistorialMovimientos');
-    
+
     // Reportes específicos
     Route::get('/reportes/balance', 'getReporteBalance');
     Route::get('/reportes/consumo-detallado', 'getReporteConsumoDetallado');
     Route::get('/reportes/eficiencia-equipos', 'getReporteEficienciaEquipos');
 });
+
+// Rutas para verificación de ingresos
+
+Route::get('/verificacion-ingresos', [VerificacionIngresosController::class, 'index']);
+
+// Obtener detalle de un ingreso específico
+Route::get('/verificacion-ingresos{id}', [VerificacionIngresosController::class, 'show']);
+
+// Obtener resumen de errores por período
+Route::get('/verificacion-ingresos/resumen', [VerificacionIngresosController::class, 'resumen']);
