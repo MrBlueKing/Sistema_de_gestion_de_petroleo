@@ -159,10 +159,7 @@ const VerificacionIngresos = () => {
                   {formatNumber(resumen.error_final_acumulado)} L
                 </p>
               </div>
-              <div className="text-center">
-                <p className="text-sm text-gray-600">Precisión</p>
-                <p className="text-2xl font-bold text-green-600">{resumen.porcentaje_precision}%</p>
-              </div>
+              
             </div>
           </div>
         )}
