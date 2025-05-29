@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\ReporteController;
 use App\Http\Controllers\Api\TonelajeController;
 use App\Http\Controllers\DatabaseCheckController;
 use App\Http\Controllers\Api\ProduccionController;
+use App\Http\Controllers\Api\VerificacionIngresosController;
 
 /*
 |--------------------------------------------------------------------------
@@ -47,6 +48,17 @@ Route::get('/test-mantenimiento', function () {
         'timestamp' => now()
     ]);
 });
+
+Route::get('/faenasDisponibles', [FaenaController::class, 'getFaenasDisponibles']);
+// Rutas para verificación de ingresos
+
+Route::get('/verificacion-ingresos', [VerificacionIngresosController::class, 'index']);
+
+// Obtener detalle de un ingreso específico
+Route::get('/verificacion-ingresos{id}', [VerificacionIngresosController::class, 'show']);
+
+// Obtener resumen de errores por período
+Route::get('/verificacion-ingresos/resumen', [VerificacionIngresosController::class, 'resumen']);
 
 /*
 |--------------------------------------------------------------------------
