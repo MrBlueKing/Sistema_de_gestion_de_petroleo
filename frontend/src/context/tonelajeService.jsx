@@ -1,4 +1,4 @@
-// src/services/TonelajeService.js - VERSION CON CONTROL DE EDICIÓN ÚNICA
+// src/services/TonelajeService.js - VERSION CORREGIDA
 import axios from "../lib/axios";
 
 const tonelajeService = {
@@ -9,7 +9,7 @@ const tonelajeService = {
   getFaenasDisponibles: async (fecha = null) => {
     try {
       if (!fecha) {
-        fecha = tonelajeService.getFechaHoy(); // ← Cambio: usar HOY por defecto
+        fecha = tonelajeService.getFechaHoy();
       }
 
       console.log('🏭 Obteniendo faenas para:', fecha);
@@ -41,80 +41,106 @@ const tonelajeService = {
   },
 
   /**
-   * Obtiene padrones de una faena específica
-   * GET /api/faenas/{idFaena}/padrones
+   * Obtiene TODOS los padrones de una faena (sin importar si tienen registros)
+   * GET /api/faenas/{idFaena}/padrones (sin filtro de fecha)
    */
   getPadronesByFaena: async (idFaena, fecha = null) => {
+  try {
+    console.log(`🚛 Obteniendo padrones para faena: ${idFaena}`);
+    
+    // Usar la fecha actual si no se proporciona
+    if (!fecha) {
+      fecha = tonelajeService.getFechaHoy();
+    }
+    
+    // CAMBIO: Usar tu ruta existente
+    const response = await axios.get(`/api/faenasTon/${idFaena}/padrones?fecha=${fecha}`);
+    
+    if (response.data && response.data.status === 'success') {
+      console.log('✅ Padrones obtenidos:', response.data.data);
+      
+      return {
+        status: 'success',
+        data: response.data.data,
+        message: `${response.data.data.length} padrones obtenidos para faena ${idFaena}`,
+        fecha: fecha
+      };
+    } else {
+      return {
+        status: 'warning',
+        data: [],
+        message: 'No se encontraron padrones para esta faena'
+      };
+    }
+  } catch (error) {
+    console.error('❌ Error al obtener padrones:', error);
+    
+    return {
+      status: 'error',
+      data: [],
+      message: error.response?.data?.message || 'Error al obtener padrones'
+    };
+  }
+},
+
+  /**
+   * Método alternativo si la ruta principal no funciona
+   */
+  getPadronesAlternativos: async (idFaena, fecha) => {
     try {
-      console.log(`🚛 Obteniendo padrones para faena: ${idFaena}`);
+      console.log(`🔄 Intentando método alternativo para faena: ${idFaena}`);
       
-      // Usar la fecha actual si no se proporciona
-      if (!fecha) {
-        fecha = tonelajeService.getFechaHoy(); // ← Cambio: usar HOY por defecto
-      }
-      
-      const response = await axios.get(`/api/faenas/${idFaena}/padrones?fecha=${fecha}`);
+      // Intentar obtener padrones sin fecha
+      const response = await axios.get(`/api/padrones?id_faena=${idFaena}`);
       
       if (response.data && response.data.status === 'success') {
-        console.log('✅ Padrones obtenidos:', response.data.data);
+        console.log('✅ Padrones obtenidos (método alternativo):', response.data.data);
+        
+        // Obtener registros existentes para la fecha
+        const registrosResponse = await tonelajeService.getTonelajesDelDia(fecha);
+        
+        // Combinar padrones con registros
+        const padronesConRegistros = response.data.data.map(padron => {
+          const registroExistente = registrosResponse.data?.find(
+            registro => registro.id_padron === padron.id_padron
+          );
+          
+          return {
+            ...padron,
+            registro_actual: registroExistente || null,
+            tiene_registro: !!registroExistente,
+            fecha_consulta: fecha
+          };
+        });
+        
         return {
           status: 'success',
-          data: response.data.data,
-          message: `Padrones obtenidos para faena ${idFaena}`
-        };
-      } else {
-        return {
-          status: 'warning',
-          data: [],
-          message: 'No se encontraron padrones para esta faena'
+          data: padronesConRegistros,
+          message: `${padronesConRegistros.length} padrones obtenidos (método alternativo)`,
+          fecha: fecha
         };
       }
-    } catch (error) {
-      console.error('❌ Error al obtener padrones:', error);
+      
       return {
         status: 'error',
         data: [],
-        message: error.response?.data?.message || 'Error al obtener padrones'
+        message: 'No se pudieron obtener los padrones'
+      };
+    } catch (error) {
+      console.error('❌ Error en método alternativo:', error);
+      return {
+        status: 'error',
+        data: [],
+        message: 'Error al obtener padrones por método alternativo'
       };
     }
   },
 
   /**
-   * Obtiene padrones de una faena
-   * GET /api/faenas/{id}/padrones?fecha=2025-05-21
+   * Obtiene padrones de una faena (mantener compatibilidad)
    */
   getPadronesDisponiblesByFaena: async (faenaId, fecha = null) => {
-    try {
-      if (!fecha) {
-        fecha = tonelajeService.getFechaHoy(); // ← Cambio: usar HOY por defecto
-      }
-
-      console.log(`🏗️ Obteniendo padrones para faena ${faenaId}:`, fecha);
-
-      const response = await axios.get(`/api/faenas/${faenaId}/padrones?fecha=${fecha}`);
-
-      if (response.data && response.data.status === 'success') {
-        console.log('✅ Padrones disponibles:', response.data.data);
-        return {
-          status: 'success',
-          data: response.data.data,
-          message: `${response.data.data.length} padrones disponibles`
-        };
-      } else {
-        return {
-          status: 'warning',
-          data: [],
-          message: 'No hay padrones disponibles'
-        };
-      }
-    } catch (error) {
-      console.error('❌ Error al cargar padrones:', error);
-      return {
-        status: 'error',
-        data: [],
-        message: 'Error al obtener padrones'
-      };
-    }
+    return await tonelajeService.getPadronesByFaena(faenaId, fecha);
   },
 
   /**
@@ -185,7 +211,7 @@ const tonelajeService = {
   getTonelajesDelDia: async (fecha = null) => {
     try {
       if (!fecha) {
-        fecha = tonelajeService.getFechaHoy(); // ← Cambio: usar HOY por defecto
+        fecha = tonelajeService.getFechaHoy();
       }
 
       console.log('📊 Obteniendo registros del día:', fecha);
@@ -216,6 +242,8 @@ const tonelajeService = {
       };
     }
   },
+
+  // ... resto de métodos sin cambios
 
   /**
    * Actualiza un registro (solo permitido una vez)

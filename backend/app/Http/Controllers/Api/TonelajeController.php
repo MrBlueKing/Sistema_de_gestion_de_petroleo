@@ -76,45 +76,61 @@ class TonelajeController extends Controller
      * GET /api/faenas/{id}/padrones?fecha=2025-05-21
      */
     public function getPadrones(Request $request, $faenaId)
-    {
-        try {
-            $fecha = $request->input('fecha', Carbon::yesterday()->format('Y-m-d'));
-            
-            Log::info("Obteniendo padrones para faena $faenaId, fecha: $fecha");
+{
+    try {
+        $fecha = $request->input('fecha', Carbon::yesterday()->format('Y-m-d'));
+        
+        Log::info("Obteniendo TODOS los padrones para faena $faenaId, fecha: $fecha");
+        
+        // CAMBIO PRINCIPAL: Obtener TODOS los padrones y combinar con registros existentes
+        $padrones = Padron::with('planta')
+            ->where('id_faena', $faenaId)
+            ->get()
+            ->map(function ($padron) use ($fecha) {
+                // Buscar si existe un registro para esta fecha
+                $registroExistente = Tonelaje::where('id_padron', $padron->id_padron)
+                    ->where('fecha_produccion', $fecha)
+                    ->first();
+                
+                return [
+                    'id_padron' => $padron->id_padron,
+                    'nombre' => $padron->nombre,
+                    'empresa' => $padron->empresa,
+                    'capacidad' => $padron->capacidad,
+                    'planta' => [
+                        'nombre' => $padron->planta->nombre
+                    ],
+                    // NUEVOS CAMPOS: Estado del registro
+                    'registro_actual' => $registroExistente ? [
+                        'id' => $registroExistente->id,
+                        'tonelaje' => $registroExistente->tonelaje,
+                        'viajes' => $registroExistente->viajes,
+                        'ley' => $registroExistente->ley,
+                        'fecha_produccion' => $registroExistente->fecha_produccion,
+                        'fue_modificado' => $registroExistente->fue_modificado,
+                        'puede_editar' => !$registroExistente->fue_modificado
+                    ] : null,
+                    'tiene_registro' => !is_null($registroExistente),
+                    'fecha_consulta' => $fecha
+                ];
+            });
 
-            $padrones = Padron::with('planta')
-                ->where('id_faena', $faenaId)
-                ->get()
-                ->filter(function ($padron) use ($fecha) {
-                    return !Tonelaje::where('id_padron', $padron->id_padron)
-                        ->where('fecha_produccion', $fecha)
-                        ->exists();
-                })
-                ->map(function ($padron) {
-                    return [
-                        'id_padron' => $padron->id_padron,
-                        'nombre' => $padron->nombre,
-                        'empresa' => $padron->empresa,
-                        'capacidad' => $padron->capacidad,
-                        'planta' => [
-                            'nombre' => $padron->planta->nombre
-                        ]
-                    ];
-                })->values();
+        return response()->json([
+            'status' => 'success',
+            'data' => $padrones,
+            'message' => count($padrones) . ' padrones obtenidos para fecha ' . $fecha,
+            'fecha' => $fecha
+        ]);
 
-            return response()->json([
-                'status' => 'success',
-                'data' => $padrones
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Error en getPadrones: ' . $e->getMessage());
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Error al obtener padrones: ' . $e->getMessage()
-            ], 500);
-        }
+    } catch (\Exception $e) {
+        Log::error('Error en getPadrones: ' . $e->getMessage());
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Error al obtener padrones: ' . $e->getMessage(),
+            'data' => []
+        ], 500);
     }
+}
 
     /**
      * Obtener registros del día

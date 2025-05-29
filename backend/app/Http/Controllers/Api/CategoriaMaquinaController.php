@@ -23,7 +23,7 @@ class CategoriaMaquinaController extends Controller
     {
         $validated = $request->validate([
             'nombre_categoria' => 'required|string|max:100|unique:categorias_maquinas,nombre_categoria',
-            'tipo_medicion' => ['required', Rule::in(['Kilometraje', 'Horometro'])],
+            'tipo_medicion' => ['required', Rule::in(['Kilometraje', 'Horometro', 'N/a'])],
             'horas_mantencion' => 'required|numeric|min:0', // Nuevo campo
         ]);
 

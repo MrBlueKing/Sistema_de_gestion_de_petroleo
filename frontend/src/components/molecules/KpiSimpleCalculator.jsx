@@ -196,7 +196,7 @@ const ProductionPage = () => {
               <div className="bg-white rounded-lg border p-4 shadow-sm">
                 <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
                   <FaFileAlt className="mr-2 text-green-500" />
-                  Rendimiento
+                  Peso Promedio Camión
                 </h3>
                 <div className="space-y-2">
                   <div className="flex justify-between">

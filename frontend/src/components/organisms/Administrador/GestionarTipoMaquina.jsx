@@ -149,6 +149,13 @@ const GestionarTipoMaquina = () => {
                       checked={tipoMedicion === "Kilometraje"}
                       onChange={() => setTipoMedicion("Kilometraje")}
                     />
+                      <RadioButton
+                      label="N/a"
+                      name="tipoMedicion"
+                      value="N/a"
+                      checked={tipoMedicion === "N/a"}
+                      onChange={() => setTipoMedicion("N/a")}
+                    />
                   </div>
                   <p className="mt-2 text-xs text-gray-500 text-left">
                     Seleccione el tipo de medición apropiado para esta categoría de máquina
