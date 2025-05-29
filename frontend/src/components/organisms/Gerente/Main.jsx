@@ -48,7 +48,7 @@ const Main = () => {
       description: "Comprobación de Recepción",
       icon: <FaGasPump className="w-10 h-10 text-red-500" />,
       path: "/gerente/VerificacionIngresos",
-      color: "bg-green-50 hover:bg-orange-100 "
+      color: "bg-green-50 hover:bg-green-100 border-green-200"
     },
 
     // ÁREA FINANCIERA Y ANÁLISIS
@@ -59,6 +59,7 @@ const Main = () => {
       path: "/gerente/reportes",
       color: "bg-violet-50 hover:bg-violet-100 border-violet-200"
     },
+
     {
       title: "Simulacion Consumos",
       description: "Simulacion de consumo de combustible",
@@ -92,7 +93,7 @@ const Main = () => {
             Producción y Operaciones
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {navigationItems.slice(0, 5).map((item, index) => (
+            {navigationItems.slice(0, 6).map((item, index) => (
               <div
                 key={index}
                 onClick={() => handleNavigation(item.path)}
