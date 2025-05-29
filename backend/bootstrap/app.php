@@ -1,45 +1,49 @@
 <?php
 
+use App\Http\Middleware\CheckFaena;
+use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\TokenExpired;
+// use App\Http\Middleware\TokenExpired; // ← COMENTAR ESTA LÍNEA
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 
-return Application::configure(basePath: dirname(__DIR__)) // Configura la base de la aplicación.
+return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        web: __DIR__.'/../routes/web.php',  // Rutas para el frontend de la aplicación.
-        api: __DIR__.'/../routes/api.php',  // Rutas para la API de la aplicación.
-        commands: __DIR__.'/../routes/console.php',  // Rutas para comandos de consola.
-        health: '/up',  // Ruta para la comprobación de estado de la aplicación (ruta de salud).
+        web: __DIR__ . '/../routes/web.php',
+        api: __DIR__ . '/../routes/api.php',
+        commands: __DIR__ . '/../routes/console.php',
+        health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
         // Configuración para el manejo de cookies.
-        $middleware->encryptCookies(except: ['appearance', 'sidebar_state']); 
-        // Excluye las cookies relacionadas con la apariencia y el estado de la barra lateral de la encriptación.
+        $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         // Middleware específico para rutas web (frontend).
         $middleware->web(append: [
-            HandleAppearance::class, // Middleware para gestionar la apariencia de la aplicación (temas, personalización).
-            HandleInertiaRequests::class, // Middleware para manejar las peticiones realizadas con Inertia.js (SPA).
-            AddLinkHeadersForPreloadedAssets::class, // Middleware para agregar encabezados de enlace para la pre-carga de activos.
+            HandleAppearance::class,
+            HandleInertiaRequests::class,
+            AddLinkHeadersForPreloadedAssets::class,
         ]);
 
-        // Middleware específico para rutas API (backend).
+        // ✅ Agregar TokenExpired solo después de crearlo
         $middleware->api(append: [
-            EnsureFrontendRequestsAreStateful::class, // Middleware de Sanctum para autenticar peticiones API basadas en cookies de sesión.
+            TokenExpired::class,
+        ]);
+
+        // ✅ Registrar aliases para usar en rutas específicas
+        $middleware->alias([
+            'role' => CheckRole::class,
+            'faena' => CheckFaena::class,
+            'token.expired' => TokenExpired::class,
         ]);
     })
-    
+
     ->withExceptions(function (Exceptions $exceptions) {
-        // Este bloque es para manejar las excepciones globales, aunque está vacío en este caso.
-        // Aquí puedes definir una lógica personalizada para capturar y procesar excepciones.
-        //
-        // Ejemplo: 
-        // $exceptions->register(function ($exception) {
-        //     // Personalizar la respuesta cuando se capture una excepción específica.
-        // });
+        // Manejo de excepciones personalizado si es necesario
     })
-    ->create();  // Crea la aplicación con la configuración dada.
+    ->create();

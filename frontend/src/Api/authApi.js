@@ -4,16 +4,6 @@ export const login = async ({ rut, password }) => {
   try {
     console.log("Iniciando proceso de login para RUT:", rut);
     
-    // Paso 1: Probar la conexión básica al servidor
-    console.log("Verificando conexión con el servidor...");
-    try {
-      await axios.get("/api");
-      console.log("Conexión básica exitosa");
-    } catch (testError) {
-      console.error("Error en prueba de conexión:", testError);
-      // Continuar con el intento de login de todas formas
-    }
-    
     // Paso 2: Intentar obtener CSRF token (solo si es necesario)
     console.log("Obteniendo CSRF token...");
     try {

@@ -6,19 +6,24 @@ import Main from "../organisms/Home/Main";
 
 const Home = () => {
   return (
-    <div
+    <div 
       className="min-h-screen flex flex-col items-center justify-between"
-      style={{ 
+      style={{
         backgroundImage: `url(${fondo})`,
-        backgroundColor: "#f0f0f0",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat"
       }}
     >
-      <Header />
-      <Main />
-      <Footer />
+      {/* Overlay simple para legibilidad */}
+      <div className="absolute inset-0 bg-black/20" />
+      
+      {/* Contenido */}
+      <div className="relative z-10 w-full min-h-screen flex flex-col items-center justify-between">
+        <Header />
+        <Main />
+        <Footer />
+      </div>
     </div>
   );
 };
