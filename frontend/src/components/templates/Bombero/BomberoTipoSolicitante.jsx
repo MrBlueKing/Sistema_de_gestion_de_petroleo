@@ -68,12 +68,12 @@ const TipoSolicitante = ({ onNext }) => {
           <div className="flex items-center w-full px-1 sm:px-2 md:px-4 py-1 sm:py-2">
             <Button
               to="/Bombero"
-              icon={<FaHome />}
+              icon={<FaHome size={30} />}
+              color="transparent" // No importa el valor, lo sobrescribiremos
               textColor="orange-600"
-              className="text-xl"
-              iconClassName="w-8 h-8" // Aumenta el tamaño del ícono
+              className="!bg-transparent hover:!bg-transparent !shadow-none text-xl px-8 py-4 !text-orange-600" // Sobrescribe estilos
+              iconClassName="w-10 h-10" // Ícono más grande
             />
-
             <div className="flex-1"></div>
             <div className="w-8 sm:w-10">{/* Espacio para alinear */}</div>
           </div>

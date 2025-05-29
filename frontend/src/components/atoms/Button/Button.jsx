@@ -97,7 +97,7 @@ const Button = ({
           {icon && (
             <span className={`flex items-center justify-center ${iconClassName}`}>
               {React.cloneElement(icon, {
-                className: clsx("w-4 h-4", textColorClass, icon.props.className),
+                className: clsx( textColorClass, icon.props.className),
               })}
             </span>
           )}
