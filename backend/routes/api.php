@@ -4,7 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\UserController;
-use App\Http\Controllers\APi\BodegaController;
+use App\Http\Controllers\Api\BodegaController;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Api\CategoriaMaquinaController;
 use App\Http\Controllers\Api\CombustibleController;

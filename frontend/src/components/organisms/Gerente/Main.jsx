@@ -33,15 +33,8 @@ const Main = () => {
       path: "/gerente/produccion",
       color: "bg-blue-50 hover:bg-blue-100 border-blue-200"
     },
-    // ÁREA OPERACIONAL
-    {
-      title: "Gestión de Equipos",
-      description: "Estado, mantenimiento y disponibilidad de maquinaria",
-      icon: <FiTool className="w-10 h-10 text-orange-500" />,
-      path: "/gerente/equipos",
-      color: "bg-orange-50 hover:bg-orange-100 border-orange-200"
-    },
-
+ 
+    
     // ÁREA OPERACIONAL RECEPCION PETROLEO
     {
       title: "Gestión de Ingresos",
@@ -51,22 +44,6 @@ const Main = () => {
       color: "bg-green-50 hover:bg-green-100 border-green-200"
     },
 
-    // ÁREA FINANCIERA Y ANÁLISIS
-    {
-      title: "Reportes y KPIs",
-      description: "Dashboards ejecutivos y métricas clave",
-      icon: <FiFileText className="w-10 h-10 text-violet-500" />,
-      path: "/gerente/reportes",
-      color: "bg-violet-50 hover:bg-violet-100 border-violet-200"
-    },
-
-    {
-      title: "Simulacion Consumos",
-      description: "Simulacion de consumo de combustible",
-      icon: <FiSettings className="w-10 h-10 text-green-500" />,
-      path: "/gerente/simulacion",
-      color: "bg-green-50 hover:bg-green-100 border-green-200"
-    },
   ];
 
   const handleNavigation = (path) => {
