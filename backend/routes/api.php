@@ -374,8 +374,8 @@ Route::middleware('auth:sanctum')->group(function () {
     |--------------------------------------------------------------------------
     | 📂 CATEGORÍAS (MANTENIMIENTO)
     |--------------------------------------------------------------------------
-    */
-    Route::prefix('categorias')->group(function () {
+     OJOOOOOOOOOOO QUE SE CAMBIO POR PROBLEMAS CON CATEGORIAS MAQUINAS*/
+    Route::prefix('categoriasMantenimiento')->group(function () {
         Route::get('/', [MantenimientoController::class, 'obtenerCategorias']);
         Route::post('/', [MantenimientoController::class, 'crearCategoria']);
         Route::put('/{id}', [MantenimientoController::class, 'actualizarCategoria']);

@@ -93,6 +93,7 @@ const GestionarMaquinaCategoria = () => {
       try {
         setLoading(prev => ({ ...prev, maquinasInternas: true }));
         const response = await axios.get("/api/maquinas-internas-registradas");
+        console.log("Datoaaaaaaaaaaaaaas:", response.data);
         
         if (response.data && response.data.success) {
           console.log('Máquinas internas cargadas:', response.data.data.length);

@@ -25,8 +25,8 @@ const Maquinaria = ({ onNext, onPrevious }) => {
         setLoading(true);
         const response = await axios.get('/api/categorias');
         console.log("DAtos:", response.data);
-        console.log("succes:", response.data.status);
-        if (response.data.status) {
+        console.log("succes:", response.status);
+        if (response.status) {
           // Transformamos los datos para que coincidan con la estructura esperada por el componente List
           const categoriasFormateadas = response.data.data.map(categoria => ({
             id: categoria.id_categoria,

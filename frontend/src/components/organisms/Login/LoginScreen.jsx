@@ -236,7 +236,7 @@ const LoginScreen = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-100 to-orange-200 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-white-100 to-white-200 flex items-center justify-center p-4">
       <div className="relative bg-white rounded-xl shadow-2xl p-8 w-full max-w-md">
         <LoadingOverlay isLoading={isLoading} message="Iniciando sesión..." />
 

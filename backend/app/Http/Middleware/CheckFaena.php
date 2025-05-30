@@ -47,3 +47,4 @@ class CheckFaena
 
         return $next($request);
     }
+}
