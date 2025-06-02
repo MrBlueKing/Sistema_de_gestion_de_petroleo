@@ -9,7 +9,6 @@ const instance = axios.create({
     "Accept": "application/json",
     "X-Requested-With": "XMLHttpRequest"
   },
-  timeout: 10000, // 10 segundos de timeout
 });
 
 // Interceptor para requests - agregar token automáticamente

@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\TonelajeController;
 use App\Http\Controllers\DatabaseCheckController;
 use App\Http\Controllers\Api\ProduccionController;
 use App\Http\Controllers\Api\VerificacionIngresosController;
+use App\Http\Controllers\Api\ConsumoCategoriasController;
 
 /*
 |--------------------------------------------------------------------------
@@ -67,20 +68,20 @@ Route::get('/verificacion-ingresos/resumen', [VerificacionIngresosController::cl
 */
 
 Route::middleware('auth:sanctum')->group(function () {
-    
+
     /*
     |--------------------------------------------------------------------------
     | 🔐 AUTENTICACIÓN Y USUARIO
     |--------------------------------------------------------------------------
     */
     Route::post('/logout', [AuthController::class, 'logout']);
-    
+
     Route::get('/user', function (Request $request) {
         $user = $request->user();
         $user->load('faena', 'rol');
         return response()->json($user);
     });
-    
+
     Route::get('/usuarios/recientes', [UserController::class, 'recientes']);
     Route::get('/user/{id}', [UserController::class, 'show']);
 
@@ -118,7 +119,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/', [EmpresaExternaController::class, 'store']);
         Route::get('/disponibles', [EmpresaExternaController::class, 'index']);
     });
-    
+
     Route::prefix('personal-externo')->group(function () {
         Route::post('/registrar', [PersonalExternoController::class, 'store']);
         Route::get('/', [PersonalExternoController::class, 'index']);
@@ -131,7 +132,7 @@ Route::middleware('auth:sanctum')->group(function () {
     */
     Route::apiResource('categorias-maquinas', CategoriaMaquinaController::class);
     Route::get('/categorias', [CategoriaMaquinaController::class, 'index']);
-    
+
     Route::prefix('maquinas-internas')->group(function () {
         Route::post('/', [MaquinaInternaController::class, 'store']);
         Route::get('/registradas', [MaquinaInternaController::class, 'index']);
@@ -293,20 +294,20 @@ Route::middleware('auth:sanctum')->group(function () {
         // Dashboard principal
         Route::get('/dashboard/{idFaena?}', 'dashboard');
         Route::get('/dashboard', 'dashboard');
-        
+
         // Stock y estanques
         Route::get('/stock/general', 'getStockGeneral');
         Route::get('/stock/por-faena', 'getStockPorFaena');
         Route::get('/stock/detalle/{idFaena}', 'getDetalleStockFaena');
         Route::get('/estanques/capacidad', 'getCapacidadEstanques');
         Route::get('/estanques/alertas', 'getAlertasStock');
-        
+
         // Ingresos de combustible
         Route::get('/ingresos/historial', 'getHistorialIngresos');
         Route::get('/ingresos/ultimos/{dias?}', 'getIngresosRecientes');
         Route::get('/ingresos/estadisticas', 'getEstadisticasIngresos');
         Route::get('/ingresos/por-periodo', 'getIngresosPorPeriodo');
-        
+
         // Consumos
         Route::get('/consumos/resumen', 'getResumenConsumos');
         Route::get('/consumos/por-equipo', 'getConsumosPorEquipo');
@@ -314,19 +315,19 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/consumos/tendencia', 'getTendenciaConsumos');
         Route::get('/consumos/eficiencia', 'getEficienciaConsumos');
         Route::get('/consumos/ultimos/{dias?}', 'getConsumosRecientes');
-        
+
         // Análisis financiero
         Route::get('/costos/resumen', 'getResumenCostos');
         Route::get('/costos/por-periodo', 'getCostosPorPeriodo');
         Route::get('/costos/proyeccion', 'getProyeccionCostos');
         Route::get('/precios/historial', 'getHistorialPrecios');
-        
+
         // Análisis y proyecciones
         Route::get('/analisis/rendimiento', 'getAnalisisRendimiento');
         Route::get('/proyecciones/stock', 'getProyeccionStock');
         Route::get('/alertas/sistema', 'getAlertasSistema');
         Route::get('/movimientos/historial', 'getHistorialMovimientos');
-        
+
         // Reportes específicos
         Route::get('/reportes/balance', 'getReporteBalance');
         Route::get('/reportes/consumo-detallado', 'getReporteConsumoDetallado');
@@ -354,7 +355,7 @@ Route::middleware('auth:sanctum')->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::get('/check-databases', [DatabaseCheckController::class, 'check']);
-    
+
     Route::get('/test-bodega', function () {
         try {
             $result = DB::connection('bodega')->table('personal')->limit(1)->get();
@@ -382,6 +383,49 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/{id}', [MantenimientoController::class, 'eliminarCategoria']);
     });
 
+    // Grupo de rutas para consumo por categorías
+    Route::prefix('consumo-categorias')->group(function () {
+
+        // Endpoint principal: Calcular consumo con datos confirmados + simulación
+        Route::post('/calcular', [ConsumoCategoriasController::class, 'calcularConsumoPorCategorias']);
+
+        // Obtener parámetros de todas las categorías
+        Route::get('/parametros', [ConsumoCategoriasController::class, 'obtenerParametrosCategorias']);
+
+        // Actualizar parámetros CHC y HRC de una categoría
+        Route::put('/{id}/parametros', [ConsumoCategoriasController::class, 'actualizarParametrosCategoria']);
+
+        // Calibrar automáticamente CHC basado en datos reales
+        Route::post('/{id}/calibrar', [ConsumoCategoriasController::class, 'calibrarCHCAutomatico']);
+    });
+
+    // Ejemplos de uso con comentarios:
+
+    /*
+    POST /api/consumo-categorias/calcular
+    {
+        "fecha_inicio": "2025-05-01",
+        "fecha_fin": "2025-05-18",
+        "id_faena": 2,
+        "id_categoria": 1,
+        "incluir_simulacion": true
+    }
+
+    GET /api/consumo-categorias/parametros
+
+    PUT /api/consumo-categorias/1/parametros
+    {
+        "chc": 9.5,
+        "hrc": 7.5
+    }
+
+    POST /api/consumo-categorias/1/calibrar
+    {
+        "mes": 5,
+        "año": 2025
+    }
+    */
+
     // Rutas legacy que mantienes por compatibilidad (considera migrar estas)
     Route::get('/maquinarias-bodega', [BodegaController::class, 'obtenerMaquinarias']);
     Route::get('/personal-bodega', [BodegaController::class, 'index']);
@@ -399,7 +443,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/maquinas-internas', [MaquinaInternaController::class, 'store']);
     Route::get('/maquinas-internas-registradas', [MaquinaInternaController::class, 'index']);
     Route::get('/maquinas-internas-permiso', [MaquinaInternaController::class, 'indexConPermisos']);
-    Route::get('/faenas', [FaenaController::class, 'index']);
     Route::get('/faenas-disponibles/{id_solicitante}', [FaenaController::class, 'faenasDisponibles']);
     Route::get('/permisosFaenas', [FaenaController::class, 'getPermisosFaenas']);
     Route::get('/verificarPermiso', [FaenaController::class, 'verificarPermiso']);
