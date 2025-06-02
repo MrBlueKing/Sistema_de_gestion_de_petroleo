@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Api\CategoriaMaquinaController;
 use App\Http\Controllers\Api\CombustibleController;
 use App\Http\Controllers\Api\ConsumoController;
+use App\Http\Controllers\Api\ConsumoProyeccionController;
 use App\Http\Controllers\Api\EmpresaExternaController;
 use App\Http\Controllers\Api\FaenaController;
 use App\Http\Controllers\Api\PersonalInternoController;
@@ -31,6 +32,8 @@ use App\Http\Controllers\Api\ProduccionController;
 use App\Http\Controllers\Api\VerificacionIngresosController;
 use App\Http\Controllers\Api\MaquinasExternasController;
 use App\Http\Controllers\Api\SolicitantesOptimizadoController;
+use App\Http\Controllers\Api\ConsumoCategoriasController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -242,6 +245,12 @@ Route::get('/solicitantes-por-faena', [SolicitantesOptimizadoController::class, 
         Route::get('/test', [ProyeccionConsumoController::class, 'getKpisConProyeccion']);
     });
 
+    Route::prefix('proyeccion-consumo2')->group(function () {
+        Route::post('/proyeccion', [ConsumoProyeccionController::class, 'calcularConsumoRango']);
+        Route::post('/proyeccion/maquina/{id}', [ConsumoProyeccionController::class, 'calcularMaquinaIndividual']);
+        Route::get('/configuracion', [ConsumoProyeccionController::class, 'obtenerConfiguracion']);
+    });
+
     /*
     |--------------------------------------------------------------------------
     | ⚖️ TONELAJES
@@ -395,13 +404,30 @@ Route::get('/solicitantes-por-faena', [SolicitantesOptimizadoController::class, 
     |--------------------------------------------------------------------------
     | 📂 CATEGORÍAS (MANTENIMIENTO)
     |--------------------------------------------------------------------------
-    */
-    Route::prefix('categorias')->group(function () {
+     OJOOOOOOOOOOO QUE SE CAMBIO POR PROBLEMAS CON CATEGORIAS MAQUINAS*/
+    Route::prefix('categoriasMantenimiento')->group(function () {
         Route::get('/', [MantenimientoController::class, 'obtenerCategorias']);
         Route::post('/', [MantenimientoController::class, 'crearCategoria']);
         Route::put('/{id}', [MantenimientoController::class, 'actualizarCategoria']);
         Route::delete('/{id}', [MantenimientoController::class, 'eliminarCategoria']);
     });
+
+    // Grupo de rutas para consumo por categorías
+    Route::prefix('consumo-categorias')->group(function () {
+
+        // Endpoint principal: Calcular consumo con datos confirmados + simulación
+        Route::post('/calcular', [ConsumoCategoriasController::class, 'calcularConsumoPorCategorias']);
+
+        // Obtener parámetros de todas las categorías
+        Route::get('/parametros', [ConsumoCategoriasController::class, 'obtenerParametrosCategorias']);
+
+        // Actualizar parámetros CHC y HRC de una categoría
+        Route::put('/{id}/parametros', [ConsumoCategoriasController::class, 'actualizarParametrosCategoria']);
+
+        // Calibrar automáticamente CHC basado en datos reales
+        Route::post('/{id}/calibrar', [ConsumoCategoriasController::class, 'calibrarCHCAutomatico']);
+    });
+
 
     // Rutas legacy que mantienes por compatibilidad (considera migrar estas)
     Route::get('/maquinarias-bodega', [BodegaController::class, 'obtenerMaquinarias']);
@@ -420,7 +446,6 @@ Route::get('/solicitantes-por-faena', [SolicitantesOptimizadoController::class, 
     Route::post('/maquinas-internas', [MaquinaInternaController::class, 'store']);
     Route::get('/maquinas-internas-registradas', [MaquinaInternaController::class, 'index']);
     Route::get('/maquinas-internas-permiso', [MaquinaInternaController::class, 'indexConPermisos']);
-    Route::get('/faenas', [FaenaController::class, 'index']);
     Route::get('/faenas-disponibles/{id_solicitante}', [FaenaController::class, 'faenasDisponibles']);
     Route::get('/permisosFaenas', [FaenaController::class, 'getPermisosFaenas']);
     Route::get('/verificarPermiso', [FaenaController::class, 'verificarPermiso']);

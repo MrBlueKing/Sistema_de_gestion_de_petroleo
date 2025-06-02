@@ -9,7 +9,6 @@ import {
 
 // Importación de componentes moleculares para filtros y tablas
 import FiltrosComponent from "../../molecules/FiltrosComponent";
-
 import ConsumoPorMaquinaTable from "../../molecules/ConsumoPorMaquinaTable";
 import ConsumoPorFaenaTable from "../../molecules/ConsumoPorFaenaTable";
 import IngresosPorFaenaTable from "../../molecules/IngresosPorFaenaTable";

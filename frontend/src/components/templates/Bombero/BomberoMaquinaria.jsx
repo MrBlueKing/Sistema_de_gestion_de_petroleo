@@ -7,7 +7,7 @@ import PageControl from "../../molecules/PageControl";
 import Button from "../../atoms/Button/Button";
 import { FaArrowLeft, FaTools } from "react-icons/fa";
 import StepHeader from "../../molecules/StepHeader";
-import bomberoService from "../../../context/bomberoService";
+import bomberoService from "../../../context/bomberoService"; // CORREGIDO: usar services en lugar de context
 
 const Maquinaria = ({ onNext, onPrevious, categoriaSeleccionada, userFaena }) => {
   const [currentPage, setCurrentPage] = useState(2);
