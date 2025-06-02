@@ -406,32 +406,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{id}/calibrar', [ConsumoCategoriasController::class, 'calibrarCHCAutomatico']);
     });
 
-    // Ejemplos de uso con comentarios:
-
-    /*
-    POST /api/consumo-categorias/calcular
-    {
-        "fecha_inicio": "2025-05-01",
-        "fecha_fin": "2025-05-18",
-        "id_faena": 2,
-        "id_categoria": 1,
-        "incluir_simulacion": true
-    }
-
-    GET /api/consumo-categorias/parametros
-
-    PUT /api/consumo-categorias/1/parametros
-    {
-        "chc": 9.5,
-        "hrc": 7.5
-    }
-
-    POST /api/consumo-categorias/1/calibrar
-    {
-        "mes": 5,
-        "año": 2025
-    }
-    */
 
     // Rutas legacy que mantienes por compatibilidad (considera migrar estas)
     Route::get('/maquinarias-bodega', [BodegaController::class, 'obtenerMaquinarias']);

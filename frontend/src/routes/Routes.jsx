@@ -12,8 +12,6 @@ import MainSimulacion from "../components/organisms/Gerente/MainSimulacion";
 import GestionProduccion from "../components/organisms/Gerente/GestionProduccion";
 import VerificacionIngresos from "../components/organisms/Gerente/VerificacionIngresos";
 
-
-
 // 🛠️ Importaciones Administrador
 import AdministradorPage from "../pages/Administrador/AdministradorPage";
 import AdministradorUserRegister from "../components/templates/Administrador/AdministradorUserRegister";

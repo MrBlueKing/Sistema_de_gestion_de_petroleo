@@ -20,6 +20,12 @@ const InputField = ({
   options = [], // Opciones del desplegable
   min = null, // Valor mínimo para inputs numéricos
   max = null, // Valor máximo para inputs numéricos
+  // ===== NUEVOS PROPS PARA ACCESIBILIDAD =====
+  autoComplete = null, // Atributo autocomplete
+  id = null, // ID del input
+  disabled = false, // Estado deshabilitado
+  maxLength = null, // Longitud máxima
+  ...otherProps // Otros props que se quieran pasar
 }) => {
   const isPassword = type === "password";
   const isDateTime = type === "datetime-local";
@@ -59,10 +65,26 @@ const InputField = ({
         locale="es"
         placeholderText={placeholder}
         className={`${baseClass} ${className} w-full`}
+        disabled={disabled}
+        id={id}
+        {...otherProps}
       />
       <FaCalendarAlt className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" />
     </div>
   );
+
+  // ===== PROPS COMUNES PARA TODOS LOS INPUTS =====
+  const commonInputProps = {
+    id,
+    value,
+    onChange: isNumber ? handleNumberChange : onChange,
+    placeholder,
+    className: `${baseClass} ${className} w-full`,
+    disabled,
+    autoComplete,
+    maxLength,
+    ...otherProps
+  };
 
   return (
     <div className="relative mb-4 w-full">
@@ -72,16 +94,12 @@ const InputField = ({
 
       {isTextarea ? (
         <textarea
-          value={value}
-          onChange={onChange}
-          placeholder={placeholder}
+          {...commonInputProps}
           className={`${baseClass} resize-none min-h-[20px] ${className}`}
         />
       ) : options.length > 0 ? (
         <select
-          value={value}
-          onChange={onChange}
-          className={`${baseClass} ${className}`}
+          {...commonInputProps}
         >
           <option value="">Seleccione una opción</option>
           {options.map((option, index) => (
@@ -94,11 +112,8 @@ const InputField = ({
         renderDatePicker()
       ) : (
         <input
+          {...commonInputProps}
           type={isPassword && showPassword ? "text" : type}
-          value={value}
-          onChange={isNumber ? handleNumberChange : onChange}
-          placeholder={placeholder}
-          className={`${baseClass} ${className} w-full`}
           min={isNumber ? (min !== null ? min : 0) : undefined}
           max={isNumber && max !== null ? max : undefined}
         />
@@ -108,7 +123,9 @@ const InputField = ({
         <button
           type="button"
           onClick={() => setShowPassword(!showPassword)}
-          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-600"
+          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-600 focus:outline-none"
+          disabled={disabled}
+          tabIndex={disabled ? -1 : 0}
         >
           {showPassword ? <FaEye /> : <FaRegEyeSlash />}
         </button>

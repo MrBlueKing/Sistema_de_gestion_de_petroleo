@@ -28,22 +28,22 @@ const LoginScreen = () => {
   // ✅ FIX: Función para extraer el rol correctamente
   const extractRole = (roleData) => {
     console.log("🔍 Datos de rol recibidos:", roleData);
-    
+
     // Si es un string, devolverlo directamente
     if (typeof roleData === 'string') {
       return roleData;
     }
-    
+
     // Si es un objeto con propiedad 'rol'
     if (roleData && typeof roleData === 'object' && roleData.rol) {
       return roleData.rol;
     }
-    
+
     // Si es un objeto con propiedad 'role'
     if (roleData && typeof roleData === 'object' && roleData.role) {
       return roleData.role;
     }
-    
+
     console.warn("⚠️ No se pudo extraer el rol de:", roleData);
     return null;
   };
@@ -52,17 +52,17 @@ const LoginScreen = () => {
   const redirectByRole = (roleData) => {
     const rol = extractRole(roleData);
     console.log("🎯 Redirigiendo usuario con rol extraído:", rol);
-    
+
     const roleRoutes = {
       admin: "/administrador",
-      bombero: "/bombero", 
+      bombero: "/bombero",
       gerente: "/gerente",
       toneladas: "/IngresoToneladas",
       planificador: "/Mantenimiento"
     };
 
     const targetRoute = roleRoutes[rol];
-    
+
     if (targetRoute) {
       console.log("✅ Redirigiendo a:", targetRoute);
       navigate(targetRoute, { replace: true });
@@ -93,7 +93,7 @@ const LoginScreen = () => {
       ...prev,
       [field]: value
     }));
-    
+
     if (error) setError("");
   };
 
@@ -118,7 +118,7 @@ const LoginScreen = () => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
 
     setError("");
@@ -141,27 +141,27 @@ const LoginScreen = () => {
       console.log("🔍 Rol extraído del usuario básico:", userRole);
 
       // Guardar sesión con el rol extraído
-      storeSession({ 
-        token, 
+      storeSession({
+        token,
         user: {
           ...user,
           rol: userRole // Asegurar que se guarde como string
-        }, 
-        expiresAt: expires_at 
+        },
+        expiresAt: expires_at
       });
 
       try {
         console.log("📡 Obteniendo datos completos del usuario...");
         const userResponse = await axios.get("/api/user");
-        
+
         console.log("✅ Datos completos obtenidos:", userResponse.data);
-        
+
         setUser(userResponse.data);
 
         // ✅ FIX: Extraer rol de los datos completos
         const completeUserRole = extractRole(userResponse.data.rol);
         console.log("🎯 Rol detectado para redirección:", completeUserRole);
-        
+
         if (completeUserRole) {
           redirectByRole(completeUserRole);
         } else {
@@ -177,10 +177,10 @@ const LoginScreen = () => {
 
       } catch (userDataError) {
         console.warn("⚠️ Error al obtener datos completos:", userDataError);
-        
+
         setUser(user);
         console.log("🎯 Usando rol básico para redirección:", userRole);
-        
+
         if (userRole) {
           redirectByRole(userRole);
         } else {
@@ -191,9 +191,9 @@ const LoginScreen = () => {
 
     } catch (err) {
       console.error("❌ Error en login:", err);
-      
+
       let errorMessage = "Error al iniciar sesión.";
-      
+
       if (err.response) {
         switch (err.response.status) {
           case 401:
@@ -266,7 +266,7 @@ const LoginScreen = () => {
               icon={<FaUser className="text-gray-400" />}
               disabled={isLoading}
               maxLength={12}
-              autoComplete="username"
+              autoComplete="username" // ✅ YA ESTABA CORRECTO
               className="w-full"
             />
           </div>
@@ -284,17 +284,11 @@ const LoginScreen = () => {
                 onChange={(e) => handleInputChange('password', e.target.value)}
                 icon={<FaLock className="text-gray-400" />}
                 disabled={isLoading}
-                autoComplete="current-password"
+                autoComplete="current-password" // ✅ AGREGADO - Esto solucionará la advertencia
                 className="w-full pr-12"
+                showPassword={showPassword} // ✅ AGREGADO
+                setShowPassword={setShowPassword} // ✅ AGREGADO
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
-                disabled={isLoading}
-              >
-                {showPassword ? <FaEyeSlash /> : <FaEye />}
-              </button>
             </div>
           </div>
 
