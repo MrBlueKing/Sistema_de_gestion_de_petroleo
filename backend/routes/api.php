@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\TonelajeController;
 use App\Http\Controllers\DatabaseCheckController;
 use App\Http\Controllers\Api\ProduccionController;
 use App\Http\Controllers\Api\VerificacionIngresosController;
+use App\Http\Controllers\Api\ConsumoCategoriasController;
 
 /*
 |--------------------------------------------------------------------------
@@ -389,6 +390,49 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/{id}', [MantenimientoController::class, 'eliminarCategoria']);
     });
 
+    // Grupo de rutas para consumo por categorías
+    Route::prefix('consumo-categorias')->group(function () {
+
+        // Endpoint principal: Calcular consumo con datos confirmados + simulación
+        Route::post('/calcular', [ConsumoCategoriasController::class, 'calcularConsumoPorCategorias']);
+
+        // Obtener parámetros de todas las categorías
+        Route::get('/parametros', [ConsumoCategoriasController::class, 'obtenerParametrosCategorias']);
+
+        // Actualizar parámetros CHC y HRC de una categoría
+        Route::put('/{id}/parametros', [ConsumoCategoriasController::class, 'actualizarParametrosCategoria']);
+
+        // Calibrar automáticamente CHC basado en datos reales
+        Route::post('/{id}/calibrar', [ConsumoCategoriasController::class, 'calibrarCHCAutomatico']);
+    });
+
+    // Ejemplos de uso con comentarios:
+
+    /*
+    POST /api/consumo-categorias/calcular
+    {
+        "fecha_inicio": "2025-05-01",
+        "fecha_fin": "2025-05-18",
+        "id_faena": 2,
+        "id_categoria": 1,
+        "incluir_simulacion": true
+    }
+
+    GET /api/consumo-categorias/parametros
+
+    PUT /api/consumo-categorias/1/parametros
+    {
+        "chc": 9.5,
+        "hrc": 7.5
+    }
+
+    POST /api/consumo-categorias/1/calibrar
+    {
+        "mes": 5,
+        "año": 2025
+    }
+    */
+
     // Rutas legacy que mantienes por compatibilidad (considera migrar estas)
     Route::get('/maquinarias-bodega', [BodegaController::class, 'obtenerMaquinarias']);
     Route::get('/personal-bodega', [BodegaController::class, 'index']);
@@ -406,7 +450,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/maquinas-internas', [MaquinaInternaController::class, 'store']);
     Route::get('/maquinas-internas-registradas', [MaquinaInternaController::class, 'index']);
     Route::get('/maquinas-internas-permiso', [MaquinaInternaController::class, 'indexConPermisos']);
-    Route::get('/faenas', [FaenaController::class, 'index']);
     Route::get('/faenas-disponibles/{id_solicitante}', [FaenaController::class, 'faenasDisponibles']);
     Route::get('/permisosFaenas', [FaenaController::class, 'getPermisosFaenas']);
     Route::get('/verificarPermiso', [FaenaController::class, 'verificarPermiso']);

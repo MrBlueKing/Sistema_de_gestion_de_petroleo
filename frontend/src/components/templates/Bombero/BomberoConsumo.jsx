@@ -9,6 +9,7 @@ import ConsumoForm from "../../organisms/Bombero/FormConsumo";
 import { FaArrowLeft, FaCarSide, FaUserAlt, FaCheck, FaHome, FaPlus, FaInfoCircle } from "react-icons/fa";
 import StepHeader from "../../molecules/StepHeader";
 import Button from "../../atoms/Button/Button";
+import { format } from "date-fns";
 
 const Consumo = ({
   onPrevious,
@@ -27,6 +28,7 @@ const Consumo = ({
   const totalPages = 4;
   const [userInfo, setUserInfo] = useState(null);
   const [contextLoaded, setContextLoaded] = useState(false);
+  const localDateTime = format(new Date(), "yyyy-MM-dd'T'HH:mm");
 
   const [formData, setFormData] = useState({
     horometro: "",
@@ -34,7 +36,7 @@ const Consumo = ({
     numeralInicial: "",
     numeralFinal: "",
     litros: "",
-    fechaHora: new Date().toISOString().slice(0, 16),
+    fechaHora: localDateTime, // ahora sí es local
     observacion: "",
   });
 
@@ -245,7 +247,7 @@ const Consumo = ({
 
       // Obtener el id_faena a usar en la API
       const faenaIdToUse = getFaenaId();
-      
+
       // Log para depuración
       console.log("Preparando datos para la API con información de usuario:", {
         usuario_id: userInfo.id,
@@ -520,8 +522,8 @@ const Consumo = ({
                           </span>
                           <div className="flex items-center">
                             <span className={`text-xs px-1.5 py-0.5 rounded-full uppercase ${tipoSolicitante === "interno"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-green-100 text-green-800"
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-green-100 text-green-800"
                               }`}>
                               {tipoSolicitante || "No especificado"}
                             </span>
@@ -558,7 +560,7 @@ const Consumo = ({
                     </div>
                   </div>
 
-                 
+
                   {/* Formulario */}
                   <div className="flex-grow">
                     <ConsumoForm

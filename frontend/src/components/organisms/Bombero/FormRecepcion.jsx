@@ -15,6 +15,11 @@ import {
   FaCalculator,
   FaDollarSign,
   FaArrowRight,
+  FaLock,
+  FaUnlock,
+  FaRedo,
+  FaInfoCircle,
+  FaSync,
 } from "react-icons/fa";
 import { UserContext } from "../../../context/userContext";
 import axios from "../../../lib/axios";
@@ -49,7 +54,71 @@ const formatCurrency = (amount) => {
   });
 };
 
-// COMPONENTE MODAL DE ÉXITO INTEGRADO - CON LÓGICA DE COLORES CORREGIDA
+// COMPONENTE MODAL DE CONFIRMACIÓN PARA REINICIAR (SIMPLIFICADO)
+const ModalConfirmacionReinicio = ({ isOpen, onConfirm, onCancel }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-hidden bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md animate-fadeInScale">
+        <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4 text-white rounded-t-xl">
+          <div className="flex items-center">
+            <div className="bg-blue-400 bg-opacity-20 p-2 rounded-full mr-3">
+              <FaSync className="text-lg" />
+            </div>
+            <h2 className="text-lg font-bold">Actualizar Cálculos</h2>
+          </div>
+        </div>
+
+        <div className="p-6">
+          <div className="text-center mb-6">
+            <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+              <FaCalculator className="text-2xl text-blue-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">
+              ¿Actualizar los cálculos automáticamente?
+            </h3>
+            <p className="text-gray-600 text-sm leading-relaxed">
+              Los cálculos de diferencia se actualizarán automáticamente con el nuevo valor de litros recibidos. 
+              <strong className="text-blue-600"> Las alturas ingresadas se mantendrán.</strong>
+            </p>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-start">
+              <FaInfoCircle className="text-blue-500 mt-0.5 mr-3 flex-shrink-0" />
+              <div className="text-sm text-blue-700">
+                <p className="font-medium mb-1">Se actualizará automáticamente:</p>
+                <ul className="text-xs space-y-1">
+                  <li>• El cálculo de la diferencia</li>
+                  <li>• La observación generada</li>
+                  <li>• El total estimado</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex space-x-3">
+            <button
+              onClick={onCancel}
+              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all font-medium"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={onConfirm}
+              className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            >
+              Sí, Actualizar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// COMPONENTE MODAL DE ÉXITO INTEGRADO
 const ModalExitoRecepcion = ({
   isOpen,
   onConfirm,
@@ -67,7 +136,6 @@ const ModalExitoRecepcion = ({
     precio
   } = datosRecepcion;
 
-  // CORREGIDO: Determinar si la diferencia es significativa (umbral 0.5)
   const diferenciaMagnitud = Math.abs(diferencia);
   const esDiferenciaSignificativa = diferenciaMagnitud > 0.5;
   const esExcedente = diferencia > 0;
@@ -136,7 +204,6 @@ const ModalExitoRecepcion = ({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-orange-700 text-sm">Diferencia:</span>
-                  {/* CORREGIDO: Nueva lógica de colores */}
                   <span className={`font-bold ${
                     esDiferenciaSignificativa 
                       ? (esExcedente ? 'text-green-600' : 'text-red-600') 
@@ -189,7 +256,6 @@ const ModalExitoRecepcion = ({
               </div>
               <div>
                 <span className="text-gray-600">Precisión:</span>
-                {/* CORREGIDO: Nueva lógica para precisión */}
                 <span className={`ml-2 font-medium ${
                   esDiferenciaSignificativa 
                     ? 'text-amber-600' 
@@ -234,6 +300,10 @@ const FormRecepcion = () => {
     id_faena: "",
   });
 
+  // NUEVO: Estado para controlar el modal de actualización
+  const [showModalActualizacion, setShowModalActualizacion] = useState(false);
+  const [nuevoValorLitros, setNuevoValorLitros] = useState("");
+
   // Estados para UI
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
@@ -246,7 +316,7 @@ const FormRecepcion = () => {
     type: "",
   });
 
-  // NUEVO: Estado para el modal de éxito
+  // Estados para el modal de éxito
   const [showExitoModal, setShowExitoModal] = useState(false);
   const [datosRecepcionExitosa, setDatosRecepcionExitosa] = useState(null);
 
@@ -259,6 +329,58 @@ const FormRecepcion = () => {
     diferencia: 0,
     calculoRealizado: false,
   });
+
+  const [stockInicial, setStockInicial] = useState(0);
+
+  // NUEVO: Función para manejar cambios en litros recibidos con actualización automática
+  const handleLitrosRecibidosChange = (value) => {
+    // Si ya hay cálculos realizados, mostrar modal de confirmación para actualizar
+    if (calculoPetroleo.calculoRealizado) {
+      setNuevoValorLitros(value);
+      setShowModalActualizacion(true);
+      return;
+    }
+    
+    // Si no hay cálculos, permitir cambio normal
+    handleChange("litrosRecibidos", value);
+  };
+
+  // NUEVO: Función para confirmar actualización automática de cálculos
+  const confirmarActualizacion = () => {
+    // Actualizar el valor de litros recibidos
+    setFormData(prev => ({
+      ...prev,
+      litrosRecibidos: nuevoValorLitros
+    }));
+
+    // Recalcular la diferencia con el nuevo valor
+    recalcularDiferencia(nuevoValorLitros);
+
+    // Cerrar modal
+    setShowModalActualizacion(false);
+    setNuevoValorLitros("");
+
+    // Mostrar alerta informativa
+    mostrarAlerta("info", "Los cálculos han sido actualizados automáticamente con el nuevo valor.");
+  };
+
+  // NUEVO: Función para recalcular solo la diferencia manteniendo los litros calculados
+  const recalcularDiferencia = (nuevosLitrosRecibidos) => {
+    const litrosGuia = parseFloat(nuevosLitrosRecibidos) || 0;
+    const nuevaDiferencia = calculoPetroleo.litrosCalculados - litrosGuia;
+
+    // Actualizar solo la diferencia, manteniendo litros calculados
+    setCalculoPetroleo(prev => ({
+      ...prev,
+      diferencia: nuevaDiferencia
+    }));
+
+    // Actualizar la observación con la nueva diferencia
+    setFormData(prev => ({
+      ...prev,
+      observacion: generarObservacionDiferencia(litrosGuia, calculoPetroleo.litrosCalculados)
+    }));
+  };
 
   // Efecto para actualizar la faena cuando el usuario cambie
   useEffect(() => {
@@ -288,8 +410,6 @@ const FormRecepcion = () => {
   useEffect(() => {
     validateField();
   }, [formData]);
-
-  const [stockInicial, setStockInicial] = useState(0);
 
   // Función para cargar los estanques de una faena
   const cargarEstanques = async (idFaena) => {
@@ -673,6 +793,9 @@ const FormRecepcion = () => {
       observacion: generarObservacionDiferencia(litrosGuia, litrosIngresados),
     }));
 
+    // Actualizar stock inicial
+    setStockInicial(stockInicial);
+
     // Retornar los valores que espera EstanquesModal
     return {
       volInicial: stockInicial,
@@ -681,7 +804,7 @@ const FormRecepcion = () => {
       discrepanciaCam: diferencia, // Usar la nueva diferencia
     };
   };
- 
+
   // Generar texto de observación basado en diferencia
   const generarObservacionDiferencia = (litrosGuia, litrosIngresados) => {
     const diferencia = litrosIngresados - litrosGuia; // CAMBIO: Nuevo orden
@@ -743,14 +866,14 @@ const FormRecepcion = () => {
     return alturas;
   };
 
-  // NUEVO: Función para manejar el cierre del modal de éxito
+  // Función para manejar el cierre del modal de éxito
   const handleExitoModalConfirm = () => {
     setShowExitoModal(false);
     setDatosRecepcionExitosa(null);
     window.location.href = "/bombero";
   };
 
-  // Manejar el envío del formulario - MODIFICADO
+  // Manejar el envío del formulario
   const handleSubmit = async () => {
     // Marcar todos los campos como tocados para validar
     setTouched({
@@ -835,7 +958,7 @@ const FormRecepcion = () => {
         },
       });
 
-      // NUEVO: Preparar datos para el modal de éxito
+      // Preparar datos para el modal de éxito
       const datosParaModalExito = {
         numeroGuia: formData.numeroGuia,
         litrosDocumentados: parseFloat(formData.litrosRecibidos),
@@ -846,11 +969,9 @@ const FormRecepcion = () => {
         precio: parseFloat(formData.precio)
       };
 
-      // NUEVO: Mostrar modal de éxito en lugar del alert
+      // Mostrar modal de éxito
       setDatosRecepcionExitosa(datosParaModalExito);
       setShowExitoModal(true);
-
-      // NO resetear el formulario aquí - solo después de confirmar en el modal
 
     } catch (error) {
       console.error("Error al enviar los datos:", error);
@@ -920,10 +1041,13 @@ const FormRecepcion = () => {
             className={`flex items-center p-3 rounded-lg ${
               alert.type === "success"
                 ? "bg-green-100 text-green-800 border-l-4 border-green-500"
+                : alert.type === "info"
+                ? "bg-blue-100 text-blue-800 border-l-4 border-blue-500"
                 : "bg-red-100 text-red-800 border-l-4 border-red-500"
             }`}
           >
             {alert.type === "error" && <FaExclamationTriangle className="mr-2" />}
+            {alert.type === "info" && <FaInfoCircle className="mr-2" />}
             {alert.message}
           </div>
         )}
@@ -931,6 +1055,29 @@ const FormRecepcion = () => {
         <h2 className="text-xl font-semibold text-gray-700 border-b pb-2 mb-2">
           Registro de Recepción de Petróleo
         </h2>
+
+        {/* PANEL INFORMATIVO CUANDO HAY CÁLCULOS REALIZADOS */}
+        {calculoPetroleo.calculoRealizado && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="bg-green-500 p-2 rounded-full mr-3">
+                  <FaCheck className="text-white text-sm" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-green-800">Cálculos Realizados</h3>
+                  <p className="text-green-700 text-sm">
+                    Los cálculos se actualizarán automáticamente si modifica los litros recibidos.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center text-green-600">
+                <FaSync className="mr-1 text-sm" />
+                <span className="text-sm font-medium">Auto-actualización</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex flex-col">
@@ -953,23 +1100,44 @@ const FormRecepcion = () => {
             )}
           </div>
 
+          {/* CAMPO LITROS RECIBIDOS - CON ACTUALIZACIÓN AUTOMÁTICA */}
           <div className="flex flex-col">
-            <label className="text-sm font-medium text-gray-600 mb-1">
+            <label className="text-sm font-medium text-gray-600 mb-1 flex items-center">
               Litros Recibidos *
+              {calculoPetroleo.calculoRealizado && (
+                <FaSync className="ml-2 text-green-500 text-xs animate-pulse" />
+              )}
             </label>
-            <InputField
-              placeholder="Ingrese cantidad de litros"
-              type="number"
-              value={formData.litrosRecibidos}
-              onChange={(e) => handleChange("litrosRecibidos", e.target.value)}
-              onBlur={() => handleBlur("litrosRecibidos")}
-              className={`bg-white rounded-md text-gray-800 ${
-                errors.litrosRecibidos ? "border-red-500" : "border-gray-300"
-              }`}
-            />
+            <div className="relative">
+              <InputField
+                placeholder="Ingrese cantidad de litros"
+                type="number"
+                value={formData.litrosRecibidos}
+                onChange={(e) => handleLitrosRecibidosChange(e.target.value)}
+                onBlur={() => handleBlur("litrosRecibidos")}
+                className={`bg-white rounded-md text-gray-800 ${
+                  errors.litrosRecibidos ? "border-red-500" : "border-gray-300"
+                } ${
+                  calculoPetroleo.calculoRealizado 
+                    ? "border-green-300 focus:border-green-500" 
+                    : ""
+                }`}
+                title={calculoPetroleo.calculoRealizado ? "Los cálculos se actualizarán automáticamente" : ""}
+              />
+              {calculoPetroleo.calculoRealizado && (
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                  <FaSync className="text-green-500 text-sm" />
+                </div>
+              )}
+            </div>
             {errors.litrosRecibidos && (
               <span className="text-red-500 text-xs mt-1">
                 {errors.litrosRecibidos}
+              </span>
+            )}
+            {calculoPetroleo.calculoRealizado && (
+              <span className="text-green-600 text-xs mt-1">
+                🔄 Actualización automática activada
               </span>
             )}
           </div>
@@ -1049,10 +1217,10 @@ const FormRecepcion = () => {
             </div>
           )}
 
-        {/* CORREGIDO: Resultado del cálculo con nueva lógica de colores */}
+        {/* RESULTADO DEL CÁLCULO CON ACTUALIZACIÓN AUTOMÁTICA */}
         {calculoPetroleo.calculoRealizado && (
           <div
-            className={`p-3 rounded-lg text-center border mt-2 ${
+            className={`p-4 rounded-lg text-center border mt-2 transition-all duration-300 ${
               Math.abs(calculoPetroleo.diferencia) <= 0.5
                 ? "bg-gray-50 border-gray-200"  // Diferencia mínima
                 : calculoPetroleo.diferencia > 0
@@ -1060,28 +1228,9 @@ const FormRecepcion = () => {
                 : "bg-red-50 border-red-200"     // Faltante - ROJO
             }`}
           >
-            <p
-              className={`text-sm ${
-                Math.abs(calculoPetroleo.diferencia) <= 0.5
-                  ? "text-gray-600"      // Diferencia mínima
-                  : calculoPetroleo.diferencia > 0
-                  ? "text-green-600"     // Excedente - VERDE
-                  : "text-red-600"       // Faltante - ROJO
-              }`}
-            >
-              Resultado del cálculo:
-            </p>
-            <div className="font-medium text-gray-800">
-              <p>
-                Litros según guía:{" "}
-                {formatNumber(parseFloat(formData.litrosRecibidos))}
-              </p>
-              <p>
-                Litros ingresados calculados:{" "}
-                {formatNumber(calculoPetroleo.litrosCalculados)}
-              </p>
+            <div className="flex items-center justify-center mb-3">
               <p
-                className={`font-bold ${
+                className={`text-sm font-medium ${
                   Math.abs(calculoPetroleo.diferencia) <= 0.5
                     ? "text-gray-600"      // Diferencia mínima
                     : calculoPetroleo.diferencia > 0
@@ -1089,9 +1238,48 @@ const FormRecepcion = () => {
                     : "text-red-600"       // Faltante - ROJO
                 }`}
               >
-                Diferencia: {formatNumber(Math.abs(calculoPetroleo.diferencia))}{" "}
-                litros {calculoPetroleo.diferencia > 0 ? "de más" : "de menos"}
+                Resultado del cálculo:
               </p>
+              <div className="ml-2 bg-green-100 px-2 py-1 rounded-full">
+                <FaCheck className="text-green-600 text-xs" />
+              </div>
+            </div>
+            <div className="space-y-2 font-medium text-gray-800">
+              <p className="flex justify-between items-center">
+                <span>Litros según guía:</span>
+                <span className="font-bold">
+                  {formatNumberWithSeparators(parseFloat(formData.litrosRecibidos))} L
+                </span>
+              </p>
+              <p className="flex justify-between items-center">
+                <span>Litros ingresados calculados:</span>
+                <span className="font-bold">
+                  {formatNumberWithSeparators(calculoPetroleo.litrosCalculados)} L
+                </span>
+              </p>
+              <div className="border-t pt-2">
+                <p className="flex justify-between items-center">
+                  <span>Diferencia:</span>
+                  <span
+                    className={`font-bold text-lg ${
+                      Math.abs(calculoPetroleo.diferencia) <= 0.5
+                        ? "text-gray-600"      // Diferencia mínima
+                        : calculoPetroleo.diferencia > 0
+                        ? "text-green-600"     // Excedente - VERDE
+                        : "text-red-600"       // Faltante - ROJO
+                    }`}
+                  >
+                    {formatNumberWithSeparators(Math.abs(calculoPetroleo.diferencia))} L
+                    <span className="text-sm ml-1">
+                      ({calculoPetroleo.diferencia > 0 ? "de más" : "de menos"})
+                    </span>
+                  </span>
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 text-xs text-gray-500 flex items-center justify-center">
+              <FaSync className="mr-1" />
+              Los valores se actualizan automáticamente
             </div>
           </div>
         )}
@@ -1152,7 +1340,17 @@ const FormRecepcion = () => {
         />
       </div>
 
-      {/* NUEVO: MODAL DE ÉXITO INTEGRADO */}
+      {/* MODAL DE CONFIRMACIÓN PARA ACTUALIZACIÓN */}
+      <ModalConfirmacionReinicio
+        isOpen={showModalActualizacion}
+        onConfirm={confirmarActualizacion}
+        onCancel={() => {
+          setShowModalActualizacion(false);
+          setNuevoValorLitros("");
+        }}
+      />
+
+      {/* MODAL DE ÉXITO */}
       {datosRecepcionExitosa && (
         <ModalExitoRecepcion
           isOpen={showExitoModal}
