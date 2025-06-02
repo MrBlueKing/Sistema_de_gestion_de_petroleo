@@ -298,21 +298,18 @@ const EstanquesModal = ({
   const isResultadosStep = currentStep === 2;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-transparent bg-opacity-60 backdrop-blur-sm flex items-start md:items-center justify-center">
+    <div className="fixed inset-0 z-50 overflow-hidden bg-black bg-opacity-60 backdrop-blur-sm flex items-start md:items-center justify-center">
       <div
         ref={modalRef}
         className="bg-white rounded-lg shadow-2xl w-full md:max-w-7xl max-h-[100vh] md:max-h-[90vh] flex flex-col animate-fadeInScale overflow-hidden"
         style={{ height: isMobile ? "100vh" : "auto" }}
       >
-        {/* Encabezado del modal */}
-        <div className="bg-orange-600 px-6 py-4 md:px-8 md:py-5 sticky top-0 z-10 ">
-          <div className="flex items-center justify-center space-x-4 md:space-x-2">
-            {/* Título y descripción */}
-            <div className="relative flex-1">
-              <h2
-                className="absolute inset-0 flex justify-center items-center text-white text md:text-xl font-semibold tracking-tight text-center"
-                style={{ right: "-12rem" }} // Ajusta este valor según necesites
-              >
+        {/* Encabezado del modal CORREGIDO */}
+        <div className="bg-orange-600 px-4 py-3 md:px-8 md:py-5 sticky top-0 z-10">
+          <div className="flex items-center justify-between w-full">
+            {/* Título principal - responsive */}
+            <div className="flex-1 min-w-0 pr-2">
+              <h2 className="text-white text-sm md:text-xl font-semibold tracking-tight truncate">
                 {isResultadosStep
                   ? "Panel de Control de Combustible"
                   : paso === "inicial"
@@ -321,10 +318,10 @@ const EstanquesModal = ({
               </h2>
             </div>
 
-            {/* Indicador de progreso en el header */}
-            <div className="flex items-center space-x-4">
-              {/* Tooltip de ayuda */}
-              {!isResultadosStep && (
+            {/* Controles del header */}
+            <div className="flex items-center space-x-2 md:space-x-4 flex-shrink-0">
+              {/* Tooltip de ayuda - Solo en desktop y pasos de medición */}
+              {!isResultadosStep && !isMobile && (
                 <div className="relative">
                   <button
                     onClick={() => setMostrarAyuda(!mostrarAyuda)}
@@ -388,9 +385,9 @@ const EstanquesModal = ({
                 </div>
               )}
 
-              {/* Indicador de progreso compacto */}
-              <div className="flex items-center space-x-2">
-                {["Inicial", "Final", "Detalle"].map((step, index) => {
+              {/* Indicador de progreso - Adaptado para móvil */}
+              <div className="flex items-center space-x-1 md:space-x-2">
+                {["1", "2", "3"].map((step, index) => {
                   const isActive = index <= currentStep;
                   const isCurrentStep = index === currentStep;
 
@@ -398,7 +395,7 @@ const EstanquesModal = ({
                     <React.Fragment key={index}>
                       {index > 0 && (
                         <div
-                          className={`h-0.5 w-4 rounded-full transition-colors ${
+                          className={`h-0.5 w-2 md:w-4 rounded-full transition-colors ${
                             isActive
                               ? "bg-orange-200"
                               : "bg-orange-800 opacity-30"
@@ -407,7 +404,7 @@ const EstanquesModal = ({
                       )}
                       <div className="relative group">
                         <div
-                          className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-medium transition-all ${
+                          className={`w-5 h-5 md:w-6 md:h-6 flex items-center justify-center rounded-full text-xs font-medium transition-all ${
                             isActive
                               ? "bg-white text-orange-600"
                               : "bg-orange-800 text-orange-300 opacity-50"
@@ -415,18 +412,20 @@ const EstanquesModal = ({
                         >
                           {isActive ? (
                             index < currentStep ? (
-                              <FaCheck className="w-2.5 h-2.5" />
+                              <FaCheck className="w-2 h-2 md:w-2.5 md:h-2.5" />
                             ) : (
-                              index + 1
+                              step
                             )
                           ) : (
-                            index + 1
+                            step
                           )}
                         </div>
-                        {/* Tooltip del paso */}
-                        <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity bg-black bg-opacity-75 text-white text-xs rounded px-2 py-1 pointer-events-none">
-                          {step}
-                        </div>
+                        {/* Tooltip del paso - Solo en desktop */}
+                        {!isMobile && (
+                          <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity bg-black bg-opacity-75 text-white text-xs rounded px-2 py-1 pointer-events-none">
+                            {["Inicial", "Final", "Detalle"][index]}
+                          </div>
+                        )}
                       </div>
                     </React.Fragment>
                   );
@@ -436,10 +435,10 @@ const EstanquesModal = ({
               {/* Botón cerrar */}
               <button
                 onClick={() => handleModalClose(false)}
-                className="text-white opacity-80 hover:opacity-100 focus:outline-none p-2 hover:bg-orange-700 rounded-lg transition-all"
+                className="text-white opacity-80 hover:opacity-100 focus:outline-none p-1.5 md:p-2 hover:bg-orange-700 rounded-lg transition-all"
                 aria-label="Cerrar"
               >
-                <FaTimes size={16} />
+                <FaTimes size={isMobile ? 14 : 16} />
               </button>
             </div>
           </div>
@@ -454,7 +453,7 @@ const EstanquesModal = ({
             </div>
           )}
 
-          {/* DISEÑO COMPLETAMENTE NUEVO PARA RESULTADOS */}
+          {/* DISEÑO PARA RESULTADOS */}
           {isResultadosStep && resultadoCalculo ? (
             <div className="space-y-4">
               {/* Dashboard Principal */}
@@ -464,39 +463,39 @@ const EstanquesModal = ({
                   {/* Fila superior - Métricas clave */}
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     {/* Stock Sistema */}
-                    <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-4 text-white shadow-lg">
+                    <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-3 md:p-4 text-white shadow-lg">
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-blue-100 text-xs font-medium uppercase tracking-wide">
                             Stock Sistema
                           </p>
-                          <p className="text-2xl font-bold mt-1">
+                          <p className="text-lg md:text-2xl font-bold mt-1">
                             {formatNumber(stockTotalSistema)}
                           </p>
                           <p className="text-blue-200 text-xs">
                             Litros totales
                           </p>
                         </div>
-                        <FaGasPump className="text-blue-200 text-2xl opacity-80" />
+                        <FaGasPump className="text-blue-200 text-xl md:text-2xl opacity-80" />
                       </div>
                     </div>
 
                     {/* Medición Inicial */}
-                    <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-4 text-white shadow-lg">
+                    <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-3 md:p-4 text-white shadow-lg">
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-orange-100 text-xs font-medium uppercase tracking-wide">
-                            Inicial
+                            Medición Inicial
                           </p>
-                          <p className="text-2xl font-bold mt-1">
+                          <p className="text-lg md:text-2xl font-bold mt-1">
                             {formatNumber(resultadoCalculo.volInicial)}
                           </p>
                           <p className="text-orange-200 text-xs">
                             Antes recepción
                           </p>
                         </div>
-                        <div className="w-8 h-8 bg-orange-400 rounded-full flex items-center justify-center">
-                          <span className="text-orange-900 font-bold text-sm">
+                        <div className="w-6 h-6 md:w-8 md:h-8 bg-orange-400 rounded-full flex items-center justify-center">
+                          <span className="text-orange-900 font-bold text-xs md:text-sm">
                             1
                           </span>
                         </div>
@@ -504,37 +503,37 @@ const EstanquesModal = ({
                     </div>
 
                     {/* Litros Guía */}
-                    <div className="bg-gradient-to-br from-amber-500 to-yellow-500 rounded-xl p-4 text-white shadow-lg">
+                    <div className="bg-gradient-to-br from-amber-500 to-yellow-500 rounded-xl p-3 md:p-4 text-white shadow-lg">
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-amber-100 text-xs font-medium uppercase tracking-wide">
-                            Según Guía
+                            Litros Según Guía
                           </p>
-                          <p className="text-2xl font-bold mt-1">
+                          <p className="text-lg md:text-2xl font-bold mt-1">
                             {formatNumber(litrosRecibidos)}
                           </p>
-                          <p className="text-amber-200 text-xs">Documentado</p>
+                          <p className="text-amber-200 text-xs">Litros Guía</p>
                         </div>
-                        <FaOilCan className="text-amber-200 text-2xl opacity-80" />
+                        <FaOilCan className="text-amber-200 text-xl md:text-2xl opacity-80" />
                       </div>
                     </div>
 
                     {/* Medición Final */}
-                    <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white shadow-lg">
+                    <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-3 md:p-4 text-white shadow-lg">
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-green-100 text-xs font-medium uppercase tracking-wide">
-                            Final
+                            Medición Final
                           </p>
-                          <p className="text-2xl font-bold mt-1">
+                          <p className="text-lg md:text-2xl font-bold mt-1">
                             {formatNumber(resultadoCalculo.volFinal)}
                           </p>
                           <p className="text-green-200 text-xs">
                             Después recepción
                           </p>
                         </div>
-                        <div className="w-8 h-8 bg-green-400 rounded-full flex items-center justify-center">
-                          <span className="text-green-900 font-bold text-sm">
+                        <div className="w-6 h-6 md:w-8 md:h-8 bg-green-400 rounded-full flex items-center justify-center">
+                          <span className="text-green-900 font-bold text-xs md:text-sm">
                             2
                           </span>
                         </div>
@@ -543,22 +542,22 @@ const EstanquesModal = ({
                   </div>
 
                   {/* Análisis detallado */}
-                  <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-200">
+                  <div className="bg-white rounded-xl p-4 md:p-6 shadow-lg border border-gray-200">
                     <div className="flex items-center mb-4">
-                      <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+                      <h3 className="text-base md:text-lg font-semibold text-gray-800 flex items-center">
                         <FaCalculator className="mr-2 text-orange-500" />
                         Detalles del Cálculo
                       </h3>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                       {/* Volúmenes medidos */}
                       <div>
                         <h4 className="font-medium text-gray-700 mb-3">
                           Volúmenes Inicial
                         </h4>
                         <div className="space-y-2">
-                          <div className="flex justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                          <div className="flex justify-between py-2 px-3 bg-gray-50 rounded-lg text-sm">
                             <span className="text-gray-600">
                               Volumen inicial:
                             </span>
@@ -567,7 +566,7 @@ const EstanquesModal = ({
                             </span>
                           </div>
 
-                          <div className="flex justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                          <div className="flex justify-between py-2 px-3 bg-gray-50 rounded-lg text-sm">
                             <span className="text-gray-600">
                               Litros según guía:
                             </span>
@@ -575,7 +574,7 @@ const EstanquesModal = ({
                               {formatNumber(litrosRecibidos)} L
                             </span>
                           </div>
-                          <div className="flex justify-between py-2 px-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <div className="flex justify-between py-2 px-3 bg-blue-50 rounded-lg border border-blue-200 text-sm">
                             <span className="text-blue-700 font-medium">
                               Volumen esperado:
                             </span>
@@ -595,7 +594,7 @@ const EstanquesModal = ({
                           Volúmenes Finales
                         </h4>
                         <div className="space-y-2">
-                          <div className="flex justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                          <div className="flex justify-between py-2 px-3 bg-gray-50 rounded-lg text-sm">
                             <span className="text-gray-600">
                               Volumen final:
                             </span>
@@ -603,7 +602,7 @@ const EstanquesModal = ({
                               {formatNumber(resultadoCalculo.volFinal)} L
                             </span>
                           </div>
-                          <div className="flex justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                          <div className="flex justify-between py-2 px-3 bg-gray-50 rounded-lg text-sm">
                             <span className="text-gray-600">
                               Litros ingresados (medido):
                             </span>
@@ -615,7 +614,7 @@ const EstanquesModal = ({
                               L
                             </span>
                           </div>
-                          <div className="flex justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                          <div className="flex justify-between py-2 px-3 bg-gray-50 rounded-lg text-sm">
                             <span className="text-gray-600">Diferencia:</span>
                             <span
                               className={`font-semibold flex items-center ${(() => {
@@ -706,6 +705,19 @@ const EstanquesModal = ({
                       : "Ingrese las alturas finales después de la recepción"}
                   </h3>
 
+                  {/* Ayuda móvil - Solo se muestra en móviles */}
+                  {isMobile && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
+                      <div className="flex items-start">
+                        <FaInfoCircle className="text-orange-600 mr-2 mt-0.5 flex-shrink-0" size={16} />
+                        <div className="text-sm text-orange-800">
+                          <p className="font-medium mb-1">Consejos de medición:</p>
+                          <p className="text-xs">Use la varilla calibrada del estanque, insértela verticalmente hasta el fondo y mida la altura del combustible en centímetros.</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Estanques para el paso actual */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                     {Array.isArray(estanques) &&
@@ -723,15 +735,15 @@ const EstanquesModal = ({
                           >
                             <div className="bg-gradient-to-r from-gray-50 to-white p-3 md:p-4 border-b relative">
                               <div className="flex justify-between items-start">
-                                <div>
-                                  <h3 className="font-medium text-gray-800 text-base md:text-lg">
+                                <div className="flex-1 min-w-0 pr-2">
+                                  <h3 className="font-medium text-gray-800 text-sm md:text-base truncate">
                                     {estanque.nombre}
                                   </h3>
                                   <div className="text-xs text-gray-500 mt-0.5">
                                     ID: {estanque.id_estanque}
                                   </div>
                                 </div>
-                                <div className="bg-white px-2 py-1 rounded-lg border border-gray-200 text-xs font-medium text-gray-700">
+                                <div className="bg-white px-2 py-1 rounded-lg border border-gray-200 text-xs font-medium text-gray-700 flex-shrink-0">
                                   {formatNumber(estanque.capacidad)} L
                                 </div>
                               </div>
@@ -746,7 +758,7 @@ const EstanquesModal = ({
                                 </div>
                                 <div className="w-full bg-gray-200 rounded-full h-2">
                                   <div
-                                    className={`h-2 rounded-full ${
+                                    className={`h-2 rounded-full transition-all ${
                                       capacidadPorcentaje > 75
                                         ? "bg-green-500"
                                         : capacidadPorcentaje > 30
@@ -759,7 +771,7 @@ const EstanquesModal = ({
                               </div>
                             </div>
 
-                            <div className="p-4">
+                            <div className="p-3 md:p-4">
                               <InputNivel
                                 label={
                                   paso === "inicial"
@@ -799,7 +811,7 @@ const EstanquesModal = ({
         </div>
 
         {/* Pie del modal */}
-        <div className="border-t border-gray-200 px-6 py-4 md:px-8 md:py-5 flex justify-between items-center bg-white sticky bottom-0 z-10 shadow-lg">
+        <div className="border-t border-gray-200 px-4 py-3 md:px-8 md:py-5 flex justify-between items-center bg-white sticky bottom-0 z-10 shadow-lg">
           {isResultadosStep ? (
             // Botones para el paso de resultados
             <>
@@ -808,20 +820,20 @@ const EstanquesModal = ({
                   setResultadoCalculo(null);
                   setPaso("final");
                 }}
-                className="px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all font-medium text-sm shadow-sm"
+                className="px-3 py-2 md:px-4 md:py-2.5 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all font-medium text-sm shadow-sm"
               >
                 <span className="flex items-center">
-                  <FaArrowRight className="mr-2 transform rotate-180" />
+                  <FaArrowRight className="mr-1 md:mr-2 transform rotate-180" size={isMobile ? 12 : 14} />
                   <span className="hidden sm:inline">Volver a Editar</span>
                   <span className="sm:hidden">Volver</span>
                 </span>
               </button>
               <button
                 onClick={() => handleModalClose(true)} // ← Pasar true para enviar el stock
-                className="flex items-center px-5 py-2.5 rounded-lg text-white font-medium text-sm shadow-sm bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all"
+                className="flex items-center px-4 py-2 md:px-5 md:py-2.5 rounded-lg text-white font-medium text-sm shadow-sm bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all"
               >
-                <FaCheck className="mr-2" />
-                <span>Confirmar </span>
+                <FaCheck className="mr-1 md:mr-2" size={isMobile ? 12 : 14} />
+                <span>Confirmar</span>
               </button>
             </>
           ) : paso === "inicial" ? (
@@ -829,7 +841,7 @@ const EstanquesModal = ({
             <>
               <button
                 onClick={() => handleModalClose(false)}
-                className="px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all font-medium text-sm shadow-sm"
+                className="px-3 py-2 md:px-4 md:py-2.5 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all font-medium text-sm shadow-sm"
               >
                 Cancelar
               </button>
@@ -837,7 +849,7 @@ const EstanquesModal = ({
               <button
                 onClick={avanzarANivelesFinales}
                 disabled={!nivelesInicialesCompletos() || loading}
-                className={`flex items-center px-5 py-2.5 rounded-lg text-white font-medium text-sm shadow-sm transition-all ${
+                className={`flex items-center px-4 py-2 md:px-5 md:py-2.5 rounded-lg text-white font-medium text-sm shadow-sm transition-all ${
                   !nivelesInicialesCompletos() || loading
                     ? "bg-orange-400 cursor-not-allowed opacity-70"
                     : "bg-orange-600 hover:bg-orange-700"
@@ -845,13 +857,14 @@ const EstanquesModal = ({
               >
                 {loading ? (
                   <>
-                    <div className="animate-spin mr-3 h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                    <span>Procesando...</span>
+                    <div className="animate-spin mr-2 md:mr-3 h-3 w-3 md:h-4 md:w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                    <span className="hidden sm:inline">Procesando...</span>
+                    <span className="sm:hidden">...</span>
                   </>
                 ) : (
                   <>
                     <span>Continuar</span>
-                    <FaArrowRight className="ml-2" />
+                    <FaArrowRight className="ml-1 md:ml-2" size={isMobile ? 12 : 14} />
                   </>
                 )}
               </button>
@@ -861,10 +874,10 @@ const EstanquesModal = ({
             <>
               <button
                 onClick={() => setPaso("inicial")}
-                className="px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all font-medium text-sm shadow-sm"
+                className="px-3 py-2 md:px-4 md:py-2.5 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all font-medium text-sm shadow-sm"
               >
                 <span className="flex items-center">
-                  <FaArrowRight className="mr-2 transform rotate-180" />
+                  <FaArrowRight className="mr-1 md:mr-2 transform rotate-180" size={isMobile ? 12 : 14} />
                   <span className="hidden sm:inline">
                     Volver a Niveles Iniciales
                   </span>
@@ -875,7 +888,7 @@ const EstanquesModal = ({
               <button
                 onClick={handleCalcular}
                 disabled={!nivelesFinalesCompletos() || loading}
-                className={`flex items-center px-5 py-2.5 rounded-lg text-white font-medium text-sm shadow-sm ${
+                className={`flex items-center px-4 py-2 md:px-5 md:py-2.5 rounded-lg text-white font-medium text-sm shadow-sm ${
                   loading || !nivelesFinalesCompletos()
                     ? "bg-orange-400 cursor-not-allowed opacity-70"
                     : "bg-orange-600 hover:bg-orange-700"
@@ -883,15 +896,17 @@ const EstanquesModal = ({
               >
                 {loading ? (
                   <>
-                    <div className="animate-spin mr-3 h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                    <span>Calculando...</span>
+                    <div className="animate-spin mr-2 md:mr-3 h-3 w-3 md:h-4 md:w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                    <span className="hidden sm:inline">Calculando...</span>
+                    <span className="sm:hidden">...</span>
                   </>
                 ) : (
                   <>
-                    <FaCalculator className="mr-2" />
+                    <FaCalculator className="mr-1 md:mr-2" size={isMobile ? 12 : 14} />
                     <span className="hidden sm:inline">
                       Calcular Diferencia
                     </span>
+                    <span className="sm:hidden">Calcular</span>
                   </>
                 )}
               </button>

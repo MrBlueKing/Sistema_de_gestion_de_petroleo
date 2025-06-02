@@ -50,11 +50,7 @@ const formatCurrency = (amount) => {
 };
 
 // COMPONENTE MODAL DE ÉXITO INTEGRADO - CON LÓGICA DE COLORES CORREGIDA
-const ModalExitoRecepcion = ({
-  isOpen,
-  onConfirm,
-  datosRecepcion
-}) => {
+const ModalExitoRecepcion = ({ isOpen, onConfirm, datosRecepcion }) => {
   if (!isOpen) return null;
 
   const {
@@ -64,7 +60,7 @@ const ModalExitoRecepcion = ({
     diferencia,
     precioTotal,
     stockInicial,
-    precio
+    precio,
   } = datosRecepcion;
 
   // CORREGIDO: Determinar si la diferencia es significativa (umbral 0.5)
@@ -75,7 +71,6 @@ const ModalExitoRecepcion = ({
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-transparent bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-fadeInScale">
-        
         {/* Header del modal */}
         <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-5 text-white">
           <div className="flex items-center justify-center">
@@ -83,7 +78,9 @@ const ModalExitoRecepcion = ({
               <FaCheck className="text-2xl" />
             </div>
             <div className="text-center">
-              <h2 className="text-xl font-bold">¡Recepción Registrada Exitosamente!</h2>
+              <h2 className="text-xl font-bold">
+                ¡Recepción Registrada Exitosamente!
+              </h2>
             </div>
           </div>
         </div>
@@ -92,14 +89,15 @@ const ModalExitoRecepcion = ({
         <div className="flex-grow overflow-y-auto p-6">
           {/* Resumen de datos en grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            
             {/* Información de la Guía */}
             <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
               <div className="flex items-center mb-3">
                 <div className="bg-blue-500 p-2 rounded-lg mr-3">
                   <FaFileAlt className="text-white text-sm" />
                 </div>
-                <h3 className="font-semibold text-blue-800">Información de Guía</h3>
+                <h3 className="font-semibold text-blue-800">
+                  Información de Guía
+                </h3>
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between">
@@ -107,12 +105,20 @@ const ModalExitoRecepcion = ({
                   <span className="font-bold text-blue-900">{numeroGuia}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-blue-700 text-sm">Litros Documentados:</span>
-                  <span className="font-bold text-blue-900">{formatNumberWithSeparators(litrosDocumentados)} L</span>
+                  <span className="text-blue-700 text-sm">
+                    Litros Según Guía:
+                  </span>
+                  <span className="font-bold text-blue-900">
+                    {formatNumberWithSeparators(litrosDocumentados)} L
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-blue-700 text-sm">Precio por Litro:</span>
-                  <span className="font-bold text-blue-900">{formatCurrency(precio)}</span>
+                  <span className="text-blue-700 text-sm">
+                    Precio por Litro:
+                  </span>
+                  <span className="font-bold text-blue-900">
+                    {formatCurrency(precio)}
+                  </span>
                 </div>
               </div>
             </div>
@@ -127,30 +133,41 @@ const ModalExitoRecepcion = ({
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-orange-700 text-sm">Stock Inicial:</span>
-                  <span className="font-bold text-orange-900">{formatNumberWithSeparators(stockInicial)} L</span>
+                  <span className="text-orange-700 text-sm">
+                    Stock Inicial:
+                  </span>
+                  <span className="font-bold text-orange-900">
+                    {formatNumberWithSeparators(stockInicial)} L
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-orange-700 text-sm">Litros Calculados:</span>
-                  <span className="font-bold text-orange-900">{formatNumberWithSeparators(litrosCalculados)} L</span>
+                  <span className="text-orange-700 text-sm">
+                    Litros Calculados:
+                  </span>
+                  <span className="font-bold text-orange-900">
+                    {formatNumberWithSeparators(litrosCalculados)} L
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-orange-700 text-sm">Diferencia:</span>
                   {/* CORREGIDO: Nueva lógica de colores */}
-                  <span className={`font-bold ${
-                    esDiferenciaSignificativa 
-                      ? (esExcedente ? 'text-green-600' : 'text-red-600') 
-                      : 'text-gray-600'
-                  }`}>
+                  <span
+                    className={`font-bold ${
+                      esDiferenciaSignificativa
+                        ? esExcedente
+                          ? "text-green-600"
+                          : "text-red-600"
+                        : "text-gray-600"
+                    }`}
+                  >
                     {formatNumberWithSeparators(diferenciaMagnitud)} L
                     <span className="text-xs ml-1">
-                      ({esExcedente ? 'Excedente' : 'Faltante'})
+                      ({esExcedente ? "Excedente" : "Faltante"})
                     </span>
                   </span>
                 </div>
               </div>
             </div>
-
           </div>
 
           {/* Resumen financiero */}
@@ -161,8 +178,12 @@ const ModalExitoRecepcion = ({
                   <FaDollarSign className="text-white text-sm" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-green-800">Total de la Recepción</h3>
-                  <p className="text-green-600 text-sm">Basado en litros documentados</p>
+                  <h3 className="font-semibold text-green-800">
+                    Total de la Recepción
+                  </h3>
+                  <p className="text-green-600 text-sm">
+                    Basado en litros según guía{" "}
+                  </p>
                 </div>
               </div>
               <div className="text-right">
@@ -170,7 +191,8 @@ const ModalExitoRecepcion = ({
                   {formatCurrency(precioTotal)}
                 </div>
                 <div className="text-green-600 text-sm">
-                  {formatNumberWithSeparators(litrosDocumentados)} L × {formatCurrency(precio)}
+                  {formatNumberWithSeparators(litrosDocumentados)} L ×{" "}
+                  {formatCurrency(precio)}
                 </div>
               </div>
             </div>
@@ -185,22 +207,27 @@ const ModalExitoRecepcion = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-gray-600">Estado del Registro:</span>
-                <span className="ml-2 font-medium text-orange-600">✓ Completado</span>
+                <span className="ml-2 font-medium text-orange-600">
+                  ✓ Completado
+                </span>
               </div>
               <div>
                 <span className="text-gray-600">Precisión:</span>
                 {/* CORREGIDO: Nueva lógica para precisión */}
-                <span className={`ml-2 font-medium ${
-                  esDiferenciaSignificativa 
-                    ? 'text-amber-600' 
-                    : 'text-green-600'
-                }`}>
-                  {esDiferenciaSignificativa ? 'Requiere Revisión' : 'Dentro de Tolerancia'}
+                <span
+                  className={`ml-2 font-medium ${
+                    esDiferenciaSignificativa
+                      ? "text-amber-600"
+                      : "text-green-600"
+                  }`}
+                >
+                  {esDiferenciaSignificativa
+                    ? "Requiere Revisión"
+                    : "Dentro de Tolerancia"}
                 </span>
               </div>
             </div>
           </div>
-
         </div>
 
         {/* Footer con botón */}
@@ -215,7 +242,6 @@ const ModalExitoRecepcion = ({
             </button>
           </div>
         </div>
-
       </div>
     </div>
   );
@@ -681,11 +707,11 @@ const FormRecepcion = () => {
       discrepanciaCam: diferencia, // Usar la nueva diferencia
     };
   };
- 
+
   // Generar texto de observación basado en diferencia
   const generarObservacionDiferencia = (litrosGuia, litrosIngresados) => {
     const diferencia = litrosIngresados - litrosGuia; // CAMBIO: Nuevo orden
-    
+
     return `Según cálculo de alturas, se detecta una diferencia de ${formatNumber(
       Math.abs(diferencia)
     )} litros ${
@@ -804,7 +830,8 @@ const FormRecepcion = () => {
         parseFloat(formData.litrosRecibidos) * parseFloat(formData.precio);
 
       // CAMBIO: Calcular diferencia como litros calculados - litros guía
-      const diferencia = calculoPetroleo.litrosCalculados - parseFloat(formData.litrosRecibidos);
+      const diferencia =
+        calculoPetroleo.litrosCalculados - parseFloat(formData.litrosRecibidos);
 
       // Preparar datos para el formato esperado por la API
       const alturas = prepararDatosAlturas();
@@ -843,7 +870,7 @@ const FormRecepcion = () => {
         diferencia: diferencia, // Usar la nueva diferencia
         precioTotal: precioTotal,
         stockInicial: stockInicial,
-        precio: parseFloat(formData.precio)
+        precio: parseFloat(formData.precio),
       };
 
       // NUEVO: Mostrar modal de éxito en lugar del alert
@@ -851,7 +878,6 @@ const FormRecepcion = () => {
       setShowExitoModal(true);
 
       // NO resetear el formulario aquí - solo después de confirmar en el modal
-
     } catch (error) {
       console.error("Error al enviar los datos:", error);
       manejarErrorEnvio(error);
@@ -923,7 +949,9 @@ const FormRecepcion = () => {
                 : "bg-red-100 text-red-800 border-l-4 border-red-500"
             }`}
           >
-            {alert.type === "error" && <FaExclamationTriangle className="mr-2" />}
+            {alert.type === "error" && (
+              <FaExclamationTriangle className="mr-2" />
+            )}
             {alert.message}
           </div>
         )}
@@ -1054,19 +1082,19 @@ const FormRecepcion = () => {
           <div
             className={`p-3 rounded-lg text-center border mt-2 ${
               Math.abs(calculoPetroleo.diferencia) <= 0.5
-                ? "bg-gray-50 border-gray-200"  // Diferencia mínima
+                ? "bg-gray-50 border-gray-200" // Diferencia mínima
                 : calculoPetroleo.diferencia > 0
-                ? "bg-green-50 border-green-200"  // Excedente - VERDE
-                : "bg-red-50 border-red-200"     // Faltante - ROJO
+                ? "bg-green-50 border-green-200" // Excedente - VERDE
+                : "bg-red-50 border-red-200" // Faltante - ROJO
             }`}
           >
             <p
               className={`text-sm ${
                 Math.abs(calculoPetroleo.diferencia) <= 0.5
-                  ? "text-gray-600"      // Diferencia mínima
+                  ? "text-gray-600" // Diferencia mínima
                   : calculoPetroleo.diferencia > 0
-                  ? "text-green-600"     // Excedente - VERDE
-                  : "text-red-600"       // Faltante - ROJO
+                  ? "text-green-600" // Excedente - VERDE
+                  : "text-red-600" // Faltante - ROJO
               }`}
             >
               Resultado del cálculo:
@@ -1083,10 +1111,10 @@ const FormRecepcion = () => {
               <p
                 className={`font-bold ${
                   Math.abs(calculoPetroleo.diferencia) <= 0.5
-                    ? "text-gray-600"      // Diferencia mínima
+                    ? "text-gray-600" // Diferencia mínima
                     : calculoPetroleo.diferencia > 0
-                    ? "text-green-600"     // Excedente - VERDE
-                    : "text-red-600"       // Faltante - ROJO
+                    ? "text-green-600" // Excedente - VERDE
+                    : "text-red-600" // Faltante - ROJO
                 }`}
               >
                 Diferencia: {formatNumber(Math.abs(calculoPetroleo.diferencia))}{" "}
@@ -1109,22 +1137,25 @@ const FormRecepcion = () => {
           />
         </div>
 
-        <div className="flex items-center mt-4 pt-2 border-t">
-          <Button
-            to="/Bombero"
-            className="flex items-center justify-center bg-orange-600 hover:bg-orange-700 text-white text-sm px-4 py-2 rounded-md"
-            icon={<FaHome className="mr-2 text-white" />}
-            text="Volver"
-          />
-
+        {/* SECCIÓN DE BOTONES CORREGIDA PARA RESPONSIVE */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-0 mt-4 pt-2 border-t">
+          {/* BOTÓN INGRESAR RECEPCIÓN - Aparece PRIMERO en móvil */}
           <Button
             text={isSubmitting ? "Procesando..." : "Ingresar Recepción"}
             color="orange"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className={`bg-orange-600 hover:bg-orange-700 text-white text-sm px-6 py-2 rounded-md ml-auto ${
+            className={`bg-orange-600 hover:bg-orange-700 text-white text-sm px-6 py-2 rounded-md w-full sm:w-auto sm:ml-auto sm:order-2 ${
               isSubmitting ? "opacity-70 cursor-wait" : ""
             }`}
+          />
+
+          {/* BOTÓN VOLVER - Aparece SEGUNDO en móvil */}
+          <Button
+            to="/Bombero"
+            className="flex items-center justify-center bg-orange-600 hover:bg-orange-700 text-white text-sm px-4 py-2 rounded-md w-full sm:w-auto sm:order-1"
+            icon={<FaHome className="mr-2 text-white" />}
+            text="Volver"
           />
         </div>
 

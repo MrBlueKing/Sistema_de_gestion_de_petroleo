@@ -1,15 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Header from "../../organisms/Bombero/Header";
 import SearchBar from "../../molecules/SearchBar";
 import TabProgressBar from "../../molecules/TabProgressBar";
-import List from "../../molecules/OptionsFormBombero"; // Componente compartido
+import List from "../../molecules/OptionsFormBombero";
 import PageControl from "../../molecules/PageControl";
 import Button from "../../atoms/Button/Button";
 import { FaArrowLeft, FaTools } from "react-icons/fa";
 import StepHeader from "../../molecules/StepHeader";
-import axios from "../../../lib/axios"; // Asegúrate de tener axios instalado
+import bomberoService from "../../../context/bomberoService";
 
-const Maquinaria = ({ onNext, onPrevious }) => {
+const Maquinaria = ({ onNext, onPrevious, categoriaSeleccionada, userFaena }) => {
   const [currentPage, setCurrentPage] = useState(2);
   const [searchTerm, setSearchTerm] = useState("");
   const [seleccion, setSeleccion] = useState(null);
@@ -18,50 +18,65 @@ const Maquinaria = ({ onNext, onPrevious }) => {
   const [error, setError] = useState(null);
   const totalPages = 4;
 
-  // Cargar categorías de máquinas desde la API
-  useEffect(() => {
-    const fetchCategorias = async () => {
-      try {
-        setLoading(true);
-        const response = await axios.get('/api/categorias');
-        console.log("DAtos:", response.data);
-        console.log("succes:", response.data.status);
-        if (response.data.status) {
-          // Transformamos los datos para que coincidan con la estructura esperada por el componente List
-          const categoriasFormateadas = response.data.data.map(categoria => ({
-            id: categoria.id_categoria,
-            nombre: categoria.nombre_categoria,
-            descripcion: `Medición: ${categoria.tipo_medicion}`,
-            tipo_medicion: categoria.tipo_medicion
-          }));
-          setCategorias(categoriasFormateadas);
-        } else {
-          setError("No se pudieron cargar las categorías");
-        }
-      } catch (err) {
-        console.error("Error al cargar categorías:", err);
-        setError("Error al conectar con el servidor");
-      } finally {
-        setLoading(false);
+  // Cargar categorías de máquinas desde la API con cache optimizado
+  const loadCategorias = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const categoriasData = await bomberoService.getCategoriasMaquinaria();
+      
+      if (Array.isArray(categoriasData) && categoriasData.length > 0) {
+        // Transformamos los datos para que coincidan con la estructura esperada
+        const categoriasFormateadas = categoriasData.map(categoria => ({
+          id: categoria.id_categoria,
+          nombre: categoria.nombre_categoria,
+          descripcion: `Medición: ${categoria.tipo_medicion}`,
+          tipo_medicion: categoria.tipo_medicion,
+          horas_mantencion: categoria.horas_mantencion
+        }));
+        
+        setCategorias(categoriasFormateadas);
+      } else {
+        setError("No se encontraron categorías disponibles");
       }
-    };
-
-    fetchCategorias();
+    } catch (err) {
+      console.error("Error al cargar categorías:", err);
+      setError("Error al conectar con el servidor");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const filteredCategorias = categorias.filter((categoria) =>
-    categoria.nombre.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  useEffect(() => {
+    loadCategorias();
+  }, [loadCategorias]);
 
-  const handleCategoriaSelect = (categoria) => {
+  // Filtrar categorías por término de búsqueda
+  const filteredCategorias = useMemo(() => {
+    if (!searchTerm.trim()) return categorias;
+    
+    return categorias.filter((categoria) =>
+      categoria.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      categoria.descripcion.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [categorias, searchTerm]);
+
+  // Manejar selección de categoría
+  const handleCategoriaSelect = useCallback((categoria) => {
     setSeleccion(categoria.nombre);
     onNext(categoria);
-  };
+  }, [onNext]);
 
   // Función para limpiar la búsqueda
-  const handleClearSearch = () => {
+  const handleClearSearch = useCallback(() => {
     setSearchTerm("");
-  };
+  }, []);
+
+  // Manejar cambio en el término de búsqueda
+  const handleSearchChange = useCallback((value) => {
+    setSearchTerm(value);
+  }, []);
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 pt-14">
@@ -85,7 +100,7 @@ const Maquinaria = ({ onNext, onPrevious }) => {
             
             <SearchBar
               searchTerm={searchTerm}
-              setSearchTerm={setSearchTerm}
+              setSearchTerm={handleSearchChange}
               placeholder="Buscar categoría de máquina"
               onClear={handleClearSearch}
             />
@@ -94,10 +109,7 @@ const Maquinaria = ({ onNext, onPrevious }) => {
               {loading ? (
                 <div className="h-full flex items-center justify-center">
                   <div className="text-center">
-                    <svg className="animate-spin h-10 w-10 text-orange-500 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-500 mx-auto mb-4"></div>
                     <p className="text-gray-500">Cargando categorías...</p>
                   </div>
                 </div>
@@ -107,13 +119,35 @@ const Maquinaria = ({ onNext, onPrevious }) => {
                     <svg className="w-10 h-10 text-red-500 mx-auto mb-4" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"></path>
                     </svg>
-                    <p className="text-red-500">{error}</p>
+                    <p className="text-red-500 mb-4">{error}</p>
                     <button 
-                      onClick={() => window.location.reload()}
-                      className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+                      onClick={loadCategorias}
+                      className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
                     >
                       Reintentar
                     </button>
+                  </div>
+                </div>
+              ) : filteredCategorias.length === 0 ? (
+                <div className="h-full flex items-center justify-center">
+                  <div className="text-center">
+                    <svg className="w-10 h-10 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p className="text-gray-500 mb-2">
+                      {categorias.length === 0 
+                        ? 'No hay categorías disponibles' 
+                        : 'No se encontraron resultados'
+                      }
+                    </p>
+                    {searchTerm && (
+                      <button
+                        onClick={handleClearSearch}
+                        className="text-orange-500 hover:text-orange-700 font-medium"
+                      >
+                        Limpiar búsqueda
+                      </button>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -122,10 +156,18 @@ const Maquinaria = ({ onNext, onPrevious }) => {
                   onItemSelect={handleCategoriaSelect}
                   buttonStyle={true} 
                   tipoElemento="maquinaria"
-                  maxHeight="350px" // Altura fija para el contenedor de la lista
+                  maxHeight="350px"
                 />
               )}
             </div>
+
+            {/* Información de resultados */}
+            {!loading && !error && filteredCategorias.length > 0 && (
+              <div className="text-center text-white text-xs">
+                Mostrando {filteredCategorias.length} de {categorias.length} categorías
+                {searchTerm && ` para "${searchTerm}"`}
+              </div>
+            )}
           </div>
           
           {/* Controles inferiores */}
@@ -174,4 +216,4 @@ const Maquinaria = ({ onNext, onPrevious }) => {
   );
 };
 
-export default Maquinaria;
+export default React.memo(Maquinaria);

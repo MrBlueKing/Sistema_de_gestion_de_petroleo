@@ -29,6 +29,8 @@ use App\Http\Controllers\Api\TonelajeController;
 use App\Http\Controllers\DatabaseCheckController;
 use App\Http\Controllers\Api\ProduccionController;
 use App\Http\Controllers\Api\VerificacionIngresosController;
+use App\Http\Controllers\Api\MaquinasExternasController;
+use App\Http\Controllers\Api\SolicitantesOptimizadoController;
 
 /*
 |--------------------------------------------------------------------------
@@ -67,20 +69,20 @@ Route::get('/verificacion-ingresos/resumen', [VerificacionIngresosController::cl
 */
 
 Route::middleware('auth:sanctum')->group(function () {
-    
+
     /*
     |--------------------------------------------------------------------------
     | 🔐 AUTENTICACIÓN Y USUARIO
     |--------------------------------------------------------------------------
     */
     Route::post('/logout', [AuthController::class, 'logout']);
-    
+
     Route::get('/user', function (Request $request) {
         $user = $request->user();
         $user->load('faena', 'rol');
         return response()->json($user);
     });
-    
+
     Route::get('/usuarios/recientes', [UserController::class, 'recientes']);
     Route::get('/user/{id}', [UserController::class, 'show']);
 
@@ -109,6 +111,18 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/interno-externo', [PersonalInternoController::class, 'indexInternoExterno']);
     });
 
+
+/*
+    |--------------------------------------------------------------------------
+    | 👨‍💼 BUSQUEDA POR SOLICITANTES - FAENAS
+    |--------------------------------------------------------------------------
+    */
+Route::get('/solicitantes-internos-faena', [SolicitantesOptimizadoController::class, 'internosPorFaena']);
+Route::get('/solicitantes-externos-faena', [SolicitantesOptimizadoController::class, 'externosPorFaena']);
+Route::get('/solicitantes-por-faena', [SolicitantesOptimizadoController::class, 'porFaenaYTipo']);
+
+
+
     /*
     |--------------------------------------------------------------------------
     | 🏢 EMPRESAS EXTERNAS Y PERSONAL EXTERNO
@@ -118,7 +132,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/', [EmpresaExternaController::class, 'store']);
         Route::get('/disponibles', [EmpresaExternaController::class, 'index']);
     });
-    
+
     Route::prefix('personal-externo')->group(function () {
         Route::post('/registrar', [PersonalExternoController::class, 'store']);
         Route::get('/', [PersonalExternoController::class, 'index']);
@@ -131,12 +145,19 @@ Route::middleware('auth:sanctum')->group(function () {
     */
     Route::apiResource('categorias-maquinas', CategoriaMaquinaController::class);
     Route::get('/categorias', [CategoriaMaquinaController::class, 'index']);
-    
+
     Route::prefix('maquinas-internas')->group(function () {
         Route::post('/', [MaquinaInternaController::class, 'store']);
         Route::get('/registradas', [MaquinaInternaController::class, 'index']);
         Route::get('/con-permisos', [MaquinaInternaController::class, 'indexConPermisos']);
     });
+
+
+    // Rutas para máquinas externas
+    Route::get('/maquinas-externas', [MaquinasExternasController::class, 'index']);
+    Route::get('/maquinas-externas/categoria/{idCategoria}', [MaquinasExternasController::class, 'porCategoria']);
+
+
 
     /*
     |--------------------------------------------------------------------------
@@ -293,20 +314,20 @@ Route::middleware('auth:sanctum')->group(function () {
         // Dashboard principal
         Route::get('/dashboard/{idFaena?}', 'dashboard');
         Route::get('/dashboard', 'dashboard');
-        
+
         // Stock y estanques
         Route::get('/stock/general', 'getStockGeneral');
         Route::get('/stock/por-faena', 'getStockPorFaena');
         Route::get('/stock/detalle/{idFaena}', 'getDetalleStockFaena');
         Route::get('/estanques/capacidad', 'getCapacidadEstanques');
         Route::get('/estanques/alertas', 'getAlertasStock');
-        
+
         // Ingresos de combustible
         Route::get('/ingresos/historial', 'getHistorialIngresos');
         Route::get('/ingresos/ultimos/{dias?}', 'getIngresosRecientes');
         Route::get('/ingresos/estadisticas', 'getEstadisticasIngresos');
         Route::get('/ingresos/por-periodo', 'getIngresosPorPeriodo');
-        
+
         // Consumos
         Route::get('/consumos/resumen', 'getResumenConsumos');
         Route::get('/consumos/por-equipo', 'getConsumosPorEquipo');
@@ -314,19 +335,19 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/consumos/tendencia', 'getTendenciaConsumos');
         Route::get('/consumos/eficiencia', 'getEficienciaConsumos');
         Route::get('/consumos/ultimos/{dias?}', 'getConsumosRecientes');
-        
+
         // Análisis financiero
         Route::get('/costos/resumen', 'getResumenCostos');
         Route::get('/costos/por-periodo', 'getCostosPorPeriodo');
         Route::get('/costos/proyeccion', 'getProyeccionCostos');
         Route::get('/precios/historial', 'getHistorialPrecios');
-        
+
         // Análisis y proyecciones
         Route::get('/analisis/rendimiento', 'getAnalisisRendimiento');
         Route::get('/proyecciones/stock', 'getProyeccionStock');
         Route::get('/alertas/sistema', 'getAlertasSistema');
         Route::get('/movimientos/historial', 'getHistorialMovimientos');
-        
+
         // Reportes específicos
         Route::get('/reportes/balance', 'getReporteBalance');
         Route::get('/reportes/consumo-detallado', 'getReporteConsumoDetallado');
@@ -354,7 +375,7 @@ Route::middleware('auth:sanctum')->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::get('/check-databases', [DatabaseCheckController::class, 'check']);
-    
+
     Route::get('/test-bodega', function () {
         try {
             $result = DB::connection('bodega')->table('personal')->limit(1)->get();

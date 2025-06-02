@@ -9,7 +9,7 @@ import {
 
 // Importación de componentes moleculares para filtros y tablas
 import FiltrosComponent from "../../molecules/FiltrosComponent";
-import ResumenFinancieroCards from "../../molecules/ResumenFinancieroCards";
+
 import ConsumoPorMaquinaTable from "../../molecules/ConsumoPorMaquinaTable";
 import ConsumoPorFaenaTable from "../../molecules/ConsumoPorFaenaTable";
 import IngresosPorFaenaTable from "../../molecules/IngresosPorFaenaTable";
@@ -198,13 +198,7 @@ const Graficos = ({ children }) => {
                     {/* Vista de tablas */}
                     {vistaActiva === "tablas" && (
                         <>
-                            {/* Componente de tarjetas de resumen financiero */}
-                            {datosConsumo && datosConsumo.resumen_financiero && (
-                                <ResumenFinancieroCards
-                                    resumenFinanciero={datosConsumo.resumen_financiero}
-                                />
-                            )}
-
+                            
                             {/* Componente de tabla de consumo por máquina */}
                             {datosConsumo && datosConsumo.consumo_por_maquina && (
                                 <ConsumoPorMaquinaTable
@@ -229,12 +223,7 @@ const Graficos = ({ children }) => {
                     {/* Vista de gráficos */}
                     {vistaActiva === "graficos" && (
                         <>
-                            {/* Tarjetas de resumen financiero (visibles en ambas vistas) */}
-                            {datosConsumo && datosConsumo.resumen_financiero && (
-                                <ResumenFinancieroCards
-                                    resumenFinanciero={datosConsumo.resumen_financiero}
-                                />
-                            )}
+                          
 
                             {/* Contenedor de gráficos */}
                             <div className="mt-6">

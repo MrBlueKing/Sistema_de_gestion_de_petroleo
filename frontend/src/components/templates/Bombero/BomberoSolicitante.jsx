@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useCallback } from "react";
+import React, { useState, useEffect, useContext, useCallback, useMemo } from "react";
 import { UserContext } from "../../../context/userContext";
 import SearchBar from "../../molecules/SearchBar";
 import Header from "../../organisms/Bombero/Header";
@@ -7,137 +7,203 @@ import List from "../../molecules/OptionsFormBombero";
 import PageControl from "../../molecules/PageControl";
 import Button from "../../atoms/Button/Button";
 import StepHeader from "../../molecules/StepHeader";
-import { FaArrowLeft, FaMapMarkerAlt } from "react-icons/fa";
+import { FaArrowLeft, FaMapMarkerAlt, FaSpinner } from "react-icons/fa";
 import bomberoService from "../../../context/bomberoService";
 import axios from "../../../lib/axios";
 
 const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
-  // Obtener usuario del contexto
   const { user } = useContext(UserContext);
 
+  // Estados principales
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [usuarios, setUsuarios] = useState([]);
   const [solicitantes, setSolicitantes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [todosLosUsuarios, setTodosLosUsuarios] = useState([]);
   const [ubicacionFaena, setUbicacionFaena] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
   const [showUserDetails, setShowUserDetails] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [displayPerPage, setDisplayPerPage] = useState(8);
 
-  // Usamos un valor dinámico para usersPerPage basado en la altura de la pantalla
-  const [usersPerPage, setUsersPerPage] = useState(8);
+  // ✅ CACHE de datos para evitar re-cargas innecesarias
+  const [datosCache, setDatosCache] = useState({});
+  const cacheKey = `${tipoSolicitante}-${user?.id_faena}`;
 
-  // Ajustamos usersPerPage basado en el tamaño de la ventana
+  // Ajustar elementos por página
   useEffect(() => {
     const calcularElementosPorPagina = () => {
-      // En dispositivos móviles pequeños mostramos menos elementos por página
       if (window.innerWidth < 640) {
-        setUsersPerPage(4);
+        setDisplayPerPage(4);
       } else if (window.innerWidth < 768) {
-        setUsersPerPage(6);
+        setDisplayPerPage(6);
       } else {
-        setUsersPerPage(8);
+        setDisplayPerPage(8);
       }
     };
 
     calcularElementosPorPagina();
     window.addEventListener('resize', calcularElementosPorPagina);
-
-    return () => {
-      window.removeEventListener('resize', calcularElementosPorPagina);
-    };
+    return () => window.removeEventListener('resize', calcularElementosPorPagina);
   }, []);
 
-  // Función para filtrar usuarios por término de búsqueda
-  const filtrarUsuarios = useCallback((usuarios, termino) => {
-    if (!termino || !termino.trim()) return usuarios;
-    return bomberoService.buscarPersonal(usuarios, termino);
-  }, []);
-
-  // Cargar faenas, usuarios y solicitantes en un solo useEffect para reducir recargas
+  // ✅ OPTIMIZACIÓN PRINCIPAL: Cargar datos solo UNA VEZ y usar cache
   useEffect(() => {
-    let isMounted = true;
+    let isActive = true;
 
-    const inicializarDatos = async () => {
+    const cargarDatos = async () => {
+      // Verificar condiciones necesarias
+      if (!user?.id_faena || !tipoSolicitante) {
+        console.log('⏸️ No se puede cargar: faltan user.id_faena o tipoSolicitante');
+        setLoading(false);
+        return;
+      }
+
+      // ✅ VERIFICAR CACHE PRIMERO
+      if (datosCache[cacheKey]) {
+        console.log('📦 Usando datos del cache para:', cacheKey);
+        const cached = datosCache[cacheKey];
+        setUsuarios(cached.usuarios);
+        setSolicitantes(cached.solicitantes);
+        setUbicacionFaena(cached.ubicacionFaena);
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
+        setError(null);
+        
+        console.log(`🚀 Cargando datos ÚNICOS para: ${tipoSolicitante} en faena ${user.id_faena}`);
 
-        // 1. Primero obtener todas las faenas
-        const faenas = await bomberoService.getAllFaenas();
+        // ✅ Cargar SOLO lo necesario, SIN Promise.all para evitar cancelaciones
+        
+        // 1. Obtener personal optimizado (LA LLAMADA PRINCIPAL)
+        const personalData = await bomberoService.getPersonalOptimizadoPorTipoYFaena(
+          tipoSolicitante, 
+          user.id_faena
+        );
 
-        // 2. Obtener todos los solicitantes para mapear IDs
-        try {
-          const responseSolicitantes = await axios.get('/api/solicitantes');
-          if (isMounted && responseSolicitantes.data) {
-            setSolicitantes(responseSolicitantes.data.solicitantes || []);
-            console.log("Datos de solicitantes", responseSolicitantes.data);
+        if (!isActive) return;
+
+        // 2. Obtener solicitantes solo si no los tenemos
+        let solicitantesData = solicitantes;
+        if (solicitantesData.length === 0) {
+          try {
+            const solicitantesResponse = await axios.get('/api/solicitantes');
+            if (solicitantesResponse.data?.solicitantes) {
+              solicitantesData = solicitantesResponse.data.solicitantes;
+            }
+          } catch (err) {
+            console.warn("Error al cargar solicitantes (no crítico):", err.message);
+            solicitantesData = [];
           }
-        } catch (error) {
-          console.warn("Error al cargar solicitantes:", error);
-          // Continuamos sin los datos de solicitantes
         }
 
-        let ubicacion = "";
-        let id_faena = null;
+        if (!isActive) return;
 
-        // 3. Identificar la faena del usuario actual
-        if (user && user.id_faena) {
-          id_faena = user.id_faena;
-          const faenaUsuario = faenas.find((f) => f.id_faena === user.id_faena);
-          if (faenaUsuario) {
-            ubicacion = faenaUsuario.ubicacion;
-            if (isMounted) setUbicacionFaena(ubicacion);
+        // 3. Obtener ubicación de faena solo si no la tenemos
+        let ubicacion = ubicacionFaena;
+        if (!ubicacion) {
+          try {
+            const faenas = await bomberoService.getAllFaenas();
+            const faenaUsuario = faenas.find(f => f.id_faena === user.id_faena);
+            ubicacion = faenaUsuario?.ubicacion || "";
+          } catch (err) {
+            console.warn("Error al cargar faenas:", err.message);
+            ubicacion = "";
           }
         }
 
-        // 4. Obtener los usuarios del tipo seleccionado
-        if (isMounted) {
-          const todosUsuarios = await bomberoService.getPersonalPorTipo(tipoSolicitante);
-          console.log('Usuarios del tipo:', tipoSolicitante, todosUsuarios);
+        if (!isActive) return;
 
-          // 5. Filtrar por id_faena en lugar de ubicación
-          const usuariosFiltrados = id_faena
-            ? bomberoService.filtrarPersonalPorFaena(todosUsuarios, id_faena)
-            : todosUsuarios;
+        // ✅ GUARDAR EN CACHE
+        const datosParaCache = {
+          usuarios: personalData,
+          solicitantes: solicitantesData,
+          ubicacionFaena: ubicacion
+        };
 
-          // 6. Establecer los estados de usuarios
-          setTodosLosUsuarios(usuariosFiltrados);
-          setUsuarios(usuariosFiltrados);
-        }
+        setDatosCache(prev => ({
+          ...prev,
+          [cacheKey]: datosParaCache
+        }));
+
+        // Actualizar estados
+        setUsuarios(personalData);
+        setSolicitantes(solicitantesData);
+        setUbicacionFaena(ubicacion);
+        
+        console.log(`✅ Datos cargados y guardados en cache: ${personalData.length} registros`);
+
       } catch (err) {
-        console.error("Error al inicializar datos:", err);
-        if (isMounted) {
+        if (isActive) {
+          console.error("❌ Error al cargar datos:", err);
           setError("No se pudieron cargar los datos. Intente nuevamente.");
         }
       } finally {
-        if (isMounted) {
+        if (isActive) {
           setLoading(false);
         }
       }
     };
 
-    inicializarDatos();
+    cargarDatos();
 
-    // Limpieza al desmontar
     return () => {
-      isMounted = false;
+      isActive = false;
     };
-  }, [user, tipoSolicitante]); // Solo se ejecuta cuando cambia el usuario o tipo de solicitante
+  }, [user?.id_faena, tipoSolicitante, cacheKey]); // ✅ Dependencias mínimas
 
-  // Manejar búsqueda - separado para evitar recargas innecesarias
+  // ✅ Búsqueda optimizada con debounce (SIN useEffect para evitar bucles)
+  const buscarPersonal = useCallback(
+    async (termino) => {
+      if (!user?.id_faena || !tipoSolicitante) return;
+
+      try {
+        setIsSearching(true);
+
+        if (!termino.trim()) {
+          // Usar datos del cache o recargar
+          if (datosCache[cacheKey]) {
+            setUsuarios(datosCache[cacheKey].usuarios);
+          } else {
+            const personalData = await bomberoService.getPersonalOptimizadoPorTipoYFaena(
+              tipoSolicitante, 
+              user.id_faena
+            );
+            setUsuarios(personalData);
+          }
+          setCurrentPage(1);
+        } else {
+          // Búsqueda en el cliente (más rápido para pocos registros)
+          const todosLosUsuarios = datosCache[cacheKey]?.usuarios || usuarios;
+          const resultadosFiltrados = bomberoService.buscarPersonal(todosLosUsuarios, termino);
+          setUsuarios(resultadosFiltrados);
+          setCurrentPage(1);
+        }
+      } catch (error) {
+        console.error("❌ Error en búsqueda:", error);
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [user?.id_faena, tipoSolicitante, datosCache, cacheKey, usuarios]
+  );
+
+  // ✅ Debounce para búsqueda
   useEffect(() => {
-    const usuariosFiltrados = filtrarUsuarios(todosLosUsuarios, searchTerm);
-    setUsuarios(usuariosFiltrados);
-    // Resetear a la primera página cuando cambia la búsqueda
-    setCurrentPage(1);
-  }, [searchTerm, todosLosUsuarios, filtrarUsuarios]);
+    const timer = setTimeout(() => {
+      buscarPersonal(searchTerm);
+    }, 300);
 
-  // Formatear usuario para pasarlo al siguiente paso
-  const formatearUsuarioParaSiguiente = (usuario) => {
+    return () => clearTimeout(timer);
+  }, [searchTerm, buscarPersonal]);
+
+  // Funciones memoizadas
+  const formatearUsuarioParaSiguiente = useCallback((usuario) => {
     const personalData = usuario.personal_interno || usuario.personal_externo;
-
     if (!personalData) {
       console.error("No se encontraron datos del personal", usuario);
       return {
@@ -155,8 +221,6 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
     }
     
     const rut = personalData.rut;
-    
-    // Buscar el ID del solicitante correspondiente en la tabla de solicitantes
     const solicitanteEncontrado = solicitantes.find(s => s && s.rut === rut);
     const idSolicitante = solicitanteEncontrado ? solicitanteEncontrado.id : null;
     
@@ -167,20 +231,18 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
       rut: personalData.rut || "",
       cargo: personalData.cargo || "",
       ubicacion: personalData.ubicacion || "",
-      faena: personalData.ubicacion || "", // Usamos ubicación como faena
+      faena: personalData.ubicacion || "",
       id_faena: user?.id_faena || null,
       tipo: tipoSolicitante,
       original: usuario
     };
-  };
+  }, [solicitantes, user?.id_faena, tipoSolicitante]);
 
-  // Manejar la limpieza del campo de búsqueda
-  const handleClearSearch = () => {
+  const handleClearSearch = useCallback(() => {
     setSearchTerm("");
-  };
+  }, []);
 
-  // Manejar la selección de un usuario
-  const handleSelectUser = (usuario) => {
+  const handleSelectUser = useCallback((usuario) => {
     if (!usuario || !usuario._original) {
       console.error("Usuario inválido seleccionado", usuario);
       return;
@@ -188,25 +250,22 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
     
     setSelectedUser(usuario);
     setShowUserDetails(true);
-
-    // Pasamos directamente el usuario formateado al siguiente paso
     const usuarioFormateado = formatearUsuarioParaSiguiente(usuario._original);
     onNext(usuarioFormateado);
-  };
+  }, [formatearUsuarioParaSiguiente, onNext]);
 
-  // Preparar items para el componente List
-  const prepareItems = useCallback(() => {
+  // Preparar items para mostrar
+  const formattedItems = useMemo(() => {
     if (!Array.isArray(usuarios)) return [];
 
+    const startIndex = (currentPage - 1) * displayPerPage;
+    const endIndex = startIndex + displayPerPage;
+
     return usuarios
-      .slice((currentPage - 1) * usersPerPage, currentPage * usersPerPage)
+      .slice(startIndex, endIndex)
       .map((item) => {
         const personalData = item.personal_interno || item.personal_externo;
-        
-        if (!personalData) {
-          console.warn("Elemento sin datos de personal", item);
-          return null;
-        }
+        if (!personalData) return null;
         
         return {
           id: personalData.id_personal_interno || personalData.id_personal_externo,
@@ -218,12 +277,10 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
           _original: item
         };
       })
-      .filter(Boolean); // Eliminar elementos nulos
-  }, [usuarios, currentPage, usersPerPage]);
+      .filter(Boolean);
+  }, [usuarios, currentPage, displayPerPage]);
 
-  // Calcular total de páginas
-  const totalPages = Math.max(1, Math.ceil(usuarios.length / usersPerPage));
-  const formattedItems = prepareItems();
+  const totalPages = Math.max(1, Math.ceil(usuarios.length / displayPerPage));
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 pt-14">
@@ -234,9 +291,12 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
             <StepHeader text="Cargar Combustible" />
           </div>
 
-          {/* Título con indicador de tipo */}
+          {/* Título optimizado */}
           <div className="w-full flex justify-center items-center">
-            <h2 className="text-gray-700 font-medium text-sm sm:text-base md:text-lg">
+            <h2 className="text-gray-700 font-medium text-sm sm:text-base md:text-lg flex items-center">
+              {isSearching && (
+                <FaSpinner className="animate-spin mr-2 text-orange-500" />
+              )}
               Seleccione Personal:{" "}
               <span
                 className={`${
@@ -247,31 +307,48 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
               >
                 {tipoSolicitante}
               </span>
+              <span className="ml-2 bg-emerald-100 text-emerald-700 text-xs px-2 py-1 rounded-full">
+                💾 Con Cache
+              </span>
             </h2>
           </div>
 
-          {/* Indicador de ubicación actual */}
-          {ubicacionFaena && (
-            <div className="bg-blue-100 text-blue-800 text-xs rounded-lg py-1 px-3 flex items-center">
-              <FaMapMarkerAlt className="mr-1 text-blue-600" size={12} />
-              <span className="mr-1">Faena actual:</span>
-              <span className="font-medium">{ubicacionFaena}</span>
-            </div>
-          )}
+          {/* Indicadores */}
+          <div className="flex flex-col sm:flex-row gap-2 items-center">
+            {ubicacionFaena && (
+              <div className="bg-blue-100 text-blue-800 text-xs rounded-lg py-1 px-3 flex items-center">
+                <FaMapMarkerAlt className="mr-1 text-blue-600" size={12} />
+                <span className="mr-1">Faena:</span>
+                <span className="font-medium">{ubicacionFaena}</span>
+              </div>
+            )}
+            
+            {usuarios.length > 0 && (
+              <div className="bg-orange-100 text-orange-800 text-xs rounded-lg py-1 px-3">
+                <span className="font-medium">{usuarios.length}</span> resultado{usuarios.length !== 1 ? 's' : ''}
+                {searchTerm && <span> para "{searchTerm}"</span>}
+              </div>
+            )}
+          </div>
 
-          {/* Contenedor principal con altura fija para evitar saltos */}
+          {/* Contenedor principal */}
           <div className="bg-orange-500 w-full rounded-2xl sm:rounded-3xl md:rounded-[40px] py-3 sm:py-4 md:py-6 px-2 sm:px-3 md:px-4 space-y-2 sm:space-y-3 md:space-y-4 min-h-[400px] md:min-h-[450px] flex flex-col relative z-0">
             <TabProgressBar activeTab="solicitante" />
 
             {/* Barra de búsqueda */}
             <div className="flex items-center space-x-2">
-              <div className="flex-grow">
+              <div className="flex-grow relative">
                 <SearchBar
                   searchTerm={searchTerm}
                   setSearchTerm={setSearchTerm}
-                  placeholder="Buscar por nombre, apellido o RUT"
+                  placeholder="Búsqueda inteligente con cache"
                   onClear={handleClearSearch}
                 />
+                {isSearching && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <FaSpinner className="animate-spin text-gray-400" size={16} />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -299,7 +376,7 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       ></path>
                     </svg>
-                    <p className="text-gray-500">Cargando usuarios...</p>
+                    <p className="text-gray-500">Cargando una sola vez con cache...</p>
                   </div>
                 </div>
               ) : error ? (
@@ -318,21 +395,61 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
                     </svg>
                     <p className="text-red-500">{error}</p>
                     <button
-                      onClick={() => window.location.reload()}
+                      onClick={() => {
+                        // Limpiar cache y recargar
+                        setDatosCache(prev => {
+                          const newCache = { ...prev };
+                          delete newCache[cacheKey];
+                          return newCache;
+                        });
+                        window.location.reload();
+                      }}
                       className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
                     >
                       Reintentar
                     </button>
                   </div>
                 </div>
-              ) : (
+              ) : formattedItems.length > 0 ? (
                 <List
                   items={formattedItems}
                   onItemSelect={handleSelectUser}
                   buttonStyle={true}
                   tipoElemento="personal"
-                  maxHeight="350px" // Altura fija para el contenedor de la lista
+                  maxHeight="350px"
                 />
+              ) : (
+                <div className="h-full flex items-center justify-center">
+                  <div className="text-center">
+                    <svg
+                      className="w-10 h-10 mx-auto mb-4 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      ></path>
+                    </svg>
+                    <p className="text-gray-500">
+                      {searchTerm 
+                        ? `No se encontraron resultados para "${searchTerm}"` 
+                        : `No hay personal ${tipoSolicitante} disponible en esta faena`
+                      }
+                    </p>
+                    {searchTerm && (
+                      <button
+                        onClick={handleClearSearch}
+                        className="mt-2 text-orange-500 hover:text-orange-700 font-medium"
+                      >
+                        Limpiar búsqueda
+                      </button>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -346,7 +463,7 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
               textColor="orange-500"
             />
             <div className="flex-1 flex justify-center">
-              {!loading && !error && usuarios.length > 0 && (
+              {!loading && !error && formattedItems.length > 0 && totalPages > 1 && (
                 <PageControl
                   currentPage={currentPage}
                   totalPages={totalPages}
@@ -354,11 +471,10 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
                 />
               )}
             </div>
-
             <div className="w-5 h-5 md:w-6 md:h-6"></div>
           </div>
 
-          {/* Modal para mostrar detalles del usuario seleccionado */}
+          {/* Modal de detalles */}
           {showUserDetails && selectedUser && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-xl p-4 max-w-md w-full mx-4">
@@ -420,7 +536,7 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
           )}
 
           {/* Ayuda */}
-          <div className="bg-blue-50 text-blue-800 rounded-lg sm:rounded-xl px-2 sm:px-3 md:px-4 py-1 sm:py-2 text-xs sm:text-sm w-full max-w-xs sm:max-w-sm">
+          <div className="bg-emerald-50 text-emerald-800 rounded-lg sm:rounded-xl px-2 sm:px-3 md:px-4 py-1 sm:py-2 text-xs sm:text-sm w-full max-w-xs sm:max-w-sm">
             <p className="flex items-center justify-center">
               <svg
                 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2"
@@ -434,14 +550,7 @@ const Solicitante = ({ onNext, onPrevious, tipoSolicitante }) => {
                 ></path>
               </svg>
               <span className="inline-block">
-                Seleccione un usuario para continuar
-                {ubicacionFaena && (
-                  <>
-                    {" "}
-                    (Solo se muestran usuarios de la faena{" "}
-                    {ubicacionFaena})
-                  </>
-                )}
+                💾 Con cache - Carga rápida
               </span>
             </p>
           </div>

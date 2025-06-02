@@ -5,18 +5,20 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\CategoriaMaquina;
 use App\Models\permisos_maquinas_faenas;
+use App\Models\MaquinaExterna;
 
 class Maquinas extends Model
 {
-    protected $table = 'maquinas'; // Especifica la tabla solo si no sigue la convención
-    protected $primaryKey = 'id_maquina'; // clave primaria personalizada
-    public $incrementing = true; // Laravel lo necesita para claves personalizadas
+    protected $table = 'maquinas';
+    protected $primaryKey = 'id_maquina';
+    public $incrementing = true;
 
     protected $fillable = [
         'id_categoria',
         'nombre_maquina',
         'tipo_maquina',
         'patente',
+        'estado',
     ];
 
     // Relación con la tabla Categorias
@@ -24,9 +26,40 @@ class Maquinas extends Model
     {
         return $this->belongsTo(CategoriaMaquina::class, 'id_categoria');
     }
+
     // La relación inversa para los permisos de máquina
     public function permisos()
     {
         return $this->hasMany(permisos_maquinas_faenas::class, 'id_maquina');
+    }
+
+    // Relación con máquinas externas
+    public function maquinasExternas()
+    {
+        return $this->hasMany(MaquinaExterna::class, 'id_maquina', 'id_maquina');
+    }
+
+    // Relación específica para una máquina externa
+    public function maquinaExterna()
+    {
+        return $this->hasOne(MaquinaExterna::class, 'id_maquina', 'id_maquina');
+    }
+
+    // Scope para máquinas internas
+    public function scopeInternas($query)
+    {
+        return $query->where('tipo_maquina', 'Interno');
+    }
+
+    // Scope para máquinas externas
+    public function scopeExternas($query)
+    {
+        return $query->where('tipo_maquina', 'Externo');
+    }
+
+    // Scope para máquinas operativas
+    public function scopeOperativas($query)
+    {
+        return $query->where('estado', 'operativo');
     }
 }
