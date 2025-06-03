@@ -1,11 +1,13 @@
 import React, { useState, useCallback, useMemo, useContext, useEffect } from "react";
 import { UserContext } from "../../context/userContext";
+import Header from "../../components/organisms/Bombero/Header";
 import TipoSolicitante from "../../components/templates/Bombero/BomberoTipoSolicitante";
 import Solicitante from "../../components/templates/Bombero/BomberoSolicitante";
 import Maquinaria from "../../components/templates/Bombero/BomberoMaquinaria";
 import Patente from "../../components/templates/Bombero/BomberoPatente";
 import Consumo from "../../components/templates/Bombero/BomberoConsumo";
 import bomberoService from "../../context/bomberoService";
+import axios from "../../lib/axios";
 
 const BomberoNavigation = () => {
   // Obtener contexto del usuario
@@ -23,6 +25,16 @@ const BomberoNavigation = () => {
   // Estado para controlar si se debe limpiar el cache
   const [shouldClearCache, setShouldClearCache] = useState(false);
 
+  // Estados para precarga MEJORADOS
+  const [preloadStatus, setPreloadStatus] = useState({
+    personal: { loaded: false, loading: false },
+    categorias: { loaded: false, loading: false },
+    maquinas: { loaded: false, loading: false },
+    estanques: { loaded: false, loading: false },
+    // 🆕 NUEVO: Estado para precarga masiva
+    maquinasMasivas: { loaded: false, loading: false }
+  });
+
   // Memoizar la información del usuario para evitar re-renders
   const userInfo = useMemo(() => ({
     id: user?.id,
@@ -31,24 +43,117 @@ const BomberoNavigation = () => {
     apellido: user?.apellido
   }), [user?.id, user?.id_faena, user?.nombre, user?.apellido]);
 
-  // Precargar datos cuando el componente se monta
+  // PASO 1: Precargar personal (interno y externo) al montar el componente
   useEffect(() => {
-    const preloadData = async () => {
-      if (userInfo.faena) {
+    const preloadPersonalData = async () => {
+      if (userInfo.faena && !preloadStatus.personal.loaded && !preloadStatus.personal.loading) {
         try {
-          console.log('🚀 Precargando datos para mejorar UX...');
-          // Precargar ambos tipos de personal
-          await bomberoService.preloadPersonalData(['interno', 'externo'], userInfo.faena);
-          console.log('✅ Precarga completada');
+          console.log('🚀 PASO 1: Precargando personal interno y externo...');
+          setPreloadStatus(prev => ({
+            ...prev,
+            personal: { loaded: false, loading: true }
+          }));
+
+          // Precargar ambos tipos de personal en paralelo
+          await Promise.all([
+            bomberoService.preloadPersonalData(['interno'], userInfo.faena),
+            bomberoService.preloadPersonalData(['externo'], userInfo.faena)
+          ]);
+
+          setPreloadStatus(prev => ({
+            ...prev,
+            personal: { loaded: true, loading: false }
+          }));
+          
+          console.log('✅ PASO 1: Personal precargado exitosamente');
         } catch (error) {
-          console.warn('⚠️ Error en precarga:', error);
+          console.warn('⚠️ Error precargando personal:', error);
+          setPreloadStatus(prev => ({
+            ...prev,
+            personal: { loaded: false, loading: false }
+          }));
         }
       }
     };
 
-    preloadData();
-  }, [userInfo.faena]);
+    preloadPersonalData();
+  }, [userInfo.faena, preloadStatus.personal.loaded, preloadStatus.personal.loading]);
 
+  // PASO 2: Precargar categorías cuando se selecciona tipo solicitante
+  useEffect(() => {
+    const preloadCategorias = async () => {
+      if (tipoSolicitante && !preloadStatus.categorias.loaded && !preloadStatus.categorias.loading) {
+        try {
+          console.log('🚀 PASO 2: Precargando categorías de maquinaria...');
+          setPreloadStatus(prev => ({
+            ...prev,
+            categorias: { loaded: false, loading: true }
+          }));
+
+          // Precargar categorías de maquinaria
+          await bomberoService.getCategoriasMaquinaria();
+
+          setPreloadStatus(prev => ({
+            ...prev,
+            categorias: { loaded: true, loading: false }
+          }));
+          
+          console.log('✅ PASO 2: Categorías precargadas exitosamente');
+        } catch (error) {
+          console.warn('⚠️ Error precargando categorías:', error);
+          setPreloadStatus(prev => ({
+            ...prev,
+            categorias: { loaded: false, loading: false }
+          }));
+        }
+      }
+    };
+
+    if (tipoSolicitante) {
+      preloadCategorias();
+    }
+  }, [tipoSolicitante, preloadStatus.categorias.loaded, preloadStatus.categorias.loading]);
+
+  // 🆕 PASO 2.5: PRECARGA MASIVA DE TODAS LAS MÁQUINAS CUANDO SE SELECCIONA TIPO
+  useEffect(() => {
+    const preloadMasivoMaquinas = async () => {
+      if (tipoSolicitante && userInfo.faena && 
+          !preloadStatus.maquinasMasivas.loaded && !preloadStatus.maquinasMasivas.loading) {
+        try {
+          console.log('🚀 🚀 PASO 2.5: INICIANDO PRECARGA MASIVA de todas las máquinas...');
+          setPreloadStatus(prev => ({
+            ...prev,
+            maquinasMasivas: { loaded: false, loading: true }
+          }));
+
+          // 🚀 PRECARGA MASIVA: Todas las máquinas + estanques
+          await bomberoService.warmupMasivoMaquinas(tipoSolicitante, userInfo.faena);
+
+          setPreloadStatus(prev => ({
+            ...prev,
+            maquinasMasivas: { loaded: true, loading: false },
+            estanques: { loaded: true, loading: false } // También se precargan estanques
+          }));
+          
+          console.log('🎉 🎉 PASO 2.5: PRECARGA MASIVA completada - Usuario tendrá navegación instantánea');
+        } catch (error) {
+          console.warn('⚠️ Error en precarga masiva:', error);
+          setPreloadStatus(prev => ({
+            ...prev,
+            maquinasMasivas: { loaded: false, loading: false }
+          }));
+        }
+      }
+    };
+
+    if (tipoSolicitante && userInfo.faena) {
+      preloadMasivoMaquinas();
+    }
+  }, [tipoSolicitante, userInfo.faena, preloadStatus.maquinasMasivas.loaded, preloadStatus.maquinasMasivas.loading]);
+
+  // PASO 3: OBSOLETO - Ya no necesitamos precargar máquinas individuales
+  // porque ya las tenemos todas precargadas desde el paso 2.5
+  
   // Función optimizada para reiniciar todo el flujo
   const resetFlow = useCallback(() => {
     console.log('🔄 Reiniciando flujo de bombero');
@@ -59,7 +164,16 @@ const BomberoNavigation = () => {
     setPatenteSeleccionada("");
     setShouldClearCache(true);
     
-    // Limpiar cache después de un breve delay para asegurar que los componentes se hayan desmontado
+    // Reiniciar estados de precarga
+    setPreloadStatus({
+      personal: { loaded: false, loading: false },
+      categorias: { loaded: false, loading: false },
+      maquinas: { loaded: false, loading: false },
+      estanques: { loaded: false, loading: false },
+      maquinasMasivas: { loaded: false, loading: false }
+    });
+    
+    // Limpiar cache después de un breve delay
     setTimeout(() => {
       bomberoService.clearCache();
       setShouldClearCache(false);
@@ -108,8 +222,9 @@ const BomberoNavigation = () => {
   // Memoizar las props que se pasan a cada componente para evitar re-renders
   const tipoSolicitanteProps = useMemo(() => ({
     onNext: handleNext,
-    selectedTipo: tipoSolicitante
-  }), [handleNext, tipoSolicitante]);
+    selectedTipo: tipoSolicitante,
+    preloadStatus: preloadStatus.personal
+  }), [handleNext, tipoSolicitante, preloadStatus.personal]);
 
   const solicitanteProps = useMemo(() => ({
     tipoSolicitante,
@@ -117,16 +232,19 @@ const BomberoNavigation = () => {
     onNext: handleNext,
     onPrevious: handlePrevious,
     userFaena: userInfo.faena,
-    shouldClearCache
-  }), [tipoSolicitante, solicitante, handleNext, handlePrevious, userInfo.faena, shouldClearCache]);
+    shouldClearCache,
+    preloadStatus: preloadStatus.categorias
+  }), [tipoSolicitante, solicitante, handleNext, handlePrevious, userInfo.faena, shouldClearCache, preloadStatus.categorias]);
 
   const maquinariaProps = useMemo(() => ({
     tipoSolicitante,
     categoriaSeleccionada,
     onNext: handleNext,
     onPrevious: handlePrevious,
-    userFaena: userInfo.faena
-  }), [tipoSolicitante, categoriaSeleccionada, handleNext, handlePrevious, userInfo.faena]);
+    userFaena: userInfo.faena,
+    // 🆕 CAMBIO: Ahora pasamos el estado de precarga masiva
+    preloadStatus: preloadStatus.maquinasMasivas
+  }), [tipoSolicitante, categoriaSeleccionada, handleNext, handlePrevious, userInfo.faena, preloadStatus.maquinasMasivas]);
 
   const patenteProps = useMemo(() => ({
     tipoSolicitante,
@@ -135,8 +253,10 @@ const BomberoNavigation = () => {
     solicitante,
     onNext: handleNext,
     onPrevious: handlePrevious,
-    userFaena: userInfo.faena
-  }), [tipoSolicitante, categoriaSeleccionada, patenteSeleccionada, solicitante, handleNext, handlePrevious, userInfo.faena]);
+    userFaena: userInfo.faena,
+    // 🆕 CAMBIO: Indicar que las máquinas ya están precargadas
+    maquinasPrecargadas: preloadStatus.maquinasMasivas.loaded
+  }), [tipoSolicitante, categoriaSeleccionada, patenteSeleccionada, solicitante, handleNext, handlePrevious, userInfo.faena, preloadStatus.maquinasMasivas.loaded]);
 
   const consumoProps = useMemo(() => ({
     tipoSolicitante,
@@ -147,7 +267,8 @@ const BomberoNavigation = () => {
     onComplete: handleFlowComplete,
     resetFlow,
     userInfo,
-    idFaena: userInfo.faena
+    idFaena: userInfo.faena,
+    preloadedEstanques: preloadStatus.estanques
   }), [
     tipoSolicitante, 
     solicitante, 
@@ -156,7 +277,8 @@ const BomberoNavigation = () => {
     handlePrevious, 
     handleFlowComplete, 
     resetFlow, 
-    userInfo
+    userInfo,
+    preloadStatus.estanques
   ]);
 
   // Renderizar el paso correspondiente con memoización
@@ -184,85 +306,19 @@ const BomberoNavigation = () => {
     consumoProps
   ]);
 
-  // Indicador de progreso opcional
-  const progressIndicator = useMemo(() => {
-    const steps = [
-      { number: 1, title: 'Tipo', completed: currentStep > 1 },
-      { number: 2, title: 'Solicitante', completed: currentStep > 2 },
-      { number: 3, title: 'Maquinaria', completed: currentStep > 3 },
-      { number: 4, title: 'Patente', completed: currentStep > 4 },
-      { number: 5, title: 'Consumo', completed: currentStep > 5 },
-    ];
-
-    return (
-      <div className="mb-6 px-4">
-        <div className="flex justify-between items-center">
-          {steps.map((step, index) => (
-            <div key={step.number} className="flex items-center">
-              <div className={`
-                w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold
-                ${currentStep === step.number 
-                  ? 'bg-blue-600 text-white' 
-                  : step.completed 
-                    ? 'bg-green-500 text-white' 
-                    : 'bg-gray-300 text-gray-600'
-                }
-              `}>
-                {step.completed ? '✓' : step.number}
-              </div>
-              <span className={`ml-2 text-sm ${
-                currentStep === step.number ? 'font-bold text-blue-600' : 'text-gray-600'
-              }`}>
-                {step.title}
-              </span>
-              {index < steps.length - 1 && (
-                <div className={`w-8 h-0.5 mx-2 ${
-                  step.completed ? 'bg-green-500' : 'bg-gray-300'
-                }`} />
-              )}
-            </div>
-          ))}
+  // Return principal del componente
+  return (
+    <div className="flex flex-col min-h-screen bg-gray-100">
+      {/* Header centralizado */}
+      <Header className="fixed top-0 left-0 right-0 z-10" />
+      
+      {/* Container principal con padding-top para compensar el header fijo */}
+      <div>
+        {/* Contenido principal */}
+        <div className="container mx-auto">
+          {renderStep}
         </div>
       </div>
-    );
-  }, [currentStep]);
-
-  // Debug info (solo en desarrollo)
-  const debugInfo = useMemo(() => {
-    if (process.env.NODE_ENV !== 'development') return null;
-    
-    return (
-      <div className="fixed bottom-4 right-4 bg-black bg-opacity-75 text-white p-3 rounded-lg text-xs max-w-sm">
-        <h4 className="font-bold mb-2">Debug Info:</h4>
-        <div>Paso: {currentStep}/5</div>
-        <div>Tipo: {tipoSolicitante || 'No seleccionado'}</div>
-        <div>Solicitante: {solicitante?.id || 'No seleccionado'}</div>
-        <div>Categoría: {typeof categoriaSeleccionada === 'object' ? categoriaSeleccionada?.nombre || 'Objeto seleccionado' : categoriaSeleccionada || 'No seleccionada'}</div>
-        <div>Patente: {typeof patenteSeleccionada === 'object' ? patenteSeleccionada?.patente || 'Objeto seleccionado' : patenteSeleccionada || 'No seleccionada'}</div>
-        <div>User Faena: {userInfo.faena || 'No disponible'}</div>
-        <div className="text-xs">Cache Stats: {bomberoService.getCacheStats ? JSON.stringify(bomberoService.getCacheStats(), null, 2) : 'N/A'}</div>
-        <button 
-          onClick={resetFlow}
-          className="mt-2 px-2 py-1 bg-red-600 text-white rounded text-xs"
-        >
-          Reset Flow
-        </button>
-      </div>
-    );
-  }, [currentStep, tipoSolicitante, solicitante, categoriaSeleccionada, patenteSeleccionada, userInfo.faena, resetFlow]);
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Indicador de progreso */}
-      {progressIndicator}
-      
-      {/* Contenido principal */}
-      <div className="container mx-auto">
-        {renderStep}
-      </div>
-      
-      {/* Debug info */}
-      {debugInfo}
     </div>
   );
 };

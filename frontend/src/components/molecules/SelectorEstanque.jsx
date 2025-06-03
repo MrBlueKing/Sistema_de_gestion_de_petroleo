@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { FaGasPump, FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
-import axios from "../../lib/axios";
+import bomberoService from "../../context/bomberoService";
 
 // Componente de tarjeta para cada estanque
 const EstanqueTarjeta = ({ estanque, seleccionado, onSelect, disabled }) => {
@@ -81,21 +81,17 @@ const SelectorEstanques = ({
   estanqueSeleccionado,
   litrosRequeridos,
   disabled = false,
+  preloadedEstanques,
 }) => {
   const [estanques, setEstanques] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [mostrarTodos, setMostrarTodos] = useState(false);
-
-  // Log para debugging
-  useEffect(() => {
-    console.log("SelectorEstanques recibió idFaena:", idFaena);
-  }, [idFaena]);
+  const [cacheUsado, setCacheUsado] = useState(false);
 
   // Cargar estanques al montar el componente o cuando cambia la faena
   useEffect(() => {
     if (!idFaena) {
-      console.error("idFaena no está definido, no se pueden cargar estanques");
       setError("No se ha especificado una faena");
       setLoading(false);
       return;
@@ -105,37 +101,25 @@ const SelectorEstanques = ({
       try {
         setLoading(true);
         setError(null);
-        
+        setCacheUsado(false);
 
-        const token = JSON.parse(localStorage.getItem("authToken"))?.token;
-        const url = `/api/estanques/${idFaena}`;
-        
+        // Usar bomberoService con cache first
+        const estanquesData = await bomberoService.getEstanques(idFaena);
 
-        const response = await axios.get(url, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        console.log("Respuesta del servidor:", response.data);
-
-        if (response.data.success) {
-          // Agregar stock_actual a cada estanque (esto debería venir del backend)
-          // Si ya viene en la respuesta, puedes omitir esta transformación
-          const estanquesConStock = response.data.data.map((estanque) => ({
+        if (estanquesData && estanquesData.length > 0) {
+          // Procesar estanques
+          const estanquesConStock = estanquesData.map((estanque) => ({
             ...estanque,
-            stock_actual: estanque.stock_actual || 0, // Usar stock real si existe
+            stock_actual: estanque.stock_actual || 0,
+            capacidad: parseFloat(estanque.capacidad) || 0,
           }));
 
           setEstanques(estanquesConStock);
-          console.log("Estanques cargados:", estanquesConStock.length);
+          setCacheUsado(true);
         } else {
-          throw new Error(
-            response.data.message || "Error al cargar los estanques"
-          );
+          setEstanques([]);
         }
       } catch (error) {
-        console.error("Error al cargar estanques:", error);
         setError(
           error.message || "No se pudieron cargar los estanques. Intente nuevamente."
         );
@@ -144,9 +128,8 @@ const SelectorEstanques = ({
       }
     };
 
-    cargarEstanques(); // No necesita parámetro ya que usamos el idFaena del scope
-
-  }, [idFaena]); // Dependencia: idFaena
+    cargarEstanques();
+  }, [idFaena]);
 
   // Filtrar estanques por disponibilidad según los litros requeridos
   const estanquesDisponibles = estanques.filter(
@@ -167,11 +150,6 @@ const SelectorEstanques = ({
         <p className="text-sm text-yellow-700">
           No se encontraron estanques registrados para esta faena.
         </p>
-        {process.env.NODE_ENV === 'development' && (
-          <p className="mt-2 text-xs text-yellow-600 border-t border-yellow-200 pt-2">
-            Debugging: idFaena = {idFaena ? idFaena : 'undefined'}
-          </p>
-        )}
       </div>
     );
   }
@@ -183,19 +161,35 @@ const SelectorEstanques = ({
           <FaGasPump className="text-orange-500 mr-2" />
           Seleccione Estanque
         </h3>
-        {estanques.length > 0 && (
-          <div className="text-xs text-gray-500">
-            {estanques.length} estanque{estanques.length !== 1 ? "s" : ""} disponible
-            {estanques.length !== 1 ? "s" : ""}
-          </div>
-        )}
+        <div className="flex items-center space-x-2">
+          {estanques.length > 0 && (
+            <div className="text-xs text-gray-500">
+              {estanques.length} estanque{estanques.length !== 1 ? "s" : ""} disponible
+              {estanques.length !== 1 ? "s" : ""}
+            </div>
+          )}
+          {/* Indicador de cache usado */}
+          {cacheUsado && preloadedEstanques && preloadedEstanques.loaded && (
+            <div className="text-xs text-green-600 flex items-center">
+              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              Precargado
+            </div>
+          )}
+        </div>
       </div>
       
 
       {loading ? (
         <div className="p-4 text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-2"></div>
-          <p className="text-gray-500 text-sm">Cargando estanques...</p>
+          <p className="text-gray-500 text-sm">
+            {preloadedEstanques && preloadedEstanques.loaded 
+              ? "Cargando desde cache..." 
+              : "Cargando estanques..."
+            }
+          </p>
         </div>
       ) : error ? (
         <div className="p-4 text-center">
@@ -203,11 +197,6 @@ const SelectorEstanques = ({
             <FaExclamationTriangle className="text-red-500 text-xl" />
           </div>
           <p className="text-red-600">{error}</p>
-          {process.env.NODE_ENV === 'development' && (
-            <p className="mt-2 text-xs text-red-500">
-              Debugging: idFaena = {idFaena ? idFaena : 'undefined'}
-            </p>
-          )}
         </div>
       ) : (
         <>
