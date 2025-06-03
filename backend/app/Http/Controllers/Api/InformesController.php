@@ -12,7 +12,6 @@ class InformesController extends Controller
 {
     public function getConsumoMaquinas(Request $request)
     {
-        Log::info('Iniciando consulta de consumo de máquinas', ['data_recibida' => $request->all()]);
         // Asegurar que fecha_fin incluya todo el día
         $fechaInicio = $request->input('fecha_inicio', Carbon::now()->startOfMonth()->format('Y-m-d'));
         $fechaFin = $request->input('fecha_fin', Carbon::now()->format('Y-m-d') . ' 23:59:59');

@@ -498,7 +498,7 @@ class TonelajeController extends Controller
     /**
      * Métodos básicos del CRUD
      */
-    public function index(Request $request)
+    public function sindex(Request $request)
     {
         $tonelajes = Tonelaje::with(['padron.faena', 'padron.planta'])->get();
         return response()->json(['status' => 'success', 'data' => $tonelajes]);

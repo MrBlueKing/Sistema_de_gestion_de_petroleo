@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
+// claude 2025 😅 La realidad: "Sistema que funciona por milagro y no tocar nada"
+
 class ConsumoCategoriasController extends Controller
 {
     const HORA_INICIO_LABORAL = 8;  // 8:00 AM
@@ -53,7 +55,6 @@ class ConsumoCategoriasController extends Controller
                     $incluirSabados,
                     $incluirDomingos
                 );
-
                 $fechaInicio = $fechasCalculadas['fecha_inicio'];
                 $fechaFin = $fechasCalculadas['fecha_fin'];
                 $modoConsulta = 'automatico_horario_laboral';
@@ -61,9 +62,17 @@ class ConsumoCategoriasController extends Controller
             } else {
                 // Modo manual: usar fechas proporcionadas
                 $fechaInicio = Carbon::parse($request->fecha_inicio ?? now()->subDays(30));
-                $fechaFin = Carbon::parse($request->fecha_fin ?? now());
+                $fechaFinOriginal = $request->fecha_fin ?? now();
                 $modoConsulta = 'manual';
                 $descripcionPeriodo = "Período específico proporcionado";
+
+                $ajusteFechaFin = $this->ajustarFechaFinInteligente($fechaFinOriginal, $momentoConsulta);
+                $fechaFin = $ajusteFechaFin['fecha_ajustada'];
+
+                $modoConsulta = 'manual';
+                $descripcionPeriodo = $ajusteFechaFin['fue_ajustada']
+                    ? "Período específico con ajuste automático de hora final"
+                    : "Período específico proporcionado";
             }
 
             $idFaena = $request->id_faena;
@@ -126,6 +135,7 @@ class ConsumoCategoriasController extends Controller
                     'consulta' => [
                         'timestamp_consulta' => $momentoConsulta->format('Y-m-d H:i:s'),
                         'timezone' => 'America/Santiago',
+                        'ajuste_fecha_fin' => isset($ajusteFechaFin) ? $ajusteFechaFin : null,
                         'modo_consulta' => $modoConsulta,
                         'descripcion_periodo' => $descripcionPeriodo,
                         'usuario_timestamp' => "Consulta realizada: " . $momentoConsulta->format('d/m/Y \a \l\a\s H:i'),
@@ -521,12 +531,33 @@ class ConsumoCategoriasController extends Controller
                 );
 
                 if (!empty($analisisMaquina['consumos_confirmados']) || !empty($analisisMaquina['simulacion'])) {
+                    // ===== NUEVO: Calcular estadísticas detalladas de la máquina =====
+                    $estadisticasDetalladas = $this->calcularEstadisticasDetalladasMaquina(
+                        $maquina,
+                        $analisisMaquina,
+                        $categoria,
+                        $fechaInicio,
+                        $fechaFin,
+                        $incluirSabados,
+                        $incluirDomingos
+                    );
+
                     $analisisPorMaquina[] = [
                         'maquina' => [
                             'id' => $maquina->id_maquina,
                             'nombre' => $maquina->nombre_maquina,
-                            'patente' => $maquina->patente ?? 'N/A'
+                            'patente' => $maquina->patente ?? 'N/A',
+                            'tipo' => $categoria->nombre_categoria,
+                            'tipo_medicion' => $categoria->tipo_medicion,
+                            'faena' => $this->obtenerFaenaMaquina($maquina->id_maquina, $idFaena),
+                            'estado' => $maquina->estado ?? 'N/A'
                         ],
+                        // ===== NUEVO: Resumen ejecutivo de la máquina =====
+                        'resumen_ejecutivo' => $estadisticasDetalladas['resumen'],
+                        'rendimiento' => $estadisticasDetalladas['rendimiento'],
+                        'costos' => $estadisticasDetalladas['costos'],
+
+                        // Información existente
                         'periodos_confirmados' => $this->formatearPeriodosConfirmados($analisisMaquina['consumos_confirmados'], $incluirSabados, $incluirDomingos),
                         'simulacion' => $analisisMaquina['simulacion'] ? $this->formatearSimulacion($analisisMaquina['simulacion'], $incluirSabados, $incluirDomingos) : null,
                         'estadisticas' => $this->calcularEstadisticasMaquina($analisisMaquina, $categoria, $incluirSabados, $incluirDomingos),
@@ -589,6 +620,218 @@ class ConsumoCategoriasController extends Controller
                 'resumen_categoria' => $this->resumenVacio(),
                 'error' => $e->getMessage()
             ];
+        }
+    }
+
+    /**
+     * NUEVO: Calcular estadísticas detalladas para mostrar en tabla resumen
+     */
+    private function calcularEstadisticasDetalladasMaquina($maquina, $analisisMaquina, $categoria, $fechaInicio, $fechaFin, $incluirSabados = true, $incluirDomingos = false)
+    {
+        // Calcular totales
+        $litrosTotales = $analisisMaquina['total_confirmado'] + ($analisisMaquina['simulacion']['litros_simulados'] ?? 0);
+        $litrosConfirmados = $analisisMaquina['total_confirmado'];
+        $litrosSimulados = $analisisMaquina['simulacion']['litros_simulados'] ?? 0;
+
+        // Calcular días y medición según tipo
+        $diasLaborales = $this->calcularDiasLaboralesCorrectos($fechaInicio, $fechaFin, $incluirSabados, $incluirDomingos);
+        $medicionTotal = $this->calcularMedicionTotal($maquina->id_maquina, $fechaInicio, $fechaFin);
+
+        // Calcular precio promedio
+        $precioPromedio = $this->obtenerPrecioPromedioMaquina($maquina->id_maquina);
+        $valorTotal = $litrosTotales * $precioPromedio;
+
+        // Calcular rendimiento según tipo de medición
+        $rendimiento = $this->calcularRendimientoMaquina($litrosTotales, $medicionTotal, $categoria->tipo_medicion);
+
+        return [
+            'resumen' => [
+                'litros_totales' => round($litrosTotales, 2),
+                'litros_confirmados' => round($litrosConfirmados, 2),
+                'litros_simulados' => round($litrosSimulados, 2),
+                'porcentaje_confirmado' => $litrosTotales > 0 ? round(($litrosConfirmados / $litrosTotales) * 100, 1) : 0,
+                'dias_operativos' => $diasLaborales,
+                'promedio_litros_dia' => $diasLaborales > 0 ? round($litrosTotales / $diasLaborales, 2) : 0
+            ],
+            'rendimiento' => [
+                'tipo_medicion' => $categoria->tipo_medicion,
+                'medicion_total' => $medicionTotal,
+                'rendimiento_valor' => $rendimiento['valor'],
+                'rendimiento_unidad' => $rendimiento['unidad'],
+                'rendimiento_formateado' => $rendimiento['formateado'],
+                'interpretacion' => $rendimiento['interpretacion']
+            ],
+            'costos' => [
+                'precio_promedio_litro' => round($precioPromedio, 0),
+                'valor_total' => round($valorTotal, 0),
+                'costo_por_dia' => $diasLaborales > 0 ? round($valorTotal / $diasLaborales, 0) : 0,
+                'moneda' => 'CLP'
+            ]
+        ];
+    }
+
+    /**
+     * NUEVO: Calcular rendimiento según tipo de medición
+     */
+    private function calcularRendimientoMaquina($litrosTotales, $medicionData, $tipoMedicion)
+    {
+        $medicionValor = $medicionData['valor'] ?? 0;
+
+        if ($medicionValor <= 0 || $litrosTotales <= 0) {
+            return [
+                'valor' => 0,
+                'unidad' => $tipoMedicion === 'Kilometraje' ? 'lts/km' : 'lts/h',
+                'formateado' => '0.00 ' . ($tipoMedicion === 'Kilometraje' ? 'lts/km' : 'lts/h'),
+                'interpretacion' => 'Sin datos suficientes para calcular rendimiento'
+            ];
+        }
+
+        $rendimiento = $litrosTotales / $medicionValor;
+        $unidad = $tipoMedicion === 'Kilometraje' ? 'lts/km' : 'lts/h';
+
+        // Interpretación según el tipo
+        $interpretacion = $this->interpretarRendimiento($rendimiento, $tipoMedicion);
+
+        return [
+            'valor' => round($rendimiento, 2),
+            'unidad' => $unidad,
+            'formateado' => round($rendimiento, 2) . ' ' . $unidad,
+            'interpretacion' => $interpretacion,
+            'calculo_base' => [
+                'litros_totales' => $litrosTotales,
+                'medicion_total' => $medicionValor,
+                'tipo_medicion' => $tipoMedicion
+            ]
+        ];
+    }
+    /**
+     * NUEVO: Interpretar rendimiento según valores típicos
+     */
+    private function interpretarRendimiento($rendimiento, $tipoMedicion)
+    {
+        if ($tipoMedicion === 'Kilometraje') {
+            // Para camiones - litros por kilómetro
+            if ($rendimiento > 0.5) {
+                return 'Consumo alto - revisar eficiencia';
+            } elseif ($rendimiento > 0.3) {
+                return 'Consumo moderado - dentro del rango normal';
+            } else {
+                return 'Consumo eficiente';
+            }
+        } else {
+            // Para maquinaria - litros por hora
+            if ($rendimiento > 15) {
+                return 'Consumo alto - revisar condiciones operativas';
+            } elseif ($rendimiento > 8) {
+                return 'Consumo moderado - rango operativo normal';
+            } else {
+                return 'Consumo bajo - operación eficiente';
+            }
+        }
+    }
+
+    /**
+     * NUEVO: Obtener precio promedio específico de una máquina
+     */
+    private function obtenerPrecioPromedioMaquina($idMaquina)
+    {
+        $precio = DB::table('consumos')
+            ->where('id_equipo', $idMaquina)
+            ->whereNotNull('precio_litro')
+            ->where('precio_litro', '>', 0)
+            ->avg('precio_litro');
+
+        return $precio ?? 900; // Valor por defecto si no hay datos
+    }
+    /**
+     * NUEVO: Calcular medición total según tipo de máquina
+     */
+    private function calcularMedicionTotal($idMaquina, $fechaInicio, $fechaFin)
+    {
+        $mediciones = DB::table('consumos')
+            ->where('id_equipo', $idMaquina)
+            ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
+            ->whereNotNull('medicion')
+            ->where('medicion', '>', 0)
+            ->get();
+
+        if ($mediciones->isEmpty()) {
+            return [
+                'valor' => 0,
+                'metodo' => 'sin_datos',
+                'descripcion' => 'No hay datos de medición disponibles'
+            ];
+        }
+
+        // Sumar todas las mediciones del período
+        $total = $mediciones->sum('medicion');
+
+        return [
+            'valor' => round($total, 2),
+            'metodo' => 'suma_mediciones',
+            'descripcion' => 'Suma de mediciones registradas en el período',
+            'registros_usados' => count($mediciones)
+        ];
+    }
+
+    /**
+     * ✅ NUEVO: Método para obtener información de faena de una máquina
+     */
+    private function obtenerFaenaMaquina($idMaquina, $idFaenaConsulta = null)
+    {
+        if ($idFaenaConsulta) {
+            // Si se especificó una faena en la consulta, usar esa
+            $faena = DB::table('faenas')->where('id_faena', $idFaenaConsulta)->first();
+            return [
+                'id' => $faena->id_faena,
+                'nombre' => $faena->ubicacion,
+                'detalle' => $faena->detalle ?? null,
+                'origen' => 'consulta_especifica'
+            ];
+        } else {
+            // Si no se especificó faena, buscar en qué faenas puede operar esta máquina
+            $faenasMaquina = DB::table('permisos_maquinas_faenas')
+                ->join('faenas', 'permisos_maquinas_faenas.id_faena', '=', 'faenas.id_faena')
+                ->where('permisos_maquinas_faenas.id_maquina', $idMaquina)
+                ->select([
+                    'faenas.id_faena',
+                    'faenas.ubicacion',
+                    'faenas.detalle'
+                ])
+                ->get();
+
+            if ($faenasMaquina->count() === 1) {
+                // Si solo opera en una faena
+                $faena = $faenasMaquina->first();
+                return [
+                    'id' => $faena->id_faena,
+                    'nombre' => $faena->ubicacion,
+                    'detalle' => $faena->detalle ?? null,
+                    'origen' => 'faena_unica'
+                ];
+            } elseif ($faenasMaquina->count() > 1) {
+                // Si opera en múltiples faenas
+                return [
+                    'id' => null,
+                    'nombre' => 'Múltiples faenas',
+                    'detalle' => 'Opera en ' . $faenasMaquina->count() . ' faenas',
+                    'faenas_disponibles' => $faenasMaquina->map(function ($f) {
+                        return [
+                            'id' => $f->id_faena,
+                            'nombre' => $f->ubicacion
+                        ];
+                    })->toArray(),
+                    'origen' => 'multiple_faenas'
+                ];
+            } else {
+                // Si no tiene permisos asignados
+                return [
+                    'id' => null,
+                    'nombre' => 'Sin faena asignada',
+                    'detalle' => 'No tiene permisos de faena configurados',
+                    'origen' => 'sin_permisos'
+                ];
+            }
         }
     }
 
@@ -704,101 +947,452 @@ class ConsumoCategoriasController extends Controller
     private function simularConsumoUltimaCarga($ultimaCarga, $fechaFin, $categoria, $incluirSabados, $incluirDomingos, $momentoConsulta)
     {
         $fechaUltimaCarga = Carbon::parse($ultimaCarga->fecha_consumo);
-        $fechaFinAjustada = $this->ajustarFechaFinSegunConsulta($fechaFin, $momentoConsulta, $incluirSabados, $incluirDomingos);
+        $stockInicial = (float) $ultimaCarga->litros_consumidos;
 
-        // ===== NUEVO: CALCULAR CONSUMO DEL PRIMER DÍA CON PRECISIÓN HORARIA =====
-        $consumoPrimerDia = $this->calcularConsumoPrimerDiaConPrecisionHoraria(
-            $fechaUltimaCarga,
-            $categoria,
-            $incluirSabados,
-            $incluirDomingos
-        );
-
-        // Calcular días completos restantes (sin contar el primer día)
-        $fechaInicioSegundoDia = $fechaUltimaCarga->copy()->addDay()->startOfDay();
-        $fechaFinDiasCompletos = $fechaFinAjustada->copy()->startOfDay()->subDay();
-
-        $diasCompletosSimular = 0;
-        if ($fechaInicioSegundoDia <= $fechaFinDiasCompletos) {
-            $diasCompletosSimular = $this->calcularDiasLaboralesCorrectos(
-                $fechaInicioSegundoDia,
-                $fechaFinDiasCompletos,
-                $incluirSabados,
-                $incluirDomingos
-            );
-        }
-        if ($diasCompletosSimular < 0) $diasCompletosSimular = 0;
-
-        // ===== CALCULAR CONSUMO DEL ÚLTIMO DÍA CON PRECISIÓN HORARIA =====
-        $consumoUltimoDia = ['consumo_teorico' => 0, 'horas_trabajadas' => 0];
-        $requierePrecisionFinal = $this->requierePrecisionHorariaFinal($fechaFinAjustada);
-
-        if ($requierePrecisionFinal && !$fechaUltimaCarga->isSameDay($fechaFinAjustada)) {
-            $consumoUltimoDia = $this->calcularConsumoUltimoDiaConPrecision(
-                $fechaFinAjustada,
-                $categoria,
-                PHP_INT_MAX, // Stock ilimitado para cálculo teórico
-                $incluirSabados,
-                $incluirDomingos
-            );
-        }
-        // ===== CALCULAR CONSUMO DIARIO COMPLETO =====
         $chc = (float) ($categoria->chc ?? 10.0);
         $hrc = (float) ($categoria->hrc ?? 7.0);
-        $consumoDiarioCompleto = $chc * $hrc;
-        $stockDisponible = (float) $ultimaCarga->litros_consumidos;
 
-        // ===== CÁLCULO MEJORADO: PRIMER DÍA PARCIAL + DÍAS COMPLETOS =====
-        $consumoTeorico = $consumoPrimerDia['consumo_teorico'] +
-            ($consumoDiarioCompleto * $diasCompletosSimular) +
-            $consumoUltimoDia['consumo_teorico'];
-        $consumoReal = min($consumoTeorico, $stockDisponible);
+        // ✅ PASO 1: Verificar si hay tiempo real para simular
+        if ($fechaUltimaCarga >= $fechaFin) {
+            return null; // No hay nada que simular
+        }
+
+        // ✅ PASO 2: Calcular tiempo real entre carga y fin de período
+        $tiempoRealHoras = $this->calcularHorasLaboralesEntreCargas($fechaUltimaCarga, $fechaFin, $incluirSabados, $incluirDomingos);
+
+        if ($tiempoRealHoras <= 0) {
+            return null; // No hay horas laborales entre las fechas
+        }
+
+        // ✅ PASO 3: Convertir a horas efectivas
+        $factorConversion = $hrc / self::HORAS_LABORALES_DIA; // 7/10 = 0.7
+        $horasEfectivas = $tiempoRealHoras * $factorConversion;
+
+        // ✅ PASO 4: Calcular consumo basado en horas reales
+        $consumoTeorico = $chc * $horasEfectivas;
+        $consumoReal = min($consumoTeorico, $stockInicial);
         $limitadoPorStock = $consumoReal < $consumoTeorico;
 
-        // ===== GENERAR PROYECCIÓN DETALLADA CON PRECISIÓN HORARIA =====
-        $proyeccionDetallada = $this->calcularProyeccionDiariaConPrecisionHoraria(
-            $fechaUltimaCarga,
-            $fechaFinAjustada,
-            $stockDisponible,
-            $categoria,
-            $incluirSabados,
-            $incluirDomingos,
-            $consumoPrimerDia
-        );
+        // ✅ PASO 5: Calcular días equivalentes para reporte
+        $diasEquivalentes = $tiempoRealHoras / self::HORAS_LABORALES_DIA;
 
         return [
             'id_maquina' => $ultimaCarga->id_equipo,
             'fecha_inicio' => $ultimaCarga->fecha_consumo,
-            'fecha_fin' => $fechaFinAjustada->format('Y-m-d H:i:s'),
-            'stock_inicial' => $stockDisponible,
-            'dias_simulados' => $diasCompletosSimular,
-            'primer_dia_parcial' => $consumoPrimerDia,
-            'ultimo_dia_parcial' => $requierePrecisionFinal ? $consumoUltimoDia : null,
-            'consumo_teorico' => $consumoTeorico,
-            'litros_simulados' => $consumoReal,
+            'fecha_fin' => $fechaFin->format('Y-m-d H:i:s'),
+            'stock_inicial' => $stockInicial,
+            'dias_simulados' => round($diasEquivalentes, 2), // ✅ Días equivalentes reales
+            'horas_simuladas' => round($tiempoRealHoras, 2), // ✅ Horas reales
+            'horas_efectivas' => round($horasEfectivas, 2), // ✅ Horas con factor conversión
+            'consumo_teorico' => round($consumoTeorico, 2),
+            'litros_simulados' => round($consumoReal, 2),
             'limitado_por_stock' => $limitadoPorStock,
             'parametros_usados' => [
                 'chc' => $chc,
                 'hrc' => $hrc,
-                'consumo_diario' => $consumoDiarioCompleto,
+                'factor_conversion' => round($factorConversion, 3),
+                'consumo_diario' => $chc * $hrc,
                 'incluye_sabados' => $incluirSabados,
                 'incluye_domingos' => $incluirDomingos
             ],
-            'proyeccion_detallada' => $proyeccionDetallada,
-            'ajuste_temporal' => [
-                'fecha_fin_original' => $fechaFin->format('Y-m-d H:i:s'),
-                'fecha_fin_ajustada' => $fechaFinAjustada->format('Y-m-d H:i:s'),
-                'momento_consulta' => $momentoConsulta->format('Y-m-d H:i:s'),
-                'razon_ajuste' => 'Simulación con precisión horaria completa - considera horas exactas inicial y final'
+            'calculo_detallado' => [
+                'tiempo_real_horas' => round($tiempoRealHoras, 2),
+                'factor_conversion' => round($factorConversion, 3),
+                'horas_efectivas' => round($horasEfectivas, 2),
+                'formula' => "CHC {$chc} L/h × {$horasEfectivas} h efectivas = {$consumoTeorico} L"
             ],
-            'precision_horaria' => [
-                'habilitada' => true,
-                'precision_inicial' => $consumoPrimerDia['es_dia_laboral'] && $consumoPrimerDia['horas_restantes'] > 0,
-                'precision_final' => $requierePrecisionFinal,
-                'descripcion' => 'Cálculo considera horas exactas tanto para primer día como último día',
-                'beneficio' => 'Máxima precisión en proyecciones de consumo parcial'
+            'tipo' => 'SIMULADO_TIEMPO_REAL'
+        ];
+    }
+    /**
+     * ✅ NUEVO: Método para calcular horas laborales reales entre dos cargas
+     */
+    private function calcularHorasLaboralesEntreCargas($fechaInicio, $fechaFin, $incluirSabados = true, $incluirDomingos = false)
+    {
+        // Si las fechas son el mismo día
+        if ($fechaInicio->isSameDay($fechaFin)) {
+            return $this->calcularHorasLaboralesMismoDia($fechaInicio, $fechaFin, $incluirSabados, $incluirDomingos);
+        }
+
+        // Si abarcan múltiples días (caso raro para cargas)
+        $horasTotal = 0;
+        $fechaActual = $fechaInicio->copy();
+
+        while ($fechaActual->lte($fechaFin)) {
+            if ($this->esDiaLaboral($fechaActual, $incluirSabados, $incluirDomingos)) {
+                if ($fechaActual->isSameDay($fechaInicio)) {
+                    // Primer día: desde la hora de inicio hasta fin del día laboral
+                    $horaInicio = max($fechaActual->hour + ($fechaActual->minute / 60), self::HORA_INICIO_LABORAL);
+                    $horaFin = self::HORA_FIN_LABORAL;
+                    $horasTotal += max(0, $horaFin - $horaInicio);
+                } elseif ($fechaActual->isSameDay($fechaFin)) {
+                    // Último día: desde inicio del día laboral hasta la hora fin
+                    $horaInicio = self::HORA_INICIO_LABORAL;
+                    $horaFin = min($fechaFin->hour + ($fechaFin->minute / 60), self::HORA_FIN_LABORAL);
+                    $horasTotal += max(0, $horaFin - $horaInicio);
+                } else {
+                    // Días completos intermedios
+                    $horasTotal += self::HORAS_LABORALES_DIA;
+                }
+            }
+            $fechaActual->addDay()->startOfDay();
+        }
+
+        return $horasTotal;
+    }
+    /**
+     * ✅ NUEVO: Calcular horas laborales en el mismo día
+     */
+    private function calcularHorasLaboralesMismoDia($fechaInicio, $fechaFin, $incluirSabados = true, $incluirDomingos = false)
+    {
+        // Verificar si es día laboral
+        if (!$this->esDiaLaboral($fechaInicio, $incluirSabados, $incluirDomingos)) {
+            return 0;
+        }
+
+        // Convertir a horas decimales
+        $horaInicio = $fechaInicio->hour + ($fechaInicio->minute / 60);
+        $horaFin = $fechaFin->hour + ($fechaFin->minute / 60);
+
+        // Ajustar al horario laboral
+        $horaInicioLaboral = max($horaInicio, self::HORA_INICIO_LABORAL);
+        $horaFinLaboral = min($horaFin, self::HORA_FIN_LABORAL);
+
+        // Calcular diferencia
+        $horasLaborales = max(0, $horaFinLaboral - $horaInicioLaboral);
+
+        return $horasLaborales;
+    }
+    /**
+     * ✅ NUEVO: Calcular horas laborales reales entre dos fechas
+     */
+    private function calcularHorasLaboralesReales($fechaInicio, $fechaFin, $incluirSabados = true, $incluirDomingos = false)
+    {
+        $horasLaborales = 0;
+        $fechaActual = $fechaInicio->copy();
+
+        while ($fechaActual < $fechaFin) {
+            $esDiaLaboral = $this->esDiaLaboral($fechaActual, $incluirSabados, $incluirDomingos);
+
+            if ($esDiaLaboral) {
+                // Determinar hora inicio y fin para este día
+                $horaInicioDelDia = max($fechaActual->hour, self::HORA_INICIO_LABORAL);
+
+                // Si es el último día, usar la hora fin del período
+                if ($fechaActual->isSameDay($fechaFin)) {
+                    $horaFinDelDia = min($fechaFin->hour, self::HORA_FIN_LABORAL);
+                } else {
+                    $horaFinDelDia = self::HORA_FIN_LABORAL;
+                }
+
+                // Calcular horas laborales de este día
+                if ($horaFinDelDia > $horaInicioDelDia) {
+                    $horasEsteDia = $horaFinDelDia - $horaInicioDelDia;
+
+                    // Considerar minutos si es necesario
+                    if ($fechaActual->isSameDay($fechaInicio)) {
+                        $minutosInicio = $fechaInicio->minute;
+                        $horasEsteDia -= ($minutosInicio / 60);
+                    }
+
+                    if ($fechaActual->isSameDay($fechaFin)) {
+                        $minutosFin = $fechaFin->minute;
+                        $horasEsteDia += ($minutosFin / 60) - ($fechaFin->hour);
+                        $horasEsteDia += $fechaFin->hour - $horaInicioDelDia;
+                    }
+
+                    $horasLaborales += max(0, $horasEsteDia);
+                }
+            }
+
+            $fechaActual->addDay()->startOfDay();
+        }
+
+        return $horasLaborales;
+    }
+    /**
+     * ✅ CORREGIDO: Formatear simulación con datos correctos
+     */
+    private function formatearSimulacionSimple($simulacion, $incluirSabados = true, $incluirDomingos = false)
+    {
+        if (empty($simulacion)) {
+            return null;
+        }
+
+        $fechaInicio = Carbon::parse($simulacion['fecha_inicio']);
+        $fechaFin = Carbon::parse($simulacion['fecha_fin']);
+
+        // ✅ Usar valores corregidos de la simulación
+        $diasSimulados = $simulacion['dias_simulados'] ?? 0;
+        $horasSimuladas = $simulacion['horas_simuladas'] ?? 0;
+        $horasEfectivas = $simulacion['horas_efectivas'] ?? 0;
+
+        // ✅ Calcular días calendario reales
+        $diasCalendario = $fechaInicio->diffInHours($fechaFin) / 24;
+
+        return [
+            'periodo' => [
+                'fecha_inicio' => $fechaInicio->format('d/m/Y H:i'),
+                'fecha_fin' => $fechaFin->format('d/m/Y H:i'),
+                'dias_calendario' => round($diasCalendario, 2), // ✅ Días reales
+                'dias_laborales_simulados' => round($diasSimulados, 2), // ✅ Días equivalentes
+                'horas_laborales_simuladas' => round($horasSimuladas, 2), // ✅ Horas reales
+                'horas_efectivas_simuladas' => round($horasEfectivas, 2), // ✅ Horas con conversión
+                'horario_operacion' => self::HORA_INICIO_LABORAL . ':00 - ' . self::HORA_FIN_LABORAL . ':00',
+                'tipo' => 'Proyección basada en tiempo real transcurrido',
+                'configuracion_laboral' => [
+                    'incluye_sabados' => $incluirSabados,
+                    'incluye_domingos' => $incluirDomingos,
+                    'dias_por_semana' => $this->getDiasPorSemana($incluirSabados, $incluirDomingos)
+                ]
             ],
-            'tipo' => 'SIMULADO_PRECISION_HORARIA_COMPLETA'
+            'stock' => [
+                'inicial_litros' => round($simulacion['stock_inicial'], 2),
+                'disponible_para_consumo' => round($simulacion['stock_inicial'], 2),
+                'autonomia_horas_reales' => $simulacion['parametros_usados']['chc'] > 0
+                    ? round($simulacion['stock_inicial'] / $simulacion['parametros_usados']['chc'], 1)
+                    : 0,
+                'origen_stock' => 'Última carga registrada (Regla Nicodemo)'
+            ],
+            'calculo' => [
+                'consumo_teorico_sin_limite' => round($simulacion['consumo_teorico'], 2),
+                'consumo_proyectado_real' => round($simulacion['litros_simulados'], 2),
+                'limitado_por_stock' => $simulacion['limitado_por_stock'],
+                'parametros_usados' => $simulacion['parametros_usados'],
+                'formula_aplicada' => $simulacion['calculo_detallado']['formula'] ?? 'N/A',
+                'limite_aplicado' => $simulacion['limitado_por_stock']
+                    ? 'Reducido a ' . round($simulacion['litros_simulados'], 2) . 'L por stock disponible'
+                    : 'Sin límite de stock aplicado'
+            ],
+            'precision_temporal' => [
+                'metodo' => 'Cálculo basado en tiempo real transcurrido',
+                'tiempo_real_horas' => $simulacion['calculo_detallado']['tiempo_real_horas'] ?? 0,
+                'factor_conversion_aplicado' => $simulacion['parametros_usados']['factor_conversion'] ?? 0.7,
+                'horas_cronologicas_vs_efectivas' => [
+                    'cronologicas' => round($horasSimuladas, 2),
+                    'efectivas' => round($horasEfectivas, 2),
+                    'diferencia' => round($horasSimuladas - $horasEfectivas, 2)
+                ],
+                'beneficio' => 'Precisión máxima: considera tiempo exacto transcurrido entre cargas'
+            ],
+            'confiabilidad' => [
+                'nivel' => 'Muy Alta',
+                'razon' => 'Basado en tiempo real transcurrido entre cargas',
+                'porcentaje_estimado' => '95%',
+                'consideraciones' => [
+                    'Cálculo basado en tiempo real transcurrido: ' . round($horasSimuladas, 2) . ' horas',
+                    'Factor de conversión aplicado: ' . round($simulacion['parametros_usados']['factor_conversion'] ?? 0.7, 2),
+                    'Horario operacional: ' . self::HORA_INICIO_LABORAL . ':00 - ' . self::HORA_FIN_LABORAL . ':00',
+                    $simulacion['limitado_por_stock']
+                        ? 'Stock insuficiente para el período completo'
+                        : 'Stock suficiente para el período proyectado'
+                ]
+            ]
+        ];
+    }
+    /**
+     * ✅ AGREGAR: Método para ajustar fecha fin automáticamente
+     */
+    private function ajustarFechaFinInteligente($fechaFin, $momentoConsulta)
+    {
+        $fechaFinAjustada = Carbon::parse($fechaFin);
+        $hoy = $momentoConsulta->copy();
+
+        // Si la fecha fin NO tiene hora específica (es solo fecha)
+        $tieneHoraEspecifica = $fechaFin instanceof Carbon
+            ? ($fechaFin->hour !== 0 || $fechaFin->minute !== 0)
+            : (strpos($fechaFin, ':') !== false);
+
+        if (!$tieneHoraEspecifica) {
+            // ✅ CASO 1: Fecha sin hora específica
+
+            if ($fechaFinAjustada->isSameDay($hoy)) {
+                // ✅ ES HOY: Usar hora actual o fin laboral (el menor)
+                $horaActual = $hoy->hour + ($hoy->minute / 60);
+                $horaFinal = min($horaActual, self::HORA_FIN_LABORAL);
+                $fechaFinAjustada = $fechaFinAjustada->setTime(
+                    floor($horaFinal),
+                    ($horaFinal - floor($horaFinal)) * 60
+                );
+
+                $razon = "Fecha fin es hoy - ajustado a hora actual: " . $fechaFinAjustada->format('H:i');
+            } else {
+                // ✅ NO ES HOY: Usar fin del horario laboral
+                $fechaFinAjustada = $fechaFinAjustada->setTime(self::HORA_FIN_LABORAL, 0, 0);
+                $razon = "Fecha fin no es hoy - ajustado a fin horario laboral: " . self::HORA_FIN_LABORAL . ":00";
+            }
+        } else {
+            // ✅ CASO 2: Fecha con hora específica - respetar la hora
+            $razon = "Fecha fin con hora específica - respetada tal como está";
+        }
+
+        return [
+            'fecha_original' => $fechaFin,
+            'fecha_ajustada' => $fechaFinAjustada,
+            'fue_ajustada' => !$tieneHoraEspecifica,
+            'razon' => $razon,
+            'es_dia_actual' => $fechaFinAjustada->isSameDay($hoy),
+            'hora_final' => $fechaFinAjustada->format('H:i')
+        ];
+    }
+    /**
+     * NUEVO: Calcular consumo hasta el momento de una carga
+     */
+    private function calcularConsumoHastaCarga($fechaCarga, $categoria, $incluirSabados, $incluirDomingos)
+    {
+        $esDiaLaboral = $this->esDiaLaboral($fechaCarga, $incluirSabados, $incluirDomingos);
+
+        if (!$esDiaLaboral) {
+            return [
+                'es_dia_laboral' => false,
+                'horas_trabajadas' => 0,
+                'horas_efectivas' => 0,
+                'consumo_teorico' => 0,
+                'descripcion' => 'Carga en día no laboral - sin consumo previo'
+            ];
+        }
+
+        $horaCarga = $fechaCarga->hour;
+        $minutoCarga = $fechaCarga->minute;
+        $chc = (float) ($categoria->chc ?? 10.0);
+        $hrc = (float) ($categoria->hrc ?? 7.0);
+
+        // Factor de conversión
+        $horasCronologicasDia = self::HORAS_LABORALES_DIA;
+        $horasEfectivasDia = $hrc;
+        $factorConversion = $horasEfectivasDia / $horasCronologicasDia;
+
+        if ($horaCarga <= self::HORA_INICIO_LABORAL) {
+            return [
+                'es_dia_laboral' => true,
+                'horas_trabajadas' => 0,
+                'horas_efectivas' => 0,
+                'consumo_teorico' => 0,
+                'descripcion' => "Carga a las {$fechaCarga->format('H:i')} - antes/inicio del horario laboral"
+            ];
+        }
+
+        if ($horaCarga >= self::HORA_FIN_LABORAL) {
+            // Día completo de trabajo antes de la carga
+            $horasTrabajadasCronologicas = $horasCronologicasDia;
+            $horasEfectivas = $horasEfectivasDia;
+            $descripcion = "Carga a las {$fechaCarga->format('H:i')} - día laboral completo trabajado";
+        } else {
+            // Cálculo parcial hasta la hora de la carga
+            $tiempoInicioLaboral = self::HORA_INICIO_LABORAL * 60;
+            $tiempoCarga = ($horaCarga * 60) + $minutoCarga;
+            $minutosTrabajadasCronologicas = $tiempoCarga - $tiempoInicioLaboral;
+            $horasTrabajadasCronologicas = $minutosTrabajadasCronologicas / 60;
+
+            // Conversión a horas efectivas
+            $horasEfectivas = $horasTrabajadasCronologicas * $factorConversion;
+
+            $descripcion = "Carga a las {$fechaCarga->format('H:i')} - " .
+                round($horasTrabajadasCronologicas, 1) . " horas cronológicas (" .
+                round($horasEfectivas, 1) . " horas efectivas) trabajadas desde las " . self::HORA_INICIO_LABORAL . ":00";
+        }
+
+        $consumoTeorico = $chc * $horasEfectivas;
+
+        return [
+            'es_dia_laboral' => true,
+            'hora_inicio_laboral' => self::HORA_INICIO_LABORAL . ':00',
+            'hora_carga' => $fechaCarga->format('H:i'),
+            'horas_trabajadas' => round($horasTrabajadasCronologicas, 2),
+            'horas_efectivas' => round($horasEfectivas, 2),
+            'factor_conversion' => round($factorConversion, 3),
+            'consumo_teorico' => round($consumoTeorico, 2),
+            'chc_aplicado' => $chc,
+            'descripcion' => $descripcion,
+            'calculo_detalle' => "CHC {$chc} L/h × " . round($horasEfectivas, 2) . "h efectivas = " . round($consumoTeorico, 2) . "L"
+        ];
+    }
+    /**
+     * NUEVO: Calcular proyección hasta la carga
+     */
+    private function calcularProyeccionHastaCarga($fechaUltimaCarga, $ultimaCarga, $stockDisponible, $categoria, $incluirSabados, $incluirDomingos)
+    {
+        // Encontrar carga anterior
+        $cargaAnterior = DB::table('consumos')
+            ->where('id_equipo', $ultimaCarga->id_equipo)
+            ->where('fecha_consumo', '<', $fechaUltimaCarga)
+            ->orderBy('fecha_consumo', 'desc')
+            ->first();
+
+        if (!$cargaAnterior) {
+            return [[
+                'fecha' => $fechaUltimaCarga->format('d/m/Y'),
+                'dia_semana' => $fechaUltimaCarga->locale('es')->dayName,
+                'stock_inicio_dia' => 0,
+                'consumo_proyectado' => 0,
+                'stock_fin_dia' => 0,
+                'operativo' => false,
+                'nota' => 'No hay datos de carga anterior'
+            ]];
+        }
+
+        $fechaCargaAnterior = Carbon::parse($cargaAnterior->fecha_consumo);
+        $stockInicial = (float) $cargaAnterior->litros_consumidos;
+
+        return $this->calcularProyeccionDiariaConPrecisionHoraria(
+            $fechaCargaAnterior,
+            $fechaUltimaCarga,
+            $stockInicial,
+            $categoria,
+            $incluirSabados,
+            $incluirDomingos,
+            null
+        );
+    }
+    /**
+     * NUEVO: Calcular consumo hasta la última carga
+     */
+    private function calcularConsumoHastaUltimaCarga($fechaUltimaCarga, $ultimaCarga, $categoria, $incluirSabados, $incluirDomingos)
+    {
+        // Encontrar la carga anterior para determinar desde cuándo simular
+        $cargaAnterior = DB::table('consumos')
+            ->where('id_equipo', $ultimaCarga->id_equipo)
+            ->where('fecha_consumo', '<', $fechaUltimaCarga)
+            ->orderBy('fecha_consumo', 'desc')
+            ->first();
+
+        if (!$cargaAnterior) {
+            return [
+                'consumo_teorico' => 0,
+                'descripcion' => 'No hay carga anterior para calcular el período'
+            ];
+        }
+
+        $fechaCargaAnterior = Carbon::parse($cargaAnterior->fecha_consumo);
+        $stockCargaAnterior = (float) $cargaAnterior->litros_consumidos;
+
+        // Calcular días laborales entre las dos cargas
+        $diasLaborales = $this->calcularDiasLaboralesCorrectos(
+            $fechaCargaAnterior,
+            $fechaUltimaCarga,
+            $incluirSabados,
+            $incluirDomingos
+        );
+
+        $chc = (float) ($categoria->chc ?? 10.0);
+        $hrc = (float) ($categoria->hrc ?? 7.0);
+        $consumoDiario = $chc * $hrc;
+
+        // Calcular consumo teórico del período
+        $consumoTeorico = $consumoDiario * $diasLaborales;
+
+        // El consumo real está limitado por el stock de la carga anterior
+        $consumoReal = min($consumoTeorico, $stockCargaAnterior);
+
+        return [
+            'fecha_inicio' => $fechaCargaAnterior->format('Y-m-d H:i:s'),
+            'fecha_fin' => $fechaUltimaCarga->format('Y-m-d H:i:s'),
+            'stock_inicial' => $stockCargaAnterior,
+            'dias_laborales' => $diasLaborales,
+            'consumo_teorico' => $consumoTeorico,
+            'consumo_real' => $consumoReal,
+            'limitado_por_stock' => $consumoReal < $consumoTeorico,
+            'descripcion' => "Consumo desde carga anterior hasta carga actual"
         ];
     }
     /**
@@ -814,12 +1408,24 @@ class ConsumoCategoriasController extends Controller
         $consumoDiarioCompleto = $chc * $hrc;
         $esPrimerDia = true;
 
-        while ($fecha <= $fechaFin && $stockActual > 0) {
+        // ===== CORREGIDO: Incluir el último día en el bucle =====
+        // Cambio: while ($fecha <= $fechaFin && $stockActual > 0) por while ($fecha <= $fechaFin)
+        // Y manejo separado del stock agotado
+        while ($fecha <= $fechaFin) {
             $esLaboral = $this->esDiaLaboral($fecha, $incluirSabados, $incluirDomingos);
 
             if ($esLaboral) {
                 $stockAnterior = $stockActual;
                 $esUltimoDia = $fecha->isSameDay($fechaFin);
+
+                // ===== VERIFICAR SI HAY STOCK DISPONIBLE =====
+                if ($stockActual <= 0) {
+                    // Sin stock pero seguir registrando días para completar el período
+                    $proyeccion[] = $this->crearProyeccionDiaSinStock($fecha, $incluirSabados, $incluirDomingos);
+                    $fecha->addDay();
+                    $esPrimerDia = false;
+                    continue;
+                }
 
                 // ===== LÓGICA MEJORADA: PRIMER DÍA =====
                 if ($esPrimerDia && $consumoPrimerDia && $consumoPrimerDia['es_dia_laboral'] && $consumoPrimerDia['horas_restantes'] > 0) {
@@ -829,21 +1435,29 @@ class ConsumoCategoriasController extends Controller
                     $stockActual -= $consumoDelDia;
                     $proyeccion[] = $proyeccionDia;
 
-                    // ===== NUEVA LÓGICA: ÚLTIMO DÍA CON PRECISIÓN HORARIA =====
-                } elseif ($esUltimoDia && $this->requierePrecisionHorariaFinal($fechaFin)) {
-                    $consumoUltimoDia = $this->calcularConsumoUltimoDiaConPrecision($fechaFin, $categoria, $stockActual, $incluirSabados, $incluirDomingos);
+                    // ===== CORREGIDO: ÚLTIMO DÍA CON VERIFICACIÓN DE FECHA ACTUAL =====
+                } elseif ($esUltimoDia) {
+                    $ahora = now('America/Santiago');
+                    $esFechaActual = $fecha->isSameDay($ahora);
 
-                    $consumoDelDia = min($consumoUltimoDia['consumo_teorico'], $stockActual);
-                    $proyeccionDia = $this->crearProyeccionDiaParcial($fecha, $stockAnterior, $stockActual, $consumoDelDia, $consumoUltimoDia, $chc, false, $incluirSabados, $incluirDomingos);
+                    if ($esFechaActual && $this->requierePrecisionHorariaFinal($fechaFin)) {
+                        // Es el día actual y tiene hora específica - aplicar precisión horaria
+                        $consumoUltimoDia = $this->calcularConsumoUltimoDiaConPrecision($fechaFin, $categoria, $stockActual, $incluirSabados, $incluirDomingos);
+
+                        $consumoDelDia = min($consumoUltimoDia['consumo_teorico'], $stockActual);
+                        $proyeccionDia = $this->crearProyeccionDiaParcial($fecha, $stockAnterior, $stockActual, $consumoDelDia, $consumoUltimoDia, $chc, false, $incluirSabados, $incluirDomingos);
+                    } else {
+                        // ===== NUEVO: No es día actual O es medianoche - día completo =====
+                        $consumoDelDia = min($consumoDiarioCompleto, $stockActual);
+                        $proyeccionDia = $this->crearProyeccionDiaCompleto($fecha, $stockAnterior, $stockActual, $consumoDelDia, $chc, $hrc, $consumoDiarioCompleto, $incluirSabados, $incluirDomingos);
+                    }
 
                     $stockActual -= $consumoDelDia;
                     $proyeccion[] = $proyeccionDia;
 
-                    // ===== AGREGAR INFORMACIÓN DE AUTONOMÍA RESTANTE =====
-                    if ($stockActual > 0) {
-                        $autonomiaRestante = $this->calcularAutonomiaRestante($fechaFin, $stockActual, $chc);
-                        $proyeccion[] = $autonomiaRestante;
-                    }
+                    // ===== AGREGAR INFORMACIÓN DE AUTONOMÍA RESTANTE SOLO SI NO HAY MÁS DÍAS =====
+                    // CORREGIDO: No agregar autonomía si es el último día del rango
+                    // La autonomía se calculará automáticamente después del bucle principal
                 } else {
                     // Días completos normales
                     $consumoDelDia = min($consumoDiarioCompleto, $stockActual);
@@ -853,10 +1467,10 @@ class ConsumoCategoriasController extends Controller
                     $proyeccion[] = $proyeccionDia;
                 }
 
+                // ===== MARCAR ÚLTIMO DÍA OPERATIVO SI SE AGOTA STOCK =====
                 if ($stockActual <= 0) {
                     $proyeccion[count($proyeccion) - 1]['nota'] = 'Último día operativo - se agota combustible en tanque';
                     $proyeccion[count($proyeccion) - 1]['stock_fin_dia'] = 0;
-                    break;
                 }
             } else {
                 // Día no laboral
@@ -869,6 +1483,28 @@ class ConsumoCategoriasController extends Controller
 
         return $proyeccion;
     }
+    /**
+     * NUEVO: Crear proyección para día sin stock
+     */
+    private function crearProyeccionDiaSinStock($fecha, $incluirSabados, $incluirDomingos)
+    {
+        return [
+            'fecha' => $fecha->format('d/m/Y'),
+            'dia_semana' => $fecha->locale('es')->dayName,
+            'stock_inicio_dia' => 0,
+            'consumo_proyectado' => 0,
+            'stock_fin_dia' => 0,
+            'operativo' => false,
+            'tipo_dia' => $this->getTipoDia($fecha, $incluirSabados, $incluirDomingos),
+            'limitado_por_stock' => true,
+            'precision_horaria' => [
+                'es_dia_parcial' => false,
+                'descripcion' => 'Sin combustible disponible'
+            ],
+            'nota' => 'Sin combustible - máquina inoperativa'
+        ];
+    }
+
     /**
      * MEJORADO: Crear proyección para día no laboral
      */
@@ -938,10 +1574,18 @@ class ConsumoCategoriasController extends Controller
                 'tipo_dia_parcial' => $tipoDescripcion,
                 'hora_inicio_consumo' => $esPrimerDia ? $infoDia['hora_ultima_carga'] : $infoDia['hora_inicio_laboral'],
                 'hora_fin_consumo' => $esPrimerDia ? $infoDia['hora_fin_laboral'] : $infoDia['hora_consulta'],
-                'horas_consumidas' => $esPrimerDia ? $infoDia['horas_restantes'] : $infoDia['horas_trabajadas'],
+                // ===== INFORMACIÓN DETALLADA DE CONVERSIÓN =====
+                'horas_cronologicas' => $esPrimerDia ? $infoDia['horas_restantes'] : $infoDia['horas_trabajadas'],
+                'horas_efectivas' => $infoDia['horas_efectivas'], // ✅ NUEVO
+                'factor_conversion' => $infoDia['factor_conversion'] ?? null, // ✅ NUEVO
                 'consumo_por_hora' => $chc,
                 'calculo' => $infoDia['calculo_detalle'],
-                'descripcion' => $infoDia['descripcion']
+                'descripcion' => $infoDia['descripcion'],
+                // ✅ NUEVO: Explicación de la conversión
+                'conversion_explicada' => isset($infoDia['factor_conversion']) ?
+                    "Conversión: " . round($infoDia['horas_restantes'] ?? $infoDia['horas_trabajadas'], 1) .
+                    "h cronológicas × " . round($infoDia['factor_conversion'], 2) .
+                    " = " . round($infoDia['horas_efectivas'], 1) . "h efectivas" : null
             ],
             'nota' => "Día parcial ({$tipoDescripcion}): consumo {$rangoHoras}"
         ];
@@ -1006,6 +1650,7 @@ class ConsumoCategoriasController extends Controller
             return [
                 'es_dia_laboral' => false,
                 'horas_trabajadas' => 0,
+                'horas_efectivas' => 0,
                 'consumo_teorico' => 0,
                 'descripcion' => 'Último día no laboral - sin consumo'
             ];
@@ -1014,44 +1659,56 @@ class ConsumoCategoriasController extends Controller
         $horaConsulta = $fechaFin->hour;
         $minutoConsulta = $fechaFin->minute;
         $chc = (float) ($categoria->chc ?? 10.0);
+        $hrc = (float) ($categoria->hrc ?? 7.0);
 
-        // ===== CÁLCULO PRECISO: Horas trabajadas desde inicio hasta hora de consulta =====
+        // ===== CALCULAR FACTOR DE CONVERSIÓN =====
+        $horasCronologicasDia = self::HORAS_LABORALES_DIA;
+        $horasEfectivasDia = $hrc;
+        $factorConversion = $horasEfectivasDia / $horasCronologicasDia;
+
         if ($horaConsulta < self::HORA_INICIO_LABORAL) {
-            // Si la consulta es antes del horario laboral, no hay consumo
             return [
                 'es_dia_laboral' => true,
                 'horas_trabajadas' => 0,
+                'horas_efectivas' => 0,
                 'consumo_teorico' => 0,
                 'descripcion' => "Consulta a las {$fechaFin->format('H:i')} - antes del horario laboral"
             ];
         }
 
         if ($horaConsulta >= self::HORA_FIN_LABORAL) {
-            // Si la consulta es después del horario laboral, día completo
-            $horasTrabajadas = self::HORAS_LABORALES_DIA;
+            // Día completo
+            $horasTrabajadasCronologicas = $horasCronologicasDia;
+            $horasEfectivas = $horasEfectivasDia;
             $descripcion = "Consulta a las {$fechaFin->format('H:i')} - día laboral completo";
         } else {
-            // CÁLCULO PRECISO: Horas trabajadas desde 8:00 hasta hora de consulta
-            $tiempoInicioLaboral = self::HORA_INICIO_LABORAL * 60; // 8:00 = 480 minutos
+            // ===== CÁLCULO PRECISO CON CONVERSIÓN =====
+            $tiempoInicioLaboral = self::HORA_INICIO_LABORAL * 60;
             $tiempoConsulta = ($horaConsulta * 60) + $minutoConsulta;
-            $minutosTrabajados = $tiempoConsulta - $tiempoInicioLaboral;
-            $horasTrabajadas = $minutosTrabajados / 60;
+            $minutosTrabajadasCronologicas = $tiempoConsulta - $tiempoInicioLaboral;
+            $horasTrabajadasCronologicas = $minutosTrabajadasCronologicas / 60;
+
+            // ===== CONVERSIÓN A HORAS EFECTIVAS =====
+            $horasEfectivas = $horasTrabajadasCronologicas * $factorConversion;
 
             $descripcion = "Consulta a las {$fechaFin->format('H:i')} - " .
-                round($horasTrabajadas, 1) . " horas trabajadas desde las " . self::HORA_INICIO_LABORAL . ":00";
+                round($horasTrabajadasCronologicas, 1) . " horas cronológicas (" .
+                round($horasEfectivas, 1) . " horas efectivas) trabajadas desde las " . self::HORA_INICIO_LABORAL . ":00";
         }
 
-        $consumoTeorico = $chc * $horasTrabajadas;
+        $consumoTeorico = $chc * $horasEfectivas; // ✅ Usar horas efectivas
 
         return [
             'es_dia_laboral' => true,
             'hora_inicio_laboral' => self::HORA_INICIO_LABORAL . ':00',
             'hora_consulta' => $fechaFin->format('H:i'),
-            'horas_trabajadas' => round($horasTrabajadas, 2),
+            'horas_trabajadas' => round($horasTrabajadasCronologicas, 2), // Cronológicas para info
+            'horas_efectivas' => round($horasEfectivas, 2), // ✅ NUEVO: Horas efectivas
+            'factor_conversion' => round($factorConversion, 3), // ✅ NUEVO: Factor aplicado
             'consumo_teorico' => round($consumoTeorico, 2),
             'chc_aplicado' => $chc,
             'descripcion' => $descripcion,
-            'calculo_detalle' => "CHC {$chc} L/h × " . round($horasTrabajadas, 2) . "h = " . round($consumoTeorico, 2) . "L"
+            'calculo_detalle' => "CHC {$chc} L/h × " . round($horasEfectivas, 2) . "h efectivas = " . round($consumoTeorico, 2) . "L"
         ];
     }
 
@@ -1064,6 +1721,7 @@ class ConsumoCategoriasController extends Controller
         $minutoFin = $fechaFin->minute;
 
         // Si la fecha fin tiene hora específica (no es medianoche), aplicar precisión
+        // ===== CORREGIDO: También verificar que no sea las 00:00 del día siguiente =====
         return !($horaFin == 0 && $minutoFin == 0);
     }
     /**
@@ -1077,6 +1735,7 @@ class ConsumoCategoriasController extends Controller
             return [
                 'es_dia_laboral' => false,
                 'horas_restantes' => 0,
+                'horas_efectivas' => 0,
                 'consumo_teorico' => 0,
                 'descripcion' => 'Última carga en día no laboral - no hay consumo pendiente'
             ];
@@ -1085,44 +1744,57 @@ class ConsumoCategoriasController extends Controller
         $horaUltimaCarga = $fechaUltimaCarga->hour;
         $minutoUltimaCarga = $fechaUltimaCarga->minute;
         $chc = (float) ($categoria->chc ?? 10.0);
+        $hrc = (float) ($categoria->hrc ?? 7.0); // Horas efectivas por día
         $horaFinLaboral = self::HORA_FIN_LABORAL; // 18:00
 
+        // ===== CALCULAR FACTOR DE CONVERSIÓN =====
+        $horasCronologicasDia = self::HORAS_LABORALES_DIA; // 10 horas (8:00-18:00)
+        $horasEfectivasDia = $hrc; // 7 horas efectivas de trabajo
+        $factorConversion = $horasEfectivasDia / $horasCronologicasDia; // 7/10 = 0.7
+
         if ($horaUltimaCarga >= $horaFinLaboral) {
-            // Si la carga fue después del horario laboral, no hay consumo pendiente
             return [
                 'es_dia_laboral' => true,
                 'horas_restantes' => 0,
+                'horas_efectivas' => 0,
                 'consumo_teorico' => 0,
                 'descripcion' => "Última carga a las {$fechaUltimaCarga->format('H:i')} - después del horario laboral"
             ];
         }
 
         if ($horaUltimaCarga < self::HORA_INICIO_LABORAL) {
-            // Si la carga fue antes del horario laboral, considerar día completo
-            $horasRestantes = self::HORAS_LABORALES_DIA;
+            // Día completo
+            $horasRestantesCronologicas = $horasCronologicasDia;
+            $horasEfectivas = $horasEfectivasDia; // Usar directamente HRC
             $descripcion = "Última carga a las {$fechaUltimaCarga->format('H:i')} - día laboral completo pendiente";
         } else {
-            // ===== CÁLCULO PRECISO: Horas y minutos restantes hasta fin de jornada =====
-            $tiempoUltimaCarga = ($horaUltimaCarga * 60) + $minutoUltimaCarga; // minutos
-            $tiempoFinLaboral = $horaFinLaboral * 60; // 18:00 = 1080 minutos
-            $minutosRestantes = max(0, $tiempoFinLaboral - $tiempoUltimaCarga);
-            $horasRestantes = $minutosRestantes / 60;
+            // ===== CÁLCULO PRECISO CON CONVERSIÓN =====
+            $tiempoUltimaCarga = ($horaUltimaCarga * 60) + $minutoUltimaCarga;
+            $tiempoFinLaboral = $horaFinLaboral * 60;
+            $minutosRestantesCronologicos = max(0, $tiempoFinLaboral - $tiempoUltimaCarga);
+            $horasRestantesCronologicas = $minutosRestantesCronologicos / 60;
+
+            // ===== CONVERSIÓN A HORAS EFECTIVAS =====
+            $horasEfectivas = $horasRestantesCronologicas * $factorConversion;
 
             $descripcion = "Última carga a las {$fechaUltimaCarga->format('H:i')} - " .
-                round($horasRestantes, 1) . " horas restantes hasta las {$horaFinLaboral}:00";
+                round($horasRestantesCronologicas, 1) . " horas cronológicas (" .
+                round($horasEfectivas, 1) . " horas efectivas) restantes hasta las {$horaFinLaboral}:00";
         }
 
-        $consumoTeorico = $chc * $horasRestantes;
+        $consumoTeorico = $chc * $horasEfectivas; // ✅ Usar horas efectivas
 
         return [
             'es_dia_laboral' => true,
             'hora_ultima_carga' => $fechaUltimaCarga->format('H:i'),
             'hora_fin_laboral' => "{$horaFinLaboral}:00",
-            'horas_restantes' => round($horasRestantes, 2),
+            'horas_restantes' => round($horasRestantesCronologicas, 2), // Cronológicas para info
+            'horas_efectivas' => round($horasEfectivas, 2), // ✅ NUEVO: Horas efectivas
+            'factor_conversion' => round($factorConversion, 3), // ✅ NUEVO: Factor aplicado
             'consumo_teorico' => round($consumoTeorico, 2),
             'chc_aplicado' => $chc,
             'descripcion' => $descripcion,
-            'calculo_detalle' => "CHC {$chc} L/h × " . round($horasRestantes, 2) . "h = " . round($consumoTeorico, 2) . "L"
+            'calculo_detalle' => "CHC {$chc} L/h × " . round($horasEfectivas, 2) . "h efectivas = " . round($consumoTeorico, 2) . "L"
         ];
     }
     /**

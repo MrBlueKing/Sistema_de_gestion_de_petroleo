@@ -53,14 +53,14 @@ instance.interceptors.request.use(
 instance.interceptors.response.use(
   (response) => {
     // Log de respuestas exitosas en desarrollo
-    if (process.env.NODE_ENV === 'development') {
-      console.log('✅ API Response:', {
-        url: response.config.url,
-        method: response.config.method?.toUpperCase(),
-        status: response.status,
-        data: response.data
-      });
-    }
+    //if (process.env.NODE_ENV === 'development') {
+      //console.log('✅ API Response:', {
+        //url: response.config.url,
+        //method: response.config.method?.toUpperCase(),
+        //status: response.status,
+        //data: response.data
+      //});
+    //}
     return response;
   },
   async (error) => {
