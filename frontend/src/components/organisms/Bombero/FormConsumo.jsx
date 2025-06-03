@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FaSave, FaSpinner, FaCheckCircle, FaExclamationTriangle, FaClock, FaTachometerAlt, FaGasPump, FaInfoCircle } from "react-icons/fa";
 import { GiGasPump } from "react-icons/gi";
-import SelectorEstanques from "../../molecules/SelectorEstanque"; // Importamos el componente compartido
+import SelectorEstanques from "../../molecules/SelectorEstanque";
 
 const ConsumoForm = ({
   formData,
@@ -12,18 +12,13 @@ const ConsumoForm = ({
   hasError = false,
   errorMessage = "",
   tipoMedicion = "Kilometraje",
-  // Nuevos props para el selector de estanques
   idFaena,
   estanqueSeleccionado,
-  onEstanqueSelect
+  onEstanqueSelect,
+  preloadedEstanques
 }) => {
   const showHorometro = tipoMedicion === "Horometro";
   const showKilometraje = tipoMedicion === "Kilometraje";
-  
-  // Log para depuración
-  useEffect(() => {
-    
-  }, [idFaena]);
   
   // Formatea la fecha para mostrarla en formato legible
   const formatDate = (dateString) => {
@@ -89,7 +84,7 @@ const ConsumoForm = ({
         </span>
       </div>
 
-      {/* PASO 1: Selector de Estanques - Ahora al inicio */}
+      {/* PASO 1: Selector de Estanques */}
       <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
         <div className="mb-3">
           <h3 className="text-left text-gray-800 font-semibold text-sm sm:text-base flex items-center">
@@ -108,6 +103,7 @@ const ConsumoForm = ({
             estanqueSeleccionado={estanqueSeleccionado}
             litrosRequeridos={parseFloat(formData.litros) || 0}
             disabled={isSaving}
+            preloadedEstanques={preloadedEstanques}
           />
         ) : (
           <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-3 rounded">
@@ -143,7 +139,7 @@ const ConsumoForm = ({
         )}
       </div>
 
-      {/* PASO 2: Datos de consumo - Solo se muestra cuando hay estanque seleccionado */}
+      {/* PASO 2: Datos de consumo */}
       {estanqueSeleccionado && (
         <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
           <div className="mb-3">

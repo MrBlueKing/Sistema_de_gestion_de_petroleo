@@ -79,8 +79,12 @@ const ModalConfirmacionReinicio = ({ isOpen, onConfirm, onCancel }) => {
               ¿Actualizar los cálculos automáticamente?
             </h3>
             <p className="text-gray-600 text-sm leading-relaxed">
-              Los cálculos de diferencia se actualizarán automáticamente con el nuevo valor de litros recibidos. 
-              <strong className="text-blue-600"> Las alturas ingresadas se mantendrán.</strong>
+              Los cálculos de diferencia se actualizarán automáticamente con el
+              nuevo valor de litros recibidos.
+              <strong className="text-blue-600">
+                {" "}
+                Las alturas ingresadas se mantendrán.
+              </strong>
             </p>
           </div>
 
@@ -88,7 +92,9 @@ const ModalConfirmacionReinicio = ({ isOpen, onConfirm, onCancel }) => {
             <div className="flex items-start">
               <FaInfoCircle className="text-blue-500 mt-0.5 mr-3 flex-shrink-0" />
               <div className="text-sm text-blue-700">
-                <p className="font-medium mb-1">Se actualizará automáticamente:</p>
+                <p className="font-medium mb-1">
+                  Se actualizará automáticamente:
+                </p>
                 <ul className="text-xs space-y-1">
                   <li>• El cálculo de la diferencia</li>
                   <li>• La observación generada</li>
@@ -119,11 +125,7 @@ const ModalConfirmacionReinicio = ({ isOpen, onConfirm, onCancel }) => {
 };
 
 // COMPONENTE MODAL DE ÉXITO INTEGRADO
-const ModalExitoRecepcion = ({
-  isOpen,
-  onConfirm,
-  datosRecepcion
-}) => {
+const ModalExitoRecepcion = ({ isOpen, onConfirm, datosRecepcion }) => {
   if (!isOpen) return null;
 
   const {
@@ -133,7 +135,7 @@ const ModalExitoRecepcion = ({
     diferencia,
     precioTotal,
     stockInicial,
-    precio
+    precio,
   } = datosRecepcion;
 
   const diferenciaMagnitud = Math.abs(diferencia);
@@ -143,7 +145,6 @@ const ModalExitoRecepcion = ({
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-transparent bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-fadeInScale">
-        
         {/* Header del modal */}
         <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-5 text-white">
           <div className="flex items-center justify-center">
@@ -151,7 +152,9 @@ const ModalExitoRecepcion = ({
               <FaCheck className="text-2xl" />
             </div>
             <div className="text-center">
-              <h2 className="text-xl font-bold">¡Recepción Registrada Exitosamente!</h2>
+              <h2 className="text-xl font-bold">
+                ¡Recepción Registrada Exitosamente!
+              </h2>
             </div>
           </div>
         </div>
@@ -160,14 +163,15 @@ const ModalExitoRecepcion = ({
         <div className="flex-grow overflow-y-auto p-6">
           {/* Resumen de datos en grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            
             {/* Información de la Guía */}
             <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
               <div className="flex items-center mb-3">
                 <div className="bg-blue-500 p-2 rounded-lg mr-3">
                   <FaFileAlt className="text-white text-sm" />
                 </div>
-                <h3 className="font-semibold text-blue-800">Información de Guía</h3>
+                <h3 className="font-semibold text-blue-800">
+                  Información de Guía
+                </h3>
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between">
@@ -175,12 +179,20 @@ const ModalExitoRecepcion = ({
                   <span className="font-bold text-blue-900">{numeroGuia}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-blue-700 text-sm">Litros Documentados:</span>
-                  <span className="font-bold text-blue-900">{formatNumberWithSeparators(litrosDocumentados)} L</span>
+                  <span className="text-blue-700 text-sm">
+                    Litros Documentados:
+                  </span>
+                  <span className="font-bold text-blue-900">
+                    {formatNumberWithSeparators(litrosDocumentados)} L
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-blue-700 text-sm">Precio por Litro:</span>
-                  <span className="font-bold text-blue-900">{formatCurrency(precio)}</span>
+                  <span className="text-blue-700 text-sm">
+                    Precio por Litro:
+                  </span>
+                  <span className="font-bold text-blue-900">
+                    {formatCurrency(precio)}
+                  </span>
                 </div>
               </div>
             </div>
@@ -195,29 +207,40 @@ const ModalExitoRecepcion = ({
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-orange-700 text-sm">Stock Inicial:</span>
-                  <span className="font-bold text-orange-900">{formatNumberWithSeparators(stockInicial)} L</span>
+                  <span className="text-orange-700 text-sm">
+                    Stock Inicial:
+                  </span>
+                  <span className="font-bold text-orange-900">
+                    {formatNumberWithSeparators(stockInicial)} L
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-orange-700 text-sm">Litros Calculados:</span>
-                  <span className="font-bold text-orange-900">{formatNumberWithSeparators(litrosCalculados)} L</span>
+                  <span className="text-orange-700 text-sm">
+                    Litros Calculados:
+                  </span>
+                  <span className="font-bold text-orange-900">
+                    {formatNumberWithSeparators(litrosCalculados)} L
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-orange-700 text-sm">Diferencia:</span>
-                  <span className={`font-bold ${
-                    esDiferenciaSignificativa 
-                      ? (esExcedente ? 'text-green-600' : 'text-red-600') 
-                      : 'text-gray-600'
-                  }`}>
+                  <span
+                    className={`font-bold ${
+                      esDiferenciaSignificativa
+                        ? esExcedente
+                          ? "text-green-600"
+                          : "text-red-600"
+                        : "text-gray-600"
+                    }`}
+                  >
                     {formatNumberWithSeparators(diferenciaMagnitud)} L
                     <span className="text-xs ml-1">
-                      ({esExcedente ? 'Excedente' : 'Faltante'})
+                      ({esExcedente ? "Excedente" : "Faltante"})
                     </span>
                   </span>
                 </div>
               </div>
             </div>
-
           </div>
 
           {/* Resumen financiero */}
@@ -228,8 +251,12 @@ const ModalExitoRecepcion = ({
                   <FaDollarSign className="text-white text-sm" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-green-800">Total de la Recepción</h3>
-                  <p className="text-green-600 text-sm">Basado en litros documentados</p>
+                  <h3 className="font-semibold text-green-800">
+                    Total de la Recepción
+                  </h3>
+                  <p className="text-green-600 text-sm">
+                    Basado en litros documentados
+                  </p>
                 </div>
               </div>
               <div className="text-right">
@@ -237,7 +264,8 @@ const ModalExitoRecepcion = ({
                   {formatCurrency(precioTotal)}
                 </div>
                 <div className="text-green-600 text-sm">
-                  {formatNumberWithSeparators(litrosDocumentados)} L × {formatCurrency(precio)}
+                  {formatNumberWithSeparators(litrosDocumentados)} L ×{" "}
+                  {formatCurrency(precio)}
                 </div>
               </div>
             </div>
@@ -252,21 +280,26 @@ const ModalExitoRecepcion = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-gray-600">Estado del Registro:</span>
-                <span className="ml-2 font-medium text-orange-600">✓ Completado</span>
+                <span className="ml-2 font-medium text-orange-600">
+                  ✓ Completado
+                </span>
               </div>
               <div>
                 <span className="text-gray-600">Precisión:</span>
-                <span className={`ml-2 font-medium ${
-                  esDiferenciaSignificativa 
-                    ? 'text-amber-600' 
-                    : 'text-green-600'
-                }`}>
-                  {esDiferenciaSignificativa ? 'Requiere Revisión' : 'Dentro de Tolerancia'}
+                <span
+                  className={`ml-2 font-medium ${
+                    esDiferenciaSignificativa
+                      ? "text-amber-600"
+                      : "text-green-600"
+                  }`}
+                >
+                  {esDiferenciaSignificativa
+                    ? "Requiere Revisión"
+                    : "Dentro de Tolerancia"}
                 </span>
               </div>
             </div>
           </div>
-
         </div>
 
         {/* Footer con botón */}
@@ -281,7 +314,6 @@ const ModalExitoRecepcion = ({
             </button>
           </div>
         </div>
-
       </div>
     </div>
   );
@@ -340,7 +372,7 @@ const FormRecepcion = () => {
       setShowModalActualizacion(true);
       return;
     }
-    
+
     // Si no hay cálculos, permitir cambio normal
     handleChange("litrosRecibidos", value);
   };
@@ -348,9 +380,9 @@ const FormRecepcion = () => {
   // NUEVO: Función para confirmar actualización automática de cálculos
   const confirmarActualizacion = () => {
     // Actualizar el valor de litros recibidos
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      litrosRecibidos: nuevoValorLitros
+      litrosRecibidos: nuevoValorLitros,
     }));
 
     // Recalcular la diferencia con el nuevo valor
@@ -361,7 +393,10 @@ const FormRecepcion = () => {
     setNuevoValorLitros("");
 
     // Mostrar alerta informativa
-    mostrarAlerta("info", "Los cálculos han sido actualizados automáticamente con el nuevo valor.");
+    mostrarAlerta(
+      "info",
+      "Los cálculos han sido actualizados automáticamente con el nuevo valor."
+    );
   };
 
   // NUEVO: Función para recalcular solo la diferencia manteniendo los litros calculados
@@ -370,15 +405,18 @@ const FormRecepcion = () => {
     const nuevaDiferencia = calculoPetroleo.litrosCalculados - litrosGuia;
 
     // Actualizar solo la diferencia, manteniendo litros calculados
-    setCalculoPetroleo(prev => ({
+    setCalculoPetroleo((prev) => ({
       ...prev,
-      diferencia: nuevaDiferencia
+      diferencia: nuevaDiferencia,
     }));
 
     // Actualizar la observación con la nueva diferencia
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      observacion: generarObservacionDiferencia(litrosGuia, calculoPetroleo.litrosCalculados)
+      observacion: generarObservacionDiferencia(
+        litrosGuia,
+        calculoPetroleo.litrosCalculados
+      ),
     }));
   };
 
@@ -808,7 +846,7 @@ const FormRecepcion = () => {
   // Generar texto de observación basado en diferencia
   const generarObservacionDiferencia = (litrosGuia, litrosIngresados) => {
     const diferencia = litrosIngresados - litrosGuia; // CAMBIO: Nuevo orden
-    
+
     return `Según cálculo de alturas, se detecta una diferencia de ${formatNumber(
       Math.abs(diferencia)
     )} litros ${
@@ -927,7 +965,8 @@ const FormRecepcion = () => {
         parseFloat(formData.litrosRecibidos) * parseFloat(formData.precio);
 
       // CAMBIO: Calcular diferencia como litros calculados - litros guía
-      const diferencia = calculoPetroleo.litrosCalculados - parseFloat(formData.litrosRecibidos);
+      const diferencia =
+        calculoPetroleo.litrosCalculados - parseFloat(formData.litrosRecibidos);
 
       // Preparar datos para el formato esperado por la API
       const alturas = prepararDatosAlturas();
@@ -966,13 +1005,12 @@ const FormRecepcion = () => {
         diferencia: diferencia, // Usar la nueva diferencia
         precioTotal: precioTotal,
         stockInicial: stockInicial,
-        precio: parseFloat(formData.precio)
+        precio: parseFloat(formData.precio),
       };
 
       // Mostrar modal de éxito
       setDatosRecepcionExitosa(datosParaModalExito);
       setShowExitoModal(true);
-
     } catch (error) {
       console.error("Error al enviar los datos:", error);
       manejarErrorEnvio(error);
@@ -1046,7 +1084,9 @@ const FormRecepcion = () => {
                 : "bg-red-100 text-red-800 border-l-4 border-red-500"
             }`}
           >
-            {alert.type === "error" && <FaExclamationTriangle className="mr-2" />}
+            {alert.type === "error" && (
+              <FaExclamationTriangle className="mr-2" />
+            )}
             {alert.type === "info" && <FaInfoCircle className="mr-2" />}
             {alert.message}
           </div>
@@ -1065,9 +1105,12 @@ const FormRecepcion = () => {
                   <FaCheck className="text-white text-sm" />
                 </div>
                 <div>
-                  <h3 className="font-medium text-green-800">Cálculos Realizados</h3>
+                  <h3 className="font-medium text-green-800">
+                    Cálculos Realizados
+                  </h3>
                   <p className="text-green-700 text-sm">
-                    Los cálculos se actualizarán automáticamente si modifica los litros recibidos.
+                    Los cálculos se actualizarán automáticamente si modifica los
+                    litros recibidos.
                   </p>
                 </div>
               </div>
@@ -1118,11 +1161,15 @@ const FormRecepcion = () => {
                 className={`bg-white rounded-md text-gray-800 ${
                   errors.litrosRecibidos ? "border-red-500" : "border-gray-300"
                 } ${
-                  calculoPetroleo.calculoRealizado 
-                    ? "border-green-300 focus:border-green-500" 
+                  calculoPetroleo.calculoRealizado
+                    ? "border-green-300 focus:border-green-500"
                     : ""
                 }`}
-                title={calculoPetroleo.calculoRealizado ? "Los cálculos se actualizarán automáticamente" : ""}
+                title={
+                  calculoPetroleo.calculoRealizado
+                    ? "Los cálculos se actualizarán automáticamente"
+                    : ""
+                }
               />
               {calculoPetroleo.calculoRealizado && (
                 <div className="absolute inset-y-0 right-0 flex items-center pr-3">
@@ -1222,20 +1269,20 @@ const FormRecepcion = () => {
           <div
             className={`p-4 rounded-lg text-center border mt-2 transition-all duration-300 ${
               Math.abs(calculoPetroleo.diferencia) <= 0.5
-                ? "bg-gray-50 border-gray-200"  // Diferencia mínima
+                ? "bg-gray-50 border-gray-200" // Diferencia mínima
                 : calculoPetroleo.diferencia > 0
-                ? "bg-green-50 border-green-200"  // Excedente - VERDE
-                : "bg-red-50 border-red-200"     // Faltante - ROJO
+                ? "bg-green-50 border-green-200" // Excedente - VERDE
+                : "bg-red-50 border-red-200" // Faltante - ROJO
             }`}
           >
             <div className="flex items-center justify-center mb-3">
               <p
                 className={`text-sm font-medium ${
                   Math.abs(calculoPetroleo.diferencia) <= 0.5
-                    ? "text-gray-600"      // Diferencia mínima
+                    ? "text-gray-600" // Diferencia mínima
                     : calculoPetroleo.diferencia > 0
-                    ? "text-green-600"     // Excedente - VERDE
-                    : "text-red-600"       // Faltante - ROJO
+                    ? "text-green-600" // Excedente - VERDE
+                    : "text-red-600" // Faltante - ROJO
                 }`}
               >
                 Resultado del cálculo:
@@ -1248,13 +1295,17 @@ const FormRecepcion = () => {
               <p className="flex justify-between items-center">
                 <span>Litros según guía:</span>
                 <span className="font-bold">
-                  {formatNumberWithSeparators(parseFloat(formData.litrosRecibidos))} L
+                  {formatNumberWithSeparators(
+                    parseFloat(formData.litrosRecibidos)
+                  )}{" "}
+                  L
                 </span>
               </p>
               <p className="flex justify-between items-center">
                 <span>Litros ingresados calculados:</span>
                 <span className="font-bold">
-                  {formatNumberWithSeparators(calculoPetroleo.litrosCalculados)} L
+                  {formatNumberWithSeparators(calculoPetroleo.litrosCalculados)}{" "}
+                  L
                 </span>
               </p>
               <div className="border-t pt-2">
@@ -1263,13 +1314,16 @@ const FormRecepcion = () => {
                   <span
                     className={`font-bold text-lg ${
                       Math.abs(calculoPetroleo.diferencia) <= 0.5
-                        ? "text-gray-600"      // Diferencia mínima
+                        ? "text-gray-600" // Diferencia mínima
                         : calculoPetroleo.diferencia > 0
-                        ? "text-green-600"     // Excedente - VERDE
-                        : "text-red-600"       // Faltante - ROJO
+                        ? "text-green-600" // Excedente - VERDE
+                        : "text-red-600" // Faltante - ROJO
                     }`}
                   >
-                    {formatNumberWithSeparators(Math.abs(calculoPetroleo.diferencia))} L
+                    {formatNumberWithSeparators(
+                      Math.abs(calculoPetroleo.diferencia)
+                    )}{" "}
+                    L
                     <span className="text-sm ml-1">
                       ({calculoPetroleo.diferencia > 0 ? "de más" : "de menos"})
                     </span>
@@ -1297,20 +1351,22 @@ const FormRecepcion = () => {
           />
         </div>
 
-        <div className="flex items-center mt-4 pt-2 border-t">
+        <div className="flex flex-col-reverse sm:flex-row sm:items-center mt-4 pt-2 border-t space-y-reverse space-y-3 sm:space-y-0">
+          {/* Botón Volver - Abajo en móvil, izquierda en desktop */}
           <Button
             to="/Bombero"
-            className="flex items-center justify-center bg-orange-600 hover:bg-orange-700 text-white text-sm px-4 py-2 rounded-md"
+            className="flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white text-sm px-4 py-3 sm:py-2 rounded-md w-full sm:w-auto"
             icon={<FaHome className="mr-2 text-white" />}
             text="Volver"
           />
 
+          {/* Botón Ingresar - Arriba en móvil, derecha en desktop */}
           <Button
             text={isSubmitting ? "Procesando..." : "Ingresar Recepción"}
             color="orange"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className={`bg-orange-600 hover:bg-orange-700 text-white text-sm px-6 py-2 rounded-md ml-auto ${
+            className={`bg-orange-600 hover:bg-orange-700 text-white text-sm px-6 py-3 sm:py-2 rounded-md w-full sm:w-auto sm:ml-auto ${
               isSubmitting ? "opacity-70 cursor-wait" : ""
             }`}
           />

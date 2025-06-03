@@ -67,18 +67,22 @@ const OptionsFormBombero = ({
   };
 
   // Seleccionar icono según el tipo de elemento
-  const getIcon = (item) => {
-    switch (tipoElemento) {
-      case "personal":
-        return <FaUser size={20} />;
-      case "maquinaria":
-        return <FaTruck size={20} />;
-      case "patente":
-        return <FaIdCard size={20} />;
-      default:
-        return <FaIndustry size={20} />;
-    }
-  };
+const getIcon = (item) => {
+  // Usa item.tipo si existe, si no, usa el tipo global tipoElemento
+  const tipo = item.tipo || tipoElemento;
+
+  switch (tipo) {
+    case "personal":
+      return <FaUser size={20} />;
+    case "maquinaria":
+      return <FaTruck size={20} />;
+    case "patente":
+    case "departamento":
+      return <FaIdCard size={20} />;
+    default:
+      return <FaTruck size={20} />;
+  }
+};
 
   // Manejador de selección con feedback visual
   const handleItemSelect = (item) => {
