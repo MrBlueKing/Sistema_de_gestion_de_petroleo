@@ -115,14 +115,14 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
 
-/*
+    /*
     |--------------------------------------------------------------------------
     | 👨‍💼 BUSQUEDA POR SOLICITANTES - FAENAS
     |--------------------------------------------------------------------------
     */
-Route::get('/solicitantes-internos-faena', [SolicitantesOptimizadoController::class, 'internosPorFaena']);
-Route::get('/solicitantes-externos-faena', [SolicitantesOptimizadoController::class, 'externosPorFaena']);
-Route::get('/solicitantes-por-faena', [SolicitantesOptimizadoController::class, 'porFaenaYTipo']);
+    Route::get('/solicitantes-internos-faena', [SolicitantesOptimizadoController::class, 'internosPorFaena']);
+    Route::get('/solicitantes-externos-faena', [SolicitantesOptimizadoController::class, 'externosPorFaena']);
+    Route::get('/solicitantes-por-faena', [SolicitantesOptimizadoController::class, 'porFaenaYTipo']);
 
 
 
@@ -270,6 +270,21 @@ Route::get('/solicitantes-por-faena', [SolicitantesOptimizadoController::class, 
         Route::get('/{id}/historial', [TonelajeController::class, 'getHistorial']);
         Route::get('/{id}/puede-editar', [TonelajeController::class, 'puedeEditar']);
     });
+
+    /*
+    |--------------------------------------------------------------------------
+    | 👨‍💼 Rutas para calcular Kpis Gerente
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/tonelajes-kpis', [TonelajeController::class, 'getFaenas']);
+    Route::get('/informes-kpi', [InformeKpiController::class, 'index']);
+    Route::get('/informes-kpi/test', [InformeKpiController::class, 'test']);
+    Route::get('/informes-kpi/mes-anterior', [InformeKpiController::class, 'obtenerValoresMesAnterior']);
+    Route::get('/informes-kpi/consumo-maquinas', [InformesController::class, 'getConsumoMaquinas']);
+    Route::get('/informes-kpi/balance-combustible', [InformesController::class, 'getBalanceCombustible']);
+
+
 
     /*
     |--------------------------------------------------------------------------
@@ -457,9 +472,6 @@ Route::get('/solicitantes-por-faena', [SolicitantesOptimizadoController::class, 
     Route::get('/capacidad-disponible/{id_faena}', [EstanqueController::class, 'capacidadDisponible']);
     Route::post('/consumos', [ConsumoController::class, 'store']);
     Route::apiResource('/kpi-valores-entrada', KpiValoresEntradaController::class);
-    Route::get('/informes-kpi', [InformeKpiController::class, 'index']);
-    Route::get('/informes-kpi/test', [InformeKpiController::class, 'test']);
-    Route::get('/informes-kpi/mes-anterior', [InformeKpiController::class, 'obtenerValoresMesAnterior']);
     Route::post('/calcular-kpis', [KpiCalculoController::class, 'calcular']);
     Route::get('/datos-mes-anterior', [InformeKpiController::class, 'obtenerValoresMesAnterior']);
     Route::get('/faenas-disponibles', [KpiCalculoController::class, 'getFaenasDisponibles']);
@@ -472,8 +484,6 @@ Route::get('/solicitantes-por-faena', [SolicitantesOptimizadoController::class, 
     Route::get('/kpi-estadisticas-por-faena', [KpiValoresEntradaController::class, 'getEstadisticasPorFaena']);
     Route::get('/kpi-totales-acumulados', [KpiValoresEntradaController::class, 'getTotalesAcumulados']);
     Route::get('/kpi-valores-entrada-historial-filtrado', [KpiValoresEntradaController::class, 'getHistorialFiltrado']);
-    Route::get('/informes-kpi/consumo-maquinas', [InformesController::class, 'getConsumoMaquinas']);
-    Route::get('/informes-kpi/balance-combustible', [InformesController::class, 'getBalanceCombustible']);
     Route::get('/proyeccion-consumo', [ProyeccionConsumoController::class, 'getProyeccionAvanzada']);
     Route::get('/proyeccion-consumo/equipos', [ProyeccionConsumoController::class, 'getEquiposConUltimoConsumo']);
     Route::get('/proyeccion-consumo-ayer', [ProyeccionConsumoController::class, 'getMaquinasConConsumoHastaAyer']);
@@ -484,7 +494,6 @@ Route::get('/solicitantes-por-faena', [SolicitantesOptimizadoController::class, 
     Route::get('/faenasTon', [TonelajeController::class, 'getFaenas']);
     Route::get('/faenasTon/{id}/padrones', [TonelajeController::class, 'getPadrones']);
     Route::get('/registros', [TonelajeController::class, 'getRegistros']);
-    Route::get('/tonelajes', [TonelajeController::class, 'index']);
     Route::post('/tonelajes', [TonelajeController::class, 'store']);
     Route::get('/tonelajes/{id}', [TonelajeController::class, 'show']);
     Route::put('/tonelajes/{id}', [TonelajeController::class, 'update']);
