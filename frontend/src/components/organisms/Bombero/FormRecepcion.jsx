@@ -59,7 +59,7 @@ const ModalConfirmacionReinicio = ({ isOpen, onConfirm, onCancel }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 overflow-hidden bg-transparent bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md animate-fadeInScale">
         <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4 text-white rounded-t-xl">
           <div className="flex items-center">

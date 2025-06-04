@@ -32,9 +32,40 @@ const BomberoMaquinaria = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
- 
-  
-    // ✅ CARGAR CATEGORÍAS DESDE CACHE
+
+  // 🎨 MAPEO DE ICONOS POR TIPO DE MEDICIÓN
+  const getIconForCategory = useCallback((categoria) => {
+    const tipoMedicion = categoria.tipo_medicion;
+    
+    // Mapeo específico por tipo de medición
+    if (tipoMedicion === 'Horometro') {
+      return <FaTruck className="text-orange-500" />;
+    }
+    if (tipoMedicion === 'Kilometraje') {
+      return <FaTruck className="text-blue-500" />;
+    }
+    // 🏭 Para categorías sin tipo de medición definido (N/A)
+    if (!tipoMedicion || tipoMedicion === 'N/A' || tipoMedicion === '') {
+      return <FaIndustry className="text-slate-600" />;
+    }
+    
+    // Icono por defecto
+    return <FaCog className="text-gray-500" />;
+  }, []);
+
+  // 🎨 MAPEO DE ICONOS POR TIPO DE MEDICIÓN (alternativo)
+  const getIconByMeasurementType = useCallback((tipoMedicion) => {
+    if (tipoMedicion === 'Kilometraje') {
+      return <FaCar className="text-blue-500" />;
+    }
+    if (tipoMedicion === 'Horometro') {
+      return <FaTractor className="text-orange-500" />;
+    }
+    
+    return <FaCog className="text-gray-500" />;
+  }, []);
+
+  // ✅ CARGAR CATEGORÍAS DESDE CACHE
   useEffect(() => {
     const cargarCategorias = async () => {
       try {
@@ -83,25 +114,23 @@ const BomberoMaquinaria = ({
     onNext(categoria.original);
   }, [tipoSolicitante, userFaena, onNext]);
 
-  // 🎨 FORMATEAR CATEGORÍAS CON ICONOS PERSONALIZADOS
+  // 🎨 FORMATEAR CATEGORÍAS CON ICONOS BASADOS EN TIPO_MEDICION
   const categoriasFormateadas = useMemo(() => {
     return categorias.map(categoria => ({
       id: categoria.id_categoria,
       nombre: categoria.nombre_categoria,
-      descripcion: categoria.tipo_medicion,
-      tipo_elemento: categoria.tipo_medicion,
-     
+      descripcion: `Medición: ${categoria.tipo_medicion || 'N/A'}`,
+      // 🎨 AGREGAR ICONO BASADO EN TIPO_MEDICION
+      icon: getIconForCategory(categoria),
       original: {
         id: categoria.id_categoria,
         nombre: categoria.nombre_categoria,
         tipo_medicion: categoria.tipo_medicion,
         horas_mantencion: categoria.horas_mantencion,
-        descripcion: `Medición: ${categoria.tipo_medicion}`
-        
-
+        descripcion: `Medición: ${categoria.tipo_medicion || 'N/A'}`
       }
     }));
-  }, [categorias]);
+  }, [categorias, getIconForCategory]);
 
   // Función para obtener el texto del tipo de solicitante con color
   const getTipoSolicitanteDisplay = useCallback(() => {
@@ -127,7 +156,21 @@ const BomberoMaquinaria = ({
       );
     }
     
-  
+    if (estaCompleta) {
+      return (
+        <div className="flex items-center space-x-1 bg-green-100 text-green-800 rounded-lg py-1 px-3">
+          <FaRocket className="w-3 h-3" />
+          <span>Todas las máquinas precargadas - Navegación instantánea</span>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="flex items-center space-x-1 bg-blue-100 text-blue-800 rounded-lg py-1 px-3">
+        <FaCheck className="w-3 h-3" />
+        <span>Tipos de maquinaria cargados</span>
+      </div>
+    );
   }, [preloadStatus]);
 
   return (
@@ -148,7 +191,16 @@ const BomberoMaquinaria = ({
             </h2>
           </div>
 
-      
+          {/* Información de estado - MEJORADA con estado de precarga */}
+          <div className="flex flex-wrap gap-2 justify-center items-center text-xs">
+            <div className="bg-blue-100 text-blue-800 rounded-lg py-1 px-3">
+              Tipo: <span className="font-medium">{tipoSolicitante}</span>
+            </div>
+            
+            {/* 🆕 MOSTRAR ESTADO DE PRECARGA DINÁMICO */}
+            {getPreloadStatusDisplay()}
+          </div>
+
           <div className="bg-orange-500 w-full rounded-2xl sm:rounded-3xl md:rounded-[40px] py-3 sm:py-4 md:py-6 px-2 sm:px-3 md:px-4 space-y-2 sm:space-y-3 md:space-y-4 min-h-[300px] md:min-h-[350px] flex flex-col">
             
             <TabProgressBar activeTab="maquinaria" />
@@ -158,7 +210,7 @@ const BomberoMaquinaria = ({
                 <div className="py-4 text-gray-500 flex-grow flex items-center justify-center">
                   <div className="text-center">
                     <div className="w-10 h-10 mx-auto mb-2 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                    <p>Cargando tipos de Maquinas...</p>
+                    <p>Cargando tipos de camión...</p>
                   </div>
                 </div>
               ) : error ? (
@@ -183,21 +235,32 @@ const BomberoMaquinaria = ({
                     items={categoriasFormateadas}
                     onItemSelect={handleCategoriaSelect}
                     buttonStyle={true}
-                    tipoElemento= "maquinaria"
-                                    
+                    tipoElemento="tipo de camión"
+                    showIcons={true} // Asegurar que el componente List muestre iconos
                   />
                   
-                 
+                  {/* Información de resultados MEJORADA */}
+                  <div className="mt-2 text-center text-gray-500 text-xs">
+                    {categoriasFormateadas.length} tipo{categoriasFormateadas.length !== 1 ? 's' : ''} de camión disponible{categoriasFormateadas.length !== 1 ? 's' : ''}
+                    {preloadStatus?.loaded && (
+                      <span className="text-green-600 ml-2">
+                        • Máquinas precargadas para navegación instantánea
+                      </span>
+                    )}
+                  </div>
                 </>
               ) : (
                 <div className="py-4 text-gray-500 flex-grow flex items-center justify-center">
-                  
+                  <div className="text-center">
+                    <svg className="w-10 h-10 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p>No hay tipos de camión disponibles</p>
+                  </div>
                 </div>
               )}
             </div>
           </div>
-
-
 
           {/* Controles de navegación */}
           <div className="flex items-center w-full px-1 sm:px-2 md:px-4 py-1 sm:py-2">

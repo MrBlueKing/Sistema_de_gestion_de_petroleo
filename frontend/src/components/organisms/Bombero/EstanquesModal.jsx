@@ -298,7 +298,7 @@ const EstanquesModal = ({
   const isResultadosStep = currentStep === 2;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-black bg-opacity-60 backdrop-blur-sm flex items-start md:items-center justify-center">
+    <div className="fixed inset-0 z-50 overflow-hidden bg-transparent bg-opacity-60 backdrop-blur-sm flex items-start md:items-center justify-center">
       <div
         ref={modalRef}
         className="bg-white rounded-lg shadow-2xl w-full md:max-w-7xl max-h-[100vh] md:max-h-[90vh] flex flex-col animate-fadeInScale overflow-hidden"
@@ -422,7 +422,7 @@ const EstanquesModal = ({
                         </div>
                         {/* Tooltip del paso - Solo en desktop */}
                         {!isMobile && (
-                          <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity bg-black bg-opacity-75 text-white text-xs rounded px-2 py-1 pointer-events-none">
+                          <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity bg-transparent bg-opacity-75 text-white text-xs rounded px-2 py-1 pointer-events-none">
                             {["Inicial", "Final", "Detalle"][index]}
                           </div>
                         )}
