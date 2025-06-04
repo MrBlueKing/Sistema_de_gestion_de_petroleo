@@ -66,23 +66,44 @@ const OptionsFormBombero = ({
     }
   };
 
-  // Seleccionar icono según el tipo de elemento
-const getIcon = (item) => {
-  // Usa item.tipo si existe, si no, usa el tipo global tipoElemento
-  const tipo = item.tipo || tipoElemento;
+  // 🎨 FUNCIÓN MEJORADA PARA ICONOS CON SOPORTE PERSONALIZADO
+  const getIcon = (item) => {
+    // 🆕 PRIORIDAD 1: Si el item tiene un icono personalizado, usarlo
+    if (item.icon) {
+      return React.cloneElement(item.icon, { size: 20 });
+    }
 
-  switch (tipo) {
-    case "personal":
-      return <FaUser size={20} />;
-    case "maquinaria":
-      return <FaTruck size={20} />;
-    case "patente":
-    case "departamento":
-      return <FaIdCard size={20} />;
-    default:
-      return <FaTruck size={20} />;
-  }
-};
+    // 🆕 PRIORIDAD 2: Si es tipo maquinaria, usar iconos según el nombre
+    if (tipoElemento === "maquinaria" || tipoElemento === "tipo de camión") {
+      const nombre = (item.nombre || '').toLowerCase();
+      
+      if (nombre.includes('dumper')) {
+        return <FaTruck size={20} className="text-orange-500" />;
+      }
+      if (nombre.includes('camioneta')) {
+        return <FaTruck size={20} className="text-blue-500" />;
+      }
+      if (nombre.includes('n/a') || nombre === 'n/a') {
+        return <FaIndustry size={20} className="text-slate-600" />;
+      }
+    }
+
+    // 🆕 PRIORIDAD 3: Lógica original según tipoElemento
+    const tipo = item.tipo || tipoElemento;
+
+    switch (tipo) {
+      case "personal":
+        return <FaUser size={20} />;
+      case "maquinaria":
+      case "tipo de camión":
+        return <FaTruck size={20} />;
+      case "patente":
+      case "departamento":
+        return <FaIdCard size={20} />;
+      default:
+        return <FaTruck size={20} />;
+    }
+  };
 
   // Manejador de selección con feedback visual
   const handleItemSelect = (item) => {
@@ -154,7 +175,8 @@ const getIcon = (item) => {
                         </div>
                       )}
                       
-                      {tipoElemento === "maquinaria" && item.descripcion && (
+                      {/* 🆕 MEJORADO: Mostrar descripción para cualquier tipo que la tenga */}
+                      {(tipoElemento === "maquinaria" || tipoElemento === "tipo de camión" || tipoElemento === "patente") && item.descripcion && (
                         <p className="text-xs text-gray-500 mt-1 truncate">{item.descripcion}</p>
                       )}
                     </div>
