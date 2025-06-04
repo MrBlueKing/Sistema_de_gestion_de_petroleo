@@ -13,8 +13,16 @@ class InformesController extends Controller
     public function getConsumoMaquinas(Request $request)
     {
         // Asegurar que fecha_fin incluya todo el día
+        // ===== CORREGIR FORMATO DE FECHAS =====
         $fechaInicio = $request->input('fecha_inicio', Carbon::now()->startOfMonth()->format('Y-m-d'));
-        $fechaFin = $request->input('fecha_fin', Carbon::now()->format('Y-m-d') . ' 23:59:59');
+
+        // ✅ CORREGIR: Asegurar formato correcto de fecha fin
+        $fechaFinInput = $request->input('fecha_fin', Carbon::now()->format('Y-m-d'));
+        $fechaFin = Carbon::parse($fechaFinInput)->format('Y-m-d') . ' 23:59:59';
+
+        // 📝 LOG para verificar fechas
+        Log::info("Fechas procesadas - Inicio: {$fechaInicio}, Fin: {$fechaFin}");
+
         $faena = $request->input('faena', null);
         $toneladas = $request->input('toneladas', 0); // Parámetro para las toneladas en el período
 
@@ -30,7 +38,7 @@ class InformesController extends Controller
             $query->where('c.id_faena', $faena);
         }
 
-        // 1. Consumo por máquina
+        // 1. Consumo por máquina - MODIFICADO: Quitar cálculos de medición del SELECT
         $consumoPorMaquina = clone $query;
         $consumoPorMaquina = $consumoPorMaquina->select(
             'm.id_maquina',
@@ -41,19 +49,27 @@ class InformesController extends Controller
             'f.ubicacion as nombre_faena',
             DB::raw('MIN(c.fecha_consumo) as primera_fecha'),
             DB::raw('MAX(c.fecha_consumo) as ultima_fecha'),
-            DB::raw('MIN(c.medicion) as medicion_inicial'),
-            DB::raw('MAX(c.medicion) as medicion_final'),
-            DB::raw('(MAX(c.medicion) - MIN(c.medicion)) as diferencia_medicion'),
             DB::raw('SUM(c.litros_consumidos) as litros_consumidos')
+            // ❌ REMOVIDO: MIN/MAX de medición porque era incorrecto
         )
             ->groupBy('m.id_maquina', 'm.nombre_maquina', 'm.patente', 'cm.tipo_medicion', 'f.id_faena', 'f.ubicacion')
             ->orderBy('f.ubicacion')
             ->orderBy('m.nombre_maquina')
             ->get();
 
-        // Calcular el costo para cada máquina
+        // Calcular el costo y rendimiento para cada máquina
         foreach ($consumoPorMaquina as $maquina) {
-            // Obtener los consumos individuales para esta máquina
+            // ===== 1. CALCULAR RENDIMIENTO PRIMERO =====
+            Log::info("Procesando máquina: {$maquina->nombre_maquina} (ID: {$maquina->id_maquina})");
+
+            $rendimientoData = $this->calcularRendimientoMaquina(
+                $maquina->id_maquina,
+                $fechaInicio,
+                $fechaFin,
+                $maquina->tipo_medicion
+            );
+
+            // ===== 2. OBTENER CONSUMOS PARA COSTOS =====
             $consumos = DB::table('consumos')
                 ->where('id_equipo', $maquina->id_maquina)
                 ->where('id_faena', $maquina->id_faena)
@@ -84,21 +100,33 @@ class InformesController extends Controller
                 ];
             }
 
-            // Añadir campos financieros detallados a la máquina
+            // ===== 3. ASIGNAR TODOS LOS CAMPOS =====
+
+            // Campos financieros
             $maquina->detalle_consumos = $preciosDetalle;
             $maquina->valor_consumo = $costoTotal;
             $maquina->precio_promedio = $maquina->litros_consumidos > 0 ? ($costoTotal / $maquina->litros_consumidos) : 0;
 
-            // Calcular eficiencia según tipo de medición
-            if ($maquina->diferencia_medicion > 0) {
-                $maquina->litros_por_unidad = $maquina->litros_consumidos / $maquina->diferencia_medicion;
-                $maquina->costo_por_unidad = $maquina->valor_consumo / $maquina->diferencia_medicion;
-                $maquina->unidad = $maquina->tipo_medicion === 'Horometro' ? 'hr' : 'km';
-            } else {
-                $maquina->litros_por_unidad = 0;
-                $maquina->costo_por_unidad = 0;
-                $maquina->unidad = $maquina->tipo_medicion === 'Horometro' ? 'hr' : 'km';
-            }
+            // Campos de rendimiento
+            $maquina->medicion_inicial = $rendimientoData['medicion_inicial'];
+            $maquina->medicion_final = $rendimientoData['medicion_final'];
+            $maquina->diferencia_medicion = $rendimientoData['diferencia_medicion'];
+            $maquina->litros_por_unidad = $rendimientoData['litros_por_unidad'];
+            $maquina->costo_por_unidad = $rendimientoData['costo_por_unidad'];
+            $maquina->unidad = $rendimientoData['unidad'];
+            $maquina->metodo_calculo = $rendimientoData['metodo'];
+            $maquina->detalle_mediciones = $rendimientoData['detalle'];
+
+            // Campo específico para el rendimiento
+            $maquina->rendimiento = [
+                'valor' => $rendimientoData['litros_por_unidad'],
+                'unidad' => $rendimientoData['unidad'],
+                'texto' => $rendimientoData['litros_por_unidad'] . ' lts/' . $rendimientoData['unidad'],
+                'interpretacion' => $this->interpretarRendimiento($rendimientoData['litros_por_unidad'], $maquina->tipo_medicion)
+            ];
+
+            // Log final para verificar
+            Log::info("Rendimiento asignado a {$maquina->nombre_maquina}: {$maquina->litros_por_unidad} lts/{$maquina->unidad}");
 
             // Si hay toneladas, calcular valores por tonelada
             if ($toneladas > 0) {
@@ -107,7 +135,7 @@ class InformesController extends Controller
             }
         }
 
-        // 2. Totales por faena con costos detallados
+        // 2. Totales por faena con costos detallados (SIN CAMBIOS)
         $consumoPorFaena = DB::table('consumos as c')
             ->join('faenas as f', 'c.id_faena', '=', 'f.id_faena')
             ->whereBetween('c.fecha_consumo', [$fechaInicio, $fechaFin])
@@ -154,7 +182,7 @@ class InformesController extends Controller
             }
         }
 
-        // 3. Ingresos por faena con detalles financieros
+        // 3. Ingresos por faena con detalles financieros (SIN CAMBIOS)
         $ingresosPorFaena = DB::table('ingresos_petroleo as ip')
             ->join('faenas as f', 'ip.id_faena', '=', 'f.id_faena')
             ->whereBetween('ip.created_at', [$fechaInicio, $fechaFin])
@@ -187,7 +215,7 @@ class InformesController extends Controller
             }
         }
 
-        // 4. Precios promedios por fecha para cada faena (para tendencias)
+        // 4. Precios promedios por fecha para cada faena (SIN CAMBIOS)
         $preciosTendencia = DB::table('ingresos_petroleo as ip')
             ->join('faenas as f', 'ip.id_faena', '=', 'f.id_faena')
             ->whereBetween('ip.created_at', [$fechaInicio, $fechaFin])
@@ -204,28 +232,23 @@ class InformesController extends Controller
             ->orderBy('fecha')
             ->get();
 
-        // 5. Datos de resumen general con detalles financieros
-        // Consumo total
+        // 5. Datos de resumen general (SIN CAMBIOS)
         $totalConsumo = DB::table('consumos')
             ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
             ->sum('litros_consumidos');
 
-        // Ingresos totales
         $totalIngreso = DB::table('ingresos_petroleo')
             ->whereBetween('created_at', [$fechaInicio, $fechaFin])
             ->sum('litros_recibidos');
 
-        // Valor de ingresos
         $valorIngreso = DB::table('ingresos_petroleo')
             ->whereBetween('created_at', [$fechaInicio, $fechaFin])
             ->sum('precio_total');
 
-        // Precio promedio de ingresos
         $precioPromedioIngreso = DB::table('ingresos_petroleo')
             ->whereBetween('created_at', [$fechaInicio, $fechaFin])
             ->avg('precio');
 
-        // Calcular valor total de consumos
         $valorConsumoTotal = 0;
         $consumosTotales = DB::table('consumos')
             ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
@@ -241,13 +264,11 @@ class InformesController extends Controller
             $valorConsumoTotal += $consumo->litros_consumidos * $precio;
         }
 
-        // Calcular varianza de precios
         $varianzaPrecios = DB::table('ingresos_petroleo')
             ->whereBetween('created_at', [$fechaInicio, $fechaFin])
             ->select(DB::raw('STDDEV(precio) as varianza'))
             ->first();
 
-        // Crear resumen financiero detallado
         $resumenFinanciero = [
             'litros_ingresados' => $totalIngreso,
             'valor_ingresos' => $valorIngreso,
@@ -261,15 +282,14 @@ class InformesController extends Controller
             'varianza_precios' => $varianzaPrecios ? $varianzaPrecios->varianza : 0
         ];
 
-        // Añadir KPIs por tonelada si se proporciona el parámetro
         if ($toneladas > 0) {
             $resumenFinanciero['toneladas'] = $toneladas;
             $resumenFinanciero['litros_por_tonelada'] = $totalConsumo / $toneladas;
             $resumenFinanciero['costo_por_tonelada'] = $valorConsumoTotal / $toneladas;
-            $resumenFinanciero['ingreso_por_tonelada'] = 0; // Necesitas un valor de ingreso por tonelada si lo tienes
+            $resumenFinanciero['ingreso_por_tonelada'] = 0;
         }
 
-        // 6. Calcular rendimiento por tipo de máquina
+        // 6. Calcular rendimiento por tipo de máquina - MODIFICADO
         $rendimientoTipos = [];
         $tiposMaquinas = DB::table('categorias_maquinas')->get();
 
@@ -289,7 +309,7 @@ class InformesController extends Controller
                 ->whereBetween('c.fecha_consumo', [$fechaInicio, $fechaFin])
                 ->sum('c.litros_consumidos');
 
-            // Total de unidades (km u horas) para este tipo de máquina
+            // ===== MODIFICADO: Usar tu método para calcular total de unidades =====
             $totalUnidades = 0;
             $costoCategoria = 0;
             $maquinasCategoria = DB::table('maquinas')
@@ -297,24 +317,17 @@ class InformesController extends Controller
                 ->get();
 
             foreach ($maquinasCategoria as $maqCat) {
-                // Mediciones inicial y final
-                $primeraLectura = DB::table('consumos')
-                    ->where('id_equipo', $maqCat->id_maquina)
-                    ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
-                    ->orderBy('fecha_consumo', 'asc')
-                    ->value('medicion');
+                // ===== USAR TU MÉTODO en lugar de MIN/MAX =====
+                $rendimientoMaq = $this->calcularRendimientoMaquina(
+                    $maqCat->id_maquina,
+                    $fechaInicio,
+                    $fechaFin,
+                    $tipo->tipo_medicion
+                );
 
-                $ultimaLectura = DB::table('consumos')
-                    ->where('id_equipo', $maqCat->id_maquina)
-                    ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
-                    ->orderBy('fecha_consumo', 'desc')
-                    ->value('medicion');
+                $totalUnidades += $rendimientoMaq['diferencia_medicion'];
 
-                if ($primeraLectura && $ultimaLectura) {
-                    $totalUnidades += ($ultimaLectura - $primeraLectura);
-                }
-
-                // Costo de consumo para esta máquina
+                // Costo de consumo para esta máquina (SIN CAMBIOS)
                 $consumosMaquina = DB::table('consumos')
                     ->where('id_equipo', $maqCat->id_maquina)
                     ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
@@ -365,6 +378,193 @@ class InformesController extends Controller
         ]);
     }
 
+    /**
+     * MÉTODO AUXILIAR: Interpretar rendimiento
+     */
+    // Al final de la clase, agregar:
+    private function interpretarRendimiento($rendimiento, $tipoMedicion)
+    {
+        if ($rendimiento <= 0) {
+            return 'Sin datos suficientes';
+        }
+
+        if ($tipoMedicion === 'Kilometraje') {
+            // Para camiones - litros por kilómetro
+            if ($rendimiento > 3) {
+                return 'Consumo alto - revisar eficiencia';
+            } elseif ($rendimiento > 1.5) {
+                return 'Consumo moderado - dentro del rango normal';
+            } else {
+                return 'Consumo eficiente';
+            }
+        } else {
+            // Para maquinaria - litros por hora
+            if ($rendimiento > 20) {
+                return 'Consumo alto - revisar condiciones operativas';
+            } elseif ($rendimiento > 10) {
+                return 'Consumo moderado - rango operativo normal';
+            } else {
+                return 'Consumo bajo - operación eficiente';
+            }
+        }
+    }
+
+    /**
+     * MÉTODO DE PRUEBA: Endpoint específico para verificar rendimientos
+     */
+    public function testRendimientoMaquinas(Request $request)
+    {
+        $fechaInicio = $request->input('fecha_inicio', '2025-03-01');
+        $fechaFin = $request->input('fecha_fin', '2025-03-08');
+
+        $maquinas = DB::table('maquinas as m')
+            ->join('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria')
+            ->select('m.id_maquina', 'm.nombre_maquina', 'm.patente', 'cm.tipo_medicion')
+            ->get();
+
+        $rendimientos = [];
+
+        foreach ($maquinas as $maquina) {
+            $rendimiento = $this->calcularRendimientoMaquina(
+                $maquina->id_maquina,
+                $fechaInicio,
+                $fechaFin,
+                $maquina->tipo_medicion
+            );
+
+            $rendimientos[] = [
+                'maquina' => $maquina->nombre_maquina,
+                'patente' => $maquina->patente,
+                'tipo_medicion' => $maquina->tipo_medicion,
+                'rendimiento_calculado' => $rendimiento
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'rendimientos_por_maquina' => $rendimientos,
+            'mensaje' => 'Test específico de rendimientos - revisar logs para detalles'
+        ]);
+    }
+
+    /**
+     * ===== MÉTODO PRINCIPAL: Calcular rendimiento según tu especificación =====
+     */
+    private function calcularRendimientoMaquina($idMaquina, $fechaInicio, $fechaFin, $tipoMedicion)
+    {
+        Log::info("=== INICIANDO CÁLCULO RENDIMIENTO MÁQUINA {$idMaquina} ===");
+
+        // Buscar PRIMER consumo del rango con medición
+        $primerConsumo = DB::table('consumos')
+            ->where('id_equipo', $idMaquina)
+            ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
+            ->whereNotNull('medicion')
+            ->where('medicion', '>', 0)
+            ->orderBy('fecha_consumo', 'asc')
+            ->first();
+
+        // Buscar ÚLTIMO consumo del rango con medición
+        $ultimoConsumo = DB::table('consumos')
+            ->where('id_equipo', $idMaquina)
+            ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
+            ->whereNotNull('medicion')
+            ->where('medicion', '>', 0)
+            ->orderBy('fecha_consumo', 'desc')
+            ->first();
+
+        Log::info("Primer consumo encontrado: " . ($primerConsumo ? json_encode($primerConsumo) : 'NULL'));
+        Log::info("Último consumo encontrado: " . ($ultimoConsumo ? json_encode($ultimoConsumo) : 'NULL'));
+
+        if (!$primerConsumo || !$ultimoConsumo) {
+            Log::warning("Sin mediciones válidas para máquina {$idMaquina}");
+            return [
+                'medicion_inicial' => 0,
+                'medicion_final' => 0,
+                'diferencia_medicion' => 0,
+                'litros_por_unidad' => 0,
+                'costo_por_unidad' => 0,
+                'unidad' => $tipoMedicion === 'Horometro' ? 'hr' : 'km',
+                'metodo' => 'sin_mediciones',
+                'detalle' => 'No se encontraron mediciones válidas en el rango'
+            ];
+        }
+
+        // ===== TU FÓRMULA: Última medición - Primera medición =====
+        $medicionInicial = (float) $primerConsumo->medicion;
+        $medicionFinal = (float) $ultimoConsumo->medicion;
+        $diferenciaMedicion = $medicionFinal - $medicionInicial;
+
+        Log::info("Medición inicial: {$medicionInicial}, Medición final: {$medicionFinal}, Diferencia: {$diferenciaMedicion}");
+
+        // Validar que la diferencia sea lógica
+        if ($diferenciaMedicion <= 0) {
+            Log::warning("Diferencia inválida para máquina {$idMaquina}: {$diferenciaMedicion}");
+            return [
+                'medicion_inicial' => $medicionInicial,
+                'medicion_final' => $medicionFinal,
+                'diferencia_medicion' => 0,
+                'litros_por_unidad' => 0,
+                'costo_por_unidad' => 0,
+                'unidad' => $tipoMedicion === 'Horometro' ? 'hr' : 'km',
+                'metodo' => 'diferencia_invalida',
+                'detalle' => "Diferencia inválida: {$medicionFinal} - {$medicionInicial} = {$diferenciaMedicion}"
+            ];
+        }
+
+        // Calcular total de litros consumidos por esta máquina en el rango
+        $totalLitros = (float) DB::table('consumos')
+            ->where('id_equipo', $idMaquina)
+            ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
+            ->sum('litros_consumidos');
+
+        // Calcular total de costo
+        $totalCosto = 0;
+        $consumos = DB::table('consumos')
+            ->where('id_equipo', $idMaquina)
+            ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
+            ->get();
+
+        foreach ($consumos as $consumo) {
+            $precio = DB::table('ingresos_petroleo')
+                ->where('id_faena', $consumo->id_faena)
+                ->where('created_at', '<=', $consumo->fecha_consumo)
+                ->orderBy('created_at', 'desc')
+                ->value('precio') ?? 0;
+
+            $totalCosto += $consumo->litros_consumidos * $precio;
+        }
+
+        // ===== CALCULAR RENDIMIENTO =====
+        $litrosPorUnidad = $diferenciaMedicion > 0 ? ($totalLitros / $diferenciaMedicion) : 0;
+        $costoPorUnidad = $diferenciaMedicion > 0 ? ($totalCosto / $diferenciaMedicion) : 0;
+
+        Log::info("RESULTADO - Litros por unidad: {$litrosPorUnidad}, Costo por unidad: {$costoPorUnidad}");
+
+        return [
+            'medicion_inicial' => $medicionInicial,
+            'medicion_final' => $medicionFinal,
+            'diferencia_medicion' => $diferenciaMedicion,
+            'litros_por_unidad' => round($litrosPorUnidad, 2),
+            'costo_por_unidad' => round($costoPorUnidad, 2),
+            'unidad' => $tipoMedicion === 'Horometro' ? 'hr' : 'km',
+            'metodo' => 'primera_menos_ultima_medicion',
+            'detalle' => [
+                'primer_consumo' => [
+                    'fecha' => $primerConsumo->fecha_consumo,
+                    'medicion' => $medicionInicial
+                ],
+                'ultimo_consumo' => [
+                    'fecha' => $ultimoConsumo->fecha_consumo,
+                    'medicion' => $medicionFinal
+                ],
+                'total_litros_periodo' => $totalLitros,
+                'total_costo_periodo' => $totalCosto,
+                'formula' => "{$totalLitros}L ÷ {$diferenciaMedicion}" . ($tipoMedicion === 'Horometro' ? 'h' : 'km') . " = " . round($litrosPorUnidad, 2)
+            ]
+        ];
+    }
+
+    // Mantener el método getBalanceCombustible sin cambios
     public function getBalanceCombustible(Request $request)
     {
         $fechaInicio = $request->input('fecha_inicio', Carbon::now()->startOfMonth()->format('Y-m-d'));

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 // claude 2025 😅 La realidad: "Sistema que funciona por milagro y no tocar nada"
 
@@ -765,6 +766,8 @@ class ConsumoCategoriasController extends Controller
 
         // Sumar todas las mediciones del período
         $total = $mediciones->sum('medicion');
+
+        Log::info("Total de mediciones para máquina {$idMaquina} entre {$fechaInicio->format('Y-m-d')} y {$fechaFin->format('Y-m-d')}: {$total}");
 
         return [
             'valor' => round($total, 2),
