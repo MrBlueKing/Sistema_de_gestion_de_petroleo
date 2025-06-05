@@ -9,6 +9,7 @@ use App\Models\IngresoPetroleo;
 use App\Models\StockPetroleo;
 use App\Models\VerificacionAltura;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -369,4 +370,195 @@ class IngresoPetroleoController extends Controller
             ], 500);
         }
     }
+
+    
+ public function getStats(Request $request)
+    {
+        try {
+            $faenaId = $request->get('faena');
+            $hoy = Carbon::today();
+
+            // Stock total de la faena
+            $stockTotal = DB::table('estanque_stock as es')
+                ->join('estanques as e', 'es.id_estanque', '=', 'e.id_estanque')
+                ->where('e.id_faena', $faenaId)
+                ->where('e.activo', 1)
+                ->sum('es.stock_actual');
+
+            // Recepciones de hoy
+            $recepcionesHoy = DB::table('ingresos_petroleo')
+                ->where('id_faena', $faenaId)
+                ->whereDate('created_at', $hoy)
+                ->count();
+
+            // Consumos de hoy
+            $consumosHoy = DB::table('consumos')
+                ->where('id_faena', $faenaId)
+                ->whereDate('fecha_consumo', $hoy)
+                ->count();
+
+            // Estanques activos
+            $estanquesActivos = DB::table('estanques')
+                ->where('id_faena', $faenaId)
+                ->where('activo', 1)
+                ->count();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'stockTotal' => round($stockTotal, 2),
+                    'recepcionesHoy' => $recepcionesHoy,
+                    'consumosHoy' => $consumosHoy,
+                    'estanquesActivos' => $estanquesActivos
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener estadísticas',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getRecepciones(Request $request)
+    {
+        try {
+            // Obtener parámetros de filtro
+            $faena = $request->input('faena');
+            $dateFrom = $request->input('dateFrom');
+            $dateTo = $request->input('dateTo');
+
+            // Validar que al menos venga la faena
+            if (!$faena) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El parámetro faena es requerido'
+                ], 400);
+            }
+
+            // Construir la consulta con joins para obtener toda la información
+            $query = DB::table('ingresos_petroleo as ip')
+                ->leftJoin('faenas as f', 'ip.id_faena', '=', 'f.id_faena')
+                ->leftJoin('users as u', 'ip.id_usuario', '=', 'u.id')
+                ->select([
+                    'ip.id_ingreso',
+                    'ip.numero_guia',
+                    'ip.litros_documentados',
+                    'ip.litros_recibidos',
+                    'ip.precio',
+                    'ip.precio_total',
+                    'ip.recibo_conforme',
+                    'ip.observacion',
+                    'ip.diferencia',
+                    'ip.stock_inicial',
+                    'ip.id_faena',
+                    'ip.id_usuario',
+                    'ip.created_at',
+                    'ip.updated_at',
+                    'f.ubicacion as faena_nombre',
+                    'u.nombre as usuario_nombre',
+                    'u.apellido as usuario_apellido'
+                ]);
+
+            // Filtrar por faena
+            $query->where('ip.id_faena', $faena);
+
+            // Aplicar filtros de fecha
+            if ($dateFrom) {
+                try {
+                    $fechaDesde = Carbon::createFromFormat('Y-m-d', $dateFrom)->startOfDay();
+                    $query->where('ip.created_at', '>=', $fechaDesde);
+                } catch (\Exception $e) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Formato de fecha inválido para dateFrom. Use Y-m-d'
+                    ], 400);
+                }
+            }
+
+            if ($dateTo) {
+                try {
+                    $fechaHasta = Carbon::createFromFormat('Y-m-d', $dateTo)->endOfDay();
+                    $query->where('ip.created_at', '<=', $fechaHasta);
+                } catch (\Exception $e) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Formato de fecha inválido para dateTo. Use Y-m-d'
+                    ], 400);
+                }
+            }
+
+            // Ordenar por fecha más reciente
+            $recepciones = $query->orderBy('ip.created_at', 'desc')->get();
+
+            // Transformar los datos para el frontend
+            $recepcionesTransformadas = $recepciones->map(function ($recepcion) {
+                return [
+                    'id_ingreso' => $recepcion->id_ingreso,
+                    'numero_guia' => $recepcion->numero_guia,
+                    'litros_documentados' => number_format($recepcion->litros_documentados, 2, '.', ''),
+                    'litros_recibidos' => number_format($recepcion->litros_recibidos, 2, '.', ''),
+                    'precio' => number_format($recepcion->precio, 2, '.', ''),
+                    'precio_total' => number_format($recepcion->precio_total, 2, '.', ''),
+                    'diferencia' => number_format($recepcion->diferencia ?? 0, 2, '.', ''),
+                    'recibo_conforme' => (bool) $recepcion->recibo_conforme,
+                    'observacion' => $recepcion->observacion,
+                    'stock_inicial' => number_format($recepcion->stock_inicial ?? 0, 2, '.', ''),
+                    'faena' => $recepcion->faena_nombre ?? 'N/A',
+                    'usuario' => trim(($recepcion->usuario_nombre ?? '') . ' ' . ($recepcion->usuario_apellido ?? '')),
+                    'created_at' => $recepcion->created_at,
+                    'updated_at' => $recepcion->updated_at,
+                    'fecha_formateada' => Carbon::parse($recepcion->created_at)->format('d/m/Y H:i'),
+                ];
+            });
+
+            // Calcular estadísticas
+            $totalRecepciones = $recepciones->count();
+            $totalLitrosDocumentados = $recepciones->sum('litros_documentados');
+            $totalLitrosRecibidos = $recepciones->sum('litros_recibidos');
+            $totalMonto = $recepciones->sum('precio_total');
+            $diferenciaTotal = $recepciones->sum('diferencia');
+
+            $stats = [
+                'total_recepciones' => $totalRecepciones,
+                'total_litros_documentados' => $totalLitrosDocumentados,
+                'total_litros_recibidos' => $totalLitrosRecibidos,
+                'total_monto' => $totalMonto,
+                'promedio_por_recepcion' => $totalRecepciones > 0 
+                    ? $totalMonto / $totalRecepciones 
+                    : 0,
+                'diferencia_total' => $diferenciaTotal,
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => $recepcionesTransformadas,
+                'stats' => $stats,
+                'filters_applied' => [
+                    'faena' => $faena,
+                    'date_from' => $dateFrom,
+                    'date_to' => $dateTo,
+                ],
+                'message' => 'Recepciones obtenidas exitosamente'
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Error en getRecepciones', [
+                'exception' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener recepciones: ' . $e->getMessage(),
+                'data' => []
+            ], 500);
+        }
+    }
 }
+
+    
+

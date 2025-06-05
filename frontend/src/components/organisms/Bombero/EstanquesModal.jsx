@@ -56,13 +56,7 @@ const InputNivel = ({
 );
 
 // Componente para distribución de litros (más simple)
-const InputLitros = ({
-  value,
-  onChange,
-  placeholder,
-  disabled,
-  error,
-}) => (
+const InputLitros = ({ value, onChange, placeholder, disabled, error }) => (
   <div className="mb-3">
     <label className="text-sm font-medium text-gray-700 block mb-1.5">
       Litros a Ingresar
@@ -76,9 +70,7 @@ const InputLitros = ({
         disabled={disabled}
         min="0"
         step="0.01"
-        className={`w-full border ${
-          disabled ? "bg-gray-100" : "bg-white"
-        } ${
+        className={`w-full border ${disabled ? "bg-gray-100" : "bg-white"} ${
           error ? "border-red-500 focus:border-red-500" : "border-gray-300"
         } rounded-lg p-3 pr-14 text-base md:text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all shadow-sm ${
           !disabled && "group-hover:border-orange-300"
@@ -177,6 +169,13 @@ const EstanquesModal = ({
   const [isMobile, setIsMobile] = useState(false);
   const errorRef = useRef(null);
   const modalRef = useRef(null);
+  
+  // Estados para errores específicos de validación
+  const [errorValidacion, setErrorValidacion] = useState({
+    show: false,
+    message: "",
+    type: "error"
+  });
 
   // Estado para controlar el paso actual (inicial o final)
   const [paso, setPaso] = useState("inicial"); // 'inicial' o 'final'
@@ -198,9 +197,9 @@ const EstanquesModal = ({
 
   // Función para toggle del estado expandido
   const toggleEstanqueExpandido = (estanqueId) => {
-    setEstanquesExpandidos(prev => ({
+    setEstanquesExpandidos((prev) => ({
       ...prev,
-      [estanqueId]: !prev[estanqueId]
+      [estanqueId]: !prev[estanqueId],
     }));
   };
 
@@ -228,8 +227,9 @@ const EstanquesModal = ({
       setErroresDistribucion({});
       setEstanquesExpandidos({});
       setMostrarConsejos(false);
+      setErrorValidacion({ show: false, message: "", type: "error" });
 
-      // Inicializar distribución local si no hay una externa
+      // Inicializar distribución local vacía si no hay una externa
       if (!distribucionLitros || Object.keys(distribucionLitros).length === 0) {
         const distribucionInicial = {};
         estanques.forEach((estanque) => {
@@ -248,21 +248,21 @@ const EstanquesModal = ({
   // Desplazamiento automático al error cuando aparece
   useEffect(() => {
     if (
-      modalAlert &&
-      modalAlert.show &&
-      modalAlert.type === "error" &&
-      errorRef.current
+      (modalAlert && modalAlert.show && modalAlert.type === "error") ||
+      (errorValidacion && errorValidacion.show)
     ) {
-      if (isMobile) {
-        errorRef.current.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-      } else {
-        errorRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (errorRef.current) {
+        if (isMobile) {
+          errorRef.current.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        } else {
+          errorRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
       }
     }
-  }, [modalAlert, isMobile]);
+  }, [modalAlert, errorValidacion, isMobile]);
 
   // Función para obtener la distribución actual (externa o local)
   const getDistribucionActual = () => {
@@ -286,10 +286,15 @@ const EstanquesModal = ({
 
     // Limpiar error específico del estanque
     if (erroresDistribucion[estanqueId]) {
-      setErroresDistribucion(prev => ({
+      setErroresDistribucion((prev) => ({
         ...prev,
-        [estanqueId]: null
+        [estanqueId]: null,
       }));
+    }
+
+    // Limpiar error de validación si existe
+    if (errorValidacion.show) {
+      setErrorValidacion({ show: false, message: "", type: "error" });
     }
   };
 
@@ -297,24 +302,10 @@ const EstanquesModal = ({
   const getTotalDistribuido = () => {
     const distribucion = getDistribucionActual();
     return Object.values(distribucion).reduce((total, valor) => {
+      // Si el valor está vacío o es "0.00", tratarlo como 0
       const num = parseFloat(valor) || 0;
       return total + num;
     }, 0);
-  };
-
-  // Función para validar la distribución (opcional, solo si hay valores)
-  const validarDistribucion = () => {
-    const distribucion = getDistribucionActual();
-    const valoresIngresados = Object.values(distribucion).filter(valor => valor && parseFloat(valor) > 0);
-    
-    // Si no hay valores ingresados, permitir continuar (distribución opcional)
-    if (valoresIngresados.length === 0) {
-      return true;
-    }
-
-    // Si hay valores, verificar que la suma no exceda los litros recibidos
-    const totalDistribuido = getTotalDistribuido();
-    return totalDistribuido <= litrosRecibidos;
   };
 
   // Verificar si se han ingresado todos los niveles iniciales
@@ -337,20 +328,118 @@ const EstanquesModal = ({
     });
   };
 
-  // Avanzar al paso de niveles finales
-  const avanzarANivelesFinales = () => {
-    if (nivelesInicialesCompletos() && validarDistribucion()) {
-      setPaso("final");
-      if (isMobile && modalRef.current) {
-        modalRef.current.scrollTop = 0;
+  // Función para validar y mostrar errores específicos con orden lógico
+  const validarYAvanzar = () => {
+    const totalDistribuido = getTotalDistribuido();
+    const nivelesCompletos = nivelesInicialesCompletos();
+
+    // Limpiar errores previos
+    setErrorValidacion({ show: false, message: "", type: "error" });
+
+    // PASO 1: Validar distribución de combustible (lo más importante primero)
+    if (totalDistribuido === 0) {
+      setErrorValidacion({
+        show: true,
+        message: "Debe distribuir el combustible entre los estanques antes de continuar. Ingrese la cantidad de litros que recibirá cada estanque.",
+        type: "error"
+      });
+
+      // Hacer scroll hacia arriba para mostrar el error
+      if (modalRef.current) {
+        modalRef.current.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
       }
+      return false;
     }
+
+    // PASO 2: Validar que la distribución coincida con los litros de la guía
+    const diferencia = Math.abs(totalDistribuido - litrosRecibidos);
+    if (diferencia > 0.01) {
+      const esMayor = totalDistribuido > litrosRecibidos;
+      const mensaje = esMayor 
+        ? `La distribución total (${formatNumber(totalDistribuido)} L) supera los litros de la guía (${formatNumber(litrosRecibidos)} L). Debe ajustar la distribución para que coincida exactamente.`
+        : `La distribución total (${formatNumber(totalDistribuido)} L) es menor a los litros de la guía (${formatNumber(litrosRecibidos)} L). Debe distribuir todos los litros recibidos.`;
+
+      setErrorValidacion({
+        show: true,
+        message: mensaje,
+        type: "error"
+      });
+
+      // Hacer scroll hacia arriba para mostrar el error
+      if (modalRef.current) {
+        modalRef.current.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+      }
+      return false;
+    }
+
+    // PASO 3: Validar niveles iniciales (después de que la distribución esté correcta)
+    if (!nivelesCompletos) {
+      const estanquesSinNivel = estanques.filter((estanque) => {
+        const alturas = alturasEstanques[estanque.id_estanque] || {};
+        return !alturas.inicial || alturas.inicial === "";
+      });
+
+      const mensaje = estanquesSinNivel.length === 1 
+        ? `Debe ingresar el nivel inicial del estanque "${estanquesSinNivel[0].nombre}".`
+        : `Debe completar los niveles iniciales de ${estanquesSinNivel.length} estanques: ${estanquesSinNivel.map(e => e.nombre).join(", ")}.`;
+
+      setErrorValidacion({
+        show: true,
+        message: mensaje,
+        type: "error"
+      });
+
+      // Hacer scroll hacia la sección de niveles (más abajo en la página)
+      if (modalRef.current) {
+        // Scroll hacia abajo para mostrar los campos de niveles
+        const scrollPosition = isMobile ? 200 : 300;
+        modalRef.current.scrollTo({
+          top: scrollPosition,
+          behavior: 'smooth'
+        });
+      }
+      return false;
+    }
+
+    // Si todo está correcto, avanzar al siguiente paso
+    setPaso("final");
+    if (isMobile && modalRef.current) {
+      modalRef.current.scrollTop = 0;
+    }
+    return true;
   };
 
   // Manejar el cálculo de diferencia
   const handleCalcular = async () => {
     if (!nivelesFinalesCompletos()) {
-      console.log("Debe completar todos los niveles finales antes de calcular");
+      const estanquesSinNivel = estanques.filter((estanque) => {
+        const alturas = alturasEstanques[estanque.id_estanque] || {};
+        return !alturas.final || alturas.final === "";
+      });
+
+      const mensaje = estanquesSinNivel.length === 1 
+        ? `Debe ingresar el nivel final del estanque "${estanquesSinNivel[0].nombre}".`
+        : `Debe completar los niveles finales de ${estanquesSinNivel.length} estanques: ${estanquesSinNivel.map(e => e.nombre).join(", ")}.`;
+
+      setErrorValidacion({
+        show: true,
+        message: mensaje,
+        type: "error"
+      });
+
+      // Hacer scroll hacia arriba para mostrar el error
+      if (modalRef.current) {
+        modalRef.current.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+      }
       return;
     }
 
@@ -360,6 +449,7 @@ const EstanquesModal = ({
 
       if (resultado) {
         setResultadoCalculo(resultado);
+        setErrorValidacion({ show: false, message: "", type: "error" });
 
         if (isMobile && modalRef.current) {
           setTimeout(() => {
@@ -369,6 +459,11 @@ const EstanquesModal = ({
       }
     } catch (error) {
       console.error("Error al calcular los litros de petróleo:", error);
+      setErrorValidacion({
+        show: true,
+        message: "Error al calcular los litros de petróleo. Por favor, verifique los datos ingresados.",
+        type: "error"
+      });
     } finally {
       setLoading(false);
     }
@@ -446,8 +541,8 @@ const EstanquesModal = ({
               {!isResultadosStep && (
                 <p className="text-orange-100 text-xs md:text-sm opacity-90 mt-1">
                   {paso === "inicial"
-                    ? "Ingrese los litros y alturas iniciales de cada estanque"
-                    : "Ingrese las alturas finales después de la recepción"}
+                    ? "Ingrese los litros y Niveles iniciales de cada estanque"
+                    : "Ingrese las Niveles finales después de la recepción"}
                 </p>
               )}
             </div>
@@ -486,17 +581,22 @@ const EstanquesModal = ({
                               Siga estos pasos para una medición precisa:
                             </p>
                             <ol className="list-decimal pl-4 space-y-1.5 text-xs">
-                              <li>Localice la varilla calibrada del estanque</li>
+                              <li>
+                                Localice la varilla calibrada del estanque
+                              </li>
                               <li>Asegúrese de que esté completamente seca</li>
-                              <li>Inserte verticalmente hasta tocar el fondo</li>
+                              <li>
+                                Inserte verticalmente hasta tocar el fondo
+                              </li>
                               <li>Retire y observe la marca del combustible</li>
-                              <li>Mida la distancia en centímetros desde el fondo</li>
                             </ol>
                             <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-xs">
                               <div className="flex">
                                 <FaExclamationTriangle className="text-amber-500 mt-0.5 mr-2 flex-shrink-0" />
                                 <p>
-                                  Una diferencia de pocos milímetros puede representar cientos de litros en estanques grandes.
+                                  Una diferencia de milímetros puede
+                                  representar diferencias de litros en estanques
+                                  grandes.
                                 </p>
                               </div>
                             </div>
@@ -568,12 +668,16 @@ const EstanquesModal = ({
 
         {/* Contenido del modal */}
         <div className="overflow-y-auto flex-grow bg-gray-50 p-4 md:p-6">
-          {/* Alertas */}
-          {modalAlert && modalAlert.show && (
-            <div ref={errorRef}>
+          {/* Alertas - Mostrar tanto errores del padre como errores de validación */}
+          <div ref={errorRef}>
+            {modalAlert && modalAlert.show && (
               <InfoBox type={modalAlert.type} message={modalAlert.message} />
-            </div>
-          )}
+            )}
+            
+            {errorValidacion && errorValidacion.show && (
+              <InfoBox type={errorValidacion.type} message={errorValidacion.message} />
+            )}
+          </div>
 
           {/* DISEÑO PARA RESULTADOS */}
           {isResultadosStep && resultadoCalculo ? (
@@ -593,7 +697,9 @@ const EstanquesModal = ({
                           <p className="text-lg md:text-2xl font-bold mt-1">
                             {formatNumber(stockTotalSistema)}
                           </p>
-                          <p className="text-blue-200 text-xs">Litros totales</p>
+                          <p className="text-blue-200 text-xs">
+                            Litros totales
+                          </p>
                         </div>
                         <FaGasPump className="text-blue-200 text-xl md:text-2xl opacity-80" />
                       </div>
@@ -609,10 +715,14 @@ const EstanquesModal = ({
                           <p className="text-lg md:text-2xl font-bold mt-1">
                             {formatNumber(resultadoCalculo.volInicial)}
                           </p>
-                          <p className="text-orange-200 text-xs">Antes recepción</p>
+                          <p className="text-orange-200 text-xs">
+                            Antes recepción
+                          </p>
                         </div>
                         <div className="w-6 h-6 md:w-8 md:h-8 bg-orange-400 rounded-full flex items-center justify-center">
-                          <span className="text-orange-900 font-bold text-xs md:text-sm">1</span>
+                          <span className="text-orange-900 font-bold text-xs md:text-sm">
+                            1
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -643,10 +753,14 @@ const EstanquesModal = ({
                           <p className="text-lg md:text-2xl font-bold mt-1">
                             {formatNumber(resultadoCalculo.volFinal)}
                           </p>
-                          <p className="text-green-200 text-xs">Después recepción</p>
+                          <p className="text-green-200 text-xs">
+                            Después recepción
+                          </p>
                         </div>
                         <div className="w-6 h-6 md:w-8 md:h-8 bg-green-400 rounded-full flex items-center justify-center">
-                          <span className="text-green-900 font-bold text-xs md:text-sm">2</span>
+                          <span className="text-green-900 font-bold text-xs md:text-sm">
+                            2
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -664,24 +778,35 @@ const EstanquesModal = ({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                       {/* Volúmenes medidos */}
                       <div>
-                        <h4 className="font-medium text-gray-700 mb-3">Volúmenes Inicial</h4>
+                        <h4 className="font-medium text-gray-700 mb-3">
+                          Volúmenes Inicial
+                        </h4>
                         <div className="space-y-2">
                           <div className="flex justify-between py-2 px-3 bg-gray-50 rounded-lg text-sm">
-                            <span className="text-gray-600">Volumen inicial:</span>
+                            <span className="text-gray-600">
+                              Volumen inicial:
+                            </span>
                             <span className="font-semibold">
                               {formatNumber(resultadoCalculo.volInicial)} L
                             </span>
                           </div>
                           <div className="flex justify-between py-2 px-3 bg-gray-50 rounded-lg text-sm">
-                            <span className="text-gray-600">Litros según guía:</span>
+                            <span className="text-gray-600">
+                              Litros según guía:
+                            </span>
                             <span className="font-semibold">
                               {formatNumber(litrosRecibidos)} L
                             </span>
                           </div>
                           <div className="flex justify-between py-2 px-3 bg-blue-50 rounded-lg border border-blue-200 text-sm">
-                            <span className="text-blue-700 font-medium">Volumen esperado:</span>
+                            <span className="text-blue-700 font-medium">
+                              Volumen esperado:
+                            </span>
                             <span className="font-bold text-blue-800">
-                              {formatNumber(resultadoCalculo.volInicial + litrosRecibidos)} L
+                              {formatNumber(
+                                resultadoCalculo.volInicial + litrosRecibidos
+                              )}{" "}
+                              L
                             </span>
                           </div>
                         </div>
@@ -689,26 +814,39 @@ const EstanquesModal = ({
 
                       {/* Cálculos derivados */}
                       <div>
-                        <h4 className="font-medium text-gray-700 mb-3">Volúmenes Finales</h4>
+                        <h4 className="font-medium text-gray-700 mb-3">
+                          Volúmenes Finales
+                        </h4>
                         <div className="space-y-2">
                           <div className="flex justify-between py-2 px-3 bg-gray-50 rounded-lg text-sm">
-                            <span className="text-gray-600">Volumen final:</span>
+                            <span className="text-gray-600">
+                              Volumen final:
+                            </span>
                             <span className="font-semibold">
                               {formatNumber(resultadoCalculo.volFinal)} L
                             </span>
                           </div>
                           <div className="flex justify-between py-2 px-3 bg-gray-50 rounded-lg text-sm">
-                            <span className="text-gray-600">Litros ingresados (medido):</span>
+                            <span className="text-gray-600">
+                              Litros ingresados (medido):
+                            </span>
                             <span className="font-semibold">
-                              {formatNumber(resultadoCalculo.volFinal - resultadoCalculo.volInicial)} L
+                              {formatNumber(
+                                resultadoCalculo.volFinal -
+                                  resultadoCalculo.volInicial
+                              )}{" "}
+                              L
                             </span>
                           </div>
                           <div className="flex justify-between py-2 px-3 bg-gray-50 rounded-lg text-sm">
                             <span className="text-gray-600">Diferencia:</span>
                             <span
                               className={`font-semibold flex items-center ${(() => {
-                                const litrosMedidos = resultadoCalculo.volFinal - resultadoCalculo.volInicial;
-                                const diferencia = litrosMedidos - litrosRecibidos;
+                                const litrosMedidos =
+                                  resultadoCalculo.volFinal -
+                                  resultadoCalculo.volInicial;
+                                const diferencia =
+                                  litrosMedidos - litrosRecibidos;
 
                                 if (Math.abs(diferencia) <= 0.5) {
                                   return "text-gray-600";
@@ -720,8 +858,11 @@ const EstanquesModal = ({
                               })()}`}
                             >
                               {(() => {
-                                const litrosMedidos = resultadoCalculo.volFinal - resultadoCalculo.volInicial;
-                                const diferencia = litrosMedidos - litrosRecibidos;
+                                const litrosMedidos =
+                                  resultadoCalculo.volFinal -
+                                  resultadoCalculo.volInicial;
+                                const diferencia =
+                                  litrosMedidos - litrosRecibidos;
                                 const esExcedente = diferencia > 0;
 
                                 return (
@@ -750,31 +891,49 @@ const EstanquesModal = ({
               {/* Diseño original para pasos 1 y 2 */}
               {!resultadoCalculo && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-4 md:mb-5">
-                  <div className={`bg-white rounded-lg p-3 border shadow-sm hover:shadow transition-shadow border-orange-100`}>
+                  <div
+                    className={`bg-white rounded-lg p-3 border shadow-sm hover:shadow transition-shadow border-orange-100`}
+                  >
                     <div className="flex items-center">
                       <div className={`p-2 rounded-lg mr-3 bg-orange-100`}>
-                        <FaGasPump className="text-orange-600" size={isMobile ? 16 : 18} />
+                        <FaGasPump
+                          className="text-orange-600"
+                          size={isMobile ? 16 : 18}
+                        />
                       </div>
                       <div className="flex-1">
-                        <p className="text-xs text-gray-600 font-medium">Stock Sistema</p>
+                        <p className="text-xs text-gray-600 font-medium">
+                          Stock Sistema
+                        </p>
                         <p className="font-bold text-sm md:text-base text-gray-800 mt-0.5 flex items-baseline">
                           {formatNumber(stockTotalSistema)}
-                          <span className="text-xs text-gray-500 ml-1 font-medium">litros</span>
+                          <span className="text-xs text-gray-500 ml-1 font-medium">
+                            litros
+                          </span>
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className={`bg-white rounded-lg p-3 border shadow-sm hover:shadow transition-shadow border-amber-100`}>
+                  <div
+                    className={`bg-white rounded-lg p-3 border shadow-sm hover:shadow transition-shadow border-amber-100`}
+                  >
                     <div className="flex items-center">
                       <div className={`p-2 rounded-lg mr-3 bg-amber-100`}>
-                        <FaOilCan className="text-amber-600" size={isMobile ? 16 : 18} />
+                        <FaOilCan
+                          className="text-amber-600"
+                          size={isMobile ? 16 : 18}
+                        />
                       </div>
                       <div className="flex-1">
-                        <p className="text-xs text-gray-600 font-medium">Litros Guía</p>
+                        <p className="text-xs text-gray-600 font-medium">
+                          Litros Guía
+                        </p>
                         <p className="font-bold text-sm md:text-base text-gray-800 mt-0.5 flex items-baseline">
                           {formatNumber(litrosRecibidos)}
-                          <span className="text-xs text-gray-500 ml-1 font-medium">litros</span>
+                          <span className="text-xs text-gray-500 ml-1 font-medium">
+                            litros
+                          </span>
                         </p>
                       </div>
                     </div>
@@ -787,16 +946,24 @@ const EstanquesModal = ({
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-blue-800 font-semibold text-sm">Distribución Total</h3>
-                      <p className="text-blue-600 text-xs">Litros asignados a estanques</p>
+                      <h3 className="text-blue-800 font-semibold text-sm">
+                        Distribución Total
+                      </h3>
+                      <p className="text-blue-600 text-xs">
+                        Litros asignados a estanques
+                      </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-blue-900 font-bold text-lg">{formatNumber(totalDistribuido)} L</p>
-                      <p className={`text-xs ${
-                        Math.abs(totalDistribuido - litrosRecibidos) <= 0.01 
-                          ? "text-green-600" 
-                          : "text-amber-600"
-                      }`}>
+                      <p className="text-blue-900 font-bold text-lg">
+                        {formatNumber(totalDistribuido)} L
+                      </p>
+                      <p
+                        className={`text-xs ${
+                          Math.abs(totalDistribuido - litrosRecibidos) <= 0.01
+                            ? "text-green-600"
+                            : "text-amber-600"
+                        }`}
+                      >
                         de {formatNumber(litrosRecibidos)} L
                       </p>
                     </div>
@@ -820,33 +987,47 @@ const EstanquesModal = ({
                         className="w-full bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-center justify-between hover:bg-orange-100 transition-colors"
                       >
                         <div className="flex items-center">
-                          <FaInfoCircle className="text-orange-600 mr-2 flex-shrink-0" size={16} />
+                          <FaInfoCircle
+                            className="text-orange-600 mr-2 flex-shrink-0"
+                            size={16}
+                          />
                           <span className="text-sm font-medium text-orange-800">
                             Consejos de medición
                           </span>
                         </div>
-                        <FaArrowRight 
-                          className={`text-orange-600 transition-transform ${mostrarConsejos ? 'rotate-90' : ''}`} 
-                          size={12} 
+                        <FaArrowRight
+                          className={`text-orange-600 transition-transform ${
+                            mostrarConsejos ? "rotate-90" : ""
+                          }`}
+                          size={12}
                         />
                       </button>
-                      
+
                       {mostrarConsejos && (
                         <div className="mt-2 bg-orange-50 border border-orange-200 rounded-lg p-3 border-t-0 rounded-t-none">
                           <div className="text-sm text-orange-800">
-                            <p className="font-medium mb-2">Siga estos pasos para una medición precisa:</p>
+                            <p className="font-medium mb-2">
+                              Siga estos pasos para una medición precisa:
+                            </p>
                             <ol className="list-decimal pl-4 space-y-1 text-xs">
-                              <li>Localice la varilla calibrada del estanque</li>
+                              <li>
+                                Localice la varilla calibrada del estanque
+                              </li>
                               <li>Asegúrese de que esté completamente seca</li>
-                              <li>Inserte verticalmente hasta tocar el fondo</li>
+                              <li>
+                                Inserte verticalmente hasta tocar el fondo
+                              </li>
                               <li>Retire y observe la marca del combustible</li>
-                              <li>Mida la distancia en centímetros desde el fondo</li>
                             </ol>
                             <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-2 text-amber-800 text-xs">
                               <div className="flex">
-                                <FaExclamationTriangle className="text-amber-500 mt-0.5 mr-2 flex-shrink-0" size={12} />
+                                <FaExclamationTriangle
+                                  className="text-amber-500 mt-0.5 mr-2 flex-shrink-0"
+                                  size={12}
+                                />
                                 <p>
-                                  Una diferencia de pocos milímetros puede representar cientos de litros.
+                                  Una diferencia de pocos milímetros puede
+                                  representar ciertos litros.
                                 </p>
                               </div>
                             </div>
@@ -857,120 +1038,224 @@ const EstanquesModal = ({
                   )}
 
                   {/* Estanques para el paso actual */}
-                  <div className={`space-y-6 ${isMobile ? '' : 'grid grid-cols-1 lg:grid-cols-3 gap-6'}`}>
+                  <div
+                    className={`space-y-6 ${
+                      isMobile ? "" : "grid grid-cols-1 lg:grid-cols-3 gap-6"
+                    }`}
+                  >
                     {Array.isArray(estanques) &&
                       estanques.map((estanque, index) => {
-                        const alturas = alturasEstanques[estanque.id_estanque] || {};
-                        const capacidadPorcentaje = getCapacidadPorcentaje(estanque);
+                        const alturas =
+                          alturasEstanques[estanque.id_estanque] || {};
+                        const capacidadPorcentaje =
+                          getCapacidadPorcentaje(estanque);
                         const distribucion = getDistribucionActual();
-                        const litrosAsignados = distribucion[estanque.id_estanque] || "";
-                        const errorDistribucion = erroresDistribucion[estanque.id_estanque];
+                        const litrosAsignados =
+                          distribucion[estanque.id_estanque] || "";
+                        
+                        // Para mostrar en el paso 2, usar 0.00 si está vacío
+                        const litrosParaMostrar = litrosAsignados || "0.00";
+                        const errorDistribucion =
+                          erroresDistribucion[estanque.id_estanque];
 
                         // Nueva paleta de colores con variaciones sutiles de naranja
                         const coloresEstanque = [
-                          { bg: "from-orange-500 to-orange-600", solid: "bg-orange-500", border: "border-orange-300", text: "text-orange-50", darkText: "text-orange-800", light: "bg-orange-50", hex: "#F67029" },
-                          { bg: "from-orange-400 to-orange-500", solid: "bg-orange-400", border: "border-orange-300", text: "text-orange-50", darkText: "text-orange-700", light: "bg-orange-50", hex: "#FF8C42" },
-                          { bg: "from-orange-600 to-orange-700", solid: "bg-orange-600", border: "border-orange-400", text: "text-orange-50", darkText: "text-orange-800", light: "bg-orange-50", hex: "#E55D26" },
-                          { bg: "from-amber-500 to-amber-600", solid: "bg-amber-500", border: "border-amber-300", text: "text-amber-50", darkText: "text-amber-800", light: "bg-amber-50", hex: "#F59E0B" },
-                          { bg: "from-yellow-500 to-orange-500", solid: "bg-yellow-500", border: "border-yellow-300", text: "text-yellow-50", darkText: "text-yellow-800", light: "bg-yellow-50", hex: "#F97316" },
-                          { bg: "from-red-500 to-orange-600", solid: "bg-red-500", border: "border-red-300", text: "text-red-50", darkText: "text-red-800", light: "bg-red-50", hex: "#EF4444" },
+                          {
+                            bg: "from-orange-500 to-orange-600",
+                            solid: "bg-orange-500",
+                            border: "border-orange-300",
+                            text: "text-orange-50",
+                            darkText: "text-orange-800",
+                            light: "bg-orange-50",
+                            hex: "#F67029",
+                          },
+                          {
+                            bg: "from-orange-400 to-orange-500",
+                            solid: "bg-orange-400",
+                            border: "border-orange-300",
+                            text: "text-orange-50",
+                            darkText: "text-orange-700",
+                            light: "bg-orange-50",
+                            hex: "#FF8C42",
+                          },
+                          {
+                            bg: "from-orange-600 to-orange-700",
+                            solid: "bg-orange-600",
+                            border: "border-orange-400",
+                            text: "text-orange-50",
+                            darkText: "text-orange-800",
+                            light: "bg-orange-50",
+                            hex: "#E55D26",
+                          },
+                          {
+                            bg: "from-amber-500 to-amber-600",
+                            solid: "bg-amber-500",
+                            border: "border-amber-300",
+                            text: "text-amber-50",
+                            darkText: "text-amber-800",
+                            light: "bg-amber-50",
+                            hex: "#F59E0B",
+                          },
+                          {
+                            bg: "from-yellow-500 to-orange-500",
+                            solid: "bg-yellow-500",
+                            border: "border-yellow-300",
+                            text: "text-yellow-50",
+                            darkText: "text-yellow-800",
+                            light: "bg-yellow-50",
+                            hex: "#F97316",
+                          },
+                          {
+                            bg: "from-red-500 to-orange-600",
+                            solid: "bg-red-500",
+                            border: "border-red-300",
+                            text: "text-red-50",
+                            darkText: "text-red-800",
+                            light: "bg-red-50",
+                            hex: "#EF4444",
+                          },
                         ];
-                        
-                        const colorEstanque = coloresEstanque[index % coloresEstanque.length];
+
+                        const colorEstanque =
+                          coloresEstanque[index % coloresEstanque.length];
 
                         return (
                           <div
                             key={estanque.id_estanque}
-                            className={`bg-white border-2 ${colorEstanque.border} rounded-xl shadow-lg overflow-hidden transition-all hover:shadow-xl transform hover:scale-[1.01] duration-200 ${isMobile ? 'mb-6' : 'h-full flex flex-col'}`}
+                            className={`bg-white border-2 ${
+                              colorEstanque.border
+                            } rounded-xl shadow-lg overflow-hidden transition-all hover:shadow-xl transform hover:scale-[1.01] duration-200 ${
+                              isMobile ? "mb-6" : "h-full flex flex-col"
+                            }`}
                           >
                             {/* CABECERA ÚNICA CON COLOR DEL ESTANQUE */}
-                            <div className={`bg-gradient-to-r ${colorEstanque.bg} ${isMobile ? 'p-3' : 'p-4'} relative overflow-hidden`}>
+                            <div
+                              className={`bg-gradient-to-r ${
+                                colorEstanque.bg
+                              } ${
+                                isMobile ? "p-3" : "p-4"
+                              } relative overflow-hidden`}
+                            >
                               {/* Patrón sutil de fondo */}
                               <div className="absolute inset-0 opacity-5">
-                                <div className="absolute top-0 left-0 w-32 h-32 rounded-full bg-white transform -translate-x-16 -translate-y-16"></div>
+                                <div className="absolute top-0 left-0 w-32 h-32 rounded-full bg-black transform -translate-x-16 -translate-y-16"></div>
                                 <div className="absolute bottom-0 right-0 w-24 h-24 rounded-full bg-white transform translate-x-12 translate-y-12"></div>
                               </div>
-                              
+
                               <div className="relative z-10">
                                 <div className="flex justify-between items-center mb-2">
                                   <div className="flex items-center flex-1">
-                                    <div className={`bg-white bg-opacity-20 ${isMobile ? 'p-2' : 'p-3'} rounded-xl mr-3`}>
-                                      <FaGasPump className={`${colorEstanque.text} ${isMobile ? 'text-lg' : 'text-xl'}`} />
-                                    </div>
                                     <div className="flex-1 min-w-0">
-                                      <h3 className={`font-bold ${isMobile ? 'text-lg' : 'text-xl'} ${colorEstanque.text} truncate`}>
+                                      <h3
+                                        className={`font-bold ${
+                                          isMobile ? "text-lg" : "text-xl"
+                                        } ${colorEstanque.text} truncate`}
+                                      >
                                         {estanque.nombre}
                                       </h3>
-                                      <div className={`${colorEstanque.text} opacity-80 ${isMobile ? 'text-xs' : 'text-sm'} truncate`}>
-                                        Estanque #{estanque.id_estanque} • {formatNumber(estanque.capacidad)} L
-                                      </div>
                                     </div>
                                   </div>
+                                </div>
 
-                                 
-                                                                 </div>
-
-                              {/* Información del stock - siempre visible en móvil */}
+                                {/* Información del stock - siempre visible en móvil */}
                                 <div className="space-y-2">
                                   {/* Información del stock expandible/fija según el dispositivo */}
-                                  {(!isMobile || estanquesExpandidos[estanque.id_estanque]) && (
-                                    <div className={`flex justify-between ${colorEstanque.text} opacity-90 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                                  {(!isMobile ||
+                                    estanquesExpandidos[
+                                      estanque.id_estanque
+                                    ]) && (
+                                    <div
+                                      className={`flex justify-between ${
+                                        colorEstanque.text
+                                      } opacity-90 ${
+                                        isMobile ? "text-xs" : "text-sm"
+                                      }`}
+                                    >
                                       <span>Stock Actual</span>
                                       <span className="font-semibold">
-                                        {formatNumber(estanque.stock_actual || 0)} L ({capacidadPorcentaje}%)
+                                        {formatNumber(
+                                          estanque.stock_actual || 0
+                                        )}{" "}
+                                        L / {formatNumber(
+                                          estanque.capacidad || 0
+                                        )}{"   "} ({capacidadPorcentaje}%)
                                       </span>
                                     </div>
                                   )}
-                                  
-                                  {/* Barra de progreso - siempre visible */}
-                                  <div className="w-full bg-white bg-opacity-20 rounded-full h-3 overflow-hidden">
-                                    <div
-                                      className="h-3 bg-white rounded-full transition-all duration-500 shadow-sm"
-                                      style={{ width: `${Math.min(100, capacidadPorcentaje)}%` }}
-                                    ></div>
-                                  </div>
-                                  
-                                  {/* Información condensada para móvil cuando está colapsado */}
-                                  {isMobile && !estanquesExpandidos[estanque.id_estanque] && (
-                                    <div className={`text-center ${colorEstanque.text} opacity-80 text-xs`}>
-                                      {formatNumber(estanque.stock_actual || 0)} L • {capacidadPorcentaje}%
-                                    </div>
-                                  )}
-                                </div>
 
-                              
+                                  {/* Barra de progreso elegante - siempre visible */}
+                                  <div className="w-full bg-orange-50 bg-opacity-25 rounded-full h-2.5 overflow-hidden border border-white border-opacity-20">
+                                    <div
+                                      className="h-2.5 bg-sky-300 rounded-full transition-all duration-500 ease-out relative overflow-hidden"
+                                      style={{
+                                        width: `${Math.min(
+                                          100,
+                                          capacidadPorcentaje
+                                        )}%`,
+                                        boxShadow: '0 0 8px rgba(255, 255, 255, 0.4)'
+                                      }}
+                                    >
+                                      {/* Efecto de brillo muy sutil */}
+                                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-20"></div>
+                                    </div>
+                                  </div>
+
+                                  {/* Información condensada para móvil cuando está colapsado */}
+                                  {isMobile &&
+                                    !estanquesExpandidos[
+                                      estanque.id_estanque
+                                    ] && (
+                                      <div
+                                        className={`text-center ${colorEstanque.text} opacity-80 text-xs`}
+                                      >
+                                        <span className="font-semibold">
+                                        {formatNumber(
+                                          estanque.stock_actual || 0
+                                        )}{" "}
+                                        L / {formatNumber(
+                                          estanque.capacidad || 0
+                                        )}{"   "} ({capacidadPorcentaje}%)
+                                      </span>
+                                      </div>
+                                    )}
+                                </div>
                               </div>
                             </div>
 
                             {/* CONTENIDO PRINCIPAL CON SECCIONES CLARAS */}
-                            <div className={`p-6 ${!isMobile ? 'flex-1' : ''}`}>
-                              
+                            <div className={`p-6 ${!isMobile ? "flex-1" : ""}`}>
                               {/* SECCIÓN 1: DISTRIBUCIÓN DE COMBUSTIBLE (solo en paso inicial) */}
                               {paso === "inicial" && (
                                 <>
                                   <div className="mb-6">
                                     <div className="flex items-center mb-4">
-                                      <div className={`${colorEstanque.solid} p-2 rounded-lg mr-3`}>
+                                      <div
+                                        className={`${colorEstanque.solid} p-2 rounded-lg mr-3`}
+                                      >
                                         <FaGasPump className="text-white text-sm" />
                                       </div>
                                       <div>
-                                        <h4 className={`font-semibold ${colorEstanque.darkText} text-base`}>
+                                        <h4
+                                          className={`font-semibold ${colorEstanque.darkText} text-base`}
+                                        >
                                           Distribución de Combustible
                                         </h4>
-                                        
                                       </div>
                                     </div>
-                                    
+
                                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                                       <InputLitros
                                         value={litrosAsignados}
-                                        onChange={(e) => actualizarDistribucion(estanque.id_estanque, e.target.value)}
+                                        onChange={(e) =>
+                                          actualizarDistribucion(
+                                            estanque.id_estanque,
+                                            e.target.value
+                                          )
+                                        }
                                         placeholder="0.00"
                                         disabled={loading}
                                         error={errorDistribucion}
                                       />
-                                      
-                                     
                                     </div>
                                   </div>
 
@@ -978,12 +1263,6 @@ const EstanquesModal = ({
                                   <div className="mb-6">
                                     <div className="flex items-center">
                                       <div className="flex-grow border-t border-gray-300"></div>
-                                      <div className="flex-shrink mx-4 bg-gray-100 px-4 py-2 rounded-full border border-gray-200">
-                                        <span className="text-gray-600 text-sm font-medium flex items-center">
-                                          <FaRuler className="mr-2 text-gray-500" />
-                                          MEDICIÓN DE ALTURA
-                                        </span>
-                                      </div>
                                       <div className="flex-grow border-t border-gray-300"></div>
                                     </div>
                                   </div>
@@ -993,19 +1272,27 @@ const EstanquesModal = ({
                               {/* SECCIÓN 2: MEDICIÓN DE ALTURA */}
                               <div>
                                 <div className="flex items-center mb-4">
-                                  <div className={`${colorEstanque.solid} p-2 rounded-lg mr-3`}>
+                                  <div
+                                    className={`${colorEstanque.solid} p-2 rounded-lg mr-3`}
+                                  >
                                     <FaRuler className="text-white text-sm" />
                                   </div>
                                   <div>
-                                    <h4 className={`font-semibold ${colorEstanque.darkText} text-base`}>
-                                      {paso === "inicial" ? "Altura Inicial" : "Altura Final"}
+                                    <h4
+                                      className={`font-semibold ${colorEstanque.darkText} text-base`}
+                                    >
+                                      {paso === "inicial"
+                                        ? "Nivel Inicial"
+                                        : "Nivel Final"}
                                     </h4>
                                     <p className="text-gray-600 text-sm">
-                                      {paso === "inicial" ? "Antes de la recepción" : "Después de la recepción"}
+                                      {paso === "inicial"
+                                        ? "Antes de la recepción"
+                                        : "Después de la recepción"}
                                     </p>
                                   </div>
                                 </div>
-                                
+
                                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                                   <InputNivel
                                     label=""
@@ -1016,36 +1303,46 @@ const EstanquesModal = ({
                                     }
                                     onChange={(e) => {
                                       if (paso === "inicial") {
-                                        handleAlturaChange(estanque.id_estanque, {
-                                          inicial: e.target.value,
-                                          final: alturas.final || "",
-                                        });
+                                        handleAlturaChange(
+                                          estanque.id_estanque,
+                                          {
+                                            inicial: e.target.value,
+                                            final: alturas.final || "",
+                                          }
+                                        );
                                       } else {
-                                        handleAlturaChange(estanque.id_estanque, {
-                                          inicial: alturas.inicial || "",
-                                          final: e.target.value,
-                                        });
+                                        handleAlturaChange(
+                                          estanque.id_estanque,
+                                          {
+                                            inicial: alturas.inicial || "",
+                                            final: e.target.value,
+                                          }
+                                        );
                                       }
                                     }}
-                                    placeholder="Ingrese altura en centímetros"
+                                    placeholder="Ingrese Nivel en centímetros"
                                     disabled={loading}
                                   />
                                 </div>
                               </div>
 
                               {/* INFORMACIÓN ADICIONAL EN PASO FINAL */}
-                              {paso === "final" && litrosAsignados && (
+                              {paso === "final" && (
                                 <div className="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
                                   <div className="flex items-center">
-                                    <div className={`${colorEstanque.solid} p-2 rounded-lg mr-3`}>
+                                    <div
+                                      className={`${colorEstanque.solid} p-2 rounded-lg mr-3`}
+                                    >
                                       <FaGasPump className="text-white text-sm" />
                                     </div>
                                     <div>
                                       <h6 className="font-semibold text-gray-800 text-sm">
                                         Combustible Asignado Previamente
                                       </h6>
-                                      <p className={`${colorEstanque.darkText} font-bold text-lg`}>
-                                        {formatNumber(litrosAsignados)} L
+                                      <p
+                                        className={`${colorEstanque.darkText} font-bold text-lg`}
+                                      >
+                                        {formatNumber(litrosParaMostrar)} L
                                       </p>
                                     </div>
                                   </div>
@@ -1071,11 +1368,15 @@ const EstanquesModal = ({
                 onClick={() => {
                   setResultadoCalculo(null);
                   setPaso("final");
+                  setErrorValidacion({ show: false, message: "", type: "error" });
                 }}
                 className="px-3 py-2 md:px-4 md:py-2.5 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all font-medium text-sm shadow-sm"
               >
                 <span className="flex items-center">
-                  <FaArrowRight className="mr-1 md:mr-2 transform rotate-180" size={isMobile ? 12 : 14} />
+                  <FaArrowRight
+                    className="mr-1 md:mr-2 transform rotate-180"
+                    size={isMobile ? 12 : 14}
+                  />
                   <span className="hidden sm:inline">Volver a Editar</span>
                   <span className="sm:hidden">Volver</span>
                 </span>
@@ -1099,10 +1400,10 @@ const EstanquesModal = ({
               </button>
 
               <button
-                onClick={avanzarANivelesFinales}
-                disabled={!nivelesInicialesCompletos() || !validarDistribucion() || loading}
+                onClick={validarYAvanzar}
+                disabled={loading}
                 className={`flex items-center px-4 py-2 md:px-5 md:py-2.5 rounded-lg text-white font-medium text-sm shadow-sm transition-all ${
-                  !nivelesInicialesCompletos() || !validarDistribucion() || loading
+                  loading
                     ? "bg-orange-400 cursor-not-allowed opacity-70"
                     : "bg-orange-600 hover:bg-orange-700"
                 } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500`}
@@ -1116,7 +1417,10 @@ const EstanquesModal = ({
                 ) : (
                   <>
                     <span>Continuar</span>
-                    <FaArrowRight className="ml-1 md:ml-2" size={isMobile ? 12 : 14} />
+                    <FaArrowRight
+                      className="ml-1 md:ml-2"
+                      size={isMobile ? 12 : 14}
+                    />
                   </>
                 )}
               </button>
@@ -1125,21 +1429,29 @@ const EstanquesModal = ({
             // Botones para el paso final
             <>
               <button
-                onClick={() => setPaso("inicial")}
+                onClick={() => {
+                  setPaso("inicial");
+                  setErrorValidacion({ show: false, message: "", type: "error" });
+                }}
                 className="px-3 py-2 md:px-4 md:py-2.5 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all font-medium text-sm shadow-sm"
               >
                 <span className="flex items-center">
-                  <FaArrowRight className="mr-1 md:mr-2 transform rotate-180" size={isMobile ? 12 : 14} />
-                  <span className="hidden sm:inline">Volver a Niveles Iniciales</span>
+                  <FaArrowRight
+                    className="mr-1 md:mr-2 transform rotate-180"
+                    size={isMobile ? 12 : 14}
+                  />
+                  <span className="hidden sm:inline">
+                    Volver a Niveles Iniciales
+                  </span>
                   <span className="sm:hidden">Volver</span>
                 </span>
               </button>
 
               <button
                 onClick={handleCalcular}
-                disabled={!nivelesFinalesCompletos() || loading}
+                disabled={loading}
                 className={`flex items-center px-4 py-2 md:px-5 md:py-2.5 rounded-lg text-white font-medium text-sm shadow-sm ${
-                  loading || !nivelesFinalesCompletos()
+                  loading
                     ? "bg-orange-400 cursor-not-allowed opacity-70"
                     : "bg-orange-600 hover:bg-orange-700"
                 } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-all`}
@@ -1152,8 +1464,13 @@ const EstanquesModal = ({
                   </>
                 ) : (
                   <>
-                    <FaCalculator className="mr-1 md:mr-2" size={isMobile ? 12 : 14} />
-                    <span className="hidden sm:inline">Calcular Diferencia</span>
+                    <FaCalculator
+                      className="mr-1 md:mr-2"
+                      size={isMobile ? 12 : 14}
+                    />
+                    <span className="hidden sm:inline">
+                      Calcular Diferencia
+                    </span>
                     <span className="sm:hidden">Calcular</span>
                   </>
                 )}
