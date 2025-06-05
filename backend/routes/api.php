@@ -273,7 +273,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | 👨‍💼 Rutas para calcular Kpis Gerente
+    | 👨‍💼 Rutas para calcular Kpis Gerente(Probando)
     |--------------------------------------------------------------------------
     */
 
@@ -283,6 +283,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/informes-kpi/mes-anterior', [InformeKpiController::class, 'obtenerValoresMesAnterior']);
     Route::get('/informes-kpi/consumo-maquinas', [InformesController::class, 'getConsumoMaquinas']);
     Route::get('/informes-kpi/balance-combustible', [InformesController::class, 'getBalanceCombustible']);
+    Route::get('/informes-kpi/verificar-precios-consumos', [InformesController::class, 'verificarPreciosConsumos']);
 
 
 

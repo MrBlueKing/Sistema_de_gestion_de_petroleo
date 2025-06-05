@@ -34,7 +34,6 @@ class Consumo extends Model
         'numeral_final',
         'precio_litro',
         'observacion',
-
     ];
 
     // Relaciones

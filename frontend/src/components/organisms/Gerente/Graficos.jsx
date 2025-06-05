@@ -9,7 +9,8 @@ import {
 
 // Importación de componentes moleculares para filtros y tablas
 import FiltrosComponent from "../../molecules/FiltrosComponent";
-import ConsumoPorMaquinaTable from "../../molecules/ConsumoPorMaquinaTable";
+// ✅ USAR: Tabla que lee directamente del ConsumoCategoriasController
+import ConsumoPorMaquinaPureTable from "../../molecules/ConsumoPorMaquinaTable";
 import ConsumoPorFaenaTable from "../../molecules/ConsumoPorFaenaTable";
 import IngresosPorFaenaTable from "../../molecules/IngresosPorFaenaTable";
 
@@ -30,7 +31,7 @@ const Graficos = ({ children }) => {
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     // Estado para controlar la vista activa
-    const [vistaActiva, setVistaActiva] = useState("tablas"); // tablas | graficos
+    const [vistaActiva, setVistaActiva] = useState("tablas");
 
     // Inicializar fechaDesde al primer día del mes actual
     const [fechaDesde, setFechaDesde] = useState(
@@ -50,7 +51,7 @@ const Graficos = ({ children }) => {
         }
     };
 
-    // Función para cargar datos de consumo
+    // ✅ MANTENER: Función para cargar datos tradicionales (para tablas de faena)
     const cargarDatosConsumo = async () => {
         try {
             setCargando(true);
@@ -58,19 +59,17 @@ const Graficos = ({ children }) => {
             const response = await axios.get('/api/informes-kpi/consumo-maquinas', {
                 params: {
                     fecha_inicio: fechaDesde,
-                    fecha_fin: fechaHasta + ' 23:59:59', // Incluir todo el día
+                    fecha_fin: fechaHasta + ' 23:59:59',
                     faena: faenaSeleccionada !== 'todas' ? faenaSeleccionada : null
                 }
             });
 
             if (response.data && response.data.status === 'success') {
                 const datosConsumo = response.data.data;
-
-                // Guardar todos los datos
                 setDatosConsumo(datosConsumo);
                 setDatosDisponibles(true);
                 setUltimaActualizacion(new Date());
-                setRefreshTrigger(prev => prev + 1); // Actualizar gráficos
+                setRefreshTrigger(prev => prev + 1);
             } else {
                 console.warn('No se pudieron cargar los datos de consumo de máquinas');
                 setDatosDisponibles(false);
@@ -89,7 +88,6 @@ const Graficos = ({ children }) => {
         const timer = setTimeout(() => {
             if (fechaDesde && fechaHasta) {
                 cargarDatosConsumo();
-                // También actualizar el refreshTrigger para forzar la actualización de los gráficos
                 setRefreshTrigger(prev => prev + 1);
             }
         }, 500);
@@ -100,6 +98,8 @@ const Graficos = ({ children }) => {
     // Función para refrescar datos manualmente
     const refrescarDatos = () => {
         cargarDatosConsumo();
+        // ✅ NUEVO: También incrementar refreshTrigger para actualizar tabla híbrida
+        setRefreshTrigger(prev => prev + 1);
     };
 
     return (
@@ -197,15 +197,15 @@ const Graficos = ({ children }) => {
                     {/* Vista de tablas */}
                     {vistaActiva === "tablas" && (
                         <>
-                            
-                            {/* Componente de tabla de consumo por máquina */}
-                            {datosConsumo && datosConsumo.consumo_por_maquina && (
-                                <ConsumoPorMaquinaTable
-                                    consumoPorMaquina={datosConsumo.consumo_por_maquina}
-                                />
-                            )}
+                            {/* ✅ TABLA PRINCIPAL: Usa ConsumoCategoriasController directamente */}
+                            <ConsumoPorMaquinaPureTable
+                                fechaDesde={fechaDesde}
+                                fechaHasta={fechaHasta}
+                                faenaSeleccionada={faenaSeleccionada}
+                                refreshKey={refreshTrigger}
+                            />
 
-                            {/* Componentes de tablas de consumo e ingresos por faena */}
+                            {/* ✅ MANTENER: Componentes de tablas de consumo e ingresos por faena */}
                             {datosConsumo && datosConsumo.consumo_por_faena && datosConsumo.ingresos_por_faena && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                                     <ConsumoPorFaenaTable
@@ -222,8 +222,6 @@ const Graficos = ({ children }) => {
                     {/* Vista de gráficos */}
                     {vistaActiva === "graficos" && (
                         <>
-                          
-
                             {/* Contenedor de gráficos */}
                             <div className="mt-6">
                                 <div className="bg-white p-4 rounded-lg shadow-md mb-6">
@@ -233,7 +231,7 @@ const Graficos = ({ children }) => {
                                     </h3>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        {/* Top Equipos - Renderizar siempre que tengamos fechas */}
+                                        {/* Top Equipos */}
                                         <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
                                             <h4 className="text-sm font-medium text-gray-700 mb-3">
                                                 Top Equipos por Consumo
@@ -248,7 +246,7 @@ const Graficos = ({ children }) => {
                                             )}
                                         </div>
 
-                                        {/* Faenas - Renderizar siempre que tengamos fechas */}
+                                        {/* Faenas */}
                                         <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
                                             <h4 className="text-sm font-medium text-gray-700 mb-3">
                                                 Consumo por Faena
@@ -265,7 +263,7 @@ const Graficos = ({ children }) => {
                                         </div>
                                     </div>
 
-                                    {/* Tendencia de Consumo - Renderizar siempre que tenemos faena */}
+                                    {/* Tendencia de Consumo */}
                                     <div className="mt-6 bg-white rounded-lg shadow-sm p-4 border border-gray-100">
                                         <h4 className="text-sm font-medium text-gray-700 mb-3">
                                             Tendencia de Consumo
