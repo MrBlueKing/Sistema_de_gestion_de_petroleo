@@ -336,6 +336,9 @@ const FormRecepcion = () => {
   const [showModalActualizacion, setShowModalActualizacion] = useState(false);
   const [nuevoValorLitros, setNuevoValorLitros] = useState("");
 
+  // Estados para distribución de combustible
+  const [distribucionLitros, setDistribucionLitros] = useState({});
+
   // Estados para UI
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
@@ -363,6 +366,33 @@ const FormRecepcion = () => {
   });
 
   const [stockInicial, setStockInicial] = useState(0);
+
+  // NUEVA: Función para manejar cambios en la distribución
+  const handleDistribucionChange = (nuevaDistribucion) => {
+    setDistribucionLitros(nuevaDistribucion);
+    console.log('Nueva distribución:', nuevaDistribucion);
+  };
+
+  // NUEVO: Función para validar distribución
+  const validarDistribucion = () => {
+    const litrosGuia = parseFloat(formData.litrosRecibidos) || 0;
+    const totalDistribuido = Object.values(distribucionLitros).reduce((total, valor) => {
+      return total + (parseFloat(valor) || 0);
+    }, 0);
+
+    // Si no hay distribución, permitir continuar
+    if (totalDistribuido === 0) return { valido: true, mensaje: "" };
+
+    // Si hay distribución, debe coincidir exactamente con litros guía
+    if (Math.abs(totalDistribuido - litrosGuia) > 0.01) {
+      return {
+        valido: false,
+        mensaje: `La distribución (${formatNumberWithSeparators(totalDistribuido)} L) debe coincidir exactamente con los litros de la guía (${formatNumberWithSeparators(litrosGuia)} L).`
+      };
+    }
+
+    return { valido: true, mensaje: "" };
+  };
 
   // NUEVO: Función para manejar cambios en litros recibidos con actualización automática
   const handleLitrosRecibidosChange = (value) => {
@@ -449,6 +479,16 @@ const FormRecepcion = () => {
     validateField();
   }, [formData]);
 
+  // NUEVO: Efecto para validar distribución cuando cambie
+  useEffect(() => {
+    if (Object.keys(distribucionLitros).length > 0) {
+      const validacion = validarDistribucion();
+      if (!validacion.valido) {
+        console.log('Error en distribución:', validacion.mensaje);
+      }
+    }
+  }, [distribucionLitros, formData.litrosRecibidos]);
+
   // Función para cargar los estanques de una faena
   const cargarEstanques = async (idFaena) => {
     try {
@@ -464,13 +504,16 @@ const FormRecepcion = () => {
 
       // Inicializar el estado de alturas con los estanques cargados
       const initialAlturas = {};
+      const initialDistribucion = {};
       response.data.data.forEach((estanque) => {
         initialAlturas[estanque.id_estanque] = {
           inicial: "",
           final: "",
         };
+        initialDistribucion[estanque.id_estanque] = "";
       });
       setAlturasEstanques(initialAlturas);
+      setDistribucionLitros(initialDistribucion);
     } catch (error) {
       console.error("Error al cargar estanques:", error);
       mostrarAlerta("error", "Error al cargar los estanques de la faena.");
@@ -646,6 +689,13 @@ const FormRecepcion = () => {
         "error",
         "Debe ingresar la cantidad de litros recibidos antes de calcular."
       );
+      return null;
+    }
+
+    // NUEVA: Validar distribución si existe
+    const validacionDistribucion = validarDistribucion();
+    if (!validacionDistribucion.valido) {
+      mostrarModalAlerta("error", validacionDistribucion.mensaje);
       return null;
     }
 
@@ -957,6 +1007,14 @@ const FormRecepcion = () => {
       return;
     }
 
+    // NUEVA: Validación final de distribución
+    const validacionDistribucion = validarDistribucion();
+    if (!validacionDistribucion.valido) {
+      mostrarAlerta("error", validacionDistribucion.mensaje);
+      setShowEstanquesModal(true);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -985,6 +1043,8 @@ const FormRecepcion = () => {
         diferencia: diferencia, // Usar la nueva diferencia
         stock_inicial: stockInicial,
         alturas_estanques: alturas,
+        // NUEVA: Agregar distribución
+        distribucion_litros: distribucionLitros,
       };
 
       // Obtener el token de autenticación
@@ -1038,15 +1098,21 @@ const FormRecepcion = () => {
       calculoRealizado: false,
     });
 
+    // NUEVA: Resetear distribución
+    setDistribucionLitros({});
+
     // Reiniciar las alturas de estanques
     const initialAlturas = {};
+    const initialDistribucion = {};
     estanques.forEach((estanque) => {
       initialAlturas[estanque.id_estanque] = {
         inicial: "",
         final: "",
       };
+      initialDistribucion[estanque.id_estanque] = "";
     });
     setAlturasEstanques(initialAlturas);
+    setDistribucionLitros(initialDistribucion);
   };
 
   // Función para manejar errores en el envío
@@ -1117,6 +1183,39 @@ const FormRecepcion = () => {
               <div className="flex items-center text-green-600">
                 <FaSync className="mr-1 text-sm" />
                 <span className="text-sm font-medium">Auto-actualización</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* NUEVO: Panel de distribución si existe */}
+        {Object.keys(distribucionLitros).length > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="bg-blue-500 p-2 rounded-full mr-3">
+                  <FaGasPump className="text-white text-sm" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-blue-800">
+                    Distribución Configurada
+                  </h3>
+                  <p className="text-blue-700 text-sm">
+                    Total distribuido: {formatNumberWithSeparators(
+                      Object.values(distribucionLitros).reduce((total, valor) => {
+                        return total + (parseFloat(valor) || 0);
+                      }, 0)
+                    )} L
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center text-blue-600">
+                <div className={`w-3 h-3 rounded-full mr-2 ${
+                  validarDistribucion().valido ? 'bg-green-500' : 'bg-amber-500'
+                }`}></div>
+                <span className="text-sm font-medium">
+                  {validarDistribucion().valido ? 'Válida' : 'Requiere ajuste'}
+                </span>
               </div>
             </div>
           </div>
@@ -1376,7 +1475,7 @@ const FormRecepcion = () => {
           Los campos marcados con * son obligatorios
         </div>
 
-        {/* MODAL DE ESTANQUES */}
+        {/* MODAL DE ESTANQUES CON DISTRIBUCIÓN */}
         <EstanquesModal
           isOpen={showEstanquesModal}
           onClose={(stockSistema = null) => {
@@ -1393,6 +1492,9 @@ const FormRecepcion = () => {
           modalAlert={modalAlert}
           capacidadDisponible={capacidadDisponible}
           litrosRecibidos={parseFloat(formData.litrosRecibidos) || 0}
+          // NUEVAS PROPS PARA DISTRIBUCIÓN:
+          distribucionLitros={distribucionLitros}
+          onDistribucionChange={handleDistribucionChange}
         />
       </div>
 
