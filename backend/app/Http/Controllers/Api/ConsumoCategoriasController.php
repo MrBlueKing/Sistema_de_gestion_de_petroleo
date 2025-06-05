@@ -214,6 +214,7 @@ class ConsumoCategoriasController extends Controller
             ], 500);
         }
     }
+    
 
     /**
      * NUEVO: Calcular fechas según horario laboral (LÓGICA DE NICODEMO)
@@ -575,7 +576,7 @@ class ConsumoCategoriasController extends Controller
                 }
             }
 
-            $precioPromedio = $this->obtenerPrecioPromedioCategoria($categoria->id_categoria);
+            $precioPromedio = $this->obtenerPrecioPromedioCategoria($categoria->id_categoria, $fechaInicio, $fechaFin);
             $costoTotal = ($totalConfirmado + $totalSimulado) * $precioPromedio;
             $diasLaboralesMes = $this->calcularDiasLaboralesMesActual($incluirSabados, $incluirDomingos);
 
@@ -639,7 +640,7 @@ class ConsumoCategoriasController extends Controller
         $medicionTotal = $this->calcularMedicionTotal($maquina->id_maquina, $fechaInicio, $fechaFin);
 
         // Calcular precio promedio
-        $precioPromedio = $this->obtenerPrecioPromedioMaquina($maquina->id_maquina);
+        $precioPromedio = $this->obtenerPrecioPromedioMaquina($maquina->id_maquina, $fechaInicio, $fechaFin);
         $valorTotal = $litrosTotales * $precioPromedio;
 
         // Calcular rendimiento según tipo de medición
@@ -734,16 +735,18 @@ class ConsumoCategoriasController extends Controller
     /**
      * NUEVO: Obtener precio promedio específico de una máquina
      */
-    private function obtenerPrecioPromedioMaquina($idMaquina)
+    private function obtenerPrecioPromedioMaquina($idMaquina, $fechaInicio, $fechaFin)
     {
         $precio = DB::table('consumos')
             ->where('id_equipo', $idMaquina)
+            ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin]) // Filtra por fechas
             ->whereNotNull('precio_litro')
             ->where('precio_litro', '>', 0)
             ->avg('precio_litro');
 
-        return $precio ?? 900; // Valor por defecto si no hay datos
+        return $precio ?? 0; // Valor por defecto si no hay datos
     }
+
     /**
      * NUEVO: Calcular medición total según tipo de máquina
      */
@@ -2389,17 +2392,20 @@ class ConsumoCategoriasController extends Controller
 
         return $recomendaciones;
     }
-
-    private function obtenerPrecioPromedioCategoria($idCategoria)
+    private function obtenerPrecioPromedioCategoria($idCategoria, $fechaInicio = null, $fechaFin = null)
     {
-        $precio = DB::table('consumos')
+        $query = DB::table('consumos')
             ->join('maquinas', 'consumos.id_equipo', '=', 'maquinas.id_maquina')
             ->where('maquinas.id_categoria', $idCategoria)
             ->whereNotNull('consumos.precio_litro')
-            ->where('consumos.precio_litro', '>', 0)
-            ->avg('consumos.precio_litro');
+            ->where('consumos.precio_litro', '>', 0);
 
-        return $precio ?? 900;
+        // ← AGREGAR FILTRO DE FECHAS
+        if ($fechaInicio && $fechaFin) {
+            $query->whereBetween('consumos.fecha_consumo', [$fechaInicio, $fechaFin]);
+        }
+
+        return $query->avg('consumos.precio_litro') ?? 0;
     }
 
     private function obtenerNombreFaena($idFaena)
