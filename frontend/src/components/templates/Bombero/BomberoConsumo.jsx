@@ -228,16 +228,19 @@ const Consumo = ({
       };
 
       const response = await axios.post('/api/consumos', apiData);
+      console.log("datiños: ", response.data);
+      console.log("datiños: ", response.data.data);
 
       if (response.data.success) {
         setIsSaved(true);
         setIsSaving(false);
         setSuccessData({
-          id: response.data.data.id || 'N/A',
+          id: response.data.data.id_consumo || 'N/A',
           litros: formData.litros,
           fecha: new Date().toLocaleString(),
           solicitante: formatSolicitanteName(),
-          equipo: formatPatente()
+          equipo: formatPatente(),
+          observacion: formData.observacion
         });
       } else {
         throw new Error(response.data.message || 'Error al guardar el consumo');
@@ -379,6 +382,11 @@ const Consumo = ({
               <p className="text-sm text-gray-500">Equipo/Vehículo</p>
               <p className="font-semibold">{successData?.equipo || 'N/A'}</p>
             </div>
+  <div className="col-span-2">
+              <p className="text-sm text-gray-500">Observación</p>
+              <p className="font-semibold">{successData?.observacion || 'N/A'}</p>
+            </div>
+
           </div>
         </div>
 
