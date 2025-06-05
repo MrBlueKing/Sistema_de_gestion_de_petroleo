@@ -332,9 +332,10 @@ const FormRecepcion = () => {
     id_faena: "",
   });
 
-  // NUEVO: Estado para controlar el modal de actualización
+  // Estados para controlar el modal de actualización
   const [showModalActualizacion, setShowModalActualizacion] = useState(false);
   const [nuevoValorLitros, setNuevoValorLitros] = useState("");
+  const [valorOriginalLitros, setValorOriginalLitros] = useState(""); // NUEVO ESTADO
 
   // Estados para distribución de combustible
   const [distribucionLitros, setDistribucionLitros] = useState({});
@@ -367,13 +368,13 @@ const FormRecepcion = () => {
 
   const [stockInicial, setStockInicial] = useState(0);
 
-  // NUEVA: Función para manejar cambios en la distribución
+  // Función para manejar cambios en la distribución
   const handleDistribucionChange = (nuevaDistribucion) => {
     setDistribucionLitros(nuevaDistribucion);
     console.log('Nueva distribución:', nuevaDistribucion);
   };
 
-  // NUEVO: Función para validar distribución
+  // Función para validar distribución
   const validarDistribucion = () => {
     const litrosGuia = parseFloat(formData.litrosRecibidos) || 0;
     const totalDistribuido = Object.values(distribucionLitros).reduce((total, valor) => {
@@ -394,20 +395,56 @@ const FormRecepcion = () => {
     return { valido: true, mensaje: "" };
   };
 
-  // NUEVO: Función para manejar cambios en litros recibidos con actualización automática
+  // FUNCIÓN MODIFICADA - Ahora solo maneja cambios normales
   const handleLitrosRecibidosChange = (value) => {
-    // Si ya hay cálculos realizados, mostrar modal de confirmación para actualizar
-    if (calculoPetroleo.calculoRealizado) {
-      setNuevoValorLitros(value);
-      setShowModalActualizacion(true);
-      return;
-    }
-
-    // Si no hay cálculos, permitir cambio normal
+    // Permitir cambio normal sin mostrar modal
     handleChange("litrosRecibidos", value);
   };
 
-  // NUEVO: Función para confirmar actualización automática de cálculos
+  // NUEVA FUNCIÓN para manejar cuando el campo pierde el foco
+  const handleLitrosRecibidosBlur = (value) => {
+    // Marcar el campo como tocado
+    handleBlur("litrosRecibidos");
+    
+    // Si ya hay cálculos realizados y el valor ha cambiado, mostrar modal
+    if (calculoPetroleo.calculoRealizado) {
+      // Guardar el valor original antes del cambio si no existe
+      if (!valorOriginalLitros) {
+        setValorOriginalLitros(formData.litrosRecibidos);
+      }
+      
+      const valorActual = parseFloat(valorOriginalLitros || formData.litrosRecibidos) || 0;
+      const nuevoValor = parseFloat(value) || 0;
+      
+      // Solo mostrar modal si el valor realmente cambió
+      if (Math.abs(valorActual - nuevoValor) > 0.01) {
+        setNuevoValorLitros(value);
+        setShowModalActualizacion(true);
+      }
+    }
+  };
+
+  // NUEVA FUNCIÓN para cancelar y restaurar el valor original
+  const cancelarActualizacion = () => {
+    // Restaurar el valor original
+    setFormData((prev) => ({
+      ...prev,
+      litrosRecibidos: valorOriginalLitros,
+    }));
+    
+    // Limpiar estados del modal
+    setShowModalActualizacion(false);
+    setNuevoValorLitros("");
+    setValorOriginalLitros("");
+    
+    // Mostrar mensaje informativo
+    mostrarAlerta(
+      "info",
+      "Se ha restaurado el valor original. Los cálculos permanecen sin cambios."
+    );
+  };
+
+  // FUNCIÓN MODIFICADA para confirmar actualización automática de cálculos
   const confirmarActualizacion = () => {
     // Actualizar el valor de litros recibidos
     setFormData((prev) => ({
@@ -418,9 +455,10 @@ const FormRecepcion = () => {
     // Recalcular la diferencia con el nuevo valor
     recalcularDiferencia(nuevoValorLitros);
 
-    // Cerrar modal
+    // Cerrar modal y limpiar estados
     setShowModalActualizacion(false);
     setNuevoValorLitros("");
+    setValorOriginalLitros(""); // Limpiar valor original
 
     // Mostrar alerta informativa
     mostrarAlerta(
@@ -429,7 +467,7 @@ const FormRecepcion = () => {
     );
   };
 
-  // NUEVO: Función para recalcular solo la diferencia manteniendo los litros calculados
+  // Función para recalcular solo la diferencia manteniendo los litros calculados
   const recalcularDiferencia = (nuevosLitrosRecibidos) => {
     const litrosGuia = parseFloat(nuevosLitrosRecibidos) || 0;
     const nuevaDiferencia = calculoPetroleo.litrosCalculados - litrosGuia;
@@ -479,7 +517,7 @@ const FormRecepcion = () => {
     validateField();
   }, [formData]);
 
-  // NUEVO: Efecto para validar distribución cuando cambie
+  // Efecto para validar distribución cuando cambie
   useEffect(() => {
     if (Object.keys(distribucionLitros).length > 0) {
       const validacion = validarDistribucion();
@@ -692,7 +730,7 @@ const FormRecepcion = () => {
       return null;
     }
 
-    // NUEVA: Validar distribución si existe
+    // Validar distribución si existe
     const validacionDistribucion = validarDistribucion();
     if (!validacionDistribucion.valido) {
       mostrarModalAlerta("error", validacionDistribucion.mensaje);
@@ -1007,7 +1045,7 @@ const FormRecepcion = () => {
       return;
     }
 
-    // NUEVA: Validación final de distribución
+    // Validación final de distribución
     const validacionDistribucion = validarDistribucion();
     if (!validacionDistribucion.valido) {
       mostrarAlerta("error", validacionDistribucion.mensaje);
@@ -1043,7 +1081,7 @@ const FormRecepcion = () => {
         diferencia: diferencia, // Usar la nueva diferencia
         stock_inicial: stockInicial,
         alturas_estanques: alturas,
-        // NUEVA: Agregar distribución
+        // Agregar distribución
         distribucion_litros: distribucionLitros,
       };
 
@@ -1098,7 +1136,7 @@ const FormRecepcion = () => {
       calculoRealizado: false,
     });
 
-    // NUEVA: Resetear distribución
+    // Resetear distribución
     setDistribucionLitros({});
 
     // Reiniciar las alturas de estanques
@@ -1161,35 +1199,11 @@ const FormRecepcion = () => {
         <h2 className="text-xl font-semibold text-gray-700 border-b pb-2 mb-2">
           Registro de Recepción de Petróleo
         </h2>
+       
 
-        {/* PANEL INFORMATIVO CUANDO HAY CÁLCULOS REALIZADOS */}
-        {calculoPetroleo.calculoRealizado && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="bg-green-500 p-2 rounded-full mr-3">
-                  <FaCheck className="text-white text-sm" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-green-800">
-                    Cálculos Realizados
-                  </h3>
-                  <p className="text-green-700 text-sm">
-                    Los cálculos se actualizarán automáticamente si modifica los
-                    litros recibidos.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center text-green-600">
-                <FaSync className="mr-1 text-sm" />
-                <span className="text-sm font-medium">Auto-actualización</span>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Panel de distribución si existe */}
+        {Object.values(distribucionLitros).some(valor => parseFloat(valor) > 0) && (
 
-        {/* NUEVO: Panel de distribución si existe */}
-        {Object.keys(distribucionLitros).length > 0 && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
@@ -1242,50 +1256,30 @@ const FormRecepcion = () => {
             )}
           </div>
 
-          {/* CAMPO LITROS RECIBIDOS - CON ACTUALIZACIÓN AUTOMÁTICA */}
+          {/* CAMPO LITROS RECIBIDOS - CON ACTUALIZACIÓN AL SALIR DEL CAMPO */}
           <div className="flex flex-col">
             <label className="text-sm font-medium text-gray-600 mb-1 flex items-center">
               Litros Recibidos *
-              {calculoPetroleo.calculoRealizado && (
-                <FaSync className="ml-2 text-green-500 text-xs animate-pulse" />
-              )}
-            </label>
+                          </label>
             <div className="relative">
               <InputField
                 placeholder="Ingrese cantidad de litros"
                 type="number"
                 value={formData.litrosRecibidos}
                 onChange={(e) => handleLitrosRecibidosChange(e.target.value)}
-                onBlur={() => handleBlur("litrosRecibidos")}
-                className={`bg-white rounded-md text-gray-800 ${
+                  className={`bg-white rounded-md text-gray-800 ${
                   errors.litrosRecibidos ? "border-red-500" : "border-gray-300"
-                } ${
-                  calculoPetroleo.calculoRealizado
-                    ? "border-green-300 focus:border-green-500"
-                    : ""
                 }`}
-                title={
-                  calculoPetroleo.calculoRealizado
-                    ? "Los cálculos se actualizarán automáticamente"
-                    : ""
-                }
+                
               />
-              {calculoPetroleo.calculoRealizado && (
-                <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                  <FaSync className="text-green-500 text-sm" />
-                </div>
-              )}
+              
             </div>
             {errors.litrosRecibidos && (
               <span className="text-red-500 text-xs mt-1">
                 {errors.litrosRecibidos}
               </span>
             )}
-            {calculoPetroleo.calculoRealizado && (
-              <span className="text-green-600 text-xs mt-1">
-                🔄 Actualización automática activada
-              </span>
-            )}
+            
           </div>
 
           <div className="flex flex-col">
@@ -1492,7 +1486,7 @@ const FormRecepcion = () => {
           modalAlert={modalAlert}
           capacidadDisponible={capacidadDisponible}
           litrosRecibidos={parseFloat(formData.litrosRecibidos) || 0}
-          // NUEVAS PROPS PARA DISTRIBUCIÓN:
+          // PROPS PARA DISTRIBUCIÓN:
           distribucionLitros={distribucionLitros}
           onDistribucionChange={handleDistribucionChange}
         />
@@ -1502,10 +1496,7 @@ const FormRecepcion = () => {
       <ModalConfirmacionReinicio
         isOpen={showModalActualizacion}
         onConfirm={confirmarActualizacion}
-        onCancel={() => {
-          setShowModalActualizacion(false);
-          setNuevoValorLitros("");
-        }}
+        onCancel={cancelarActualizacion}
       />
 
       {/* MODAL DE ÉXITO */}

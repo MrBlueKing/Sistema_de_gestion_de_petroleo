@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 
 class ConsumoController extends Controller
 {
@@ -412,4 +413,323 @@ public function store(Request $request)
         ], 500);
     }
 }
+
+
+public function getConsumosRecientes(Request $request)
+{
+    try {
+        $faenaId = $request->get('faena');
+        $limit = $request->get('limit', 5);
+
+        $consumos = DB::table('consumos as c')
+    ->select(
+        'c.fecha_consumo',
+        'c.litros_consumidos',
+        'c.observacion',
+        'm.nombre_maquina',
+        'm.patente',
+        'e.nombre as estanque',
+        DB::raw("CASE 
+            WHEN pi.nombre IS NOT NULL THEN CONCAT(pi.nombre, ' ', pi.apellido)
+            ELSE pe.nombre
+        END as solicitante_nombre")
+    )
+    ->leftJoin('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
+    ->leftJoin('estanques as e', 'c.id_estanque', '=', 'e.id_estanque')
+    ->leftJoin('solicitantes as s', 'c.id_dotacion', '=', 's.rut')
+    ->leftJoin('personal_interno as pi', function($join) {
+        $join->on('s.rut', '=', 'pi.rut')
+             ->where('s.tipo_personal', '=', 'Interno');
+    })
+    ->leftJoin('personal_externo as pe', function($join) {
+        $join->on('s.rut', '=', 'pe.rut')
+             ->where('s.tipo_personal', '=', 'Externo');
+    })
+    ->where('c.id_faena', $faenaId)
+    ->orderBy('c.fecha_consumo', 'desc')
+    ->limit($limit)
+    ->get();
+
+
+        return response()->json([
+            'success' => true,
+            'data' => $consumos
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Error en getConsumosRecientes', [
+            'exception' => $e->getMessage()
+        ]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Error al obtener consumos recientes',
+            'error' => $e->getMessage()
+        ], 500);
+    }
 }
+
+    /**
+     * Obtener consumos con filtros de fecha - SIN AUTENTICACIÓN
+     */
+    public function getConsumos(Request $request)
+    {
+        try {
+            // Obtener parámetros de filtro
+            $faena = $request->input('faena');
+            $dateFrom = $request->input('dateFrom');
+            $dateTo = $request->input('dateTo');
+
+            // Validar que al menos venga la faena
+            if (!$faena) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El parámetro faena es requerido'
+                ], 400);
+            }
+
+            // Construir la consulta con joins para obtener toda la información necesaria
+            $query = DB::table('consumos as c')
+                ->leftJoin('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
+                ->leftJoin('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
+                ->leftJoin('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria')
+                ->leftJoin('estanques as e', 'c.id_estanque', '=', 'e.id_estanque')
+                ->leftJoin('faenas as f', 'c.id_faena', '=', 'f.id_faena')
+                ->leftJoin('users as u', 'c.id_usuario', '=', 'u.id')
+                ->leftJoin('solicitantes as s', 'c.id_dotacion', '=', 's.rut')
+                ->leftJoin('personal_interno as pi', function($join) {
+                    $join->on('s.rut', '=', 'pi.rut')
+                         ->where('s.tipo_personal', '=', 'Interno');
+                })
+                ->leftJoin('personal_externo as pe', function($join) {
+                    $join->on('s.rut', '=', 'pe.rut')
+                         ->where('s.tipo_personal', '=', 'Externo');
+                })
+                ->leftJoin('empresas_externas as ee', 'pe.id_empresa', '=', 'ee.id_empresa')
+                ->select([
+                    'c.id_consumo',
+                    'c.id_dotacion',
+                    'c.fecha_consumo',
+                    'c.litros_consumidos',
+                    'c.medicion',
+                    'c.numeral_inicial',
+                    'c.numeral_final',
+                    'c.precio_litro',
+                    'c.observacion',
+                    'c.created_at',
+                    'c.updated_at',
+                    'm.nombre_maquina',
+                    'mi.patente',
+                    'cm.tipo_medicion',
+                    'e.nombre as estanque',
+                    'f.ubicacion as faena',
+                    'u.nombre as usuario_nombre',
+                    'u.apellido as usuario_apellido',
+                    's.tipo_personal',
+                    'pi.nombre as interno_nombre',
+                    'pi.apellido as interno_apellido',
+                    'pe.nombre as externo_nombre',
+                    'ee.nombre as empresa_nombre'
+                ]);
+
+            // Filtrar por faena
+            $query->where('c.id_faena', $faena);
+
+            // Aplicar filtros de fecha
+            if ($dateFrom) {
+                try {
+                    $fechaDesde = Carbon::createFromFormat('Y-m-d', $dateFrom)->startOfDay();
+                    $query->where('c.fecha_consumo', '>=', $fechaDesde);
+                } catch (\Exception $e) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Formato de fecha inválido para dateFrom. Use Y-m-d'
+                    ], 400);
+                }
+            }
+
+            if ($dateTo) {
+                try {
+                    $fechaHasta = Carbon::createFromFormat('Y-m-d', $dateTo)->endOfDay();
+                    $query->where('c.fecha_consumo', '<=', $fechaHasta);
+                } catch (\Exception $e) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Formato de fecha inválido para dateTo. Use Y-m-d'
+                    ], 400);
+                }
+            }
+
+            // Ordenar por fecha más reciente
+            $consumos = $query->orderBy('c.fecha_consumo', 'desc')->get();
+
+            // Transformar los datos
+            $consumosTransformados = $consumos->map(function ($consumo) {
+                // Determinar el nombre del solicitante
+                $solicitanteNombre = 'N/A';
+                $solicitanteTipo = $consumo->tipo_personal ?? 'N/A';
+
+                if ($consumo->tipo_personal === 'Interno' && $consumo->interno_nombre) {
+                    $solicitanteNombre = trim($consumo->interno_nombre . ' ' . ($consumo->interno_apellido ?? ''));
+                } elseif ($consumo->tipo_personal === 'Externo' && $consumo->externo_nombre) {
+                    $empresaNombre = $consumo->empresa_nombre ? ' (' . $consumo->empresa_nombre . ')' : '';
+                    $solicitanteNombre = $consumo->externo_nombre . $empresaNombre;
+                }
+                
+                return [
+                    'id_consumo' => $consumo->id_consumo,
+                    'id_dotacion' => $consumo->id_dotacion,
+                    'fecha_consumo' => $consumo->fecha_consumo,
+                    'litros_consumidos' => number_format($consumo->litros_consumidos, 2, '.', ''),
+                    'precio_litro' => $consumo->precio_litro ? number_format($consumo->precio_litro, 2, '.', '') : null,
+                    'costo_total' => $consumo->precio_litro 
+                        ? number_format($consumo->litros_consumidos * $consumo->precio_litro, 2, '.', '') 
+                        : null,
+                    'medicion' => $consumo->medicion ? number_format($consumo->medicion, 3, '.', '') : null,
+                    'numeral_inicial' => $consumo->numeral_inicial ? number_format($consumo->numeral_inicial, 3, '.', '') : null,
+                    'numeral_final' => $consumo->numeral_final ? number_format($consumo->numeral_final, 3, '.', '') : null,
+                    'observacion' => $consumo->observacion,
+                    'nombre_maquina' => $consumo->nombre_maquina,
+                    'patente' => $consumo->patente,
+                    'tipo_medicion' => $consumo->tipo_medicion,
+                    'estanque' => $consumo->estanque,
+                    'faena' => $consumo->faena,
+                    'usuario' => trim(($consumo->usuario_nombre ?? '') . ' ' . ($consumo->usuario_apellido ?? '')),
+                    'solicitante_nombre' => $solicitanteNombre,
+                    'solicitante_tipo' => $solicitanteTipo,
+                    'created_at' => $consumo->created_at,
+                    'updated_at' => $consumo->updated_at,
+                ];
+            });
+
+            // Calcular estadísticas
+            $totalLitros = $consumos->sum('litros_consumidos');
+            $totalConsumos = $consumos->count();
+            
+            $costoTotal = $consumos->filter(function($item) {
+                return $item->precio_litro !== null;
+            })->sum(function($item) {
+                return $item->litros_consumidos * $item->precio_litro;
+            });
+
+            $equipoMasUsado = $this->obtenerEquipoMasUsadoFromCollection($consumos);
+
+            $stats = [
+                'total_consumos' => $totalConsumos,
+                'total_litros' => $totalLitros,
+                'promedio_consumo' => $totalConsumos > 0 ? $totalLitros / $totalConsumos : 0,
+                'costo_total' => $costoTotal,
+                'equipo_mas_usado' => $equipoMasUsado,
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => $consumosTransformados,
+                'stats' => $stats,
+                'filters_applied' => [
+                    'faena' => $faena,
+                    'date_from' => $dateFrom,
+                    'date_to' => $dateTo,
+                ],
+                'message' => 'Consumos obtenidos exitosamente'
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Error en getConsumos', [
+                'exception' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener consumos: ' . $e->getMessage(),
+                'data' => []
+            ], 500);
+        }
+    }
+
+    /**
+     * Obtener información del solicitante por RUT
+     */
+    private function obtenerInfoSolicitante($rut)
+    {
+        if (!$rut) {
+            return ['nombre' => 'N/A', 'tipo' => 'N/A'];
+        }
+
+        // Buscar en solicitantes para determinar el tipo
+        $solicitante = Solicitante::where('rut', $rut)->first();
+        
+        if (!$solicitante) {
+            return ['nombre' => 'Solicitante no encontrado', 'tipo' => 'N/A'];
+        }
+
+        if ($solicitante->tipo_personal === 'Interno') {
+            $personal = PersonalInterno::where('rut', $rut)->first();
+            if ($personal) {
+                return [
+                    'nombre' => trim($personal->nombre . ' ' . ($personal->apellido ?? '')),
+                    'tipo' => 'Interno'
+                ];
+            }
+        } else {
+            $personal = PersonalExterno::with('empresa')->where('rut', $rut)->first();
+            if ($personal) {
+                return [
+                    'nombre' => $personal->nombre . ' (' . ($personal->empresa->nombre ?? 'Empresa N/A') . ')',
+                    'tipo' => 'Externo'
+                ];
+            }
+        }
+
+        return ['nombre' => 'Información no disponible', 'tipo' => $solicitante->tipo_personal];
+    }
+
+    /**
+     * Obtener el equipo más usado desde una colección
+     */
+    private function obtenerEquipoMasUsadoFromCollection($consumos)
+    {
+        if ($consumos->isEmpty()) {
+            return 'N/A';
+        }
+
+        $equipoCount = [];
+        
+        foreach ($consumos as $consumo) {
+            $equipo = $consumo->nombre_maquina ?? 'Sin equipo';
+            $equipoCount[$equipo] = ($equipoCount[$equipo] ?? 0) + 1;
+        }
+
+        if (empty($equipoCount)) {
+            return 'N/A';
+        }
+
+        return array_keys($equipoCount, max($equipoCount))[0];
+    }
+
+    /**
+     * Obtener el equipo más usado (método original)
+     */
+    private function obtenerEquipoMasUsado($consumos)
+    {
+        if ($consumos->isEmpty()) {
+            return 'N/A';
+        }
+
+        $equipoCount = [];
+        
+        foreach ($consumos as $consumo) {
+            $equipo = $consumo->nombre_maquina ?? 'Sin equipo';
+            $equipoCount[$equipo] = ($equipoCount[$equipo] ?? 0) + 1;
+        }
+
+        if (empty($equipoCount)) {
+            return 'N/A';
+        }
+
+        return array_keys($equipoCount, max($equipoCount))[0];
+    }
+}
+

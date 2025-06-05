@@ -33,7 +33,7 @@ use App\Http\Controllers\Api\VerificacionIngresosController;
 use App\Http\Controllers\Api\MaquinasExternasController;
 use App\Http\Controllers\Api\SolicitantesOptimizadoController;
 use App\Http\Controllers\Api\ConsumoCategoriasController;
-
+use App\Models\IngresoPetroleo;
 
 /*
 |--------------------------------------------------------------------------
@@ -502,3 +502,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/tonelajes/{id}/puede-editar', [TonelajeController::class, 'puedeEditar']);
     Route::get('/reporte/pdf', [ReporteController::class, 'generarPDF']);
 });
+
+
+// Rutas para consumos
+    Route::get('/consumos/recientes', [ConsumoController::class, 'getConsumosRecientes']);
+
+// Rutas para dashboard
+Route::get('/dashboard/stats', [IngresoPetroleoController::class, 'getStats']);
+
+// En tu routes/api.php
+Route::get('/recepcionesFecha', [IngresoPetroleoController::class, 'getRecepciones']);
+Route::get('/consumosFecha', [ConsumoController::class, 'getConsumos']);
