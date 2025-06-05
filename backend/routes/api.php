@@ -198,6 +198,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/consumos', [ConsumoController::class, 'store']);
     });
 
+    Route::get('/ingresos-petroleo', [IngresoPetroleoController::class, 'index']);
+    Route::post('/ingresos-petroleo', [IngresoPetroleoController::class, 'store']);
+
     /*
     |--------------------------------------------------------------------------
     | 📊 KPIs Y ANÁLISIS
@@ -466,8 +469,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/permisosFaenas', [FaenaController::class, 'getPermisosFaenas']);
     Route::get('/verificarPermiso', [FaenaController::class, 'verificarPermiso']);
     Route::get('/faenasDisponibles', [FaenaController::class, 'getFaenasDisponibles']);
-    Route::get('/ingresos-petroleo', [IngresoPetroleoController::class, 'index']);
-    Route::post('/ingresos-petroleo', [IngresoPetroleoController::class, 'store']);
     Route::get('/estanques/{id_faena}', [EstanqueController::class, 'estanquesPorFaena']);
     Route::post('/calcular-litros-petroleo', [EstanqueController::class, 'calcularLitrosPetroleo']);
     Route::get('/capacidad-disponible/{id_faena}', [EstanqueController::class, 'capacidadDisponible']);
