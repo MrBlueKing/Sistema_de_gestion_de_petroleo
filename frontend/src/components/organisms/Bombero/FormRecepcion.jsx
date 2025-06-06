@@ -180,7 +180,7 @@ const ModalExitoRecepcion = ({ isOpen, onConfirm, datosRecepcion }) => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-blue-700 text-sm">
-                    Litros Documentados:
+                    Litros Guía:
                   </span>
                   <span className="font-bold text-blue-900">
                     {formatNumberWithSeparators(litrosDocumentados)} L
@@ -255,7 +255,7 @@ const ModalExitoRecepcion = ({ isOpen, onConfirm, datosRecepcion }) => {
                     Total de la Recepción
                   </h3>
                   <p className="text-green-600 text-sm">
-                    Basado en litros documentados
+                    Basado en litros Guía
                   </p>
                 </div>
               </div>
@@ -284,20 +284,7 @@ const ModalExitoRecepcion = ({ isOpen, onConfirm, datosRecepcion }) => {
                   ✓ Completado
                 </span>
               </div>
-              <div>
-                <span className="text-gray-600">Precisión:</span>
-                <span
-                  className={`ml-2 font-medium ${
-                    esDiferenciaSignificativa
-                      ? "text-amber-600"
-                      : "text-green-600"
-                  }`}
-                >
-                  {esDiferenciaSignificativa
-                    ? "Requiere Revisión"
-                    : "Dentro de Tolerancia"}
-                </span>
-              </div>
+              
             </div>
           </div>
         </div>
