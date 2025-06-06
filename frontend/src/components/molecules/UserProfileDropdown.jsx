@@ -10,7 +10,7 @@ const UserProfileDropdown = ({ userMenuOpen, setUserMenuOpen, handleLogout }) =>
   const getRoleName = (idRol) => {
     // Mapeo de ID de rol a nombre descriptivo
     const roles = {
-      1: "Bombero",
+      1: "Encargado de Operaciones de Combustible",
       2: "Gerente",
       3: "Administrador",
       4: "Distpach",
@@ -87,19 +87,6 @@ const UserProfileDropdown = ({ userMenuOpen, setUserMenuOpen, handleLogout }) =>
 
       {userMenuOpen && (
         <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-40 border border-gray-200">
-          <a
-            href="/perfil"
-            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-          >
-            Tu perfil
-          </a>
-          <a
-            href="/configuracion"
-            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-          >
-            Configuración
-          </a>
-          <div className="border-t border-gray-100"></div>
           <button
             onClick={handleLogout}
             className="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100 w-full text-left"

@@ -159,7 +159,7 @@ const UserRegister = () => {
     };
 
     try {
-      const response = await axios.post("http://localhost:8000/api/register", userData, {
+      const response = await axios.post("/api/register", userData, {
         headers: { "Content-Type": "application/json" },
       });
 
@@ -229,7 +229,7 @@ const UserRegister = () => {
       value: role,
       icon: <FaUser />,
       options: [
-        { label: "Bombero", value: 1 },
+        { label: "Encargado Abastecimiento", value: 1 },
         { label: "Gerente", value: 2 },
         { label: "Administrador", value: 3 },
         { label: "Distpach", value: 4 },

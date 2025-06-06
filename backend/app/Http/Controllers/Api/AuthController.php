@@ -27,7 +27,7 @@ class AuthController extends Controller
                 'apellido' => 'required|string|max:100',
                 'id_rol' => 'required|exists:roles,id_rol',
                 'id_faena' => 'required|exists:faenas,id_faena',
-                'password' => 'required|string|min:8|confirmed',
+                'password' => 'required|string|min:8',
                 'email' => 'nullable|email|unique:users,email',
             ], [
                 'rut.unique' => 'Este RUT ya está registrado en el sistema',
