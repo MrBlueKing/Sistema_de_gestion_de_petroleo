@@ -503,11 +503,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/tonelajes/{id}/historial', [TonelajeController::class, 'getHistorial']);
     Route::get('/tonelajes/{id}/puede-editar', [TonelajeController::class, 'puedeEditar']);
     Route::get('/reporte/pdf', [ReporteController::class, 'generarPDF']);
+    /*
+    |--------------------------------------------------------------------------
+    | 📂 CATEGORÍAS (MANTENIMIENTO)
+    |--------------------------------------------------------------------------
+    */
 });
 
-
 // Rutas para consumos
-    Route::get('/consumos/recientes', [ConsumoController::class, 'getConsumosRecientes']);
+Route::get('/consumos/recientes', [ConsumoController::class, 'getConsumosRecientes']);
 
 // Rutas para dashboard
 Route::get('/dashboard/stats', [IngresoPetroleoController::class, 'getStats']);
