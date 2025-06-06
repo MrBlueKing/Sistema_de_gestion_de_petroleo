@@ -284,7 +284,7 @@ const Main = () => {
                 <FaPlus className="text-white text-base sm:text-lg" />
               </div>
               <div>
-                <h3 className="text-lg sm:text-xl font-bold text-gray-800">📝 Registrar Movimientos</h3>
+                <h3 className="text-lg sm:text-xl font-bold text-gray-800">Registrar Movimientos</h3>
                 <p className="text-gray-600 text-xs sm:text-sm">Ingresa nuevos datos al sistema</p>
               </div>
             </div>
@@ -294,16 +294,16 @@ const Main = () => {
                 to="/BomberoRecepcion"
                 color="orange"
                 icon={<FaArrowCircleDown />}
-                text="📥 Registrar Recepción"
+                text="Registrar Recepción"
                 className="w-full"
                 disabled={!user?.id_faena}
               />
               
               <Button
                 to="/BomberoNavigation"
-                color="red"
+                color="orange"
                 icon={<FaGasPump />}
-                text="⛽ Registrar Consumo"
+                text="Registrar Consumo"
                 className="w-full"
                 disabled={!user?.id_faena}
               />
@@ -313,11 +313,11 @@ const Main = () => {
           {/* Card de Consultas */}
           <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 shadow-sm">
             <div className="flex items-center gap-3 mb-4 sm:mb-6">
-              <div className="bg-blue-600 p-2 sm:p-3 rounded-lg shadow-md">
+              <div className="bg-green-600 p-2 sm:p-3 rounded-lg shadow-md">
                 <FaEye className="text-white text-base sm:text-lg" />
               </div>
               <div>
-                <h3 className="text-lg sm:text-xl font-bold text-gray-800">📊 Consultar Históricos</h3>
+                <h3 className="text-lg sm:text-xl font-bold text-gray-800">Consultar Históricos</h3>
                 <p className="text-gray-600 text-xs sm:text-sm">Revisa los registros anteriores</p>
               </div>
             </div>
@@ -325,9 +325,9 @@ const Main = () => {
             <div className="space-y-3 sm:space-y-4">
               <Button
                 to="/bombero/recepciones"
-                color="blue"
+                color="green"
                 icon={<FaHistory />}
-                text="📋 Historial Recepciones"
+                text="Historial Recepciones"
                 className="w-full"
               />
               
@@ -335,7 +335,7 @@ const Main = () => {
                 to="/bombero/consumos"
                 color="green"
                 icon={<FaChartLine />}
-                text="📈 Historial Consumos"
+                text="Historial Consumos"
                 className="w-full"
               />
             </div>
@@ -362,7 +362,7 @@ const Main = () => {
               <FaHistory className="text-white text-base sm:text-lg" />
             </div>
             <div>
-              <h3 className="text-lg sm:text-xl font-bold text-gray-800">🕒 Consumos Recientes</h3>
+              <h3 className="text-lg sm:text-xl font-bold text-gray-800">Consumos Recientes</h3>
               <p className="text-gray-600 text-xs sm:text-sm">Últimas 5 cargas de combustible registradas</p>
             </div>
           </div>
