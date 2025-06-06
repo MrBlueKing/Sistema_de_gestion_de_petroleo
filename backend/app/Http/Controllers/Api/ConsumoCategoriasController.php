@@ -8,7 +8,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-// claude 2025 😅 La realidad: "Sistema que funciona por milagro y no tocar nada"
+// 😅 "Sistema que funciona por milagro y no tocar nada"
 
 class ConsumoCategoriasController extends Controller
 {

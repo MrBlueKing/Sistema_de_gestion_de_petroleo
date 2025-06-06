@@ -9,10 +9,9 @@ import {
 
 // Importación de componentes moleculares para filtros y tablas
 import FiltrosComponent from "../../molecules/FiltrosComponent";
-// ✅ TABLAS ACTUALIZADAS: Ahora todas usan ConsumoCategoriasController o endpoints actualizados
-import ConsumoPorMaquinaPureTable from "../../molecules/ConsumoPorMaquinaTable"; // Ya actualizada
-import ConsumoPorFaenaTable from "../../molecules/ConsumoPorFaenaTable"; // Nueva versión
-import IngresosPorFaenaTable from "../../molecules/IngresosPorFaenaTable"; // Nueva versión
+import ConsumoPorMaquinaPureTable from "../../molecules/ConsumoPorMaquinaTable";
+import ConsumoPorFaenaTable from "../../molecules/ConsumoPorFaenaTable";
+import IngresosPorFaenaTable from "../../molecules/IngresosPorFaenaTable";
 
 // Importación de componentes moleculares para gráficos
 import TopEquiposChart from "../../molecules/TopEquiposChart";
@@ -28,7 +27,8 @@ const Graficos = ({ children }) => {
     const [mensajeExito, setMensajeExito] = useState(null);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [faenas, setFaenas] = useState([]);
-    // En tu componente padre, agregar estados para las horas
+    
+    // ✅ CORRECCIÓN: Estados para las horas
     const [horaDesde, setHoraDesde] = useState("08:00");
     const [horaHasta, setHoraHasta] = useState("18:00");
 
@@ -45,6 +45,20 @@ const Graficos = ({ children }) => {
         new Date().toISOString().split('T')[0]
     );
 
+    // ✅ NUEVA FUNCIÓN: Formatear fecha con hora para enviar al backend
+    const formatearFechaHora = (fecha, hora) => {
+        if (!fecha || !hora) return fecha;
+        return `${fecha} ${hora}:00`;
+    };
+
+    // ✅ NUEVA FUNCIÓN: Obtener fechas formateadas para enviar
+    const obtenerFechasFormateadas = () => {
+        return {
+            fecha_inicio: formatearFechaHora(fechaDesde, horaDesde),
+            fecha_fin: formatearFechaHora(fechaHasta, horaHasta)
+        };
+    };
+
     // Cargar faenas disponibles
     useEffect(() => {
         cargarFaenas();
@@ -54,7 +68,6 @@ const Graficos = ({ children }) => {
     const cargarFaenas = async () => {
         try {
             const response = await axios.get('/api/faenas');
-            // Verificar la estructura de la respuesta
             const faenasData = response.data.data || response.data;
 
             if (Array.isArray(faenasData)) {
@@ -69,13 +82,12 @@ const Graficos = ({ children }) => {
             }
         } catch (error) {
             console.error('Error al cargar faenas:', error);
-            setFaenas([]); // Establecer array vacío en caso de error
+            setFaenas([]);
         }
     };
 
     // Función para refrescar datos manualmente
     const refrescarDatos = () => {
-        // ✅ SIMPLIFICADO: Solo incrementar refreshTrigger - las tablas se actualizan automáticamente
         setRefreshTrigger(prev => prev + 1);
         setUltimaActualizacion(new Date());
         setMensajeExito("Datos actualizados correctamente");
@@ -85,6 +97,18 @@ const Graficos = ({ children }) => {
             setMensajeExito(null);
         }, 3000);
     };
+
+    // ✅ FUNCIÓN DEBUG: Para verificar que las horas se están pasando
+    useEffect(() => {
+        console.log('🕐 Filtros actualizados:', {
+            fechaDesde,
+            fechaHasta,
+            horaDesde,
+            horaHasta,
+            fechaInicioFormateada: formatearFechaHora(fechaDesde, horaDesde),
+            fechaFinFormateada: formatearFechaHora(fechaHasta, horaHasta)
+        });
+    }, [fechaDesde, fechaHasta, horaDesde, horaHasta]);
 
     return (
         <div className="flex-1 overflow-auto bg-gray-50">
@@ -175,7 +199,7 @@ const Graficos = ({ children }) => {
                     {/* Componente de filtros reutilizable */}
                     <div className="mb-6 bg-white rounded-lg shadow-md p-4">
                         <h3 className="text-md font-medium text-gray-800 mb-4">Filtros de Visualización</h3>
-                        {/* Filtros */}
+                        {/* ✅ CORRECCIÓN: Pasar las props de hora correctamente */}
                         <FiltrosComponent
                             fechaDesde={fechaDesde}
                             setFechaDesde={setFechaDesde}
@@ -184,7 +208,7 @@ const Graficos = ({ children }) => {
                             faenaSeleccionada={faenaSeleccionada}
                             setFaenaSeleccionada={setFaenaSeleccionada}
                             faenas={faenas}
-                            // ✅ NUEVAS PROPS para habilitar horas
+                            // ✅ PROPS para habilitar horas
                             incluirHoras={true}
                             horaDesde={horaDesde}
                             setHoraDesde={setHoraDesde}
@@ -197,25 +221,30 @@ const Graficos = ({ children }) => {
                     {/* Vista de tablas */}
                     {vistaActiva === "tablas" && (
                         <>
-                            {/* ✅ TABLA PRINCIPAL: Usa ConsumoCategoriasController directamente */}
+                            {/* ✅ CORRECCIÓN: Pasar las horas a las tablas */}
                             <ConsumoPorMaquinaPureTable
                                 fechaDesde={fechaDesde}
                                 fechaHasta={fechaHasta}
+                                horaDesde={horaDesde}
+                                horaHasta={horaHasta}
                                 faenaSeleccionada={faenaSeleccionada}
                                 refreshKey={refreshTrigger}
                             />
 
-                            {/* ✅ TABLAS ACTUALIZADAS: Ahora consumen datos modernos */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                                 <ConsumoPorFaenaTable
                                     fechaDesde={fechaDesde}
                                     fechaHasta={fechaHasta}
+                                    horaDesde={horaDesde}
+                                    horaHasta={horaHasta}
                                     faenaSeleccionada={faenaSeleccionada}
                                     refreshKey={refreshTrigger}
                                 />
                                 <IngresosPorFaenaTable
                                     fechaDesde={fechaDesde}
                                     fechaHasta={fechaHasta}
+                                    horaDesde={horaDesde}
+                                    horaHasta={horaHasta}
                                     faenaSeleccionada={faenaSeleccionada}
                                     refreshKey={refreshTrigger}
                                 />
@@ -226,7 +255,6 @@ const Graficos = ({ children }) => {
                     {/* Vista de gráficos */}
                     {vistaActiva === "graficos" && (
                         <>
-                            {/* Contenedor de gráficos */}
                             <div className="mt-6">
                                 <div className="bg-white p-4 rounded-lg shadow-md mb-6">
                                     <h3 className="text-md font-medium text-gray-800 mb-4 flex items-center">
@@ -235,7 +263,6 @@ const Graficos = ({ children }) => {
                                     </h3>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        {/* Top Equipos */}
                                         <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
                                             <h4 className="text-sm font-medium text-gray-700 mb-3">
                                                 Top Equipos por Consumo
@@ -245,12 +272,13 @@ const Graficos = ({ children }) => {
                                                     faenaSeleccionada={faenaSeleccionada}
                                                     fechaDesde={fechaDesde}
                                                     fechaHasta={fechaHasta}
+                                                    horaDesde={horaDesde}
+                                                    horaHasta={horaHasta}
                                                     refreshKey={refreshTrigger}
                                                 />
                                             )}
                                         </div>
 
-                                        {/* Faenas */}
                                         <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
                                             <h4 className="text-sm font-medium text-gray-700 mb-3">
                                                 Consumo por Faena
@@ -261,13 +289,14 @@ const Graficos = ({ children }) => {
                                                     setFaenaSeleccionada={setFaenaSeleccionada}
                                                     fechaDesde={fechaDesde}
                                                     fechaHasta={fechaHasta}
+                                                    horaDesde={horaDesde}
+                                                    horaHasta={horaHasta}
                                                     refreshKey={refreshTrigger}
                                                 />
                                             )}
                                         </div>
                                     </div>
 
-                                    {/* Tendencia de Consumo */}
                                     <div className="mt-6 bg-white rounded-lg shadow-sm p-4 border border-gray-100">
                                         <h4 className="text-sm font-medium text-gray-700 mb-3">
                                             Tendencia de Consumo
@@ -277,6 +306,8 @@ const Graficos = ({ children }) => {
                                                 faenaSeleccionada={faenaSeleccionada}
                                                 fechaDesde={fechaDesde}
                                                 fechaHasta={fechaHasta}
+                                                horaDesde={horaDesde}
+                                                horaHasta={horaHasta}
                                                 refreshKey={refreshTrigger}
                                             />
                                         )}

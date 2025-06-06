@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from "react";
 import axios from '../../lib/axios';
-import { FiLoader, FiTrendingUp, FiAlertCircle, FiInfo, FiBarChart, FiDollarSign } from "react-icons/fi";
+import { FiLoader, FiTrendingUp, FiAlertCircle, FiInfo, FiBarChart, FiDollarSign, FiClock } from "react-icons/fi";
 
 const ConsumoPorMaquinaPureTable = ({ 
   fechaDesde, 
   fechaHasta, 
+  // ✅ NUEVAS PROPS: Recibir las horas
+  horaDesde,
+  horaHasta,
   faenaSeleccionada,
   refreshKey
 }) => {
@@ -13,21 +16,43 @@ const ConsumoPorMaquinaPureTable = ({
   const [error, setError] = useState(null);
   const [resumenGeneral, setResumenGeneral] = useState(null);
 
+  // ✅ FUNCIÓN: Formatear fecha con hora
+  const formatearFechaHora = (fecha, hora) => {
+    if (!fecha) return fecha;
+    if (!hora) return fecha;
+    return `${fecha} ${hora}:00`;
+  };
+
   // Cargar datos del ConsumoCategoriasController
   const cargarDatosConsumoCategoria = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await axios.post('/api/consumo-categorias/calcular', {
-        fecha_inicio: fechaDesde,
-        fecha_fin: fechaHasta,
-        id_faena: faenaSeleccionada !== 'todas' ? parseInt(faenaSeleccionada) : null,
-        incluir_simulacion: true,
-        usar_fechas_automaticas: false
+      // ✅ CORRECCIÓN: Usar las horas en la llamada al backend
+      const fechaInicioFormateada = formatearFechaHora(fechaDesde, horaDesde);
+      const fechaFinFormateada = formatearFechaHora(fechaHasta, horaHasta);
+
+      console.log('🕐 Enviando fechas con hora al backend:', {
+        fecha_inicio: fechaInicioFormateada,
+        fecha_fin: fechaFinFormateada,
+        original_desde: fechaDesde,
+        original_hasta: fechaHasta,
+        hora_desde: horaDesde,
+        hora_hasta: horaHasta
       });
 
-      console.log("DAtos:",response.data);
+      const response = await axios.post('/api/consumo-categorias/calcular', {
+        fecha_inicio: fechaInicioFormateada,
+        fecha_fin: fechaFinFormateada,
+        id_faena: faenaSeleccionada !== 'todas' ? parseInt(faenaSeleccionada) : null,
+        incluir_simulacion: true,
+        usar_fechas_automaticas: false,
+        incluir_sabados: true,
+        incluir_domingos: false
+      });
+
+      console.log("✅ Respuesta del backend:", response.data);
 
       if (!response.data?.success) {
         throw new Error('Error en respuesta del ConsumoCategoriasController');
@@ -60,7 +85,7 @@ const ConsumoPorMaquinaPureTable = ({
                 litros_totales: resumen.litros_totales || 0,
                 porcentaje_confirmado: resumen.porcentaje_confirmado || 0,
                 
-                // ✅ DATOS DE COSTOS (LO QUE NECESITAS)
+                // Datos de costos
                 precio_promedio_litro: costos.precio_promedio_litro || 0,
                 valor_total: costos.valor_total || 0,
                 costo_por_dia: costos.costo_por_dia || 0,
@@ -90,9 +115,9 @@ const ConsumoPorMaquinaPureTable = ({
       setDatosConsumo(maquinasData);
       setResumenGeneral(response.data.resumen_ejecutivo);
       
-      console.log('✅ Datos ConsumoCategoriasController cargados:', {
+      console.log('✅ Datos ConsumoCategoriasController cargados con horarios:', {
         maquinas: maquinasData.length,
-        ejemploPrecio: maquinasData[0]?.precio_promedio_litro,
+        periodo: `${fechaInicioFormateada} - ${fechaFinFormateada}`,
         resumen: response.data.resumen_ejecutivo
       });
 
@@ -104,14 +129,14 @@ const ConsumoPorMaquinaPureTable = ({
     }
   };
 
-  // Cargar datos cuando cambien los parámetros
+  // ✅ CORRECCIÓN: Incluir las horas en las dependencias del useEffect
   useEffect(() => {
-    if (fechaDesde && fechaHasta) {
+    if (fechaDesde && fechaHasta && horaDesde && horaHasta) {
       cargarDatosConsumoCategoria();
     }
-  }, [fechaDesde, fechaHasta, faenaSeleccionada, refreshKey]);
+  }, [fechaDesde, fechaHasta, horaDesde, horaHasta, faenaSeleccionada, refreshKey]);
 
-  // Funciones auxiliares para colores
+  // Funciones auxiliares para colores (mantener las existentes)
   const getColorPrecision = (precision) => {
     if (precision >= 80) return 'text-green-600 bg-green-50';
     if (precision >= 60) return 'text-yellow-600 bg-yellow-50';
@@ -182,8 +207,9 @@ const ConsumoPorMaquinaPureTable = ({
               <FiDollarSign className="h-5 w-5 mr-2 text-purple-500" />
               Análisis por Máquina - ConsumoCategoriasController
             </h3>
-            <p className="text-sm text-gray-600 mt-1">
-              Precios específicos por máquina con precisión de datos
+            <p className="text-sm text-gray-600 mt-1 flex items-center">
+              <FiClock className="h-4 w-4 mr-1 text-blue-500" />
+              Filtrado con precisión horaria: {formatearFechaHora(fechaDesde, horaDesde)} hasta {formatearFechaHora(fechaHasta, horaHasta)}
             </p>
           </div>
           
@@ -306,7 +332,7 @@ const ConsumoPorMaquinaPureTable = ({
                   </div>
                 </td>
 
-                {/* Columna Precio Específico - ✅ ESTO ES LO QUE NECESITAS */}
+                {/* Columna Precio Específico */}
                 <td className="px-6 py-4 whitespace-nowrap text-right">
                   <div className="flex flex-col items-end">
                     <div className="text-sm font-bold text-purple-600">
@@ -338,7 +364,6 @@ const ConsumoPorMaquinaPureTable = ({
                 {/* Columna Rendimiento */}
                 <td className="px-6 py-4 whitespace-nowrap text-right">
                   {maquina.rendimiento && maquina.rendimiento.valor > 0 ? (
-                    console.log("RENDIMIENTO:", maquina.rendimiento, maquina.rendimiento.valor),
                     <div className="flex flex-col items-end">
                       <div className="text-sm font-bold text-gray-900">
                         {maquina.rendimiento.formateado}
@@ -375,6 +400,10 @@ const ConsumoPorMaquinaPureTable = ({
           <div className="text-sm text-gray-600">
             <span className="font-medium">🎯 Fuente única:</span>
             <span className="ml-1">ConsumoCategoriasController - Precios específicos por máquina</span>
+            <div className="text-xs text-blue-600 mt-1 flex items-center">
+              <FiClock className="h-3 w-3 mr-1" />
+              Período: {formatearFechaHora(fechaDesde, horaDesde)} - {formatearFechaHora(fechaHasta, horaHasta)}
+            </div>
           </div>
           <div className="flex items-center space-x-4 text-sm text-gray-500">
             <span>

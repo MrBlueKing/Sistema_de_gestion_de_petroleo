@@ -19,19 +19,25 @@ const FiltrosComponent = ({
   tituloPersonalizado,
   mostrarResumen = true
 }) => {
-  // Establecer valores iniciales
+  // ✅ CORREGIDO: Establecer valores iniciales más robustos
   useEffect(() => {
-    if (!fechaDesde && !fechaHasta) {
+    // Solo establecer fechas si ambas están vacías
+    if (!fechaDesde || !fechaHasta) {
       const hoy = new Date();
       const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-      setFechaDesde(primerDiaMes.toISOString().slice(0, 10));
-      setFechaHasta(hoy.toISOString().slice(0, 10));
+
+      if (!fechaDesde) {
+        setFechaDesde(primerDiaMes.toISOString().slice(0, 10));
+      }
+      if (!fechaHasta) {
+        setFechaHasta(hoy.toISOString().slice(0, 10));
+      }
     }
 
-    // ✅ NUEVO: Establecer horas por defecto si están habilitadas
-    if (incluirHoras && setHoraDesde && setHoraHasta) {
-      if (!horaDesde) setHoraDesde("08:00"); // Inicio laboral
-      if (!horaHasta) setHoraHasta("18:00"); // Fin laboral
+    // ✅ Establecer horas por defecto solo si están habilitadas y vacías
+    if (incluirHoras) {
+      if (setHoraDesde && !horaDesde) setHoraDesde("08:00");
+      if (setHoraHasta && !horaHasta) setHoraHasta("18:00");
     }
   }, [fechaDesde, fechaHasta, setFechaDesde, setFechaHasta, incluirHoras, horaDesde, horaHasta, setHoraDesde, setHoraHasta]);
 
@@ -41,44 +47,129 @@ const FiltrosComponent = ({
     return faenaEncontrada ? faenaEncontrada.label : id;
   };
 
-  // ✅ NUEVA FUNCIÓN: Formatear fecha con hora para mostrar
+  // ✅ FUNCIÓN: Formatear fecha con hora para mostrar
   const formatearFechaHora = (fecha, hora) => {
     if (!incluirHoras || !hora) return fecha;
     return `${fecha} ${hora}`;
   };
 
-  // ✅ NUEVA FUNCIÓN: Validar que la fecha/hora hasta no sea menor que desde
+  // ✅ FUNCIÓN CORREGIDA: Validar fechas y horas más estricta
   const validarFechaHasta = (nuevaFechaHasta, nuevaHoraHasta = horaHasta) => {
+    if (!fechaDesde || !nuevaFechaHasta) return true; // Permitir si falta alguna fecha
+
     if (!incluirHoras) {
+      // Solo comparar fechas
       return nuevaFechaHasta >= fechaDesde;
     }
-    
-    const fechaHoraDesde = new Date(`${fechaDesde}T${horaDesde || "00:00"}`);
-    const fechaHoraHasta = new Date(`${nuevaFechaHasta}T${nuevaHoraHasta || "00:00"}`);
-    
+
+    // Comparar fechas + horas
+    const horaDesdeSegura = horaDesde || "00:00";
+    const horaHastaSegura = nuevaHoraHasta || "23:59";
+
+    const fechaHoraDesde = new Date(`${fechaDesde}T${horaDesdeSegura}:00`);
+    const fechaHoraHasta = new Date(`${nuevaFechaHasta}T${horaHastaSegura}:00`);
+
     return fechaHoraHasta >= fechaHoraDesde;
   };
 
-  // ✅ NUEVA FUNCIÓN: Manejar cambio de fecha hasta
-  const manejarCambioFechaHasta = (nuevaFechaHasta) => {
-    if (validarFechaHasta(nuevaFechaHasta)) {
-      setFechaHasta(nuevaFechaHasta);
-    } else {
-      const mensaje = incluirHoras 
-        ? "La fecha y hora 'Hasta' no puede ser menor que 'Desde'"
-        : "La fecha 'Hasta' no puede ser menor que 'Desde'";
-      alert(mensaje);
+  // ✅ FUNCIÓN CORREGIDA: Manejar cambio de fecha desde con validación
+  const manejarCambioFechaDesde = (nuevaFechaDesde) => {
+    setFechaDesde(nuevaFechaDesde);
+
+    // ✅ CORRECCIÓN CRÍTICA: Si fecha_desde > fecha_hasta, ajustar fecha_hasta
+    if (fechaHasta && nuevaFechaDesde > fechaHasta) {
+      console.log('🔧 Ajustando fecha_hasta porque fecha_desde es mayor');
+      setFechaHasta(nuevaFechaDesde);
+
+      // Si incluye horas y están en el mismo día, ajustar hora también
+      if (incluirHoras && setHoraHasta && horaDesde && nuevaFechaDesde === fechaHasta) {
+        if (horaDesde > (horaHasta || "00:00")) {
+          setHoraHasta(horaDesde);
+        }
+      }
     }
   };
 
-  // ✅ NUEVA FUNCIÓN: Manejar cambio de hora hasta
-  const manejarCambioHoraHasta = (nuevaHoraHasta) => {
-    if (validarFechaHasta(fechaHasta, nuevaHoraHasta)) {
-      setHoraHasta(nuevaHoraHasta);
-    } else {
-      alert("La hora 'Hasta' no puede ser menor que la hora 'Desde' en el mismo día");
+  // ✅ FUNCIÓN CORREGIDA: Manejar cambio de fecha hasta con validación
+  const manejarCambioFechaHasta = (nuevaFechaHasta) => {
+    if (!fechaDesde) {
+      setFechaHasta(nuevaFechaHasta);
+      return;
+    }
+
+    // ✅ VALIDACIÓN ESTRICTA: No permitir fecha_hasta < fecha_desde
+    if (nuevaFechaHasta < fechaDesde) {
+      const mensaje = incluirHoras
+        ? "La fecha 'Hasta' no puede ser anterior a la fecha 'Desde'"
+        : "La fecha 'Hasta' no puede ser anterior a la fecha 'Desde'";
+
+      alert(mensaje);
+      return; // ✅ NO actualizar el estado si la validación falla
+    }
+
+    // ✅ Si pasa la validación, actualizar
+    setFechaHasta(nuevaFechaHasta);
+  };
+
+  // ✅ FUNCIÓN CORREGIDA: Manejar cambio de hora desde
+  const manejarCambioHoraDesde = (nuevaHoraDesde) => {
+    if (!setHoraDesde) return;
+
+    setHoraDesde(nuevaHoraDesde);
+
+    // ✅ Si están en el mismo día y hora_desde > hora_hasta, ajustar hora_hasta
+    if (fechaDesde === fechaHasta && horaHasta && nuevaHoraDesde > horaHasta) {
+      console.log('🔧 Ajustando hora_hasta porque hora_desde es mayor');
+      if (setHoraHasta) {
+        setHoraHasta(nuevaHoraDesde);
+      }
     }
   };
+
+  // ✅ FUNCIÓN CORREGIDA: Manejar cambio de hora hasta con validación estricta
+  const manejarCambioHoraHasta = (nuevaHoraHasta) => {
+    if (!setHoraHasta) return;
+
+    // ✅ VALIDACIÓN ESTRICTA solo si están en el mismo día
+    if (fechaDesde === fechaHasta && horaDesde && nuevaHoraHasta < horaDesde) {
+      alert("La hora 'Hasta' no puede ser anterior a la hora 'Desde' en el mismo día");
+      return; // ✅ NO actualizar el estado si la validación falla
+    }
+
+    // ✅ Si pasa la validación, actualizar
+    setHoraHasta(nuevaHoraHasta);
+  };
+
+  // ✅ NUEVA FUNCIÓN: Validar estado actual para mostrar warnings
+  const obtenerEstadoValidacion = () => {
+    if (!fechaDesde || !fechaHasta) return { valido: true, mensaje: null };
+
+    if (!incluirHoras) {
+      if (fechaHasta < fechaDesde) {
+        return {
+          valido: false,
+          mensaje: "⚠️ Fecha 'Hasta' es anterior a fecha 'Desde'"
+        };
+      }
+    } else {
+      const horaDesdeSegura = horaDesde || "00:00";
+      const horaHastaSegura = horaHasta || "23:59";
+
+      const fechaHoraDesde = new Date(`${fechaDesde}T${horaDesdeSegura}:00`);
+      const fechaHoraHasta = new Date(`${fechaHasta}T${horaHastaSegura}:00`);
+
+      if (fechaHoraHasta < fechaHoraDesde) {
+        return {
+          valido: false,
+          mensaje: "⚠️ Fecha/hora 'Hasta' es anterior a fecha/hora 'Desde'"
+        };
+      }
+    }
+
+    return { valido: true, mensaje: null };
+  };
+
+  const estadoValidacion = obtenerEstadoValidacion();
 
   return (
     <>
@@ -104,8 +195,8 @@ const FiltrosComponent = ({
               </span>
             )}
           </div>
-          
-          {/* ✅ NUEVO: Indicador de modo con horas */}
+
+          {/* ✅ INDICADOR de modo con horas */}
           {incluirHoras && (
             <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
               🕐 Filtro con precisión horaria activado
@@ -114,14 +205,25 @@ const FiltrosComponent = ({
         </div>
       )}
 
+      {/* ✅ NUEVO: Warning de validación */}
+      {!estadoValidacion.valido && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <div className="text-sm text-red-700 font-medium">
+            {estadoValidacion.mensaje}
+          </div>
+          <div className="text-xs text-red-600 mt-1">
+            Los datos no se cargarán hasta que se corrija este problema.
+          </div>
+        </div>
+      )}
+
       {/* Contenedor de filtros */}
       <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-        <div className={`grid gap-4 ${
-          incluirHoras 
-            ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-5' // Más columnas cuando hay horas
-            : 'grid-cols-1 md:grid-cols-3' // Layout original
-        }`}>
-          
+        <div className={`grid gap-4 ${incluirHoras
+            ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-5'
+            : 'grid-cols-1 md:grid-cols-3'
+          }`}>
+
           {/* Faena */}
           <div className={incluirHoras ? 'lg:col-span-1' : ''}>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -141,31 +243,20 @@ const FiltrosComponent = ({
             </select>
           </div>
 
-          {/* Fecha Desde */}
+          {/* ✅ CORREGIDO: Fecha Desde */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Fecha Desde:
             </label>
             <input
               type="date"
-              value={fechaDesde}
-              onChange={(e) => {
-                const nuevaFechaDesde = e.target.value;
-                setFechaDesde(nuevaFechaDesde);
-                // Ajustar fechaHasta si quedó menor que la nueva fechaDesde
-                if (!validarFechaHasta(fechaHasta)) {
-                  setFechaHasta(nuevaFechaDesde);
-                  if (incluirHoras && setHoraHasta && horaDesde) {
-                    setHoraHasta(horaDesde);
-                  }
-                }
-              }}
-              max={fechaHasta}
+              value={fechaDesde || ''}
+              onChange={(e) => manejarCambioFechaDesde(e.target.value)}
               className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
 
-          {/* ✅ NUEVA SECCIÓN: Hora Desde (solo si incluirHoras = true) */}
+          {/* ✅ CORREGIDO: Hora Desde */}
           {incluirHoras && setHoraDesde && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -174,33 +265,28 @@ const FiltrosComponent = ({
               <input
                 type="time"
                 value={horaDesde || "08:00"}
-                onChange={(e) => {
-                  setHoraDesde(e.target.value);
-                  // Validar hora hasta si están en el mismo día
-                  if (fechaDesde === fechaHasta && horaHasta && e.target.value > horaHasta) {
-                    setHoraHasta(e.target.value);
-                  }
-                }}
+                onChange={(e) => manejarCambioHoraDesde(e.target.value)}
                 className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
           )}
 
-          {/* Fecha Hasta */}
+          {/* ✅ CORREGIDO: Fecha Hasta */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Fecha Hasta:
             </label>
             <input
               type="date"
-              value={fechaHasta}
+              value={fechaHasta || ''}
               onChange={(e) => manejarCambioFechaHasta(e.target.value)}
-              min={fechaDesde}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              min={fechaDesde} // ✅ IMPORTANTE: Restricción nativa del navegador
+              className={`w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${!estadoValidacion.valido ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                }`}
             />
           </div>
 
-          {/* ✅ NUEVA SECCIÓN: Hora Hasta (solo si incluirHoras = true) */}
+          {/* ✅ CORREGIDO: Hora Hasta */}
           {incluirHoras && setHoraHasta && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -210,13 +296,14 @@ const FiltrosComponent = ({
                 type="time"
                 value={horaHasta || "18:00"}
                 onChange={(e) => manejarCambioHoraHasta(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${!estadoValidacion.valido ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                  }`}
               />
             </div>
           )}
         </div>
 
-        {/* ✅ NUEVA SECCIÓN: Atajos rápidos para horarios comunes (solo con horas) */}
+        {/* ✅ ATAJOS rápidos para horarios comunes */}
         {incluirHoras && setHoraDesde && setHoraHasta && (
           <div className="mt-4 pt-3 border-t border-gray-200">
             <label className="block text-sm font-medium text-gray-700 mb-2">

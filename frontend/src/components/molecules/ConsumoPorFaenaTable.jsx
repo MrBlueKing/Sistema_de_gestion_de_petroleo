@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useMemo } from "react";
 import axios from '../../lib/axios';
-import { FiLoader, FiAlertCircle, FiInfo, FiMapPin } from "react-icons/fi";
+import { FiLoader, FiAlertCircle, FiInfo, FiMapPin, FiClock } from "react-icons/fi";
 
 const ConsumoPorFaenaTable = ({ 
   fechaDesde, 
   fechaHasta, 
+  // ✅ NUEVAS PROPS: Recibir las horas
+  horaDesde,
+  horaHasta,
   faenaSeleccionada,
   refreshKey 
 }) => {
@@ -13,18 +16,36 @@ const ConsumoPorFaenaTable = ({
   const [error, setError] = useState(null);
   const [metadatos, setMetadatos] = useState(null);
 
+  // ✅ FUNCIÓN: Formatear fecha con hora
+  const formatearFechaHora = (fecha, hora) => {
+    if (!fecha) return fecha;
+    if (!hora) return fecha;
+    return `${fecha} ${hora}:00`;
+  };
+
   // ✅ SIMPLIFICADO: Cargar datos y agrupar solo por faena
   const cargarDatosConsumoFaena = async () => {
     try {
       setLoading(true);
       setError(null);
 
+      // ✅ CORRECCIÓN: Usar las horas en la llamada al backend
+      const fechaInicioFormateada = formatearFechaHora(fechaDesde, horaDesde);
+      const fechaFinFormateada = formatearFechaHora(fechaHasta, horaHasta);
+
+      console.log('🕐 [ConsumoPorFaenaTable] Enviando fechas con hora:', {
+        fecha_inicio: fechaInicioFormateada,
+        fecha_fin: fechaFinFormateada,
+        hora_desde: horaDesde,
+        hora_hasta: horaHasta
+      });
+
       const diasPeriodo = fechaDesde && fechaHasta ? 
         Math.ceil((new Date(fechaHasta) - new Date(fechaDesde)) / (1000 * 60 * 60 * 24)) + 1 : 30;
 
       const response = await axios.post('/api/consumo-categorias/calcular', {
-        fecha_inicio: fechaDesde,
-        fecha_fin: fechaHasta + ' 18:00:00',
+        fecha_inicio: fechaInicioFormateada,
+        fecha_fin: fechaFinFormateada,
         id_faena: faenaSeleccionada !== 'todas' ? parseInt(faenaSeleccionada) : null,
         incluir_simulacion: true,
         usar_fechas_automaticas: false,
@@ -118,6 +139,11 @@ const ConsumoPorFaenaTable = ({
 
       setDatosConsumo(faenasArray);
 
+      console.log('✅ [ConsumoPorFaenaTable] Datos cargados con horarios:', {
+        faenas: faenasArray.length,
+        periodo: `${fechaInicioFormateada} - ${fechaFinFormateada}`
+      });
+
     } catch (err) {
       console.error('Error al cargar datos de consumo por faena:', err);
       setError('Error al cargar datos: ' + (err.response?.data?.message || err.message));
@@ -136,12 +162,12 @@ const ConsumoPorFaenaTable = ({
     );
   }, [datosConsumo, faenaSeleccionada]);
 
-  // Effect para cargar datos
+  // ✅ CORRECCIÓN: Incluir las horas en las dependencias del useEffect
   useEffect(() => {
-    if (fechaDesde && fechaHasta) {
+    if (fechaDesde && fechaHasta && horaDesde && horaHasta) {
       cargarDatosConsumoFaena();
     }
-  }, [fechaDesde, fechaHasta, faenaSeleccionada, refreshKey]);
+  }, [fechaDesde, fechaHasta, horaDesde, horaHasta, faenaSeleccionada, refreshKey]);
 
   // Estados de carga y error
   if (loading) {
@@ -225,11 +251,14 @@ const ConsumoPorFaenaTable = ({
           </div>
         </h3>
         
-        {/* Información del período */}
+        {/* ✅ INFORMACIÓN DEL PERÍODO CON HORAS */}
         {metadatos && (
           <div className="mt-2 text-xs text-gray-500">
             <div className="flex items-center space-x-4">
-              <span>📅 {metadatos.periodo?.fecha_inicio} al {metadatos.periodo?.fecha_fin}</span>
+              <span className="flex items-center">
+                <FiClock className="h-3 w-3 mr-1 text-blue-500" />
+                {formatearFechaHora(fechaDesde, horaDesde)} - {formatearFechaHora(fechaHasta, horaHasta)}
+              </span>
               <span>⚙️ {metadatos.periodo?.dias_laborales_reales} días laborales</span>
               <span>🏭 Totales agrupados por ubicación</span>
             </div>
@@ -368,6 +397,11 @@ const ConsumoPorFaenaTable = ({
               : 0}% datos reales</span>
             <span>🏭 Agrupación por faena únicamente</span>
           </div>
+        </div>
+        {/* ✅ NUEVA LÍNEA: Mostrar el período exacto con horas */}
+        <div className="mt-2 text-xs text-blue-600 flex items-center">
+          <FiClock className="h-3 w-3 mr-1" />
+          Período analizado: {formatearFechaHora(fechaDesde, horaDesde)} hasta {formatearFechaHora(fechaHasta, horaHasta)}
         </div>
       </div>
     </div>
