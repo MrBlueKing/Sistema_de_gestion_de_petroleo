@@ -32,7 +32,7 @@ class AuthController extends Controller
             ], [
                 'rut.unique' => 'Este RUT ya está registrado en el sistema',
                 'password.min' => 'La contraseña debe tener al menos 8 caracteres',
-                'password.confirmed' => 'Las contraseñas no coinciden',
+                //'password.confirmed' => 'Las contraseñas no coinciden',
                 'id_rol.exists' => 'El rol especificado no existe',
                 'id_faena.exists' => 'La faena especificada no existe',
                 'email.unique' => 'Este email ya está registrado',
