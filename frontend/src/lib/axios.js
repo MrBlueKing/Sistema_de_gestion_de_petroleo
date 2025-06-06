@@ -3,7 +3,7 @@ import axios from "axios";
 import { clearSession, getAuthToken, isSessionValid } from "../utils/session";
 
 const instance = axios.create({
-  baseURL: "https://api.m3h.cl/",
+  baseURL: "http://127.0.0.1:8000",
   headers: {
     "Content-Type": "application/json",
     "Accept": "application/json",

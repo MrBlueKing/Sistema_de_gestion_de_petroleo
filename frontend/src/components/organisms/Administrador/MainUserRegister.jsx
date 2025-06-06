@@ -1,4 +1,4 @@
-  import React, { useState, useRef, useEffect } from "react";
+ import React, { useState, useRef, useEffect } from "react";
   import { FaIdCard, FaUser, FaMapMarkerAlt, FaLock } from "react-icons/fa";
   import { IoReload } from "react-icons/io5";
   import InputField from "../../atoms/Inputs/InputField";
@@ -32,162 +32,11 @@
     const alertRef = useRef(null);
 
 
-<<<<<<< HEAD
-  // Auto-desvanecer mensajes
-  useEffect(() => {
-    if (successMessage) {
-      const timer = setTimeout(() => setSuccessMessage(""), 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [successMessage]);
-
-  useEffect(() => {
-    if (error && alertRef.current) {
-      const offset = 100; // Puedes ajustar este valor para subir más o menos
-      const top = alertRef.current.getBoundingClientRect().top + window.pageYOffset - offset;
-      window.scrollTo({ top, behavior: "smooth" });
-
-      const timer = setTimeout(() => setError(null), 6000);
-      return () => clearTimeout(timer);
-    }
-  }, [error]);
-
-
-
-  const translateErrorMessages = (errors) => {
-    const translations = {
-      "The rut field is required.": "El campo RUT es obligatorio.",
-      "The firstName field is required.": "El campo nombre es obligatorio.",
-      "The lastName field is required.": "El campo apellido es obligatorio.",
-      "The role field is required.": "El campo rol es obligatorio.",
-      "The location field is required.": "El campo ubicación es obligatorio.",
-      "The password field is required.": "El campo contraseña es obligatorio.",
-      "The rut has already been taken.": "El RUT ya ha sido registrado.",
-      "The password field must be at least 8 characters.": "La contraseña debe tener al menos 8 caracteres.",
-      "The id_faena field is required.": "La ubicación es obligatoria.",
-      "The selected id rol is invalid.": "El rol seleccionado no es válido.",
-    };
-
-    if (typeof errors === "string") {
-      return translations[errors] || errors;
-    }
-
-    const translated = {};
-    for (const key in errors) {
-      translated[key] = errors[key].map((msg) => translations[msg] || msg);
-    }
-
-    return translated;
-  };
-
-  // Validación específica para RUT chileno
-  const validateRut = (rut) => {
-    // Eliminar cualquier carácter que no sea número o 'k'
-    const cleanRut = rut.toLowerCase().replace(/[^0-9k]/g, "");
-
-    // Verificar longitud: RUT chileno típicamente tiene entre 7 y 9 dígitos más dígito verificador
-    if (cleanRut.length < 8 || cleanRut.length > 10) {
-      return "El RUT debe tener entre 8 y 10 caracteres";
-    }
-
-    // Verificar que solo tenga un 'k' y que este al final (dígito verificador)
-    const kCount = (cleanRut.match(/k/g) || []).length;
-    if (kCount > 1 || (kCount === 1 && cleanRut.charAt(cleanRut.length - 1) !== 'k')) {
-      return "El formato del RUT no es válido";
-    }
-
-    return null; // Si no hay errores
-  };
-
-  // Validación de seguridad para contraseña
-  const validatePassword = (password) => {
-    if (password.length < 8) {
-      return "La contraseña debe tener al menos 8 caracteres";
-    }
-
-    // Verifica si tiene al menos una letra y un número
-    if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
-      return "La contraseña debe contener al menos una letra y un número";
-    }
-
-    return null; // Si no hay errores
-  };
-
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null); // Limpiar errores previos
-    setSuccessMessage(""); // Limpiar mensajes de éxito previos
-
-    const errors = {};
-
-    // Validaciones de campos
-    if (!rut) {
-      errors.rut = "El campo RUT es obligatorio.";
-    } else {
-      const rutError = validateRut(rut);
-      if (rutError) errors.rut = rutError;
-    }
-
-    if (!firstName) errors.firstName = "El campo nombre es obligatorio.";
-    if (!lastName) errors.lastName = "El campo apellido es obligatorio.";
-    if (!role) errors.role = "El campo rol es obligatorio.";
-    if (!location) errors.location = "El campo ubicación es obligatorio.";
-
-    if (!password) {
-      errors.password = "El campo contraseña es obligatorio.";
-    } else {
-      const passwordError = validatePassword(password);
-      if (passwordError) errors.password = passwordError;
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setError(errors);
-      setIsLoading(false);
-      return;
-    }
-
-    // Limpieza del RUT antes de enviar al servidor
-    const cleanRut = rut.toLowerCase().replace(/[^0-9k]/g, "");
-
-    const userData = {
-      rut: cleanRut,
-      nombre: firstName,
-      apellido: lastName,
-      id_rol: Number(role),
-      id_faena: Number(location),
-      password,
-    };
-
-    try {
-      const response = await axios.post("/api/register", userData, {
-        headers: { "Content-Type": "application/json" },
-      });
-
-      // Limpiar formulario solo en caso de éxito
-      setRut("");
-      setFirstName("");
-      setLastName("");
-      setRole("");
-      setLocation("");
-      setPassword("");
-
-      // Mostrar mensaje de éxito
-      setSuccessMessage(response.data.message || "Usuario registrado exitosamente.");
-    } catch (err) {
-      if (err.response?.data?.errors) {
-        setError(translateErrorMessages(err.response.data.errors));
-      } else if (err.response?.data?.message) {
-        setError({ global: translateErrorMessages(err.response.data.message) });
-      } else {
-        setError({ global: "Error de conexión con el servidor." });
-=======
     // Auto-desvanecer mensajes
     useEffect(() => {
       if (successMessage) {
         const timer = setTimeout(() => setSuccessMessage(""), 4000);
         return () => clearTimeout(timer);
->>>>>>> 03812fa1771723bf6e60ab56d3ef2c610f2ce09d
       }
     }, [successMessage]);
 
@@ -203,65 +52,6 @@
     }, [error]);
 
 
-  const formFields = [
-    {
-      id: "rut",
-      label: "RUT",
-      value: rut,
-      icon: <FaIdCard />,
-      tooltip: "Sin puntos ni guion (ej: 12345678k)",
-      required: true,
-      customOnChange: handleRutChange
-    },
-    {
-      id: "firstName",
-      label: "Nombres",
-      value: firstName,
-      icon: <FaUser />,
-      required: true
-    },
-    {
-      id: "lastName",
-      label: "Apellidos",
-      value: lastName,
-      icon: <FaUser />,
-      required: true
-    },
-    {
-      id: "role",
-      label: "Rol del Usuario",
-      value: role,
-      icon: <FaUser />,
-      options: [
-        { label: "Encargado Abastecimiento", value: 1 },
-        { label: "Gerente", value: 2 },
-        { label: "Administrador", value: 3 },
-        { label: "Distpach", value: 4 },
-        { label: "Planificador", value: 5 }
-      ]
-    },
-    {
-      id: "location",
-      label: "Ubicación",
-      value: location,
-      icon: <FaMapMarkerAlt />,
-      options: [
-        { label: "Cabildo", value: 1 },
-        { label: "Catemu", value: 2 },
-        { label: "Chincolco", value: 3 },
-        { label: "Tiltil", value: 4 }
-      ]
-    },
-    {
-      id: "password",
-      label: "Contraseña",
-      value: password,
-      icon: <FaLock />,
-      tooltip: "Mínimo 8 caracteres, incluir letras y números",
-      required: true,
-      type: "password"
-    }
-  ];
 
     const translateErrorMessages = (errors) => {
       const translations = {
