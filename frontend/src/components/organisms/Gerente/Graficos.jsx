@@ -9,10 +9,10 @@ import {
 
 // Importación de componentes moleculares para filtros y tablas
 import FiltrosComponent from "../../molecules/FiltrosComponent";
-// ✅ USAR: Tabla que lee directamente del ConsumoCategoriasController
-import ConsumoPorMaquinaPureTable from "../../molecules/ConsumoPorMaquinaTable";
-import ConsumoPorFaenaTable from "../../molecules/ConsumoPorFaenaTable";
-import IngresosPorFaenaTable from "../../molecules/IngresosPorFaenaTable";
+// ✅ TABLAS ACTUALIZADAS: Ahora todas usan ConsumoCategoriasController o endpoints actualizados
+import ConsumoPorMaquinaPureTable from "../../molecules/ConsumoPorMaquinaTable"; // Ya actualizada
+import ConsumoPorFaenaTable from "../../molecules/ConsumoPorFaenaTable"; // Nueva versión
+import IngresosPorFaenaTable from "../../molecules/IngresosPorFaenaTable"; // Nueva versión
 
 // Importación de componentes moleculares para gráficos
 import TopEquiposChart from "../../molecules/TopEquiposChart";
@@ -26,9 +26,11 @@ const Graficos = ({ children }) => {
     const [cargando, setCargando] = useState(false);
     const [error, setError] = useState(null);
     const [mensajeExito, setMensajeExito] = useState(null);
-    const [datosConsumo, setDatosConsumo] = useState(null);
-    const [datosDisponibles, setDatosDisponibles] = useState(false);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const [faenas, setFaenas] = useState([]);
+    // En tu componente padre, agregar estados para las horas
+    const [horaDesde, setHoraDesde] = useState("08:00");
+    const [horaHasta, setHoraHasta] = useState("18:00");
 
     // Estado para controlar la vista activa
     const [vistaActiva, setVistaActiva] = useState("tablas");
@@ -43,63 +45,45 @@ const Graficos = ({ children }) => {
         new Date().toISOString().split('T')[0]
     );
 
-    // Función para manejar el cambio de fecha desde
-    const handleFechaDesdeChange = (newFechaDesde) => {
-        setFechaDesde(newFechaDesde);
-        if (fechaHasta < newFechaDesde) {
-            setFechaHasta(newFechaDesde);
-        }
-    };
-
-    // ✅ MANTENER: Función para cargar datos tradicionales (para tablas de faena)
-    const cargarDatosConsumo = async () => {
-        try {
-            setCargando(true);
-
-            const response = await axios.get('/api/informes-kpi/consumo-maquinas', {
-                params: {
-                    fecha_inicio: fechaDesde,
-                    fecha_fin: fechaHasta + ' 23:59:59',
-                    faena: faenaSeleccionada !== 'todas' ? faenaSeleccionada : null
-                }
-            });
-
-            if (response.data && response.data.status === 'success') {
-                const datosConsumo = response.data.data;
-                setDatosConsumo(datosConsumo);
-                setDatosDisponibles(true);
-                setUltimaActualizacion(new Date());
-                setRefreshTrigger(prev => prev + 1);
-            } else {
-                console.warn('No se pudieron cargar los datos de consumo de máquinas');
-                setDatosDisponibles(false);
-            }
-        } catch (err) {
-            console.error('Error al cargar datos de consumo:', err);
-            setError('Error al cargar datos de consumo de máquinas');
-            setDatosDisponibles(false);
-        } finally {
-            setCargando(false);
-        }
-    };
-
-    // Cargar datos cuando cambie la faena o las fechas (con debounce)
+    // Cargar faenas disponibles
     useEffect(() => {
-        const timer = setTimeout(() => {
-            if (fechaDesde && fechaHasta) {
-                cargarDatosConsumo();
-                setRefreshTrigger(prev => prev + 1);
-            }
-        }, 500);
+        cargarFaenas();
+    }, []);
 
-        return () => clearTimeout(timer);
-    }, [faenaSeleccionada, fechaDesde, fechaHasta]);
+    //Funcion para obtener las faenas disponibles
+    const cargarFaenas = async () => {
+        try {
+            const response = await axios.get('/api/faenas');
+            // Verificar la estructura de la respuesta
+            const faenasData = response.data.data || response.data;
+
+            if (Array.isArray(faenasData)) {
+                const faenasFormateadas = faenasData.map(faena => ({
+                    value: faena.id_faena.toString(),
+                    label: faena.ubicacion || faena.nombre || `Faena ${faena.id_faena}`
+                }));
+                setFaenas(faenasFormateadas);
+            } else {
+                console.error('Formato de respuesta inesperado:', response.data);
+                setFaenas([]);
+            }
+        } catch (error) {
+            console.error('Error al cargar faenas:', error);
+            setFaenas([]); // Establecer array vacío en caso de error
+        }
+    };
 
     // Función para refrescar datos manualmente
     const refrescarDatos = () => {
-        cargarDatosConsumo();
-        // ✅ NUEVO: También incrementar refreshTrigger para actualizar tabla híbrida
+        // ✅ SIMPLIFICADO: Solo incrementar refreshTrigger - las tablas se actualizan automáticamente
         setRefreshTrigger(prev => prev + 1);
+        setUltimaActualizacion(new Date());
+        setMensajeExito("Datos actualizados correctamente");
+
+        // Limpiar mensaje de éxito después de 3 segundos
+        setTimeout(() => {
+            setMensajeExito(null);
+        }, 3000);
     };
 
     return (
@@ -109,15 +93,16 @@ const Graficos = ({ children }) => {
                 {/* Mensajes de estado */}
                 {cargando && (
                     <div className="text-center py-4 bg-white rounded-lg shadow-md mb-4">
-                        <FiLoader className="animate-spin mx-auto h-8 w-8 text-blue-500" />
+                        <FiLoader className="animate-spin mx-auto h-8 w-8" style={{ color: '#F67029' }} />
                         <p className="mt-2 text-gray-600">Cargando datos...</p>
                     </div>
                 )}
 
                 {error && (
-                    <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded-r-md shadow-sm">
+                    <div className="border-l-4 text-red-700 p-4 mb-4 rounded-r-md shadow-sm"
+                        style={{ backgroundColor: '#FEF2F2', borderColor: '#AB201A' }}>
                         <div className="flex">
-                            <div className="py-1"><FiX className="h-6 w-6 text-red-500 mr-4" /></div>
+                            <div className="py-1"><FiX className="h-6 w-6 mr-4" style={{ color: '#AB201A' }} /></div>
                             <div>
                                 <p className="font-bold">Error</p>
                                 <p>{error}</p>
@@ -127,12 +112,13 @@ const Graficos = ({ children }) => {
                 )}
 
                 {mensajeExito && (
-                    <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-4 mb-4 rounded-r-md shadow-sm">
+                    <div className="border-l-4 p-4 mb-4 rounded-r-md shadow-sm"
+                        style={{ backgroundColor: '#F0EDEA', borderColor: '#9A0000' }}>
                         <div className="flex">
-                            <div className="py-1"><FiCheckCircle className="h-6 w-6 text-green-500 mr-4" /></div>
+                            <div className="py-1"><FiCheckCircle className="h-6 w-6 mr-4" style={{ color: '#9A0000' }} /></div>
                             <div>
-                                <p className="font-bold">Éxito</p>
-                                <p>{mensajeExito}</p>
+                                <p className="font-bold" style={{ color: '#9A0000' }}>Éxito</p>
+                                <p style={{ color: '#9A0000' }}>{mensajeExito}</p>
                             </div>
                         </div>
                     </div>
@@ -142,8 +128,8 @@ const Graficos = ({ children }) => {
                 <section className="mb-8">
                     <div className="flex justify-between items-center mb-4 bg-white p-4 rounded-lg shadow-sm">
                         <h2 className="text-lg font-semibold text-gray-800 flex items-center">
-                            <FiDroplet className="mr-2 text-blue-500" />
-                            Control de Petróleo 
+                            <FiDroplet className="mr-2" style={{ color: '#F67029' }} />
+                            Control de Petróleo
                         </h2>
 
                         <div className="flex items-center space-x-4">
@@ -152,18 +138,20 @@ const Graficos = ({ children }) => {
                                 <button
                                     onClick={() => setVistaActiva("tablas")}
                                     className={`px-3 py-1 rounded-md transition-colors ${vistaActiva === "tablas"
-                                        ? "bg-blue-500 text-white"
+                                        ? "text-white"
                                         : "text-gray-600 hover:bg-gray-200"
                                         }`}
+                                    style={vistaActiva === "tablas" ? { backgroundColor: '#F67029' } : {}}
                                 >
                                     Tablas
                                 </button>
                                 <button
                                     onClick={() => setVistaActiva("graficos")}
                                     className={`px-3 py-1 rounded-md transition-colors ${vistaActiva === "graficos"
-                                        ? "bg-blue-500 text-white"
+                                        ? "text-white"
                                         : "text-gray-600 hover:bg-gray-200"
                                         }`}
+                                    style={vistaActiva === "graficos" ? { backgroundColor: '#F67029' } : {}}
                                 >
                                     Gráficos
                                 </button>
@@ -172,7 +160,10 @@ const Graficos = ({ children }) => {
                             {/* Botón refrescar */}
                             <button
                                 onClick={refrescarDatos}
-                                className="flex items-center px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors"
+                                className="flex items-center px-3 py-1 rounded transition-colors"
+                                style={{ backgroundColor: '#FFF5F2', color: '#AB201A' }}
+                                onMouseEnter={(e) => e.target.style.backgroundColor = '#FEF2F2'}
+                                onMouseLeave={(e) => e.target.style.backgroundColor = '#FFF5F2'}
                                 disabled={cargando}
                             >
                                 <FiRefreshCw className={`mr-1 ${cargando ? 'animate-spin' : ''}`} />
@@ -184,13 +175,22 @@ const Graficos = ({ children }) => {
                     {/* Componente de filtros reutilizable */}
                     <div className="mb-6 bg-white rounded-lg shadow-md p-4">
                         <h3 className="text-md font-medium text-gray-800 mb-4">Filtros de Visualización</h3>
+                        {/* Filtros */}
                         <FiltrosComponent
                             fechaDesde={fechaDesde}
-                            setFechaDesde={handleFechaDesdeChange}
+                            setFechaDesde={setFechaDesde}
                             fechaHasta={fechaHasta}
                             setFechaHasta={setFechaHasta}
                             faenaSeleccionada={faenaSeleccionada}
                             setFaenaSeleccionada={setFaenaSeleccionada}
+                            faenas={faenas}
+                            // ✅ NUEVAS PROPS para habilitar horas
+                            incluirHoras={true}
+                            horaDesde={horaDesde}
+                            setHoraDesde={setHoraDesde}
+                            horaHasta={horaHasta}
+                            setHoraHasta={setHoraHasta}
+                            tituloPersonalizado="Análisis con precisión horaria"
                         />
                     </div>
 
@@ -205,17 +205,21 @@ const Graficos = ({ children }) => {
                                 refreshKey={refreshTrigger}
                             />
 
-                            {/* ✅ MANTENER: Componentes de tablas de consumo e ingresos por faena */}
-                            {datosConsumo && datosConsumo.consumo_por_faena && datosConsumo.ingresos_por_faena && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                                    <ConsumoPorFaenaTable
-                                        consumoPorFaena={datosConsumo.consumo_por_faena}
-                                    />
-                                    <IngresosPorFaenaTable
-                                        ingresosPorFaena={datosConsumo.ingresos_por_faena}
-                                    />
-                                </div>
-                            )}
+                            {/* ✅ TABLAS ACTUALIZADAS: Ahora consumen datos modernos */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                                <ConsumoPorFaenaTable
+                                    fechaDesde={fechaDesde}
+                                    fechaHasta={fechaHasta}
+                                    faenaSeleccionada={faenaSeleccionada}
+                                    refreshKey={refreshTrigger}
+                                />
+                                <IngresosPorFaenaTable
+                                    fechaDesde={fechaDesde}
+                                    fechaHasta={fechaHasta}
+                                    faenaSeleccionada={faenaSeleccionada}
+                                    refreshKey={refreshTrigger}
+                                />
+                            </div>
                         </>
                     )}
 
@@ -226,7 +230,7 @@ const Graficos = ({ children }) => {
                             <div className="mt-6">
                                 <div className="bg-white p-4 rounded-lg shadow-md mb-6">
                                     <h3 className="text-md font-medium text-gray-800 mb-4 flex items-center">
-                                        <FiBarChart2 className="mr-2 text-blue-500" />
+                                        <FiBarChart2 className="mr-2" style={{ color: '#F67029' }} />
                                         Visualización de Datos
                                     </h3>
 

@@ -338,6 +338,7 @@ const ConsumoPorMaquinaPureTable = ({
                 {/* Columna Rendimiento */}
                 <td className="px-6 py-4 whitespace-nowrap text-right">
                   {maquina.rendimiento && maquina.rendimiento.valor > 0 ? (
+                    console.log("RENDIMIENTO:", maquina.rendimiento, maquina.rendimiento.valor),
                     <div className="flex flex-col items-end">
                       <div className="text-sm font-bold text-gray-900">
                         {maquina.rendimiento.formateado}

@@ -198,6 +198,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/consumos', [ConsumoController::class, 'store']);
     });
 
+    Route::get('/ingresos-petroleo', [IngresoPetroleoController::class, 'index']);
+    Route::post('/ingresos-petroleo', [IngresoPetroleoController::class, 'store']);
+
     /*
     |--------------------------------------------------------------------------
     | 📊 KPIs Y ANÁLISIS
@@ -466,8 +469,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/permisosFaenas', [FaenaController::class, 'getPermisosFaenas']);
     Route::get('/verificarPermiso', [FaenaController::class, 'verificarPermiso']);
     Route::get('/faenasDisponibles', [FaenaController::class, 'getFaenasDisponibles']);
-    Route::get('/ingresos-petroleo', [IngresoPetroleoController::class, 'index']);
-    Route::post('/ingresos-petroleo', [IngresoPetroleoController::class, 'store']);
     Route::get('/estanques/{id_faena}', [EstanqueController::class, 'estanquesPorFaena']);
     Route::post('/calcular-litros-petroleo', [EstanqueController::class, 'calcularLitrosPetroleo']);
     Route::get('/capacidad-disponible/{id_faena}', [EstanqueController::class, 'capacidadDisponible']);
@@ -502,11 +503,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/tonelajes/{id}/historial', [TonelajeController::class, 'getHistorial']);
     Route::get('/tonelajes/{id}/puede-editar', [TonelajeController::class, 'puedeEditar']);
     Route::get('/reporte/pdf', [ReporteController::class, 'generarPDF']);
+    /*
+    |--------------------------------------------------------------------------
+    | 📂 CATEGORÍAS (MANTENIMIENTO)
+    |--------------------------------------------------------------------------
+    */
 });
 
-
 // Rutas para consumos
-    Route::get('/consumos/recientes', [ConsumoController::class, 'getConsumosRecientes']);
+Route::get('/consumos/recientes', [ConsumoController::class, 'getConsumosRecientes']);
 
 // Rutas para dashboard
 Route::get('/dashboard/stats', [IngresoPetroleoController::class, 'getStats']);

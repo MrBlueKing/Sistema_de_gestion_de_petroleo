@@ -109,7 +109,8 @@ class ConsumoCategoriasController extends Controller
                     $incluirSimulacion,
                     $incluirSabados,
                     $incluirDomingos,
-                    $momentoConsulta
+                    $momentoConsulta,
+                    $idFaena
                 );
 
                 // ===== NUEVO: FILTRAR RESULTADOS NULOS (categoría 4 excluida) =====
@@ -214,7 +215,7 @@ class ConsumoCategoriasController extends Controller
             ], 500);
         }
     }
-    
+
 
     /**
      * NUEVO: Calcular fechas según horario laboral (LÓGICA DE NICODEMO)
@@ -495,14 +496,14 @@ class ConsumoCategoriasController extends Controller
     }
 
     /**
-     * CORREGIDO: Actualizar procesarCategoria para incluir configuración laboral
+     * ✅ MÉTODO ACTUALIZADO: procesarCategoria con separación por faenas
      */
     private function procesarCategoria($categoria, $fechaInicio, $fechaFin, $idFaena, $incluirSimulacion, $incluirSabados, $incluirDomingos, $momentoConsulta)
     {
         try {
-            // ===== NUEVO: VERIFICAR SI ES CATEGORÍA 4 Y EXCLUIR =====
+            // Verificar si es categoría 4 y excluir
             if ($categoria->id_categoria == 4) {
-                return null; // Retornar null para excluir esta categoría
+                return null;
             }
 
             $maquinas = $this->obtenerMaquinasCategoria($categoria->id_categoria, $idFaena);
@@ -521,7 +522,8 @@ class ConsumoCategoriasController extends Controller
             $totalSimulado = 0;
 
             foreach ($maquinas as $maquina) {
-                $analisisMaquina = $this->analizarMaquina(
+                // ✅ USAR NUEVA FUNCIÓN: Separar por faenas si es necesario
+                $analisisMaquinaPorFaenas = $this->analizarMaquinaConSeparacionFaenas(
                     $maquina->id_maquina,
                     $fechaInicio,
                     $fechaFin,
@@ -529,50 +531,17 @@ class ConsumoCategoriasController extends Controller
                     $incluirSimulacion,
                     $incluirSabados,
                     $incluirDomingos,
-                    $momentoConsulta
+                    $momentoConsulta,
+                    $idFaena
                 );
 
-                if (!empty($analisisMaquina['consumos_confirmados']) || !empty($analisisMaquina['simulacion'])) {
-                    // ===== NUEVO: Calcular estadísticas detalladas de la máquina =====
-                    $estadisticasDetalladas = $this->calcularEstadisticasDetalladasMaquina(
-                        $maquina,
-                        $analisisMaquina,
-                        $categoria,
-                        $fechaInicio,
-                        $fechaFin,
-                        $incluirSabados,
-                        $incluirDomingos
-                    );
+                // Agregar cada entrada (una por faena si hay múltiples)
+                foreach ($analisisMaquinaPorFaenas as $analisisFaena) {
+                    $analisisPorMaquina[] = $analisisFaena;
 
-                    $analisisPorMaquina[] = [
-                        'maquina' => [
-                            'id' => $maquina->id_maquina,
-                            'nombre' => $maquina->nombre_maquina,
-                            'patente' => $maquina->patente ?? 'N/A',
-                            'tipo' => $categoria->nombre_categoria,
-                            'tipo_medicion' => $categoria->tipo_medicion,
-                            'faena' => $this->obtenerFaenaMaquina($maquina->id_maquina, $idFaena),
-                            'estado' => $maquina->estado ?? 'N/A'
-                        ],
-                        // ===== NUEVO: Resumen ejecutivo de la máquina =====
-                        'resumen_ejecutivo' => $estadisticasDetalladas['resumen'],
-                        'rendimiento' => $estadisticasDetalladas['rendimiento'],
-                        'costos' => $estadisticasDetalladas['costos'],
-
-                        // Información existente
-                        'periodos_confirmados' => $this->formatearPeriodosConfirmados($analisisMaquina['consumos_confirmados'], $incluirSabados, $incluirDomingos),
-                        'simulacion' => $analisisMaquina['simulacion'] ? $this->formatearSimulacion($analisisMaquina['simulacion'], $incluirSabados, $incluirDomingos) : null,
-                        'estadisticas' => $this->calcularEstadisticasMaquina($analisisMaquina, $categoria, $incluirSabados, $incluirDomingos),
-                        'info_consulta' => [
-                            'momento_consulta' => $momentoConsulta->format('Y-m-d H:i:s'),
-                            'ajuste_aplicado' => $analisisMaquina['ajuste_consulta'] ?? null
-                        ]
-                    ];
-
-                    $totalConfirmado += $analisisMaquina['total_confirmado'];
-                    if ($analisisMaquina['simulacion']) {
-                        $totalSimulado += $analisisMaquina['simulacion']['litros_simulados'];
-                    }
+                    // Acumular totales
+                    $totalConfirmado += $analisisFaena['resumen_ejecutivo']['litros_confirmados'];
+                    $totalSimulado += $analisisFaena['resumen_ejecutivo']['litros_simulados'];
                 }
             }
 
@@ -600,9 +569,10 @@ class ConsumoCategoriasController extends Controller
                         'estado' => $m->estado ?? 'N/A'
                     ];
                 }, $maquinas->toArray()),
-                'analisis_detallado' => $analisisPorMaquina,
+                'analisis_detallado' => $analisisPorMaquina, // ✅ Ahora incluye separación por faenas
                 'resumen_categoria' => [
                     'maquinas_procesadas' => count($maquinas),
+                    'entradas_procesadas' => count($analisisPorMaquina), // ✅ NUEVO: Total de entradas
                     'consumo_confirmado_litros' => round($totalConfirmado, 2),
                     'consumo_simulado_litros' => round($totalSimulado, 2),
                     'consumo_total_litros' => round($totalConfirmado + $totalSimulado, 2),
@@ -611,6 +581,9 @@ class ConsumoCategoriasController extends Controller
                         : 0,
                     'costo_total_estimado' => round($costoTotal, 0),
                     'precio_promedio_litro' => round($precioPromedio, 0),
+                    'nota_separacion' => count($analisisPorMaquina) > count($maquinas)
+                        ? 'Algunas máquinas aparecen múltiples veces (operan en diferentes faenas)'
+                        : 'Una entrada por máquina',
                     'eficiencia_vs_teorica' => $this->calcularEficienciaVsTeorica($totalConfirmado, $categoria, $fechaInicio, $fechaFin, $incluirSabados, $incluirDomingos)
                 ]
             ];
@@ -628,7 +601,7 @@ class ConsumoCategoriasController extends Controller
     /**
      * NUEVO: Calcular estadísticas detalladas para mostrar en tabla resumen
      */
-    private function calcularEstadisticasDetalladasMaquina($maquina, $analisisMaquina, $categoria, $fechaInicio, $fechaFin, $incluirSabados = true, $incluirDomingos = false)
+    private function calcularEstadisticasDetalladasMaquina($maquina, $analisisMaquina, $categoria, $fechaInicio, $fechaFin, $incluirSabados = true, $incluirDomingos = false, $idFaena = null)
     {
         // Calcular totales
         $litrosTotales = $analisisMaquina['total_confirmado'] + ($analisisMaquina['simulacion']['litros_simulados'] ?? 0);
@@ -637,10 +610,10 @@ class ConsumoCategoriasController extends Controller
 
         // Calcular días y medición según tipo
         $diasLaborales = $this->calcularDiasLaboralesCorrectos($fechaInicio, $fechaFin, $incluirSabados, $incluirDomingos);
-        $medicionTotal = $this->calcularMedicionTotal($maquina->id_maquina, $fechaInicio, $fechaFin);
+        $medicionTotal = $this->calcularMedicionTotal($maquina->id_maquina, $fechaInicio, $fechaFin, $idFaena);
 
         // Calcular precio promedio
-        $precioPromedio = $this->obtenerPrecioPromedioMaquina($maquina->id_maquina, $fechaInicio, $fechaFin);
+        $precioPromedio = $this->obtenerPrecioPromedioMaquina($maquina->id_maquina, $fechaInicio, $fechaFin, $idFaena);
         $valorTotal = $litrosTotales * $precioPromedio;
 
         // Calcular rendimiento según tipo de medición
@@ -669,6 +642,203 @@ class ConsumoCategoriasController extends Controller
                 'costo_por_dia' => $diasLaborales > 0 ? round($valorTotal / $diasLaborales, 0) : 0,
                 'moneda' => 'CLP'
             ]
+        ];
+    }
+    /**
+     * ✅ NUEVO: Analizar máquina separando por faenas cuando opera en múltiples
+     */
+    private function analizarMaquinaConSeparacionFaenas($idMaquina, $fechaInicio, $fechaFin, $categoria, $incluirSimulacion, $incluirSabados, $incluirDomingos, $momentoConsulta, $idFaena = null)
+    {
+        // 1. Obtener todas las faenas donde esta máquina tuvo consumos en el período
+        $faenasConConsumos = DB::table('consumos')
+            ->join('faenas', 'consumos.id_faena', '=', 'faenas.id_faena')
+            ->where('consumos.id_equipo', $idMaquina)
+            ->whereBetween('consumos.fecha_consumo', [$fechaInicio, $fechaFin])
+            ->when($idFaena, function ($query, $idFaena) {
+                return $query->where('consumos.id_faena', $idFaena);
+            })
+            ->select([
+                'faenas.id_faena',
+                'faenas.ubicacion',
+                'faenas.detalle',
+                DB::raw('COUNT(*) as consumos_count'),
+                DB::raw('MIN(consumos.fecha_consumo) as primera_fecha'),
+                DB::raw('MAX(consumos.fecha_consumo) as ultima_fecha')
+            ])
+            ->groupBy('faenas.id_faena', 'faenas.ubicacion', 'faenas.detalle')
+            ->orderBy('faenas.id_faena')
+            ->get();
+
+        if ($faenasConConsumos->isEmpty()) {
+            return []; // Sin datos para esta máquina
+        }
+
+        $resultadosPorFaena = [];
+
+        // 2. Analizar cada faena por separado
+        foreach ($faenasConConsumos as $faenaInfo) {
+            $analisisFaena = $this->analizarMaquinaEnFaenaEspecifica(
+                $idMaquina,
+                $faenaInfo->id_faena,
+                $fechaInicio,
+                $fechaFin,
+                $categoria,
+                $incluirSimulacion,
+                $incluirSabados,
+                $incluirDomingos,
+                $momentoConsulta
+            );
+
+            if (!empty($analisisFaena['consumos_confirmados']) || !empty($analisisFaena['simulacion'])) {
+                // 3. Crear entrada separada para esta faena
+                $estadisticasDetalladas = $this->calcularEstadisticasDetalladasMaquina(
+                    (object)[
+                        'id_maquina' => $idMaquina,
+                        'nombre_maquina' => $this->obtenerNombreMaquina($idMaquina),
+                        'patente' => $this->obtenerPatenteMaquina($idMaquina),
+                        'estado' => 'operativo'
+                    ],
+                    $analisisFaena,
+                    $categoria,
+                    $fechaInicio,
+                    $fechaFin,
+                    $incluirSabados,
+                    $incluirDomingos,
+                    $faenaInfo->id_faena
+                );
+
+                $resultadosPorFaena[] = [
+                    'maquina' => [
+                        'id' => $idMaquina,
+                        'nombre' => $this->obtenerNombreMaquina($idMaquina),
+                        'patente' => $this->obtenerPatenteMaquina($idMaquina),
+                        'tipo' => $categoria->nombre_categoria,
+                        'tipo_medicion' => $categoria->tipo_medicion,
+                        'faena' => [
+                            'id' => $faenaInfo->id_faena,
+                            'nombre' => $faenaInfo->ubicacion,
+                            'detalle' => $faenaInfo->detalle,
+                            'consumos_en_periodo' => $faenaInfo->consumos_count,
+                            'periodo_operacion' => [
+                                'desde' => $faenaInfo->primera_fecha,
+                                'hasta' => $faenaInfo->ultima_fecha
+                            ],
+                            'origen' => 'faena_especifica_separada'
+                        ],
+                        'estado' => 'operativo'
+                    ],
+                    'resumen_ejecutivo' => $estadisticasDetalladas['resumen'],
+                    'rendimiento' => $estadisticasDetalladas['rendimiento'],
+                    'costos' => $estadisticasDetalladas['costos'],
+                    'periodos_confirmados' => $this->formatearPeriodosConfirmados($analisisFaena['consumos_confirmados'], $incluirSabados, $incluirDomingos),
+                    'simulacion' => $analisisFaena['simulacion'] ? $this->formatearSimulacion($analisisFaena['simulacion'], $incluirSabados, $incluirDomingos) : null,
+                    'estadisticas' => $this->calcularEstadisticasMaquina($analisisFaena, $categoria, $incluirSabados, $incluirDomingos),
+                    'info_consulta' => [
+                        'momento_consulta' => $momentoConsulta->format('Y-m-d H:i:s'),
+                        'faena_separada' => true,
+                        'total_faenas_maquina' => $faenasConConsumos->count(),
+                        'ajuste_aplicado' => $analisisFaena['ajuste_consulta'] ?? null
+                    ]
+                ];
+            }
+        }
+
+        return $resultadosPorFaena;
+    }
+
+    /**
+     * ✅ MÉTODOS AUXILIARES para obtener datos de máquina
+     */
+    private function obtenerNombreMaquina($idMaquina)
+    {
+        return DB::table('maquinas')
+            ->where('id_maquina', $idMaquina)
+            ->value('nombre_maquina') ?? 'Máquina #' . $idMaquina;
+    }
+
+    private function obtenerPatenteMaquina($idMaquina)
+    {
+        return DB::table('maquinas')
+            ->where('id_maquina', $idMaquina)
+            ->value('patente') ?? 'N/A';
+    }
+
+    /**
+     * ✅ NUEVO: Analizar máquina en una faena específica
+     */
+    private function analizarMaquinaEnFaenaEspecifica($idMaquina, $idFaena, $fechaInicio, $fechaFin, $categoria, $incluirSimulacion, $incluirSabados, $incluirDomingos, $momentoConsulta)
+    {
+        // Filtrar consumos solo de esta faena específica
+        $query = DB::table('consumos')
+            ->where('id_equipo', $idMaquina)
+            ->where('id_faena', $idFaena) // ✅ FILTRO ESPECÍFICO
+            ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin]);
+
+        $cargas = $query->orderBy('fecha_consumo')->get();
+
+        if ($cargas->isEmpty()) {
+            return [
+                'consumos_confirmados' => [],
+                'simulacion' => null,
+                'total_confirmado' => 0,
+                'ajuste_consulta' => 'sin_datos_en_faena'
+            ];
+        }
+
+        $consumosConfirmados = [];
+        $totalConfirmado = 0;
+
+        // Procesar consumos confirmados (excluyendo última carga según regla de Nicodemo)
+        for ($i = 0; $i < count($cargas) - 1; $i++) {
+            $cargaActual = $cargas[$i];
+            $cargaSiguiente = $cargas[$i + 1];
+
+            $consumoConfirmado = [
+                'id_maquina' => $idMaquina,
+                'id_faena' => $idFaena,
+                'fecha_inicio' => $cargaActual->fecha_consumo,
+                'fecha_fin' => $cargaSiguiente->fecha_consumo,
+                'litros_confirmados' => (float) $cargaActual->litros_consumidos,
+                'confirmado_por' => 'carga_posterior_' . $cargaSiguiente->id_consumo,
+                'tipo' => 'CONFIRMADO'
+            ];
+
+            $consumosConfirmados[] = $consumoConfirmado;
+            $totalConfirmado += $cargaActual->litros_consumidos;
+        }
+
+        $simulacion = null;
+        $ajusteConsulta = null;
+
+        if ($incluirSimulacion && count($cargas) > 0) {
+            $ultimaCarga = $cargas->last();
+            $fechaUltimaCarga = Carbon::parse($ultimaCarga->fecha_consumo);
+
+            if ($fechaUltimaCarga->lt($fechaFin)) {
+                $simulacion = $this->simularConsumoUltimaCarga(
+                    $ultimaCarga,
+                    $fechaFin,
+                    $categoria,
+                    $incluirSabados,
+                    $incluirDomingos,
+                    $momentoConsulta
+                );
+
+                $ajusteConsulta = [
+                    'ultima_carga_fecha' => $fechaUltimaCarga->format('Y-m-d H:i:s'),
+                    'stock_ultima_carga' => $ultimaCarga->litros_consumidos,
+                    'simulacion_limitada_por_stock' => $simulacion['limitado_por_stock'] ?? false,
+                    'momento_consulta_aplicado' => $momentoConsulta->format('Y-m-d H:i:s'),
+                    'faena_especifica' => $idFaena
+                ];
+            }
+        }
+
+        return [
+            'consumos_confirmados' => $consumosConfirmados,
+            'simulacion' => $simulacion,
+            'total_confirmado' => $totalConfirmado,
+            'ajuste_consulta' => $ajusteConsulta
         ];
     }
 
@@ -735,29 +905,43 @@ class ConsumoCategoriasController extends Controller
     /**
      * NUEVO: Obtener precio promedio específico de una máquina
      */
-    private function obtenerPrecioPromedioMaquina($idMaquina, $fechaInicio, $fechaFin)
+    private function obtenerPrecioPromedioMaquina($idMaquina, $fechaInicio, $fechaFin, $idFaena = null)
     {
-        $precio = DB::table('consumos')
+        // ✅ CONSTRUIR LA QUERY COMPLETA ANTES DE EJECUTAR
+        $query = DB::table('consumos')
             ->where('id_equipo', $idMaquina)
-            ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin]) // Filtra por fechas
+            ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
             ->whereNotNull('precio_litro')
-            ->where('precio_litro', '>', 0)
-            ->avg('precio_litro');
+            ->where('precio_litro', '>', 0);
 
-        return $precio ?? 0; // Valor por defecto si no hay datos
+        // ✅ FILTRAR POR FAENA ANTES DE EJECUTAR
+        if ($idFaena) {
+            $query->where('id_faena', $idFaena);
+        }
+
+        // ✅ AHORA SÍ EJECUTAR
+        return $query->avg('precio_litro') ?? 0;
     }
 
     /**
      * NUEVO: Calcular medición total según tipo de máquina
      */
-    private function calcularMedicionTotal($idMaquina, $fechaInicio, $fechaFin)
+    private function calcularMedicionTotal($idMaquina, $fechaInicio, $fechaFin, $idFaena = null)
     {
-        $mediciones = DB::table('consumos')
+        // ✅ CONSTRUIR LA QUERY COMPLETA ANTES DE EJECUTAR
+        $query = DB::table('consumos')
             ->where('id_equipo', $idMaquina)
             ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
             ->whereNotNull('medicion')
-            ->where('medicion', '>', 0)
-            ->get();
+            ->where('medicion', '>', 0);
+
+        // ✅ FILTRAR POR FAENA ANTES DE EJECUTAR
+        if ($idFaena) {
+            $query->where('id_faena', $idFaena);
+        }
+
+        // ✅ AHORA SÍ EJECUTAR
+        $mediciones = $query->get();
 
         if ($mediciones->isEmpty()) {
             return [
@@ -783,7 +967,7 @@ class ConsumoCategoriasController extends Controller
     /**
      * ✅ NUEVO: Método para obtener información de faena de una máquina
      */
-    private function obtenerFaenaMaquina($idMaquina, $idFaenaConsulta = null)
+    private function obtenerFaenaMaquina($idMaquina, $idFaenaConsulta = null, $fechaInicio = null, $fechaFin = null)
     {
         if ($idFaenaConsulta) {
             // Si se especificó una faena en la consulta, usar esa
@@ -794,63 +978,122 @@ class ConsumoCategoriasController extends Controller
                 'detalle' => $faena->detalle ?? null,
                 'origen' => 'consulta_especifica'
             ];
-        } else {
-            // Si no se especificó faena, buscar en qué faenas puede operar esta máquina
-            $faenasMaquina = DB::table('permisos_maquinas_faenas')
-                ->join('faenas', 'permisos_maquinas_faenas.id_faena', '=', 'faenas.id_faena')
-                ->where('permisos_maquinas_faenas.id_maquina', $idMaquina)
+        }
+        // ✅ NUEVO: Verificar faenas REALMENTE USADAS en el período específico
+        if ($fechaInicio && $fechaFin) {
+            $faenasUsadasEnPeriodo = DB::table('consumos')
+                ->join('faenas', 'consumos.id_faena', '=', 'faenas.id_faena')
+                ->where('consumos.id_equipo', $idMaquina)
+                ->whereBetween('consumos.fecha_consumo', [$fechaInicio, $fechaFin])
                 ->select([
                     'faenas.id_faena',
                     'faenas.ubicacion',
-                    'faenas.detalle'
+                    'faenas.detalle',
+                    DB::raw('COUNT(*) as consumos_count'),
+                    DB::raw('MIN(consumos.fecha_consumo) as primera_fecha'),
+                    DB::raw('MAX(consumos.fecha_consumo) as ultima_fecha')
                 ])
+                ->groupBy('faenas.id_faena', 'faenas.ubicacion', 'faenas.detalle')
+                ->orderBy('consumos_count', 'desc')
                 ->get();
 
-            if ($faenasMaquina->count() === 1) {
-                // Si solo opera en una faena
-                $faena = $faenasMaquina->first();
+            if ($faenasUsadasEnPeriodo->count() === 1) {
+                // ✅ Solo operó en UNA faena durante el período
+                $faena = $faenasUsadasEnPeriodo->first();
                 return [
                     'id' => $faena->id_faena,
                     'nombre' => $faena->ubicacion,
                     'detalle' => $faena->detalle ?? null,
-                    'origen' => 'faena_unica'
+                    'consumos_en_periodo' => $faena->consumos_count,
+                    'periodo_operacion' => [
+                        'desde' => $faena->primera_fecha,
+                        'hasta' => $faena->ultima_fecha
+                    ],
+                    'origen' => 'faena_unica_en_periodo'
                 ];
-            } elseif ($faenasMaquina->count() > 1) {
-                // Si opera en múltiples faenas
+            } elseif ($faenasUsadasEnPeriodo->count() > 1) {
+                // ✅ Operó en MÚLTIPLES faenas durante el período
+                $faenaPrincipal = $faenasUsadasEnPeriodo->first(); // La que más consumos tiene
+
                 return [
-                    'id' => null,
-                    'nombre' => 'Múltiples faenas',
-                    'detalle' => 'Opera en ' . $faenasMaquina->count() . ' faenas',
-                    'faenas_disponibles' => $faenasMaquina->map(function ($f) {
+                    'id' => $faenaPrincipal->id_faena,
+                    'nombre' => $faenaPrincipal->ubicacion . ' (Principal)',
+                    'detalle' => "Operó en {$faenasUsadasEnPeriodo->count()} faenas en período",
+                    'consumos_en_periodo' => $faenaPrincipal->consumos_count,
+                    'faenas_usadas_en_periodo' => $faenasUsadasEnPeriodo->map(function ($f) {
                         return [
                             'id' => $f->id_faena,
-                            'nombre' => $f->ubicacion
+                            'nombre' => $f->ubicacion,
+                            'consumos' => $f->consumos_count,
+                            'desde' => $f->primera_fecha,
+                            'hasta' => $f->ultima_fecha
                         ];
                     })->toArray(),
-                    'origen' => 'multiple_faenas'
-                ];
-            } else {
-                // Si no tiene permisos asignados
-                return [
-                    'id' => null,
-                    'nombre' => 'Sin faena asignada',
-                    'detalle' => 'No tiene permisos de faena configurados',
-                    'origen' => 'sin_permisos'
+                    'origen' => 'multiple_faenas_en_periodo'
                 ];
             }
+            // Si no hay consumos en el período, continuar con lógica de permisos
+        }
+        // Si no se especificó faena, buscar en qué faenas puede operar esta máquina
+        $faenasMaquina = DB::table('permisos_maquinas_faenas')
+            ->join('faenas', 'permisos_maquinas_faenas.id_faena', '=', 'faenas.id_faena')
+            ->where('permisos_maquinas_faenas.id_maquina', $idMaquina)
+            ->select([
+                'faenas.id_faena',
+                'faenas.ubicacion',
+                'faenas.detalle'
+            ])
+            ->get();
+
+        if ($faenasMaquina->count() === 1) {
+            // Si solo tiene permisos para una faena
+            $faena = $faenasMaquina->first();
+            return [
+                'id' => $faena->id_faena,
+                'nombre' => $faena->ubicacion,
+                'detalle' => $faena->detalle ?? null,
+                'origen' => 'faena_unica_permisos'
+            ];
+        } elseif ($faenasMaquina->count() > 1) {
+            // Si tiene permisos para múltiples faenas
+            return [
+                'id' => null,
+                'nombre' => 'Múltiples faenas (sin datos período)',
+                'detalle' => 'Tiene permisos para ' . $faenasMaquina->count() . ' faenas, pero sin consumos en período',
+                'faenas_disponibles' => $faenasMaquina->map(function ($f) {
+                    return [
+                        'id' => $f->id_faena,
+                        'nombre' => $f->ubicacion
+                    ];
+                })->toArray(),
+                'origen' => 'multiple_faenas_permisos'
+            ];
+        } else {
+            // Si no tiene permisos asignados
+            return [
+                'id' => null,
+                'nombre' => 'Sin faena asignada',
+                'detalle' => 'No tiene permisos de faena configurados',
+                'origen' => 'sin_permisos'
+            ];
         }
     }
 
     // CORREGIR todos los métodos que usan calcularDiasLaboralesCorrectos para incluir parámetros
 
-    private function analizarMaquina($idMaquina, $fechaInicio, $fechaFin, $categoria, $incluirSimulacion, $incluirSabados, $incluirDomingos, $momentoConsulta)
+    private function analizarMaquina($idMaquina, $fechaInicio, $fechaFin, $categoria, $incluirSimulacion, $incluirSabados, $incluirDomingos, $momentoConsulta, $idFaena = null)
     {
-        $cargas = DB::table('consumos')
-            ->where('id_equipo', $idMaquina)
-            ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
-            ->orderBy('fecha_consumo')
-            ->get();
 
+        // ✅ AQUÍ ESTÁ EL CAMBIO CRÍTICO
+        $query = DB::table('consumos')
+            ->where('id_equipo', $idMaquina)
+            ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin]);
+        // ✅ FILTRO POR FAENA - ESTO DEBE ESTAR PRESENTE
+        if ($idFaena) {
+            $query->where('id_faena', $idFaena);
+        }
+
+        $cargas = $query->orderBy('fecha_consumo')->get();
         if ($cargas->isEmpty()) {
             return [
                 'consumos_confirmados' => [],
@@ -2392,7 +2635,7 @@ class ConsumoCategoriasController extends Controller
 
         return $recomendaciones;
     }
-    private function obtenerPrecioPromedioCategoria($idCategoria, $fechaInicio = null, $fechaFin = null)
+    private function obtenerPrecioPromedioCategoria($idCategoria, $fechaInicio = null, $fechaFin = null, $idFaena = null)
     {
         $query = DB::table('consumos')
             ->join('maquinas', 'consumos.id_equipo', '=', 'maquinas.id_maquina')
@@ -2403,6 +2646,11 @@ class ConsumoCategoriasController extends Controller
         // ← AGREGAR FILTRO DE FECHAS
         if ($fechaInicio && $fechaFin) {
             $query->whereBetween('consumos.fecha_consumo', [$fechaInicio, $fechaFin]);
+        }
+
+        // ✅ FILTRO POR FAENA
+        if ($idFaena) {
+            $query->where('consumos.id_faena', $idFaena);
         }
 
         return $query->avg('consumos.precio_litro') ?? 0;
