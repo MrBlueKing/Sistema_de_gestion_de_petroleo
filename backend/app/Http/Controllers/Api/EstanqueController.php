@@ -255,4 +255,83 @@ class EstanqueController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Obtener solo los estanques fijos de una faena específica
+     * 
+     * @param int $id_faena
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function estanquesFijoPorFaena($id_faena)
+    {
+        try {
+            // Obtenemos solo los estanques FIJOS con la relación stock incluida
+            $estanques = Estanque::where('id_faena', $id_faena)
+                ->where('tipo_estanque', 'fijo')  // Filtrar solo estanques fijos
+                ->where('activo', 1)  // Solo estanques activos
+                ->with('stock')  // Incluir relación de stock
+                ->get();
+
+            Log::info("Estanques fijos obtenidos para faena {$id_faena}", [
+                'cantidad' => $estanques->count(),
+                'estanques' => $estanques->pluck('nombre', 'id_estanque')->toArray()
+            ]);
+
+            if ($estanques->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se encontraron estanques fijos para esta faena.'
+                ], 404);
+            }
+
+            // Transformamos los datos para incluir el stock_actual directamente
+            $estanquesConStock = $estanques->map(function ($estanque) {
+                $estanqueArray = $estanque->toArray();
+
+                // Agregar información del stock actual
+                $estanqueArray['stock_actual'] = $estanque->stock ? $estanque->stock->stock_actual : 0;
+                $estanqueArray['altura_actual'] = $estanque->stock ? $estanque->stock->altura_actual : null;
+                $estanqueArray['ultima_medicion'] = $estanque->stock ? $estanque->stock->ultima_medicion : null;
+
+                // Calcular porcentaje de llenado
+                $porcentajeLlenado = $estanque->capacidad > 0
+                    ? ($estanqueArray['stock_actual'] / $estanque->capacidad) * 100
+                    : 0;
+                $estanqueArray['porcentaje_llenado'] = round($porcentajeLlenado, 2);
+
+                // Capacidad disponible
+                $estanqueArray['capacidad_disponible'] = $estanque->capacidad - $estanqueArray['stock_actual'];
+
+                return $estanqueArray;
+            });
+
+            // Calcular estadísticas generales de los estanques fijos
+            $estadisticas = [
+                'total_estanques' => $estanques->count(),
+                'capacidad_total' => $estanques->sum('capacidad'),
+                'stock_total' => $estanquesConStock->sum('stock_actual'),
+                'capacidad_disponible_total' => $estanquesConStock->sum('capacidad_disponible'),
+                'porcentaje_llenado_promedio' => $estanquesConStock->avg('porcentaje_llenado')
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => $estanquesConStock,
+                'estadisticas' => $estadisticas,
+                'message' => "Se encontraron {$estanques->count()} estanques fijos para la faena."
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener estanques fijos de faena', [
+                'id_faena' => $id_faena,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener los estanques fijos.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Error interno del servidor'
+            ], 500);
+        }
+    }
 }

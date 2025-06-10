@@ -382,7 +382,7 @@ const Consumo = ({
               <p className="text-sm text-gray-500">Equipo/Vehículo</p>
               <p className="font-semibold">{successData?.equipo || 'N/A'}</p>
             </div>
-  <div className="col-span-2">
+            <div className="col-span-2">
               <p className="text-sm text-gray-500">Observación</p>
               <p className="font-semibold">{successData?.observacion || 'N/A'}</p>
             </div>
@@ -415,7 +415,7 @@ const Consumo = ({
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 pt-6">
-      
+
       <main className="flex-1 w-full p-2 sm:p-3 md:p-4 text-center">
         <div className="bg-gray-200 py-3 sm:py-4 md:py-6 px-2 sm:px-3 md:px-4 rounded-2xl sm:rounded-3xl flex flex-col items-center space-y-3 sm:space-y-4 md:space-y-6 max-w-4xl mx-auto">
           <div className="w-full">

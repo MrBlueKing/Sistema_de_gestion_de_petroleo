@@ -33,7 +33,7 @@ use App\Http\Controllers\Api\VerificacionIngresosController;
 use App\Http\Controllers\Api\MaquinasExternasController;
 use App\Http\Controllers\Api\SolicitantesOptimizadoController;
 use App\Http\Controllers\Api\ConsumoCategoriasController;
-use App\Models\IngresoPetroleo;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -200,6 +200,21 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/ingresos-petroleo', [IngresoPetroleoController::class, 'index']);
     Route::post('/ingresos-petroleo', [IngresoPetroleoController::class, 'store']);
+
+    // CASO 1: Recepción tradicional (Copec → Estanques fijos)
+    Route::post('/recepciones/estanques-fijos', [IngresoPetroleoController::class, 'storeRecepcionFijos']);
+
+    // CASO 2: Recepción móvil (Copec → Estanque móvil)
+    Route::post('/recepciones/estanque-movil', [IngresoPetroleoController::class, 'storeRecepcionMovil']);
+
+    // CASO 3: Trasvasije (Estanque móvil → Estanques fijos)
+    Route::post('/trasvasijes', [IngresoPetroleoController::class, 'storeTrasvasije']);
+
+    // Rutas existentes
+    Route::get('/ingresos-petroleo', [IngresoPetroleoController::class, 'index']);
+    //Route::get('/capacidad-disponible/{idFaena}', [IngresoPetroleoController::class, 'capacidadDisponible']);
+    Route::get('/recepciones/stats', [IngresoPetroleoController::class, 'getStats']);
+    Route::get('/recepciones', [IngresoPetroleoController::class, 'getRecepciones']);
 
     /*
     |--------------------------------------------------------------------------
@@ -470,6 +485,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/verificarPermiso', [FaenaController::class, 'verificarPermiso']);
     Route::get('/faenasDisponibles', [FaenaController::class, 'getFaenasDisponibles']);
     Route::get('/estanques/{id_faena}', [EstanqueController::class, 'estanquesPorFaena']);
+    Route::get('/estanques-fijo/{id_faena}', [EstanqueController::class, 'estanquesFijoPorFaena']);
+
+
     Route::post('/calcular-litros-petroleo', [EstanqueController::class, 'calcularLitrosPetroleo']);
     Route::get('/capacidad-disponible/{id_faena}', [EstanqueController::class, 'capacidadDisponible']);
     Route::post('/consumos', [ConsumoController::class, 'store']);
