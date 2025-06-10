@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Consumo;
+use App\Models\ConsumoEstanque;
 use App\Models\Estanque;
 use App\Models\StockPetroleo;
 use App\Models\EstanqueStock;
@@ -406,286 +407,235 @@ class ConsumoController extends Controller
         }
     }
 
-    /**
-     * ✅ FUNCIÓN PRINCIPAL CORREGIDA - storeMultiEstanque
-     */
-    public function storeMultiEstanque(Request $request)
-    {
-        Log::info('Iniciando storeMultiEstanque', ['data_recibida' => $request->all()]);
+  public function storeMultiEstanque(Request $request)
+{
+    Log::info('Iniciando storeMultiEstanque', ['data_recibida' => $request->all()]);
 
-        // ✅ VALIDACIÓN CORREGIDA - Más flexible
-        $validator = Validator::make($request->all(), [
-            'id_dotacion' => 'required|string',
-            'id_equipo' => 'required|integer',
-            'id_usuario' => 'required|integer',
-            'fecha_consumo' => 'nullable|date',
-            'litros_consumidos' => 'required|numeric|min:0.01',
-            'tipo_consumo' => 'nullable|in:simple,multiple',
-            'tipo_operacion' => 'nullable|in:normal,estanque_movil',
-            'id_faena' => 'required|integer',
-            'numeral_inicial' => 'required|numeric|min:0',
-            'numeral_final' => 'required|numeric|gt:numeral_inicial',
-            'precio_litro' => 'nullable|numeric|min:0',
-            'observacion' => 'nullable|string|max:500',
-            
-            // Para consumo simple
-            'id_estanque' => 'nullable|integer',
-            'medicion' => 'nullable|numeric|min:0',
-            'horometro' => 'nullable|numeric|min:0',
-            'kilometraje' => 'nullable|numeric|min:0',
-            
-            // Para consumo múltiple - validación más flexible
-            'estanques_multiples' => 'nullable|array',
-            'estanques_multiples.*.id_estanque' => 'nullable|integer',
-            'estanques_multiples.*.litros' => 'nullable|numeric|min:0.01',
-            
-            // Campo adicional del frontend
-            'es_consumo_multiple' => 'nullable|boolean',
-        ]);
+    // ✅ VALIDACIÓN CORREGIDA - Más flexible
+    $validator = Validator::make($request->all(), [
+        'id_dotacion' => 'required|string',
+        'id_equipo' => 'required|integer',
+        'id_usuario' => 'required|integer',
+        'fecha_consumo' => 'nullable|date',
+        'litros_consumidos' => 'required|numeric|min:0.01',
+        'tipo_consumo' => 'nullable|in:simple,multiple',
+        'tipo_operacion' => 'nullable|in:normal,estanque_movil',
+        'id_faena' => 'required|integer',
+        'numeral_inicial' => 'required|numeric|min:0',
+        'numeral_final' => 'required|numeric|gt:numeral_inicial',
+        'precio_litro' => 'nullable|numeric|min:0',
+        'observacion' => 'nullable|string|max:500',
+        
+        // Para consumo simple
+        'id_estanque' => 'nullable|integer',
+        'medicion' => 'nullable|numeric|min:0',
+        'horometro' => 'nullable|numeric|min:0',
+        'kilometraje' => 'nullable|numeric|min:0',
+        
+        // Para consumo múltiple - validación más flexible
+        'estanques_multiples' => 'nullable|array',
+        'estanques_multiples.*.id_estanque' => 'nullable|integer',
+        'estanques_multiples.*.litros' => 'nullable|numeric|min:0.01',
+        
+        // Campo adicional del frontend
+        'es_consumo_multiple' => 'nullable|boolean',
+    ]);
 
-        if ($validator->fails()) {
-            Log::warning('Validación fallida en storeMultiEstanque', ['errors' => $validator->errors()]);
-            return response()->json([
-                'success' => false,
-                'message' => 'Datos de validación incorrectos',
-                'errors' => $validator->errors()
-            ], 422);
+    if ($validator->fails()) {
+        Log::warning('Validación fallida en storeMultiEstanque', ['errors' => $validator->errors()]);
+        return response()->json([
+            'success' => false,
+            'message' => 'Datos de validación incorrectos',
+            'errors' => $validator->errors()
+        ], 422);
+    }
+
+    try {
+        $idFaena = $request->id_faena;
+        $litrosConsumidos = floatval($request->litros_consumidos);
+
+        // ✅ DETECCIÓN MEJORADA DEL TIPO DE CONSUMO
+        $esMultiple = false;
+        $tipoConsumo = 'simple';
+
+        // Verificar si es múltiple basado en diferentes criterios
+        if ($request->has('estanques_multiples') && 
+            is_array($request->estanques_multiples) && 
+            count($request->estanques_multiples) > 0) {
+            $esMultiple = true;
+            $tipoConsumo = 'multiple';
+        } elseif ($request->input('tipo_consumo') === 'multiple') {
+            $esMultiple = true;
+            $tipoConsumo = 'multiple';
+        } elseif ($request->input('es_consumo_multiple') === true) {
+            $esMultiple = true;
+            $tipoConsumo = 'multiple';
         }
 
-        try {
-            $idFaena = $request->id_faena;
-            $litrosConsumidos = floatval($request->litros_consumidos);
+        Log::info('🔍 Tipo de consumo detectado:', [
+            'tipo' => $tipoConsumo,
+            'es_multiple' => $esMultiple,
+            'tiene_estanques_multiples' => $request->has('estanques_multiples'),
+            'cantidad_estanques' => $request->has('estanques_multiples') ? count($request->estanques_multiples ?? []) : 0,
+            'id_estanque_simple' => $request->id_estanque
+        ]);
 
-            // ✅ DETECCIÓN MEJORADA DEL TIPO DE CONSUMO
-            $esMultiple = false;
-            $tipoConsumo = 'simple';
-
-            // Verificar si es múltiple basado en diferentes criterios
-            if ($request->has('estanques_multiples') && 
-                is_array($request->estanques_multiples) && 
-                count($request->estanques_multiples) > 0) {
-                $esMultiple = true;
-                $tipoConsumo = 'multiple';
-            } elseif ($request->input('tipo_consumo') === 'multiple') {
-                $esMultiple = true;
-                $tipoConsumo = 'multiple';
-            } elseif ($request->input('es_consumo_multiple') === true) {
-                $esMultiple = true;
-                $tipoConsumo = 'multiple';
+        // ✅ VALIDACIÓN ESPECÍFICA MEJORADA
+        if ($esMultiple) {
+            if (!$request->has('estanques_multiples') || 
+                !is_array($request->estanques_multiples) || 
+                count($request->estanques_multiples) === 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Para consumo múltiple se requiere el array estanques_multiples con al menos un estanque'
+                ], 422);
             }
+        } else {
+            if (!$request->id_estanque) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Para consumo simple se requiere id_estanque'
+                ], 422);
+            }
+        }
 
-            Log::info('🔍 Tipo de consumo detectado:', [
-                'tipo' => $tipoConsumo,
-                'es_multiple' => $esMultiple,
-                'tiene_estanques_multiples' => $request->has('estanques_multiples'),
-                'cantidad_estanques' => $request->has('estanques_multiples') ? count($request->estanques_multiples ?? []) : 0,
-                'id_estanque_simple' => $request->id_estanque
+        // ✅ FECHA CORREGIDA
+        $fechaConsumo = $request->fecha_consumo ? 
+            Carbon::parse($request->fecha_consumo)->setTimezone('America/Santiago') : 
+            now('America/Santiago');
+
+        // Obtener el último ingreso de petróleo por faena para el precio
+        $ultimoIngreso = IngresoPetroleo::where('id_faena', $idFaena)
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        $precioLitro = $request->precio_litro ?? ($ultimoIngreso ? $ultimoIngreso->precio : 1500);
+
+        DB::beginTransaction();
+
+        // Generar un ID de grupo para todos los movimientos relacionados
+        $idGrupoOperacion = "OP-" . uniqid();
+
+        // ✅ VERIFICAR QUE EXISTEN LOS REGISTROS RELACIONADOS
+        if (!DB::table('solicitantes')->where('rut', $request->id_dotacion)->exists()) {
+            throw new \Exception("Solicitante con RUT {$request->id_dotacion} no encontrado");
+        }
+
+        if (!DB::table('maquinas')->where('id_maquina', $request->id_equipo)->exists()) {
+            throw new \Exception("Máquina con ID {$request->id_equipo} no encontrada");
+        }
+
+        if (!DB::table('users')->where('id', $request->id_usuario)->exists()) {
+            throw new \Exception("Usuario con ID {$request->id_usuario} no encontrado");
+        }
+
+        if (!DB::table('faenas')->where('id_faena', $idFaena)->exists()) {
+            throw new \Exception("Faena con ID {$idFaena} no encontrada");
+        }
+
+        // 📋 CREAR EL CONSUMO PRINCIPAL (REGISTRO GENERAL)
+        $consumo = new Consumo();
+        $consumo->id_dotacion = $request->id_dotacion;
+        $consumo->id_equipo = $request->id_equipo;
+        $consumo->id_usuario = $request->id_usuario;
+        $consumo->fecha_consumo = $fechaConsumo;
+        $consumo->litros_consumidos = $litrosConsumidos;
+        $consumo->tipo_consumo = $tipoConsumo;
+        $consumo->tipo_operacion = $request->tipo_operacion ?? 'normal';
+        $consumo->id_faena = $idFaena;
+        
+        // Para consumo simple, mantener la referencia al estanque principal
+        // Para consumo múltiple, será null (los detalles van en consumo_estanques)
+        $consumo->id_estanque = $esMultiple ? null : $request->id_estanque;
+        
+        $consumo->medicion = $request->medicion ?? $request->horometro ?? $request->kilometraje ?? 0;
+        $consumo->numeral_inicial = $request->numeral_inicial;
+        $consumo->numeral_final = $request->numeral_final;
+        $consumo->precio_litro = $precioLitro;
+        $consumo->observacion = $request->observacion;
+        $consumo->save();
+
+        Log::info('✅ Consumo principal creado:', [
+            'id_consumo' => $consumo->id_consumo,
+            'tipo' => $tipoConsumo,
+            'litros_total' => $consumo->litros_consumidos
+        ]);
+
+        $estanquesAfectados = [];
+        $movimientos = [];
+
+        if ($esMultiple) {
+            // 🔄 PROCESAR CONSUMO MÚLTIPLE
+            $estanquesMultiples = $request->estanques_multiples;
+            $totalLitrosDistribuidos = 0;
+
+            Log::info('📋 Procesando consumo MÚLTIPLE:', [
+                'total_estanques' => count($estanquesMultiples),
+                'litros_total_requerido' => $consumo->litros_consumidos,
+                'estanques_data' => $estanquesMultiples
             ]);
 
-            // ✅ VALIDACIÓN ESPECÍFICA MEJORADA
-            if ($esMultiple) {
-                if (!$request->has('estanques_multiples') || 
-                    !is_array($request->estanques_multiples) || 
-                    count($request->estanques_multiples) === 0) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Para consumo múltiple se requiere el array estanques_multiples con al menos un estanque'
-                    ], 422);
-                }
-            } else {
-                if (!$request->id_estanque) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Para consumo simple se requiere id_estanque'
-                    ], 422);
-                }
-            }
-
-            // ✅ FECHA CORREGIDA
-            $fechaConsumo = $request->fecha_consumo ? 
-                Carbon::parse($request->fecha_consumo)->setTimezone('America/Santiago') : 
-                now('America/Santiago');
-
-            // Obtener el último ingreso de petróleo por faena para el precio
-            $ultimoIngreso = IngresoPetroleo::where('id_faena', $idFaena)
-                ->orderBy('created_at', 'desc')
-                ->first();
-
-            $precioLitro = $request->precio_litro ?? ($ultimoIngreso ? $ultimoIngreso->precio : 1500);
-
-            DB::beginTransaction();
-
-            // Generar un ID de grupo para todos los movimientos relacionados
-            $idGrupoOperacion = "OP-" . uniqid();
-
-            // ✅ VERIFICAR QUE EXISTEN LOS REGISTROS RELACIONADOS
-            if (!DB::table('solicitantes')->where('rut', $request->id_dotacion)->exists()) {
-                throw new \Exception("Solicitante con RUT {$request->id_dotacion} no encontrado");
-            }
-
-            if (!DB::table('maquinas')->where('id_maquina', $request->id_equipo)->exists()) {
-                throw new \Exception("Máquina con ID {$request->id_equipo} no encontrada");
-            }
-
-            if (!DB::table('users')->where('id', $request->id_usuario)->exists()) {
-                throw new \Exception("Usuario con ID {$request->id_usuario} no encontrado");
-            }
-
-            if (!DB::table('faenas')->where('id_faena', $idFaena)->exists()) {
-                throw new \Exception("Faena con ID {$idFaena} no encontrada");
-            }
-
-            // 📋 CREAR EL CONSUMO PRINCIPAL
-            $consumo = new Consumo();
-            $consumo->id_dotacion = $request->id_dotacion;
-            $consumo->id_equipo = $request->id_equipo;
-            $consumo->id_usuario = $request->id_usuario;
-            $consumo->fecha_consumo = $fechaConsumo;
-            $consumo->litros_consumidos = $litrosConsumidos;
-            $consumo->tipo_consumo = $tipoConsumo;
-            $consumo->tipo_operacion = $request->tipo_operacion ?? 'normal';
-            $consumo->id_faena = $idFaena;
-            $consumo->id_estanque = $esMultiple ? null : $request->id_estanque;
-            $consumo->medicion = $request->medicion ?? $request->horometro ?? $request->kilometraje ?? 0;
-            $consumo->numeral_inicial = $request->numeral_inicial;
-            $consumo->numeral_final = $request->numeral_final;
-            $consumo->precio_litro = $precioLitro;
-            $consumo->observacion = $request->observacion;
-            $consumo->save();
-
-            Log::info('✅ Consumo principal creado:', [
-                'id_consumo' => $consumo->id_consumo,
-                'tipo' => $tipoConsumo,
-                'litros_total' => $consumo->litros_consumidos
-            ]);
-
-            $estanquesAfectados = [];
-
-            if ($esMultiple) {
-                // 🔄 PROCESAR CONSUMO MÚLTIPLE
-                $estanquesMultiples = $request->estanques_multiples;
-                $totalLitrosDistribuidos = 0;
-
-                Log::info('📋 Procesando consumo MÚLTIPLE:', [
-                    'total_estanques' => count($estanquesMultiples),
-                    'litros_total_requerido' => $consumo->litros_consumidos,
-                    'estanques_data' => $estanquesMultiples
-                ]);
-
-                foreach ($estanquesMultiples as $index => $estanqueData) {
-                    // ✅ VALIDACIÓN MEJORADA DE DATOS
-                    if (!isset($estanqueData['id_estanque']) || !isset($estanqueData['litros'])) {
-                        throw new \Exception("Datos incompletos en el estanque índice {$index}. Se requiere id_estanque y litros.");
-                    }
-
-                    $estanque = Estanque::with('stock')->find($estanqueData['id_estanque']);
-                    
-                    if (!$estanque) {
-                        throw new \Exception("Estanque con ID {$estanqueData['id_estanque']} no encontrado");
-                    }
-
-                    if (!$estanque->stock) {
-                        throw new \Exception("El estanque {$estanque->nombre} no tiene registro de stock");
-                    }
-
-                    $litrosEstanque = floatval($estanqueData['litros']);
-                    $stockInicial = floatval($estanque->stock->stock_actual ?? 0);
-
-                    Log::info("  🔸 Procesando estanque: {$estanque->nombre}", [
-                        'litros_asignados' => $litrosEstanque,
-                        'stock_inicial' => $stockInicial
-                    ]);
-
-                    // Verificar stock suficiente
-                    if ($stockInicial < $litrosEstanque) {
-                        throw new \Exception("Stock insuficiente en el estanque {$estanque->nombre}. Disponible: {$stockInicial}L, Requerido: {$litrosEstanque}L");
-                    }
-
-                    $stockFinal = $stockInicial - $litrosEstanque;
-                    $totalLitrosDistribuidos += $litrosEstanque;
-
-                    // Actualizar stock del estanque
-                    $estanque->stock->stock_actual = $stockFinal;
-                    if ($estanque->altura_nominal && $estanque->capacidad && $estanque->capacidad > 0) {
-                        $estanque->stock->altura_actual = ($stockFinal / $estanque->capacidad) * $estanque->altura_nominal;
-                    }
-                    $estanque->stock->ultima_medicion = $fechaConsumo;
-                    $estanque->stock->save();
-
-                    // Registrar movimiento
-                    $movimiento = new MovimientoPetroleo();
-                    $movimiento->id_faena = $idFaena;
-                    $movimiento->tipo_movimiento = 'consumo';
-                    $movimiento->id_referencia = $consumo->id_consumo;
-                    $movimiento->cantidad = -$litrosEstanque;
-                    $movimiento->stock_anterior = $stockInicial;
-                    $movimiento->stock_actual = $stockFinal;
-                    $movimiento->id_usuario = $request->id_usuario;
-                    $movimiento->metadata = json_encode([
-                        'id_estanque' => $estanque->id_estanque,
-                        'nombre_estanque' => $estanque->nombre,
-                        'id_grupo_operacion' => $idGrupoOperacion,
-                        'tipo_operacion' => 'consumo_multi_estanque',
-                        'es_consumo_multiple' => true
-                    ]);
-                    $movimiento->save();
-
-                    $estanquesAfectados[] = [
-                        'id_estanque' => $estanque->id_estanque,
-                        'nombre_estanque' => $estanque->nombre,
-                        'litros_extraidos' => $litrosEstanque,
-                        'stock_anterior' => $stockInicial,
-                        'stock_actual' => $stockFinal
-                    ];
-
-                    Log::info("    ✅ Estanque {$estanque->nombre} actualizado:", [
-                        'stock_final' => $stockFinal,
-                        'litros_extraidos' => $litrosEstanque
-                    ]);
+            foreach ($estanquesMultiples as $index => $estanqueData) {
+                // ✅ VALIDACIÓN MEJORADA DE DATOS
+                if (!isset($estanqueData['id_estanque']) || !isset($estanqueData['litros'])) {
+                    throw new \Exception("Datos incompletos en el estanque índice {$index}. Se requiere id_estanque y litros.");
                 }
 
-                // Verificar que la suma coincida con el total (con tolerancia)
-                if (abs($totalLitrosDistribuidos - $consumo->litros_consumidos) > 0.01) {
-                    throw new \Exception("La suma de litros distribuidos ({$totalLitrosDistribuidos}L) no coincide con el total del consumo ({$consumo->litros_consumidos}L)");
-                }
-
-                Log::info('✅ Consumo múltiple procesado exitosamente:', [
-                    'total_distribuido' => $totalLitrosDistribuidos,
-                    'total_requerido' => $consumo->litros_consumidos,
-                    'diferencia' => abs($totalLitrosDistribuidos - $consumo->litros_consumidos)
-                ]);
-
-            } else {
-                // 🔄 PROCESAR CONSUMO SIMPLE
-                $estanque = Estanque::with('stock')->find($request->id_estanque);
+                $estanque = Estanque::with('stock')->find($estanqueData['id_estanque']);
                 
                 if (!$estanque) {
-                    throw new \Exception("Estanque con ID {$request->id_estanque} no encontrado");
+                    throw new \Exception("Estanque con ID {$estanqueData['id_estanque']} no encontrado");
                 }
 
                 if (!$estanque->stock) {
                     throw new \Exception("El estanque {$estanque->nombre} no tiene registro de stock");
                 }
 
+                $litrosEstanque = floatval($estanqueData['litros']);
                 $stockInicial = floatval($estanque->stock->stock_actual ?? 0);
 
-                Log::info('📋 Procesando consumo SIMPLE:', [
-                    'estanque' => $estanque->nombre,
-                    'stock_inicial' => $stockInicial,
-                    'litros_a_consumir' => $litrosConsumidos
+                Log::info("  🔸 Procesando estanque: {$estanque->nombre}", [
+                    'litros_asignados' => $litrosEstanque,
+                    'stock_inicial' => $stockInicial
                 ]);
 
                 // Verificar stock suficiente
-                if ($stockInicial < $litrosConsumidos) {
-                    throw new \Exception("Stock insuficiente en el estanque {$estanque->nombre}. Disponible: {$stockInicial}L, Requerido: {$litrosConsumidos}L");
+                if ($stockInicial < $litrosEstanque) {
+                    throw new \Exception("Stock insuficiente en el estanque {$estanque->nombre}. Disponible: {$stockInicial}L, Requerido: {$litrosEstanque}L");
                 }
 
-                $stockFinal = $stockInicial - $litrosConsumidos;
+                $stockFinal = $stockInicial - $litrosEstanque;
+                $totalLitrosDistribuidos += $litrosEstanque;
+
+                // 🆕 CREAR REGISTRO EN CONSUMO_ESTANQUES (DETALLE)
+                $consumoEstanque = new ConsumoEstanque();
+                $consumoEstanque->id_consumo = $consumo->id_consumo;
+                $consumoEstanque->id_estanque = $estanque->id_estanque;
+                $consumoEstanque->litros_desde_estanque = $litrosEstanque;
+                
+                // Calcular mediciones inicial y final basadas en el stock
+                $medicionInicial = null;
+                $medicionFinal = null;
+                if ($estanque->altura_nominal && $estanque->capacidad && $estanque->capacidad > 0) {
+                    $medicionInicial = ($stockInicial / $estanque->capacidad) * $estanque->altura_nominal;
+                    $medicionFinal = ($stockFinal / $estanque->capacidad) * $estanque->altura_nominal;
+                }
+                
+                $consumoEstanque->medicion_inicial = $medicionInicial;
+                $consumoEstanque->medicion_final = $medicionFinal;
+                $consumoEstanque->stock_inicial_estanque = $stockInicial;
+                $consumoEstanque->stock_final_estanque = $stockFinal;
+                $consumoEstanque->save();
+
+                Log::info("    📝 Detalle de consumo registrado en consumo_estanques:", [
+                    'id_consumo_estanque' => $consumoEstanque->id_consumo_estanque,
+                    'litros_desde_estanque' => $litrosEstanque
+                ]);
 
                 // Actualizar stock del estanque
                 $estanque->stock->stock_actual = $stockFinal;
                 if ($estanque->altura_nominal && $estanque->capacidad && $estanque->capacidad > 0) {
-                    $estanque->stock->altura_actual = ($stockFinal / $estanque->capacidad) * $estanque->altura_nominal;
+                    $estanque->stock->altura_actual = $medicionFinal;
                 }
                 $estanque->stock->ultima_medicion = $fechaConsumo;
                 $estanque->stock->save();
@@ -695,7 +645,7 @@ class ConsumoController extends Controller
                 $movimiento->id_faena = $idFaena;
                 $movimiento->tipo_movimiento = 'consumo';
                 $movimiento->id_referencia = $consumo->id_consumo;
-                $movimiento->cantidad = -$litrosConsumidos;
+                $movimiento->cantidad = -$litrosEstanque;
                 $movimiento->stock_anterior = $stockInicial;
                 $movimiento->stock_actual = $stockFinal;
                 $movimiento->id_usuario = $request->id_usuario;
@@ -703,80 +653,197 @@ class ConsumoController extends Controller
                     'id_estanque' => $estanque->id_estanque,
                     'nombre_estanque' => $estanque->nombre,
                     'id_grupo_operacion' => $idGrupoOperacion,
-                    'tipo_operacion' => 'consumo_simple',
-                    'es_consumo_multiple' => false
+                    'tipo_operacion' => 'consumo_multi_estanque',
+                    'es_consumo_multiple' => true,
+                    'id_consumo_estanque' => $consumoEstanque->id_consumo_estanque
                 ]);
                 $movimiento->save();
 
                 $estanquesAfectados[] = [
                     'id_estanque' => $estanque->id_estanque,
                     'nombre_estanque' => $estanque->nombre,
-                    'litros_extraidos' => $litrosConsumidos,
+                    'litros_extraidos' => $litrosEstanque,
                     'stock_anterior' => $stockInicial,
-                    'stock_actual' => $stockFinal
+                    'stock_actual' => $stockFinal,
+                    'id_consumo_estanque' => $consumoEstanque->id_consumo_estanque
                 ];
 
-                Log::info('✅ Consumo simple procesado exitosamente:', [
+                $movimientos[] = $movimiento->id_movimiento;
+
+                Log::info("    ✅ Estanque {$estanque->nombre} actualizado:", [
                     'stock_final' => $stockFinal,
-                    'diferencia' => $stockInicial - $stockFinal
+                    'litros_extraidos' => $litrosEstanque
                 ]);
             }
 
-            // Actualizar stock total de la faena
-            $nuevoStockTotal = EstanqueStock::whereHas('estanque', fn($q) => $q->where('id_faena', $idFaena))
-                ->sum('stock_actual');
+            // Verificar que la suma coincida con el total (con tolerancia)
+            if (abs($totalLitrosDistribuidos - $consumo->litros_consumidos) > 0.01) {
+                throw new \Exception("La suma de litros distribuidos ({$totalLitrosDistribuidos}L) no coincide con el total del consumo ({$consumo->litros_consumidos}L)");
+            }
 
-            $stockPetroleo = StockPetroleo::firstOrNew(['id_faena' => $idFaena]);
-            $stockPetroleo->stock_actual = $nuevoStockTotal;
-            $stockPetroleo->ultima_actualizacion = $fechaConsumo;
-            $stockPetroleo->save();
-
-            DB::commit();
-
-            Log::info('🎉 Transacción completada exitosamente:', [
-                'id_consumo' => $consumo->id_consumo,
-                'tipo_consumo' => $tipoConsumo,
-                'estanques_afectados' => count($estanquesAfectados),
-                'stock_total_faena' => $nuevoStockTotal
+            Log::info('✅ Consumo múltiple procesado exitosamente:', [
+                'total_distribuido' => $totalLitrosDistribuidos,
+                'total_requerido' => $consumo->litros_consumidos,
+                'diferencia' => abs($totalLitrosDistribuidos - $consumo->litros_consumidos),
+                'registros_detalle_creados' => count($estanquesAfectados)
             ]);
 
-            return response()->json([
-                'success' => true,
-                'message' => $esMultiple ? 
-                    'Consumo múltiple registrado correctamente' : 
-                    'Consumo simple registrado correctamente',
-                'data' => [
-                    'id_consumo' => $consumo->id_consumo,
-                    'fecha_consumo' => $consumo->fecha_consumo->format('Y-m-d H:i:s'),
-                    'fecha_consumo_formateada' => $consumo->fecha_consumo->format('d/m/Y H:i'),
-                    'id_grupo_operacion' => $idGrupoOperacion,
-                    'tipo_consumo' => $tipoConsumo,
-                    'litros_totales' => $litrosConsumidos,
-                    'estanques_afectados' => $estanquesAfectados,
-                    'stock_total_faena' => $nuevoStockTotal
-                ]
-            ], 201);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Error en storeMultiEstanque', [
-                'exception' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'request_data' => $request->all()
-            ]);
+        } else {
+            // 🔄 PROCESAR CONSUMO SIMPLE
+            $estanque = Estanque::with('stock')->find($request->id_estanque);
             
-            return response()->json([
-                'success' => false,
-                'message' => 'Error al registrar el consumo: ' . $e->getMessage(),
-                'debug_info' => [
-                    'litros_consumidos' => $request->litros_consumidos ?? 'no definido',
-                    'id_faena' => $request->id_faena ?? 'no definido',
-                    'tipo_detectado' => isset($tipoConsumo) ? $tipoConsumo : 'no detectado',
-                    'es_multiple' => isset($esMultiple) ? $esMultiple : 'no definido'
-                ]
-            ], 500);
+            if (!$estanque) {
+                throw new \Exception("Estanque con ID {$request->id_estanque} no encontrado");
+            }
+
+            if (!$estanque->stock) {
+                throw new \Exception("El estanque {$estanque->nombre} no tiene registro de stock");
+            }
+
+            $stockInicial = floatval($estanque->stock->stock_actual ?? 0);
+
+            Log::info('📋 Procesando consumo SIMPLE:', [
+                'estanque' => $estanque->nombre,
+                'stock_inicial' => $stockInicial,
+                'litros_a_consumir' => $litrosConsumidos
+            ]);
+
+            // Verificar stock suficiente
+            if ($stockInicial < $litrosConsumidos) {
+                throw new \Exception("Stock insuficiente en el estanque {$estanque->nombre}. Disponible: {$stockInicial}L, Requerido: {$litrosConsumidos}L");
+            }
+
+            $stockFinal = $stockInicial - $litrosConsumidos;
+
+            // 🆕 CREAR REGISTRO EN CONSUMO_ESTANQUES (INCLUSO PARA SIMPLE)
+            $consumoEstanque = new ConsumoEstanque();
+            $consumoEstanque->id_consumo = $consumo->id_consumo;
+            $consumoEstanque->id_estanque = $estanque->id_estanque;
+            $consumoEstanque->litros_desde_estanque = $litrosConsumidos;
+            
+            // Calcular mediciones inicial y final basadas en el stock
+            $medicionInicial = null;
+            $medicionFinal = null;
+            if ($estanque->altura_nominal && $estanque->capacidad && $estanque->capacidad > 0) {
+                $medicionInicial = ($stockInicial / $estanque->capacidad) * $estanque->altura_nominal;
+                $medicionFinal = ($stockFinal / $estanque->capacidad) * $estanque->altura_nominal;
+            }
+            
+            $consumoEstanque->medicion_inicial = $medicionInicial;
+            $consumoEstanque->medicion_final = $medicionFinal;
+            $consumoEstanque->stock_inicial_estanque = $stockInicial;
+            $consumoEstanque->stock_final_estanque = $stockFinal;
+            $consumoEstanque->save();
+
+            Log::info("📝 Detalle de consumo simple registrado en consumo_estanques:", [
+                'id_consumo_estanque' => $consumoEstanque->id_consumo_estanque,
+                'litros_desde_estanque' => $litrosConsumidos
+            ]);
+
+            // Actualizar stock del estanque
+            $estanque->stock->stock_actual = $stockFinal;
+            if ($estanque->altura_nominal && $estanque->capacidad && $estanque->capacidad > 0) {
+                $estanque->stock->altura_actual = $medicionFinal;
+            }
+            $estanque->stock->ultima_medicion = $fechaConsumo;
+            $estanque->stock->save();
+
+            // Registrar movimiento
+            $movimiento = new MovimientoPetroleo();
+            $movimiento->id_faena = $idFaena;
+            $movimiento->tipo_movimiento = 'consumo';
+            $movimiento->id_referencia = $consumo->id_consumo;
+            $movimiento->cantidad = -$litrosConsumidos;
+            $movimiento->stock_anterior = $stockInicial;
+            $movimiento->stock_actual = $stockFinal;
+            $movimiento->id_usuario = $request->id_usuario;
+            $movimiento->metadata = json_encode([
+                'id_estanque' => $estanque->id_estanque,
+                'nombre_estanque' => $estanque->nombre,
+                'id_grupo_operacion' => $idGrupoOperacion,
+                'tipo_operacion' => 'consumo_simple',
+                'es_consumo_multiple' => false,
+                'id_consumo_estanque' => $consumoEstanque->id_consumo_estanque
+            ]);
+            $movimiento->save();
+
+            $estanquesAfectados[] = [
+                'id_estanque' => $estanque->id_estanque,
+                'nombre_estanque' => $estanque->nombre,
+                'litros_extraidos' => $litrosConsumidos,
+                'stock_anterior' => $stockInicial,
+                'stock_actual' => $stockFinal,
+                'id_consumo_estanque' => $consumoEstanque->id_consumo_estanque
+            ];
+
+            $movimientos[] = $movimiento->id_movimiento;
+
+            Log::info('✅ Consumo simple procesado exitosamente:', [
+                'stock_final' => $stockFinal,
+                'diferencia' => $stockInicial - $stockFinal,
+                'registro_detalle_creado' => $consumoEstanque->id_consumo_estanque
+            ]);
         }
+
+        // Actualizar stock total de la faena
+        $nuevoStockTotal = EstanqueStock::whereHas('estanque', fn($q) => $q->where('id_faena', $idFaena))
+            ->sum('stock_actual');
+
+        $stockPetroleo = StockPetroleo::firstOrNew(['id_faena' => $idFaena]);
+        $stockPetroleo->stock_actual = $nuevoStockTotal;
+        $stockPetroleo->ultima_actualizacion = $fechaConsumo;
+        $stockPetroleo->save();
+
+        DB::commit();
+
+        Log::info('🎉 Transacción completada exitosamente:', [
+            'id_consumo' => $consumo->id_consumo,
+            'tipo_consumo' => $tipoConsumo,
+            'estanques_afectados' => count($estanquesAfectados),
+            'stock_total_faena' => $nuevoStockTotal,
+            'registros_detalle' => count($estanquesAfectados),
+            'movimientos_creados' => count($movimientos)
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => $esMultiple ? 
+                'Consumo múltiple registrado correctamente' : 
+                'Consumo simple registrado correctamente',
+            'data' => [
+                'id_consumo' => $consumo->id_consumo,
+                'fecha_consumo' => $consumo->fecha_consumo->format('Y-m-d H:i:s'),
+                'fecha_consumo_formateada' => $consumo->fecha_consumo->format('d/m/Y H:i'),
+                'id_grupo_operacion' => $idGrupoOperacion,
+                'tipo_consumo' => $tipoConsumo,
+                'litros_totales' => $litrosConsumidos,
+                'estanques_afectados' => $estanquesAfectados,
+                'stock_total_faena' => $nuevoStockTotal,
+                'registros_detalle_creados' => count($estanquesAfectados),
+                'movimientos_creados' => count($movimientos)
+            ]
+        ], 201);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Error en storeMultiEstanque', [
+            'exception' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'request_data' => $request->all()
+        ]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Error al registrar el consumo: ' . $e->getMessage(),
+            'debug_info' => [
+                'litros_consumidos' => $request->litros_consumidos ?? 'no definido',
+                'id_faena' => $request->id_faena ?? 'no definido',
+                'tipo_detectado' => isset($tipoConsumo) ? $tipoConsumo : 'no detectado',
+                'es_multiple' => isset($esMultiple) ? $esMultiple : 'no definido'
+            ]
+        ], 500);
     }
+}
 
     /**
      * Obtener consumos recientes
