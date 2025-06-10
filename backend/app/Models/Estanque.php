@@ -16,11 +16,11 @@ class Estanque extends Model
 
     protected $fillable = [
         'nombre',
+        'tipo_estanque',
+        'capacidad',
+        'altura_nominal',
         'id_faena',
-        'capacidad_litros',
-        'litros_disponibles',
-        'estado',
-        'descripcion',
+        'activo'
     ];
 
     // Relación con faena

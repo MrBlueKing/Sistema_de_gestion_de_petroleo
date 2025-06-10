@@ -225,13 +225,12 @@ const ModalExitoRecepcion = ({ isOpen, onConfirm, datosRecepcion }) => {
                 <div className="flex justify-between">
                   <span className="text-orange-700 text-sm">Diferencia:</span>
                   <span
-                    className={`font-bold ${
-                      esDiferenciaSignificativa
-                        ? esExcedente
-                          ? "text-green-600"
-                          : "text-red-600"
-                        : "text-gray-600"
-                    }`}
+                    className={`font-bold ${esDiferenciaSignificativa
+                      ? esExcedente
+                        ? "text-green-600"
+                        : "text-red-600"
+                      : "text-gray-600"
+                      }`}
                   >
                     {formatNumberWithSeparators(diferenciaMagnitud)} L
                     <span className="text-xs ml-1">
@@ -284,7 +283,7 @@ const ModalExitoRecepcion = ({ isOpen, onConfirm, datosRecepcion }) => {
                   ✓ Completado
                 </span>
               </div>
-              
+
             </div>
           </div>
         </div>
@@ -392,17 +391,17 @@ const FormRecepcion = () => {
   const handleLitrosRecibidosBlur = (value) => {
     // Marcar el campo como tocado
     handleBlur("litrosRecibidos");
-    
+
     // Si ya hay cálculos realizados y el valor ha cambiado, mostrar modal
     if (calculoPetroleo.calculoRealizado) {
       // Guardar el valor original antes del cambio si no existe
       if (!valorOriginalLitros) {
         setValorOriginalLitros(formData.litrosRecibidos);
       }
-      
+
       const valorActual = parseFloat(valorOriginalLitros || formData.litrosRecibidos) || 0;
       const nuevoValor = parseFloat(value) || 0;
-      
+
       // Solo mostrar modal si el valor realmente cambió
       if (Math.abs(valorActual - nuevoValor) > 0.01) {
         setNuevoValorLitros(value);
@@ -418,12 +417,12 @@ const FormRecepcion = () => {
       ...prev,
       litrosRecibidos: valorOriginalLitros,
     }));
-    
+
     // Limpiar estados del modal
     setShowModalActualizacion(false);
     setNuevoValorLitros("");
     setValorOriginalLitros("");
-    
+
     // Mostrar mensaje informativo
     mostrarAlerta(
       "info",
@@ -515,19 +514,21 @@ const FormRecepcion = () => {
   }, [distribucionLitros, formData.litrosRecibidos]);
 
   // Función para cargar los estanques de una faena
+  // Función para cargar los estanques de una faena
   const cargarEstanques = async (idFaena) => {
     try {
       const token = JSON.parse(localStorage.getItem("authToken"))?.token;
-      const response = await axios.get(`/api/estanques/${idFaena}`, {
+      // 👇 CAMBIO AQUÍ: Nueva ruta que filtra solo estanques fijos
+      const response = await axios.get(`/api/estanques-fijo/${idFaena}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      // Guardar datos de los estanques
+      // Guardar datos de los estanques (la estructura de response.data.data se mantiene igual)
       setEstanques(response.data.data);
 
-      // Inicializar el estado de alturas con los estanques cargados
+      // El resto del código permanece igual...
       const initialAlturas = {};
       const initialDistribucion = {};
       response.data.data.forEach((estanque) => {
@@ -541,7 +542,7 @@ const FormRecepcion = () => {
       setDistribucionLitros(initialDistribucion);
     } catch (error) {
       console.error("Error al cargar estanques:", error);
-      mostrarAlerta("error", "Error al cargar los estanques de la faena.");
+      mostrarAlerta("error", "Error al cargar los estanques fijos de la faena.");
     }
   };
 
@@ -784,7 +785,7 @@ const FormRecepcion = () => {
       if (!responseInicial.data.success) {
         throw new Error(
           responseInicial.data.message ||
-            "Error al calcular los litros iniciales"
+          "Error al calcular los litros iniciales"
         );
       }
 
@@ -924,11 +925,10 @@ const FormRecepcion = () => {
 
     return `Según cálculo de alturas, se detecta una diferencia de ${formatNumber(
       Math.abs(diferencia)
-    )} litros ${
-      diferencia > 0 ? "de más" : "de menos"
-    } en la recepción. Litros según guía: ${formatNumber(
-      litrosGuia
-    )}. Litros calculados: ${formatNumber(litrosIngresados)}.`;
+    )} litros ${diferencia > 0 ? "de más" : "de menos"
+      } en la recepción. Litros según guía: ${formatNumber(
+        litrosGuia
+      )}. Litros calculados: ${formatNumber(litrosIngresados)}.`;
   };
 
   // Verificar si hay alturas vacías
@@ -1065,11 +1065,12 @@ const FormRecepcion = () => {
         recibo_conforme: true,
         observacion: formData.observacion,
         id_faena: formData.id_faena,
-        diferencia: diferencia, // Usar la nueva diferencia
+        diferencia: diferencia,
         stock_inicial: stockInicial,
-        alturas_estanques: alturas,
-        // Agregar distribución
+        // 🆕 ENVIAR DISTRIBUCIÓN DE LITROS
         distribucion_litros: distribucionLitros,
+        // Modificar formato de alturas para incluir el tipo
+        alturas_estanques: prepararDatosAlturasConTipo(),
       };
 
       // Obtener el token de autenticación
@@ -1102,6 +1103,37 @@ const FormRecepcion = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Y agregar esta nueva función para preparar las alturas con tipo:
+  const prepararDatosAlturasConTipo = () => {
+    const alturas = [];
+
+    Object.keys(alturasEstanques).forEach((idEstanque) => {
+      const datos = alturasEstanques[idEstanque];
+
+      if (datos && typeof datos === "object") {
+        // Agregar altura inicial
+        if (datos.inicial !== undefined && datos.inicial !== "") {
+          alturas.push({
+            id_estanque: parseInt(idEstanque),
+            altura: parseFloat(datos.inicial),
+            tipo: "inicial",
+          });
+        }
+
+        // Agregar altura final
+        if (datos.final !== undefined && datos.final !== "") {
+          alturas.push({
+            id_estanque: parseInt(idEstanque),
+            altura: parseFloat(datos.final),
+            tipo: "final",
+          });
+        }
+      }
+    });
+
+    return alturas;
   };
 
   // Función para resetear el formulario
@@ -1167,13 +1199,12 @@ const FormRecepcion = () => {
         {/* Mostrar alertas */}
         {alert.show && (
           <div
-            className={`flex items-center p-3 rounded-lg ${
-              alert.type === "success"
-                ? "bg-green-100 text-green-800 border-l-4 border-green-500"
-                : alert.type === "info"
+            className={`flex items-center p-3 rounded-lg ${alert.type === "success"
+              ? "bg-green-100 text-green-800 border-l-4 border-green-500"
+              : alert.type === "info"
                 ? "bg-blue-100 text-blue-800 border-l-4 border-blue-500"
                 : "bg-red-100 text-red-800 border-l-4 border-red-500"
-            }`}
+              }`}
           >
             {alert.type === "error" && (
               <FaExclamationTriangle className="mr-2" />
@@ -1186,7 +1217,7 @@ const FormRecepcion = () => {
         <h2 className="text-xl font-semibold text-gray-700 border-b pb-2 mb-2">
           Registro de Recepción de Petróleo
         </h2>
-       
+
 
         {/* Panel de distribución si existe */}
         {Object.values(distribucionLitros).some(valor => parseFloat(valor) > 0) && (
@@ -1211,9 +1242,8 @@ const FormRecepcion = () => {
                 </div>
               </div>
               <div className="flex items-center text-blue-600">
-                <div className={`w-3 h-3 rounded-full mr-2 ${
-                  validarDistribucion().valido ? 'bg-green-500' : 'bg-amber-500'
-                }`}></div>
+                <div className={`w-3 h-3 rounded-full mr-2 ${validarDistribucion().valido ? 'bg-green-500' : 'bg-amber-500'
+                  }`}></div>
                 <span className="text-sm font-medium">
                   {validarDistribucion().valido ? 'Válida' : 'Requiere ajuste'}
                 </span>
@@ -1232,9 +1262,8 @@ const FormRecepcion = () => {
               value={formData.numeroGuia}
               onChange={(e) => handleChange("numeroGuia", e.target.value)}
               onBlur={() => handleBlur("numeroGuia")}
-              className={`bg-white rounded-md text-gray-800 ${
-                errors.numeroGuia ? "border-red-500" : "border-gray-300"
-              }`}
+              className={`bg-white rounded-md text-gray-800 ${errors.numeroGuia ? "border-red-500" : "border-gray-300"
+                }`}
             />
             {errors.numeroGuia && (
               <span className="text-red-500 text-xs mt-1">
@@ -1247,26 +1276,25 @@ const FormRecepcion = () => {
           <div className="flex flex-col">
             <label className="text-sm font-medium text-gray-600 mb-1 flex items-center">
               Litros Recibidos *
-                          </label>
+            </label>
             <div className="relative">
               <InputField
                 placeholder="Ingrese cantidad de litros"
                 type="number"
                 value={formData.litrosRecibidos}
                 onChange={(e) => handleLitrosRecibidosChange(e.target.value)}
-                  className={`bg-white rounded-md text-gray-800 ${
-                  errors.litrosRecibidos ? "border-red-500" : "border-gray-300"
-                }`}
-                
+                className={`bg-white rounded-md text-gray-800 ${errors.litrosRecibidos ? "border-red-500" : "border-gray-300"
+                  }`}
+
               />
-              
+
             </div>
             {errors.litrosRecibidos && (
               <span className="text-red-500 text-xs mt-1">
                 {errors.litrosRecibidos}
               </span>
             )}
-            
+
           </div>
 
           <div className="flex flex-col">
@@ -1279,9 +1307,8 @@ const FormRecepcion = () => {
               value={formData.precio}
               onChange={(e) => handleChange("precio", e.target.value)}
               onBlur={() => handleBlur("precio")}
-              className={`bg-white rounded-md text-gray-800 ${
-                errors.precio ? "border-red-500" : "border-gray-300"
-              }`}
+              className={`bg-white rounded-md text-gray-800 ${errors.precio ? "border-red-500" : "border-gray-300"
+                }`}
             />
             {errors.precio && (
               <span className="text-red-500 text-xs mt-1">{errors.precio}</span>
@@ -1347,23 +1374,21 @@ const FormRecepcion = () => {
         {/* RESULTADO DEL CÁLCULO CON ACTUALIZACIÓN AUTOMÁTICA */}
         {calculoPetroleo.calculoRealizado && (
           <div
-            className={`p-4 rounded-lg text-center border mt-2 transition-all duration-300 ${
-              Math.abs(calculoPetroleo.diferencia) <= 0.5
-                ? "bg-gray-50 border-gray-200" // Diferencia mínima
-                : calculoPetroleo.diferencia > 0
+            className={`p-4 rounded-lg text-center border mt-2 transition-all duration-300 ${Math.abs(calculoPetroleo.diferencia) <= 0.5
+              ? "bg-gray-50 border-gray-200" // Diferencia mínima
+              : calculoPetroleo.diferencia > 0
                 ? "bg-green-50 border-green-200" // Excedente - VERDE
                 : "bg-red-50 border-red-200" // Faltante - ROJO
-            }`}
+              }`}
           >
             <div className="flex items-center justify-center mb-3">
               <p
-                className={`text-sm font-medium ${
-                  Math.abs(calculoPetroleo.diferencia) <= 0.5
-                    ? "text-gray-600" // Diferencia mínima
-                    : calculoPetroleo.diferencia > 0
+                className={`text-sm font-medium ${Math.abs(calculoPetroleo.diferencia) <= 0.5
+                  ? "text-gray-600" // Diferencia mínima
+                  : calculoPetroleo.diferencia > 0
                     ? "text-green-600" // Excedente - VERDE
                     : "text-red-600" // Faltante - ROJO
-                }`}
+                  }`}
               >
                 Resultado del cálculo:
               </p>
@@ -1392,13 +1417,12 @@ const FormRecepcion = () => {
                 <p className="flex justify-between items-center">
                   <span>Diferencia:</span>
                   <span
-                    className={`font-bold text-lg ${
-                      Math.abs(calculoPetroleo.diferencia) <= 0.5
-                        ? "text-gray-600" // Diferencia mínima
-                        : calculoPetroleo.diferencia > 0
+                    className={`font-bold text-lg ${Math.abs(calculoPetroleo.diferencia) <= 0.5
+                      ? "text-gray-600" // Diferencia mínima
+                      : calculoPetroleo.diferencia > 0
                         ? "text-green-600" // Excedente - VERDE
                         : "text-red-600" // Faltante - ROJO
-                    }`}
+                      }`}
                   >
                     {formatNumberWithSeparators(
                       Math.abs(calculoPetroleo.diferencia)
@@ -1446,9 +1470,8 @@ const FormRecepcion = () => {
             color="orange"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className={`bg-orange-600 hover:bg-orange-700 text-white text-sm px-6 py-3 sm:py-2 rounded-md w-full sm:w-auto sm:ml-auto ${
-              isSubmitting ? "opacity-70 cursor-wait" : ""
-            }`}
+            className={`bg-orange-600 hover:bg-orange-700 text-white text-sm px-6 py-3 sm:py-2 rounded-md w-full sm:w-auto sm:ml-auto ${isSubmitting ? "opacity-70 cursor-wait" : ""
+              }`}
           />
         </div>
 

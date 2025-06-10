@@ -7,6 +7,8 @@ use App\Models\Estanque;
 use App\Models\EstanqueStock;
 use App\Models\IngresoPetroleo;
 use App\Models\StockPetroleo;
+use App\Models\Trasvasije;
+use App\Models\TrasvasijeDestino;
 use App\Models\VerificacionAltura;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -48,45 +50,21 @@ class IngresoPetroleoController extends Controller
             'recibo_conforme' => 'required|boolean',
             'observacion' => 'nullable|string|max:255',
             'id_faena' => 'required|exists:faenas,id_faena',
-            'stock_inicial' => 'required|numeric|min:0', // Stock inicial TOTAL
+            'stock_inicial' => 'required|numeric|min:0',
             'diferencia' => 'required|numeric',
             'alturas_estanques' => 'required|array',
             'alturas_estanques.*.id_estanque' => 'required|exists:estanques,id_estanque',
-            'alturas_estanques.*.altura' => 'required|numeric|min:0'
+            'alturas_estanques.*.altura' => 'required|numeric|min:0',
+            'alturas_estanques.*.tipo' => 'required|in:inicial,final',
+            // 🆕 NUEVA VALIDACIÓN PARA DISTRIBUCIÓN
+            'distribucion_litros' => 'sometimes|array',
         ]);
 
         try {
-            // Iniciar transacción para garantizar consistencia
             DB::beginTransaction();
 
             $idFaena = $request->id_faena;
             $litrosRecibidos = $request->litros_recibidos;
-
-            // Obtener estanques y calcular capacidad disponible
-            $estanques = Estanque::where('id_faena', $idFaena)->get();
-            $capacidadTotal = 0;
-            $stockActual = 0;
-
-            foreach ($estanques as $estanque) {
-                $capacidadTotal += $estanque->capacidad;
-
-                // Obtener el stock actual de este estanque
-                $estanqueStock = EstanqueStock::where('id_estanque', $estanque->id_estanque)->first();
-                if ($estanqueStock) {
-                    $stockActual += $estanqueStock->stock_actual;
-                }
-            }
-
-            $capacidadDisponible = $capacidadTotal - $stockActual;
-
-            // Validación de capacidad disponible
-            // if ($litrosRecibidos > $capacidadDisponible) {
-            //    DB::rollBack();
-            //return response()->json([
-            //                    'success' => false,
-            //                  'message' => "No hay suficiente capacidad disponible en los estanques. Capacidad disponible: {$capacidadDisponible} litros."
-            //            ], 400);
-            //      }
 
             // Crear el registro de ingreso
             $ingreso = new IngresoPetroleo();
@@ -100,61 +78,84 @@ class IngresoPetroleoController extends Controller
             $ingreso->recibo_conforme = $request->recibo_conforme;
             $ingreso->observacion = $request->observacion;
             $ingreso->diferencia = $request->diferencia;
-            $ingreso->stock_inicial = $request->stock_inicial; // Stock inicial TOTAL
+            $ingreso->stock_inicial = $request->stock_inicial;
             $ingreso->save();
 
-            // Validar y guardar las verificaciones de altura
-            if ($request->has('alturas_estanques') && is_array($request->alturas_estanques)) {
-                foreach ($request->alturas_estanques as $altura) {
-                    $idEstanque = $altura['id_estanque'];
-                    $alturaMedida = $altura['altura'];
+            // 🆕 OBTENER DISTRIBUCIÓN DE LITROS
+            $distribucionLitros = $request->input('distribucion_litros', []);
 
-                    // Obtener información del estanque
-                    $estanque = Estanque::find($idEstanque);
+            // Agrupar alturas por estanque y tipo
+            $alturasPorEstanque = [];
+            foreach ($request->alturas_estanques as $altura) {
+                $idEstanque = $altura['id_estanque'];
+                $tipo = $altura['tipo'];
 
-                    // 🔍 OBTENER EL STOCK INICIAL DE ESTE ESTANQUE ESPECÍFICO
-                    $estanqueStock = EstanqueStock::where('id_estanque', $idEstanque)->first();
-                    $stockInicialEstanque = $estanqueStock ? $estanqueStock->stock_actual : 0;
+                if (!isset($alturasPorEstanque[$idEstanque])) {
+                    $alturasPorEstanque[$idEstanque] = [];
+                }
 
-                    // Calcular volumen
-                    $volumenCalculado = ($alturaMedida / $estanque->altura_nominal) * $estanque->capacidad;
+                $alturasPorEstanque[$idEstanque][$tipo] = $altura['altura'];
+            }
 
-                    // Verificar que el nuevo volumen no exceda la capacidad del estanque
-                    if ($volumenCalculado > $estanque->capacidad) {
-                        DB::rollBack();
-                        return response()->json([
-                            'success' => false,
-                            'message' => "El estanque '{$estanque->nombre}' excedería su capacidad máxima con esta altura"
-                        ], 400);
-                    }
+            // Procesar cada estanque
+            foreach ($alturasPorEstanque as $idEstanque => $alturas) {
+                $estanque = Estanque::find($idEstanque);
 
-                    // Guardar verificación de altura CON EL STOCK INICIAL DEL ESTANQUE
-                    $verificacion = new VerificacionAltura();
-                    $verificacion->id_estanque = $idEstanque;
-                    $verificacion->id_ingreso = $ingreso->id_ingreso;
-                    $verificacion->altura_medicion = $alturaMedida;
-                    $verificacion->volumen_calculado = $volumenCalculado;
-                    $verificacion->stock_inicial = $stockInicialEstanque; // 👈 STOCK INICIAL DE ESTE ESTANQUE ESPECÍFICO
-                    $verificacion->verificado = true;
-                    $verificacion->save();
+                // 🆕 OBTENER LITROS ASIGNADOS A ESTE ESTANQUE
+                $litrosAsignados = isset($distribucionLitros[$idEstanque])
+                    ? floatval($distribucionLitros[$idEstanque])
+                    : 0;
 
-                    // Log para verificar que se está guardando correctamente
-                    Log::info('Verificación de altura guardada', [
+                // Obtener stock inicial del estanque
+                $estanqueStock = EstanqueStock::where('id_estanque', $idEstanque)->first();
+                $stockInicialEstanque = $estanqueStock ? $estanqueStock->stock_actual : 0;
+
+                // 1️⃣ PRIMER REGISTRO: Estado INICIAL
+                if (isset($alturas['inicial'])) {
+                    $alturaMedidaInicial = $alturas['inicial'];
+                    $volumenCalculadoInicial = ($alturaMedidaInicial / $estanque->altura_nominal) * $estanque->capacidad;
+
+                    $verificacionInicial = new VerificacionAltura();
+                    $verificacionInicial->id_estanque = $idEstanque;
+                    $verificacionInicial->id_ingreso = $ingreso->id_ingreso;
+                    $verificacionInicial->altura_medicion = $alturaMedidaInicial;
+                    $verificacionInicial->volumen_calculado = $volumenCalculadoInicial;
+                    $verificacionInicial->stock_inicial = $stockInicialEstanque; // 👈 STOCK INICIAL REAL
+                    $verificacionInicial->verificado = true;
+                    $verificacionInicial->save();
+
+                    Log::info('Verificación INICIAL guardada', [
                         'id_estanque' => $idEstanque,
-                        'nombre_estanque' => $estanque->nombre,
                         'stock_inicial_estanque' => $stockInicialEstanque,
-                        'altura_medicion' => $alturaMedida,
-                        'volumen_calculado' => $volumenCalculado
+                        'altura_inicial' => $alturaMedidaInicial,
+                        'volumen_inicial' => $volumenCalculadoInicial
+                    ]);
+                }
+
+                // 2️⃣ SEGUNDO REGISTRO: Estado FINAL
+                if (isset($alturas['final'])) {
+                    $alturaMedidaFinal = $alturas['final'];
+                    $volumenCalculadoFinal = ($alturaMedidaFinal / $estanque->altura_nominal) * $estanque->capacidad;
+
+                    $verificacionFinal = new VerificacionAltura();
+                    $verificacionFinal->id_estanque = $idEstanque;
+                    $verificacionFinal->id_ingreso = $ingreso->id_ingreso;
+                    $verificacionFinal->altura_medicion = $alturaMedidaFinal;
+                    $verificacionFinal->volumen_calculado = $volumenCalculadoFinal;
+                    // 🎯 AQUÍ ES DONDE GUARDAMOS LOS LITROS INGRESADOS
+                    $verificacionFinal->stock_inicial = $litrosAsignados; // 👈 LITROS INGRESADOS A ESTE ESTANQUE
+                    $verificacionFinal->verificado = true;
+                    $verificacionFinal->save();
+
+                    Log::info('Verificación FINAL guardada', [
+                        'id_estanque' => $idEstanque,
+                        'litros_ingresados' => $litrosAsignados, // 👈 ESTO SE GUARDA EN stock_inicial
+                        'altura_final' => $alturaMedidaFinal,
+                        'volumen_final' => $volumenCalculadoFinal
                     ]);
 
-                    // Actualizar estanque si tiene el campo litros_disponibles
-                    if (isset($estanque->litros_disponibles)) {
-                        $estanque->litros_disponibles += $volumenCalculado;
-                        $estanque->save();
-                    }
-
-                    // Actualizar stock_actual en estanque_stock usando la función
-                    $this->actualizarStock($idEstanque, $request->id_faena, $volumenCalculado, $alturaMedida);
+                    // Actualizar stock del estanque usando la función existente
+                    $this->actualizarStock($idEstanque, $request->id_faena, $litrosAsignados, $alturaMedidaFinal);
                 }
             }
 
@@ -176,6 +177,303 @@ class IngresoPetroleoController extends Controller
         }
     }
 
+    // CASO 1: RECEPCIÓN TRADICIONAL (Copec → Estanques fijos)
+    public function storeRecepcionFijos(Request $request)
+    {
+        Log::info('Recepción a estanques fijos', $request->all());
+
+        $request->validate([
+            'id_usuario' => 'required|exists:users,id',
+            'numero_guia' => 'required|string',
+            'litros_documentados' => 'required|numeric|min:0',
+            'litros_recibidos' => 'required|numeric|min:0',
+            'precio' => 'required|numeric|min:0',
+            'precio_total' => 'required|numeric|min:0',
+            'recibo_conforme' => 'required|boolean',
+            'observacion' => 'nullable|string|max:255',
+            'id_faena' => 'required|exists:faenas,id_faena',
+            'stock_inicial' => 'required|numeric|min:0',
+            'diferencia' => 'required|numeric',
+            'alturas_estanques' => 'required|array',
+            'alturas_estanques.*.id_estanque' => 'required|exists:estanques,id_estanque',
+            'alturas_estanques.*.altura' => 'required|numeric|min:0'
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            // Crear ingreso con tipo estanques_fijos
+            $ingreso = new IngresoPetroleo();
+            $ingreso->id_usuario = $request->id_usuario;
+            $ingreso->id_faena = $request->id_faena;
+            $ingreso->numero_guia = $request->numero_guia;
+            $ingreso->tipo_recepcion = 'estanques_fijos'; // ← NUEVO
+            $ingreso->id_estanque_movil = null; // ← NUEVO
+            $ingreso->litros_documentados = $request->litros_documentados;
+            $ingreso->litros_recibidos = $request->litros_recibidos;
+            $ingreso->precio = $request->precio;
+            $ingreso->precio_total = $request->precio_total;
+            $ingreso->recibo_conforme = $request->recibo_conforme;
+            $ingreso->observacion = $request->observacion;
+            $ingreso->diferencia = $request->diferencia;
+            $ingreso->stock_inicial = $request->stock_inicial;
+            $ingreso->save();
+
+            // Procesar alturas (igual que antes)
+            if ($request->has('alturas_estanques') && is_array($request->alturas_estanques)) {
+                foreach ($request->alturas_estanques as $altura) {
+                    $idEstanque = $altura['id_estanque'];
+                    $alturaMedida = $altura['altura'];
+
+                    $estanque = Estanque::find($idEstanque);
+                    $estanqueStock = EstanqueStock::where('id_estanque', $idEstanque)->first();
+                    $stockInicialEstanque = $estanqueStock ? $estanqueStock->stock_actual : 0;
+
+                    $volumenCalculado = ($alturaMedida / $estanque->altura_nominal) * $estanque->capacidad;
+
+                    if ($volumenCalculado > $estanque->capacidad) {
+                        DB::rollBack();
+                        return response()->json([
+                            'success' => false,
+                            'message' => "El estanque '{$estanque->nombre}' excedería su capacidad máxima"
+                        ], 400);
+                    }
+
+                    // Guardar verificación
+                    $verificacion = new VerificacionAltura();
+                    $verificacion->id_estanque = $idEstanque;
+                    $verificacion->id_ingreso = $ingreso->id_ingreso;
+                    $verificacion->altura_medicion = $alturaMedida;
+                    $verificacion->volumen_calculado = $volumenCalculado;
+                    $verificacion->stock_inicial = $stockInicialEstanque;
+                    $verificacion->verificado = true;
+                    $verificacion->save();
+
+                    // Actualizar stock
+                    $this->actualizarStock($idEstanque, $request->id_faena, $volumenCalculado, $alturaMedida);
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'data' => $ingreso,
+                'message' => 'Recepción a estanques fijos registrada correctamente.'
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error en recepción fijos', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al registrar recepción: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // CASO 2: RECEPCIÓN A ESTANQUE MÓVIL (Copec → Estanque móvil)
+    public function storeRecepcionMovil(Request $request)
+    {
+        Log::info('Recepción a estanque móvil', $request->all());
+
+        $request->validate([
+            'id_usuario' => 'required|exists:users,id',
+            'numero_guia' => 'required|string',
+            'litros_documentados' => 'required|numeric|min:0',
+            'litros_recibidos' => 'required|numeric|min:0',
+            'precio' => 'required|numeric|min:0',
+            'precio_total' => 'required|numeric|min:0',
+            'recibo_conforme' => 'required|boolean',
+            'observacion' => 'nullable|string|max:255',
+            'id_faena' => 'required|exists:faenas,id_faena',
+            'id_estanque_movil' => 'required|exists:estanques,id_estanque',
+            'altura_final' => 'nullable|numeric|min:0'
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            // Validar que sea estanque móvil
+            $estanqueMovil = Estanque::find($request->id_estanque_movil);
+            if ($estanqueMovil->tipo_estanque !== 'movil') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El estanque seleccionado no es de tipo móvil'
+                ], 400);
+            }
+
+            // Obtener stock inicial del estanque móvil (ANTES de la recepción)
+            $estanqueStock = EstanqueStock::where('id_estanque', $request->id_estanque_movil)->first();
+            $stockInicialMovil = $estanqueStock ? $estanqueStock->stock_actual : 0;
+
+            // Crear ingreso con tipo estanque_movil
+            $ingreso = new IngresoPetroleo();
+            $ingreso->id_usuario = $request->id_usuario;
+            $ingreso->id_faena = $request->id_faena;
+            $ingreso->numero_guia = $request->numero_guia;
+            $ingreso->tipo_recepcion = 'estanque_movil'; // ← NUEVO
+            $ingreso->id_estanque_movil = $request->id_estanque_movil; // ← NUEVO
+            $ingreso->litros_documentados = $request->litros_documentados;
+            $ingreso->litros_recibidos = $request->litros_recibidos;
+            $ingreso->precio = $request->precio;
+            $ingreso->precio_total = $request->precio_total;
+            $ingreso->recibo_conforme = $request->recibo_conforme;
+            $ingreso->observacion = $request->observacion;
+            $ingreso->diferencia = $request->litros_documentados - $request->litros_recibidos;
+            $ingreso->stock_inicial = $stockInicialMovil; // ← Stock del estanque móvil antes de la recepción
+            $ingreso->save();
+
+            // Actualizar estanque móvil (sin usar altura para evitar división por cero)
+            // Para estanques móviles usamos suma directa de litros
+            $this->actualizarStock($request->id_estanque_movil, $request->id_faena, $request->litros_recibidos);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'data' => $ingreso,
+                'message' => 'Recepción a estanque móvil registrada correctamente.',
+                'stock_inicial_movil' => $stockInicialMovil,
+                'stock_final_movil' => $stockInicialMovil + $request->litros_recibidos
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error en recepción móvil', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al registrar recepción móvil: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // CASO 3: TRASVASIJE (Estanque móvil → Estanques fijos)
+    public function storeTrasvasije(Request $request)
+    {
+        Log::info('Trasvasije de estanque móvil', $request->all());
+
+        $request->validate([
+            'id_usuario' => 'required|exists:users,id',
+            'id_estanque_origen' => 'required|exists:estanques,id_estanque',
+            'litros_total_trasvasije' => 'required|numeric|min:0',
+            'observaciones' => 'nullable|string|max:255',
+            'id_faena' => 'required|exists:faenas,id_faena',
+            'medicion_inicial_origen' => 'nullable|numeric|min:0',
+            'medicion_final_origen' => 'nullable|numeric|min:0',
+            'destinos' => 'required|array|min:1',
+            'destinos.*.id_estanque_destino' => 'required|exists:estanques,id_estanque',
+            'destinos.*.litros_hacia_destino' => 'required|numeric|min:0',
+            'destinos.*.medicion_inicial_destino' => 'nullable|numeric|min:0',
+            'destinos.*.medicion_final_destino' => 'nullable|numeric|min:0'
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            // Validar estanque origen es móvil
+            $estanqueOrigen = Estanque::find($request->id_estanque_origen);
+            if ($estanqueOrigen->tipo_estanque !== 'movil') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El estanque origen debe ser de tipo móvil'
+                ], 400);
+            }
+
+            // Validar estanques destino son fijos
+            foreach ($request->destinos as $destino) {
+                $estanqueDestino = Estanque::find($destino['id_estanque_destino']);
+                if ($estanqueDestino->tipo_estanque !== 'fijo') {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "El estanque destino '{$estanqueDestino->nombre}' debe ser de tipo fijo"
+                    ], 400);
+                }
+            }
+
+            // Validar que la suma de destinos = total trasvasije
+            $sumaDestinos = collect($request->destinos)->sum('litros_hacia_destino');
+            if (abs($sumaDestinos - $request->litros_total_trasvasije) > 0.01) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "La suma de litros hacia destinos ({$sumaDestinos}) no coincide con el total a trasvasijar ({$request->litros_total_trasvasije})"
+                ], 400);
+            }
+
+            // Obtener stock inicial del origen
+            $stockOrigenAntes = EstanqueStock::where('id_estanque', $request->id_estanque_origen)->first();
+            $stockInicialOrigen = $stockOrigenAntes ? $stockOrigenAntes->stock_actual : 0;
+
+            // Validar stock suficiente
+            if ($stockInicialOrigen < $request->litros_total_trasvasije) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Stock insuficiente en estanque origen. Disponible: {$stockInicialOrigen}L"
+                ], 400);
+            }
+
+            // Crear registro de trasvasije
+            $trasvasije = new Trasvasije();
+            $trasvasije->id_usuario = $request->id_usuario;
+            $trasvasije->id_estanque_origen = $request->id_estanque_origen;
+            $trasvasije->fecha_trasvasije = now();
+            $trasvasije->litros_total_trasvasije = $request->litros_total_trasvasije;
+            $trasvasije->stock_inicial_origen = $stockInicialOrigen;
+            $trasvasije->stock_final_origen = $stockInicialOrigen - $request->litros_total_trasvasije;
+            $trasvasije->medicion_inicial_origen = $request->medicion_inicial_origen;
+            $trasvasije->medicion_final_origen = $request->medicion_final_origen;
+            $trasvasije->observaciones = $request->observaciones;
+            $trasvasije->id_faena = $request->id_faena;
+            $trasvasije->save();
+
+            // Procesar cada destino
+            foreach ($request->destinos as $destino) {
+                $idEstanqueDestino = $destino['id_estanque_destino'];
+                $litrosHaciaDestino = $destino['litros_hacia_destino'];
+
+                // Obtener stock inicial del destino
+                $stockDestinoAntes = EstanqueStock::where('id_estanque', $idEstanqueDestino)->first();
+                $stockInicialDestino = $stockDestinoAntes ? $stockDestinoAntes->stock_actual : 0;
+
+                // Crear registro detalle
+                $trasvasijeDestino = new TrasvasijeDestino();
+                $trasvasijeDestino->id_trasvasije = $trasvasije->id_trasvasije;
+                $trasvasijeDestino->id_estanque_destino = $idEstanqueDestino;
+                $trasvasijeDestino->litros_hacia_destino = $litrosHaciaDestino;
+                $trasvasijeDestino->stock_inicial_destino = $stockInicialDestino;
+                $trasvasijeDestino->stock_final_destino = $stockInicialDestino + $litrosHaciaDestino;
+                $trasvasijeDestino->medicion_inicial_destino = $destino['medicion_inicial_destino'] ?? null;
+                $trasvasijeDestino->medicion_final_destino = $destino['medicion_final_destino'] ?? null;
+                $trasvasijeDestino->save();
+
+                // Actualizar stock del destino (sumar)
+                $this->actualizarStock($idEstanqueDestino, $request->id_faena, $litrosHaciaDestino);
+            }
+
+            // Actualizar stock del origen (restar)
+            $this->actualizarStock($request->id_estanque_origen, $request->id_faena, -$request->litros_total_trasvasije);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'trasvasije' => $trasvasije,
+                    'destinos_procesados' => count($request->destinos)
+                ],
+                'message' => 'Trasvasije registrado correctamente.'
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error en trasvasije', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al registrar trasvasije: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     /**
      * Función auxiliar para actualizar el stock de petróleo
      * 
@@ -186,30 +484,26 @@ class IngresoPetroleoController extends Controller
      * @return bool
      * @throws \Exception
      */
+    // MÉTODO ACTUALIZADO para soportar todos los casos
     protected function actualizarStock($idEstanque, $idFaena, $cantidadLitros, $nuevaAltura = null)
     {
         try {
-            // Obtener el estanque para validaciones
             $estanque = Estanque::find($idEstanque);
             if (!$estanque) {
                 throw new \Exception("El estanque con ID {$idEstanque} no existe");
             }
 
-            // Obtener el stock actual
             $estanqueStock = EstanqueStock::where('id_estanque', $idEstanque)->first();
             $stockActual = $estanqueStock ? $estanqueStock->stock_actual : 0;
 
             // Para ingresos, actualizar directamente con el valor calculado en lugar de sumar
             if ($cantidadLitros > 0 && $nuevaAltura !== null) {
-                // Calcular volumen directamente desde la altura
                 $volumenNuevo = ($nuevaAltura / $estanque->altura_nominal) * $estanque->capacidad;
 
-                // Verificar que no exceda la capacidad
                 if ($volumenNuevo > $estanque->capacidad) {
                     throw new \Exception("El nuevo stock ({$volumenNuevo} litros) excedería la capacidad del estanque '{$estanque->nombre}' ({$estanque->capacidad} litros)");
                 }
 
-                // Actualizar o crear el registro de stock
                 if ($estanqueStock) {
                     $estanqueStock->stock_actual = $volumenNuevo;
                     $estanqueStock->altura_actual = $nuevaAltura;
@@ -235,9 +529,8 @@ class IngresoPetroleoController extends Controller
                     ]);
                 }
             } else {
-                // Para consumos o sin altura (modo antiguo), usar la lógica actual
+                // Para consumos o modo antiguo
                 if ($estanqueStock) {
-                    // Si es consumo, verificar que haya suficiente stock
                     if ($cantidadLitros < 0 && $estanqueStock->stock_actual < abs($cantidadLitros)) {
                         throw new \Exception('Stock insuficiente en el estanque');
                     }
@@ -250,14 +543,7 @@ class IngresoPetroleoController extends Controller
                     }
 
                     $estanqueStock->save();
-
-                    Log::info('Stock de estanque actualizado', [
-                        'id_estanque' => $idEstanque,
-                        'stock_anterior' => $estanqueStock->stock_actual - $cantidadLitros,
-                        'stock_actual' => $estanqueStock->stock_actual
-                    ]);
                 } else {
-                    // Si no existe el estanque_stock, lo creamos
                     $nuevoStock = [
                         'id_estanque' => $idEstanque,
                         'stock_actual' => $cantidadLitros,
@@ -269,17 +555,11 @@ class IngresoPetroleoController extends Controller
                     }
 
                     EstanqueStock::create($nuevoStock);
-
-                    Log::info('Registro de stock creado para estanque', [
-                        'id_estanque' => $idEstanque,
-                        'stock_inicial' => $cantidadLitros
-                    ]);
                 }
             }
 
-            // El resto del código para recalcular el stock total de la faena se mantiene igual
+            // Recalcular stock total de la faena
             if ($idFaena) {
-                // Recalcular stock total de la faena sumando todos los estanques
                 $totalFaena = EstanqueStock::whereHas('estanque', function ($q) use ($idFaena) {
                     $q->where('id_faena', $idFaena);
                 })->sum('stock_actual');
@@ -289,21 +569,11 @@ class IngresoPetroleoController extends Controller
                     $stockPetroleo->stock_actual = $totalFaena;
                     $stockPetroleo->ultima_actualizacion = now();
                     $stockPetroleo->save();
-
-                    Log::info('Stock total de petróleo recalculado', [
-                        'id_faena' => $idFaena,
-                        'nuevo_stock' => $totalFaena
-                    ]);
                 } else {
-                    // Si no hay stock_petroleo, lo creamos
                     StockPetroleo::create([
                         'id_faena' => $idFaena,
                         'stock_actual' => $totalFaena,
                         'ultima_actualizacion' => now()
-                    ]);
-                    Log::info('Stock total de petróleo creado para faena', [
-                        'id_faena' => $idFaena,
-                        'stock_inicial' => $totalFaena
                     ]);
                 }
             }
@@ -311,7 +581,7 @@ class IngresoPetroleoController extends Controller
             return true;
         } catch (\Exception $e) {
             Log::error('Error en actualizarStock', ['error' => $e->getMessage()]);
-            throw $e; // Re-lanzar la excepción para que la maneje el método que llamó
+            throw $e;
         }
     }
 
@@ -321,7 +591,6 @@ class IngresoPetroleoController extends Controller
     public function capacidadDisponible($idFaena)
     {
         try {
-            // Obtener todos los estanques de la faena
             $estanques = Estanque::where('id_faena', $idFaena)->get();
 
             if ($estanques->isEmpty()) {
@@ -338,7 +607,6 @@ class IngresoPetroleoController extends Controller
             foreach ($estanques as $estanque) {
                 $capacidadTotal += $estanque->capacidad;
 
-                // Obtener el stock actual de este estanque
                 $estanqueStock = EstanqueStock::where('id_estanque', $estanque->id_estanque)->first();
                 $stockEstanque = $estanqueStock ? $estanqueStock->stock_actual : 0;
                 $stockActual += $stockEstanque;
@@ -371,33 +639,28 @@ class IngresoPetroleoController extends Controller
         }
     }
 
-    
- public function getStats(Request $request)
+    public function getStats(Request $request)
     {
         try {
             $faenaId = $request->get('faena');
             $hoy = Carbon::today();
 
-            // Stock total de la faena
             $stockTotal = DB::table('estanque_stock as es')
                 ->join('estanques as e', 'es.id_estanque', '=', 'e.id_estanque')
                 ->where('e.id_faena', $faenaId)
                 ->where('e.activo', 1)
                 ->sum('es.stock_actual');
 
-            // Recepciones de hoy
             $recepcionesHoy = DB::table('ingresos_petroleo')
                 ->where('id_faena', $faenaId)
                 ->whereDate('created_at', $hoy)
                 ->count();
 
-            // Consumos de hoy
             $consumosHoy = DB::table('consumos')
                 ->where('id_faena', $faenaId)
                 ->whereDate('fecha_consumo', $hoy)
                 ->count();
 
-            // Estanques activos
             $estanquesActivos = DB::table('estanques')
                 ->where('id_faena', $faenaId)
                 ->where('activo', 1)
@@ -412,7 +675,6 @@ class IngresoPetroleoController extends Controller
                     'estanquesActivos' => $estanquesActivos
                 ]
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -425,12 +687,10 @@ class IngresoPetroleoController extends Controller
     public function getRecepciones(Request $request)
     {
         try {
-            // Obtener parámetros de filtro
             $faena = $request->input('faena');
             $dateFrom = $request->input('dateFrom');
             $dateTo = $request->input('dateTo');
 
-            // Validar que al menos venga la faena
             if (!$faena) {
                 return response()->json([
                     'success' => false,
@@ -438,7 +698,6 @@ class IngresoPetroleoController extends Controller
                 ], 400);
             }
 
-            // Construir la consulta con joins para obtener toda la información
             $query = DB::table('ingresos_petroleo as ip')
                 ->leftJoin('faenas as f', 'ip.id_faena', '=', 'f.id_faena')
                 ->leftJoin('users as u', 'ip.id_usuario', '=', 'u.id')
@@ -462,10 +721,8 @@ class IngresoPetroleoController extends Controller
                     'u.apellido as usuario_apellido'
                 ]);
 
-            // Filtrar por faena
             $query->where('ip.id_faena', $faena);
 
-            // Aplicar filtros de fecha
             if ($dateFrom) {
                 try {
                     $fechaDesde = Carbon::createFromFormat('Y-m-d', $dateFrom)->startOfDay();
@@ -490,10 +747,8 @@ class IngresoPetroleoController extends Controller
                 }
             }
 
-            // Ordenar por fecha más reciente
             $recepciones = $query->orderBy('ip.created_at', 'desc')->get();
 
-            // Transformar los datos para el frontend
             $recepcionesTransformadas = $recepciones->map(function ($recepcion) {
                 return [
                     'id_ingreso' => $recepcion->id_ingreso,
@@ -514,7 +769,6 @@ class IngresoPetroleoController extends Controller
                 ];
             });
 
-            // Calcular estadísticas
             $totalRecepciones = $recepciones->count();
             $totalLitrosDocumentados = $recepciones->sum('litros_documentados');
             $totalLitrosRecibidos = $recepciones->sum('litros_recibidos');
@@ -526,8 +780,8 @@ class IngresoPetroleoController extends Controller
                 'total_litros_documentados' => $totalLitrosDocumentados,
                 'total_litros_recibidos' => $totalLitrosRecibidos,
                 'total_monto' => $totalMonto,
-                'promedio_por_recepcion' => $totalRecepciones > 0 
-                    ? $totalMonto / $totalRecepciones 
+                'promedio_por_recepcion' => $totalRecepciones > 0
+                    ? $totalMonto / $totalRecepciones
                     : 0,
                 'diferencia_total' => $diferenciaTotal,
             ];
@@ -543,7 +797,6 @@ class IngresoPetroleoController extends Controller
                 ],
                 'message' => 'Recepciones obtenidas exitosamente'
             ], 200);
-
         } catch (\Exception $e) {
             Log::error('Error en getRecepciones', [
                 'exception' => $e->getMessage(),
@@ -559,6 +812,3 @@ class IngresoPetroleoController extends Controller
         }
     }
 }
-
-    
-

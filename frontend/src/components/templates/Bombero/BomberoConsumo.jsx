@@ -425,7 +425,6 @@ const Consumo = ({
               <p className="text-sm text-gray-500">Equipo/Vehículo</p>
               <p className="font-semibold">{successData?.equipo || 'N/A'}</p>
             </div>
-
             <div className="col-span-2">
               <p className="text-sm text-gray-500">Observación</p>
               <p className="font-semibold">{successData?.observacion || 'N/A'}</p>
