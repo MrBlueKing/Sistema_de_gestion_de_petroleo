@@ -208,8 +208,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // CASO 3: Trasvasije (Estanque móvil → Estanques fijos)
     Route::post('/trasvasijes', [IngresoPetroleoController::class, 'storeTrasvasije']);
 
-    // Rutas existentes
-    Route::get('/ingresos-petroleo', [IngresoPetroleoController::class, 'index']);
+
     //Route::get('/capacidad-disponible/{idFaena}', [IngresoPetroleoController::class, 'capacidadDisponible']);
     Route::get('/recepciones/stats', [IngresoPetroleoController::class, 'getStats']);
     Route::get('/recepciones', [IngresoPetroleoController::class, 'getRecepciones']);

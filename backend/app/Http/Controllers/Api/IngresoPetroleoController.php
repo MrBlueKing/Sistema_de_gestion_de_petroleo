@@ -63,6 +63,11 @@ class IngresoPetroleoController extends Controller
         try {
             DB::beginTransaction();
 
+            // 1. Calcular stock inicial TOTAL de la faena
+            $stockInicialFaena = EstanqueStock::whereHas('estanque', function ($q) use ($request) {
+                $q->where('id_faena', $request->id_faena)->where('activo', 1);
+            })->sum('stock_actual');
+
             $idFaena = $request->id_faena;
             $litrosRecibidos = $request->litros_recibidos;
 
@@ -78,7 +83,7 @@ class IngresoPetroleoController extends Controller
             $ingreso->recibo_conforme = $request->recibo_conforme;
             $ingreso->observacion = $request->observacion;
             $ingreso->diferencia = $request->diferencia;
-            $ingreso->stock_inicial = $request->stock_inicial;
+            $ingreso->stock_inicial = $stockInicialFaena; // ← STOCK TOTAL FAENA
             $ingreso->save();
 
             // 🆕 OBTENER DISTRIBUCIÓN DE LITROS
