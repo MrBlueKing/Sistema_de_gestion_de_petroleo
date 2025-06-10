@@ -21,26 +21,22 @@ const Consumo = ({
   resetFlow = null,
   preloadedEstanques = null
 }) => {
-  // Obtener el contexto de usuario
   const { user, loading } = useContext(UserContext);
   const navigate = useNavigate();
 
+  // Estados
   const [currentPage, setCurrentPage] = useState(4);
-  const totalPages = 4;
   const [userInfo, setUserInfo] = useState(null);
   const [contextLoaded, setContextLoaded] = useState(false);
-  const localDateTime = format(new Date(), "yyyy-MM-dd'T'HH:mm");
-
   const [formData, setFormData] = useState({
     horometro: "",
     kilometraje: "",
     numeralInicial: "",
     numeralFinal: "",
     litros: "",
-    fechaHora: localDateTime,
+    fechaHora: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
     observacion: "",
   });
-
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -48,16 +44,41 @@ const Consumo = ({
   const [successData, setSuccessData] = useState(null);
   const [estanqueSeleccionado, setEstanqueSeleccionado] = useState(null);
 
-  // Efecto para manejar los datos del usuario cuando estén disponibles
+  // Constantes
+  const totalPages = 4;
+
+  // TODOS los useEffect juntos al inicio para mantener el orden
+  useEffect(() => {
+    console.log('DEBUG CONSUMO - Props recibidas:', {
+      onPrevious: typeof onPrevious,
+      categoriaSeleccionada,
+      patenteSeleccionada,
+      solicitante,
+      tipoSolicitante,
+      idFaena,
+      resetFlow: typeof resetFlow,
+      preloadedEstanques,
+      formData,
+      userInfo,
+      estanqueSeleccionado
+    });
+  }, [onPrevious, categoriaSeleccionada, patenteSeleccionada, solicitante, tipoSolicitante, idFaena, resetFlow, preloadedEstanques, formData, userInfo, estanqueSeleccionado]);
+
   useEffect(() => {
     if (!loading) {
       setContextLoaded(true);
 
       if (user) {
-        setUserInfo({
+        const userInfoData = {
           id: user.id,
-          id_faena: user.id_faena
-        });
+          id_faena: user.id_faena,
+          faena: user.id_faena,
+          nombre: user.nombre,
+          apellido: user.apellido
+        };
+        
+        setUserInfo(userInfoData);
+        console.log('DEBUG CONSUMO - UserInfo establecido:', userInfoData);
       } else {
         setHasError(true);
         setErrorMessage("No se ha podido obtener la información del usuario. Por favor, vuelva a iniciar sesión.");
@@ -65,7 +86,6 @@ const Consumo = ({
     }
   }, [user, loading]);
 
-  // Calcular litros automáticamente cuando cambian numeralInicial o numeralFinal
   useEffect(() => {
     const inicial = parseFloat(formData.numeralInicial) || 0;
     const final = parseFloat(formData.numeralFinal) || 0;
@@ -78,7 +98,7 @@ const Consumo = ({
     }
   }, [formData.numeralInicial, formData.numeralFinal]);
 
-  // Determinar el ID de faena a usar
+  // Funciones
   const getFaenaId = () => {
     if (idFaena) {
       return idFaena;
@@ -105,9 +125,29 @@ const Consumo = ({
     }
   };
 
-  // Función para manejar la selección de estanque
   const handleEstanqueSelect = (estanque) => {
     setEstanqueSeleccionado(estanque);
+  };
+
+  const handleConsumoComplete = (response = null) => {
+    console.log('DEBUG CONSUMO - Consumo completado desde ConsumoFormMultiEstanque', response);
+    
+    setIsSaved(true);
+    setIsSaving(false);
+    setHasError(false);
+    setErrorMessage("");
+    
+    const successInfo = {
+      id: response?.data?.id_consumo || 'Generado automáticamente',
+      litros: formData.litros,
+      fecha: new Date().toLocaleString(),
+      solicitante: formatSolicitanteName(),
+      equipo: formatPatente(),
+      observacion: formData.observacion
+    };
+    
+    setSuccessData(successInfo);
+    console.log('DEBUG CONSUMO - Datos de éxito establecidos:', successInfo);
   };
 
   const validateForm = () => {
@@ -300,6 +340,7 @@ const Consumo = ({
       : patenteSeleccionada;
   };
 
+  // Variables derivadas
   const tipoMedicion = categoriaSeleccionada &&
     typeof categoriaSeleccionada === 'object' &&
     categoriaSeleccionada.tipo_medicion
@@ -307,7 +348,9 @@ const Consumo = ({
     : "Kilometraje";
 
   const hasVehicleInfo = Boolean(patenteSeleccionada && typeof patenteSeleccionada === 'object' && patenteSeleccionada.nombre);
+  const faenaIdToUse = getFaenaId();
 
+  // Early returns
   if (!contextLoaded) {
     return (
       <div>
@@ -382,11 +425,11 @@ const Consumo = ({
               <p className="text-sm text-gray-500">Equipo/Vehículo</p>
               <p className="font-semibold">{successData?.equipo || 'N/A'}</p>
             </div>
-  <div className="col-span-2">
+
+            <div className="col-span-2">
               <p className="text-sm text-gray-500">Observación</p>
               <p className="font-semibold">{successData?.observacion || 'N/A'}</p>
             </div>
-
           </div>
         </div>
 
@@ -411,11 +454,8 @@ const Consumo = ({
     );
   };
 
-  const faenaIdToUse = getFaenaId();
-
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 pt-6">
-      
       <main className="flex-1 w-full p-2 sm:p-3 md:p-4 text-center">
         <div className="bg-gray-200 py-3 sm:py-4 md:py-6 px-2 sm:px-3 md:px-4 rounded-2xl sm:rounded-3xl flex flex-col items-center space-y-3 sm:space-y-4 md:space-y-6 max-w-4xl mx-auto">
           <div className="w-full">
@@ -499,6 +539,12 @@ const Consumo = ({
                       estanqueSeleccionado={estanqueSeleccionado}
                       onEstanqueSelect={handleEstanqueSelect}
                       preloadedEstanques={preloadedEstanques}
+                      solicitante={solicitante}
+                      categoriaSeleccionada={categoriaSeleccionada}
+                      patenteSeleccionada={patenteSeleccionada}
+                      userInfo={userInfo}
+                      onComplete={handleConsumoComplete}
+                      resetFlow={resetFlow}
                     />
                   </div>
                 </>

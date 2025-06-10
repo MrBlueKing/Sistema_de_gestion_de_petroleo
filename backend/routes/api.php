@@ -194,8 +194,6 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/capacidad-disponible/{id_faena}', [EstanqueController::class, 'capacidadDisponible']);
         });
 
-        // Consumos
-        Route::post('/consumos', [ConsumoController::class, 'store']);
     });
 
     Route::get('/ingresos-petroleo', [IngresoPetroleoController::class, 'index']);
@@ -232,6 +230,23 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/consumo-maquinas', [InformesController::class, 'getConsumoMaquinas']);
         Route::get('/balance-combustible', [InformesController::class, 'getBalanceCombustible']);
     });
+
+
+
+// Rutas para Consumos
+Route::prefix('consumos')->group(function () {
+    // Ruta original para consumos
+    Route::post('/', [ConsumoController::class, 'store']);
+    
+    // ✅ NUEVA RUTA: Consumos multi-estanque
+    Route::post('/multi', [ConsumoController::class, 'storeMultiEstanque']);
+    
+    // Otras rutas de consumos
+    Route::get('/recientes', [ConsumoController::class, 'getConsumosRecientes']);
+    Route::get('/', [ConsumoController::class, 'getConsumos']);
+});
+
+
 
     /*
     |--------------------------------------------------------------------------
@@ -508,6 +523,9 @@ Route::middleware('auth:sanctum')->group(function () {
     | 📂 CATEGORÍAS (MANTENIMIENTO)
     |--------------------------------------------------------------------------
     */
+
+
+
 });
 
 // Rutas para consumos
@@ -519,3 +537,4 @@ Route::get('/dashboard/stats', [IngresoPetroleoController::class, 'getStats']);
 // En tu routes/api.php
 Route::get('/recepcionesFecha', [IngresoPetroleoController::class, 'getRecepciones']);
 Route::get('/consumosFecha', [ConsumoController::class, 'getConsumos']);
+
