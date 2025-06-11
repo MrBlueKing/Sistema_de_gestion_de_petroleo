@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class IngresoPetroleoController extends Controller
 {
@@ -277,81 +278,183 @@ class IngresoPetroleoController extends Controller
         }
     }
 
-    // CASO 2: RECEPCIÓN A ESTANQUE MÓVIL (Copec → Estanque móvil)
+    /**
+     * Registrar ingreso de petróleo a estanque móvil
+     * Este método NO usa medición de alturas, solo litros directos
+     */
     public function storeRecepcionMovil(Request $request)
     {
-        Log::info('Recepción a estanque móvil', $request->all());
+        Log::info('🚛 Iniciando recepción para estanque móvil', $request->all());
 
         $request->validate([
             'id_usuario' => 'required|exists:users,id',
-            'numero_guia' => 'required|string',
+            'id_faena' => 'required|exists:faenas,id_faena',
+            'numero_guia' => 'required|string|max:255',
             'litros_documentados' => 'required|numeric|min:0',
             'litros_recibidos' => 'required|numeric|min:0',
             'precio' => 'required|numeric|min:0',
             'precio_total' => 'required|numeric|min:0',
             'recibo_conforme' => 'required|boolean',
-            'observacion' => 'nullable|string|max:255',
-            'id_faena' => 'required|exists:faenas,id_faena',
-            'id_estanque_movil' => 'required|exists:estanques,id_estanque',
-            'altura_final' => 'nullable|numeric|min:0'
+            'observacion' => 'nullable|string|max:500',
+            'id_estanque_movil' => 'required|exists:estanques,id_estanque', // Estanque móvil específico
+            'diferencia' => 'required|numeric',
         ]);
 
         try {
             DB::beginTransaction();
 
-            // Validar que sea estanque móvil
+            // Verificar que el estanque sea móvil
             $estanqueMovil = Estanque::find($request->id_estanque_movil);
-            if ($estanqueMovil->tipo_estanque !== 'movil') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'El estanque seleccionado no es de tipo móvil'
-                ], 400);
+            if (!$estanqueMovil || $estanqueMovil->tipo_estanque !== 'movil') {
+                throw new \Exception("El estanque seleccionado no es un estanque móvil válido");
             }
 
-            // Obtener stock inicial del estanque móvil (ANTES de la recepción)
+            // Obtener stock inicial del estanque móvil
             $estanqueStock = EstanqueStock::where('id_estanque', $request->id_estanque_movil)->first();
-            $stockInicialMovil = $estanqueStock ? $estanqueStock->stock_actual : 0;
+            $stockInicial = $estanqueStock ? $estanqueStock->stock_actual : 0;
 
-            // Crear ingreso con tipo estanque_movil
+            // Verificar capacidad del estanque móvil
+            $nuevoStock = $stockInicial + $request->litros_recibidos;
+            if ($nuevoStock > $estanqueMovil->capacidad) {
+                throw new \Exception("El estanque móvil '{$estanqueMovil->nombre}' excedería su capacidad máxima. Capacidad: {$estanqueMovil->capacidad}L, Stock actual: {$stockInicial}L, Intentando agregar: {$request->litros_recibidos}L");
+            }
+
+            // 📝 1. GUARDAR EN INGRESO_PETROLEO
             $ingreso = new IngresoPetroleo();
             $ingreso->id_usuario = $request->id_usuario;
             $ingreso->id_faena = $request->id_faena;
             $ingreso->numero_guia = $request->numero_guia;
-            $ingreso->tipo_recepcion = 'estanque_movil'; // ← NUEVO
-            $ingreso->id_estanque_movil = $request->id_estanque_movil; // ← NUEVO
             $ingreso->litros_documentados = $request->litros_documentados;
             $ingreso->litros_recibidos = $request->litros_recibidos;
             $ingreso->precio = $request->precio;
             $ingreso->precio_total = $request->precio_total;
             $ingreso->recibo_conforme = $request->recibo_conforme;
             $ingreso->observacion = $request->observacion;
-            $ingreso->diferencia = $request->litros_documentados - $request->litros_recibidos;
-            $ingreso->stock_inicial = $stockInicialMovil; // ← Stock del estanque móvil antes de la recepción
+            $ingreso->diferencia = $request->diferencia;
+            $ingreso->stock_inicial = $stockInicial;
+            $ingreso->tipo_recepcion = 'estanque_movil'; // 🎯 CAMPO CLAVE
             $ingreso->save();
 
-            // Actualizar estanque móvil (sin usar altura para evitar división por cero)
-            // Para estanques móviles usamos suma directa de litros
-            $this->actualizarStock($request->id_estanque_movil, $request->id_faena, $request->litros_recibidos);
+            Log::info('✅ Ingreso móvil guardado en ingreso_petroleo', [
+                'id_ingreso' => $ingreso->id_ingreso,
+                'tipo_recepcion' => 'movil',
+                'estanque_movil' => $estanqueMovil->nombre
+            ]);
+
+            // 📝 2. GUARDAR EN VERIFICACION_ALTURAS (con campos especiales para móviles)
+            $verificacion = new VerificacionAltura();
+            $verificacion->id_estanque = $request->id_estanque_movil;
+            $verificacion->id_ingreso = $ingreso->id_ingreso;
+            $verificacion->altura_medicion = 0; // ❌ NO hay medición de altura
+            $verificacion->volumen_calculado = $request->litros_recibidos; // ✅ Litros directos
+            $verificacion->stock_inicial = $stockInicial;
+            $verificacion->verificado = true;
+            $verificacion->tipo_operacion = 'ingreso_movil'; // 🆕 Campo para distinguir
+            $verificacion->save();
+
+            Log::info('✅ Verificación guardada para estanque móvil', [
+                'id_estanque' => $request->id_estanque_movil,
+                'litros_ingresados' => $request->litros_recibidos,
+                'tipo_operacion' => 'ingreso_movil'
+            ]);
+
+            // 📝 3. ACTUALIZAR STOCK DEL ESTANQUE MÓVIL
+            if ($estanqueStock) {
+                $estanqueStock->stock_actual = $nuevoStock;
+                $estanqueStock->ultima_medicion = now();
+                $estanqueStock->save();
+            } else {
+                EstanqueStock::create([
+                    'id_estanque' => $request->id_estanque_movil,
+                    'stock_actual' => $request->litros_recibidos,
+                    'altura_actual' => null, // No aplica para móviles
+                    'ultima_medicion' => now()
+                ]);
+            }
+
+            Log::info('✅ Stock actualizado en estanque móvil', [
+                'id_estanque' => $request->id_estanque_movil,
+                'stock_anterior' => $stockInicial,
+                'stock_nuevo' => $nuevoStock
+            ]);
+
+            // 📝 4. OPCIONAL: REGISTRAR EN MOVIMIENTOS_PETROLEO (si quieres mantener historial detallado)
+            $this->registrarMovimientoPetroleo([
+                'id_estanque' => $request->id_estanque_movil,
+                'id_faena' => $request->id_faena,
+                'id_usuario' => $request->id_usuario,
+                'tipo_movimiento' => 'ingreso_movil',
+                'cantidad_litros' => $request->litros_recibidos,
+                'stock_anterior' => $stockInicial,
+                'stock_posterior' => $nuevoStock,
+                'referencia_id' => $ingreso->id_ingreso,
+                'referencia_tipo' => 'ingreso_petroleo',
+                'observacion' => "Recepción móvil: {$request->numero_guia}"
+            ]);
 
             DB::commit();
 
             return response()->json([
                 'success' => true,
-                'data' => $ingreso,
-                'message' => 'Recepción a estanque móvil registrada correctamente.',
-                'stock_inicial_movil' => $stockInicialMovil,
-                'stock_final_movil' => $stockInicialMovil + $request->litros_recibidos
+                'data' => [
+                    'ingreso' => $ingreso,
+                    'estanque_movil' => $estanqueMovil->nombre,
+                    'stock_anterior' => $stockInicial,
+                    'stock_nuevo' => $nuevoStock,
+                    'tipo_recepcion' => 'movil'
+                ],
+                'message' => 'Recepción en estanque móvil registrada correctamente.'
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error en recepción móvil', ['error' => $e->getMessage()]);
+            Log::error('❌ Error al registrar recepción móvil', [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error al registrar recepción móvil: ' . $e->getMessage()
+                'message' => 'Error al registrar la recepción móvil: ' . $e->getMessage()
             ], 500);
         }
     }
+
+    /**
+     * Registrar movimiento detallado en tabla movimientos_petroleo
+     */
+    private function registrarMovimientoPetroleo($datos)
+    {
+        try {
+            // Verificar si existe la tabla movimientos_petroleo
+            if (!Schema::hasTable('movimientos_petroleo')) {
+                Log::warning('⚠️ Tabla movimientos_petroleo no existe, saltando registro detallado');
+                return;
+            }
+
+            $movimiento = new \App\Models\MovimientoPetroleo();
+            $movimiento->id_estanque = $datos['id_estanque'];
+            $movimiento->id_faena = $datos['id_faena'];
+            $movimiento->id_usuario = $datos['id_usuario'];
+            $movimiento->tipo_movimiento = $datos['tipo_movimiento'];
+            $movimiento->cantidad_litros = $datos['cantidad_litros'];
+            $movimiento->stock_anterior = $datos['stock_anterior'];
+            $movimiento->stock_posterior = $datos['stock_posterior'];
+            $movimiento->referencia_id = $datos['referencia_id'];
+            $movimiento->referencia_tipo = $datos['referencia_tipo'];
+            $movimiento->observacion = $datos['observacion'];
+            $movimiento->save();
+
+            Log::info('📝 Movimiento registrado en movimientos_petroleo', [
+                'tipo' => $datos['tipo_movimiento'],
+                'cantidad' => $datos['cantidad_litros']
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('⚠️ No se pudo registrar en movimientos_petroleo', [
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
 
     // CASO 3: TRASVASIJE (Estanque móvil → Estanques fijos)
     public function storeTrasvasije(Request $request)

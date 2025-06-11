@@ -501,6 +501,8 @@ Route::prefix('consumos')->group(function () {
     Route::get('/estanques/{id_faena}', [EstanqueController::class, 'estanquesPorFaena']);
     Route::get('/estanques-fijo/{id_faena}', [EstanqueController::class, 'estanquesFijoPorFaena']);
 
+    Route::get('/estanques-moviles/{id_faena}', [EstanqueController::class, 'getEstanquesMoviles']);
+
 
     Route::post('/calcular-litros-petroleo', [EstanqueController::class, 'calcularLitrosPetroleo']);
     Route::get('/capacidad-disponible/{id_faena}', [EstanqueController::class, 'capacidadDisponible']);
