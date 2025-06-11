@@ -17,7 +17,8 @@ import {
   FaMotorcycle, // Para motos/vehículos pequeños
   FaTractor,    // Para maquinaria pesada
   FaTools,      // Para equipos de trabajo
-  FaIndustry    // Para maquinaria industrial
+  FaIndustry,   // Para maquinaria industrial
+  FaGasPump     // Para Estanque Móvil
 } from "react-icons/fa";
 import bomberoService from "../../../context/bomberoService";
 
@@ -33,8 +34,23 @@ const BomberoMaquinaria = ({
   const [error, setError] = useState(null);
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
 
+  // 🆕 CATEGORÍA ESPECIAL PARA ESTANQUE MÓVIL
+  const CATEGORIA_ESTANQUE_MOVIL = {
+    id: 'estanque_movil',
+    nombre: 'Estanque Móvil',
+    tipo_medicion: 'N/A',
+    descripcion: 'Transferencia de combustible a estanque móvil',
+    horas_mantencion: 0,
+    isEstanqueMovil: true // Flag especial para identificar esta categoría
+  };
+
   // 🎨 MAPEO DE ICONOS POR TIPO DE MEDICIÓN
   const getIconForCategory = useCallback((categoria) => {
+    // 🆕 ICONO ESPECIAL PARA ESTANQUE MÓVIL
+    if (categoria.isEstanqueMovil || categoria.id === 'estanque_movil') {
+      return <FaGasPump className="text-green-600" />;
+    }
+
     const tipoMedicion = categoria.tipo_medicion;
     
     // Mapeo específico por tipo de medición
@@ -53,29 +69,21 @@ const BomberoMaquinaria = ({
     return <FaCog className="text-gray-500" />;
   }, []);
 
-  // 🎨 MAPEO DE ICONOS POR TIPO DE MEDICIÓN (alternativo)
-  const getIconByMeasurementType = useCallback((tipoMedicion) => {
-    if (tipoMedicion === 'Kilometraje') {
-      return <FaCar className="text-blue-500" />;
-    }
-    if (tipoMedicion === 'Horometro') {
-      return <FaTractor className="text-orange-500" />;
-    }
-    
-    return <FaCog className="text-gray-500" />;
-  }, []);
-
-  // ✅ CARGAR CATEGORÍAS DESDE CACHE
+  // ✅ CARGAR CATEGORÍAS DESDE CACHE + AGREGAR ESTANQUE MÓVIL
   useEffect(() => {
     const cargarCategorias = async () => {
       try {
         setLoading(true);
-        console.log('🎯 SOLO CACHE: Obteniendo tipos de camión');
+        console.log('🎯 SOLO CACHE: Obteniendo tipos de camión + Estanque Móvil');
         
         const categoriasData = await bomberoService.getCategoriasMaquinaria();
-        setCategorias(categoriasData);
         
-        console.log(`✅ SOLO CACHE: ${categoriasData.length} tipos de camión cargados sin requests adicionales`);
+        // 🆕 AGREGAR CATEGORÍA ESTANQUE MÓVIL AL INICIO DE LA LISTA
+        const categoriasConEstanqueMovil = [CATEGORIA_ESTANQUE_MOVIL, ...categoriasData];
+        
+        setCategorias(categoriasConEstanqueMovil);
+        
+        console.log(`✅ SOLO CACHE: ${categoriasConEstanqueMovil.length} tipos de camión cargados (incluyendo Estanque Móvil)`);
       } catch (err) {
         console.error('❌ Error cargando categorías:', err);
         setError('Error al cargar tipos de camión');
@@ -87,12 +95,28 @@ const BomberoMaquinaria = ({
     cargarCategorias();
   }, []);
 
-  // ✅ MANEJAR SELECCIÓN DE CATEGORÍA - AVANCE INSTANTÁNEO MEJORADO
+  // ✅ MANEJAR SELECCIÓN DE CATEGORÍA - BIFURCACIÓN MEJORADA
   const handleCategoriaSelect = useCallback(async (categoria) => {
     console.log('🏷️ Tipo de maquinaria seleccionado:', categoria);
     setCategoriaSeleccionada(categoria);
     
-    // 🚀 VERIFICAR SI LAS MÁQUINAS YA ESTÁN PRECARGADAS
+    // 🆕 VERIFICAR SI ES ESTANQUE MÓVIL PARA BIFURCACIÓN
+    if (categoria.original.isEstanqueMovil || categoria.original.id === 'estanque_movil') {
+      console.log('🚛 BIFURCACIÓN: Estanque Móvil seleccionado - Flujo de transferencia');
+      
+      // Marcar el tipo de operación especial
+      const categoriaEspecial = {
+        ...categoria.original,
+        tipoOperacion: 'transferencia_estanque_movil',
+        descripcion: 'Transferencia de combustible de estanque fijo a móvil'
+      };
+      
+      // 🚀 AVANZAR INMEDIATAMENTE AL FLUJO DE TRANSFERENCIA
+      onNext(categoriaEspecial);
+      return;
+    }
+
+    // 🚀 FLUJO NORMAL: VERIFICAR SI LAS MÁQUINAS YA ESTÁN PRECARGADAS
     const yaEstandPrecargadas = bomberoService.todasLasMaquinasPrecargadas(tipoSolicitante, userFaena);
     
     if (yaEstandPrecargadas) {
@@ -114,22 +138,37 @@ const BomberoMaquinaria = ({
     onNext(categoria.original);
   }, [tipoSolicitante, userFaena, onNext]);
 
-  // 🎨 FORMATEAR CATEGORÍAS CON ICONOS BASADOS EN TIPO_MEDICION
+  // 🎨 FORMATEAR CATEGORÍAS CON ICONOS BASADOS EN TIPO_MEDICION + ESTANQUE MÓVIL
   const categoriasFormateadas = useMemo(() => {
-    return categorias.map(categoria => ({
-      id: categoria.id_categoria,
-      nombre: categoria.nombre_categoria,
-      descripcion: `Medición: ${categoria.tipo_medicion || 'N/A'}`,
-      // 🎨 AGREGAR ICONO BASADO EN TIPO_MEDICION
-      icon: getIconForCategory(categoria),
-      original: {
-        id: categoria.id_categoria,
-        nombre: categoria.nombre_categoria,
-        tipo_medicion: categoria.tipo_medicion,
-        horas_mantencion: categoria.horas_mantencion,
-        descripcion: `Medición: ${categoria.tipo_medicion || 'N/A'}`
+    return categorias.map(categoria => {
+      // 🆕 FORMATEO ESPECIAL PARA ESTANQUE MÓVIL
+      if (categoria.isEstanqueMovil || categoria.id === 'estanque_movil') {
+        return {
+          id: categoria.id,
+          nombre: categoria.nombre,
+          descripcion: categoria.descripcion,
+          icon: <FaGasPump className="text-green-600" />,
+          isSpecial: true, // Marcar como especial para estilos diferentes
+          original: categoria
+        };
       }
-    }));
+
+      // FORMATEO NORMAL PARA OTRAS CATEGORÍAS
+      return {
+        id: categoria.id_categoria || categoria.id,
+        nombre: categoria.nombre_categoria || categoria.nombre,
+        descripcion: `Medición: ${categoria.tipo_medicion || 'N/A'}`,
+        icon: getIconForCategory(categoria),
+        original: {
+          id: categoria.id_categoria || categoria.id,
+          nombre: categoria.nombre_categoria || categoria.nombre,
+          tipo_medicion: categoria.tipo_medicion,
+          horas_mantencion: categoria.horas_mantencion,
+          descripcion: `Medición: ${categoria.tipo_medicion || 'N/A'}`,
+          isEstanqueMovil: categoria.isEstanqueMovil || false
+        }
+      };
+    });
   }, [categorias, getIconForCategory]);
 
   // Función para obtener el texto del tipo de solicitante con color
@@ -187,7 +226,7 @@ const BomberoMaquinaria = ({
           <div className="w-full flex justify-center items-center">
             <h2 className="text-gray-700 font-medium text-sm sm:text-base md:text-lg flex items-center">
               <FaCog className="mr-2 text-orange-500" />
-              Selecciona el Tipo de maquina para: {getTipoSolicitanteDisplay()}
+              Selecciona el Tipo de operación para: {getTipoSolicitanteDisplay()}
             </h2>
           </div>
 
@@ -199,6 +238,12 @@ const BomberoMaquinaria = ({
             
             {/* 🆕 MOSTRAR ESTADO DE PRECARGA DINÁMICO */}
             {getPreloadStatusDisplay()}
+            
+            {/* 🆕 NUEVA INFORMACIÓN SOBRE ESTANQUE MÓVIL */}
+            <div className="bg-green-100 text-green-800 rounded-lg py-1 px-3">
+              <FaGasPump className="inline mr-1" />
+              Incluye transferencia a estanque móvil
+            </div>
           </div>
 
           <div className="bg-orange-500 w-full rounded-2xl sm:rounded-3xl md:rounded-[40px] py-3 sm:py-4 md:py-6 px-2 sm:px-3 md:px-4 space-y-2 sm:space-y-3 md:space-y-4 min-h-[300px] md:min-h-[350px] flex flex-col">
@@ -210,7 +255,7 @@ const BomberoMaquinaria = ({
                 <div className="py-4 text-gray-500 flex-grow flex items-center justify-center">
                   <div className="text-center">
                     <div className="w-10 h-10 mx-auto mb-2 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                    <p>Cargando tipos de camión...</p>
+                    <p>Cargando tipos de operación...</p>
                   </div>
                 </div>
               ) : error ? (
@@ -230,23 +275,43 @@ const BomberoMaquinaria = ({
                 </div>
               ) : categoriasFormateadas.length > 0 ? (
                 <>
-                  {/* 🎨 LISTA CON ICONOS PERSONALIZADOS */}
+                  {/* 🎨 LISTA CON ICONOS PERSONALIZADOS + ESTANQUE MÓVIL DESTACADO */}
                   <List
                     items={categoriasFormateadas}
                     onItemSelect={handleCategoriaSelect}
                     buttonStyle={true}
-                    tipoElemento="tipo de camión"
-                    showIcons={true} // Asegurar que el componente List muestre iconos
+                    tipoElemento="tipo de operación"
+                    showIcons={true}
+                    specialItemStyles={{
+                      // Estilos especiales para Estanque Móvil
+                      specialBg: "bg-gradient-to-r from-green-50 to-emerald-50",
+                      specialBorder: "border-green-300",
+                      specialText: "text-green-800",
+                      specialHover: "hover:from-green-100 hover:to-emerald-100"
+                    }}
                   />
                   
                   {/* Información de resultados MEJORADA */}
                   <div className="mt-2 text-center text-gray-500 text-xs">
-                    {categoriasFormateadas.length} tipo{categoriasFormateadas.length !== 1 ? 's' : ''} de camión disponible{categoriasFormateadas.length !== 1 ? 's' : ''}
+                    {categoriasFormateadas.length} tipo{categoriasFormateadas.length !== 1 ? 's' : ''} de operación disponible{categoriasFormateadas.length !== 1 ? 's' : ''}
                     {preloadStatus?.loaded && (
                       <span className="text-green-600 ml-2">
                         • Máquinas precargadas para navegación instantánea
                       </span>
                     )}
+                  </div>
+
+                  {/* 🆕 NOTA INFORMATIVA SOBRE ESTANQUE MÓVIL */}
+                  <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3 text-xs text-green-700">
+                    <div className="flex items-start space-x-2">
+                      <FaGasPump className="text-green-600 mt-0.5 flex-shrink-0" />
+                      <div className="text-left">
+                        <p className="font-medium mb-1">Transferencia a Estanque Móvil</p>
+                        <p className="text-green-600">
+                          Seleccione "Estanque Móvil" para realizar transferencias de combustible desde estanques fijos hacia estanques móviles (camiones cisterna).
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </>
               ) : (
@@ -255,7 +320,7 @@ const BomberoMaquinaria = ({
                     <svg className="w-10 h-10 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
-                    <p>No hay tipos de camión disponibles</p>
+                    <p>No hay tipos de operación disponibles</p>
                   </div>
                 </div>
               )}
@@ -291,7 +356,7 @@ const BomberoMaquinaria = ({
               <span className="inline-block">
                 {preloadStatus?.loaded 
                   ? "Seleccione un tipo para navegación instantánea."
-                  : "Seleccione un tipo de maquinaria para continuar."
+                  : "Seleccione el tipo de operación a realizar."
                 }
               </span>
             </p>
