@@ -9,7 +9,8 @@ import {
   FaGasPump,
   FaInfoCircle,
   FaBalanceScale,
-  FaLayerGroup
+  FaLayerGroup,
+  FaTruck
 } from "react-icons/fa";
 import { GiGasPump } from "react-icons/gi";
 import SelectorEstanques from "../../molecules/SelectorEstanque";
@@ -48,6 +49,51 @@ const ConsumoFormMultiEstanque = ({
   const [errorMessage, setErrorMessage] = useState('');
 
   // ===================================
+  // FUNCIÓN PARA DETERMINAR TIPO DE OPERACIÓN
+  // ===================================
+  const determinarTipoOperacion = useCallback((modoMultiple, estanquesUsados) => {
+    let tipoOperacion = 'normal'; // Valor por defecto
+    
+    if (modoMultiple) {
+      // Para modo múltiple, revisar todos los estanques con litros asignados
+      const estanquesConLitros = estanquesDisponibles.filter(estanque => 
+        (distribucionLitros[estanque.id_estanque] || 0) > 0
+      );
+      
+      // Si hay algún estanque móvil, es estanque_movil
+      const tieneEstanqueMovil = estanquesConLitros.some(estanque => 
+        estanque.tipo_estanque === 'movil'
+      );
+      
+      tipoOperacion = tieneEstanqueMovil ? 'estanque_movil' : 'normal';
+      
+      console.log('🔍 Determinando tipo_operacion (MÚLTIPLE):', {
+        estanques_con_litros: estanquesConLitros.map(e => ({
+          nombre: e.nombre,
+          tipo: e.tipo_estanque,
+          litros: distribucionLitros[e.id_estanque]
+        })),
+        tiene_movil: tieneEstanqueMovil,
+        tipo_operacion: tipoOperacion
+      });
+      
+    } else {
+      // Para modo simple, revisar el estanque seleccionado
+      if (estanqueSeleccionado) {
+        tipoOperacion = estanqueSeleccionado.tipo_estanque === 'movil' ? 'estanque_movil' : 'normal';
+        
+        console.log('🔍 Determinando tipo_operacion (SIMPLE):', {
+          estanque: estanqueSeleccionado.nombre,
+          tipo_estanque: estanqueSeleccionado.tipo_estanque,
+          tipo_operacion: tipoOperacion
+        });
+      }
+    }
+    
+    return tipoOperacion;
+  }, [modoMultiEstanque, distribucionLitros, estanquesDisponibles, estanqueSeleccionado]);
+
+  // ===================================
   // FUNCIÓN PARA ENVIAR CONSUMO AL BACKEND
   // ===================================
   const enviarConsumoAlBackend = async (datosConsumo, modoMultiEstanque) => {
@@ -84,6 +130,9 @@ const ConsumoFormMultiEstanque = ({
 
       console.log('✅ Datos críticos validados:', {id_dotacion, id_equipo, id_usuario, id_faena});
 
+      // 🆕 DETERMINAR TIPO DE OPERACIÓN AUTOMÁTICAMENTE
+      const tipoOperacion = determinarTipoOperacion(modoMultiEstanque, datosConsumo.estanques_multiples);
+
       // Preparar datos base del consumo
       const consumoData = {
         // Datos del solicitante y equipo - YA VALIDADOS
@@ -96,7 +145,7 @@ const ConsumoFormMultiEstanque = ({
         fecha_consumo: datosConsumo.fechaHora,
         litros_consumidos: parseFloat(datosConsumo.litros) || 0,
         tipo_consumo: modoMultiEstanque ? 'multiple' : 'simple',
-        tipo_operacion: 'normal',
+        tipo_operacion: tipoOperacion, // 🆕 AUTO-DETERMINADO
         
         // Datos de la bomba
         numeral_inicial: parseFloat(datosConsumo.numeralInicial) || 0,
@@ -116,6 +165,7 @@ const ConsumoFormMultiEstanque = ({
       };
 
       console.log('📦 Datos preparados para envío:', consumoData);
+      console.log('🚛 Tipo de operación determinado:', tipoOperacion);
 
       // Realizar petición POST al backend
       const response = await axios.post('/api/consumos/multi', consumoData);
@@ -181,6 +231,11 @@ const ConsumoFormMultiEstanque = ({
       console.log('📦 Respuesta del servicio getEstanques:', response);
       console.log('✅ Estanques procesados:', estanques);
       
+      // 🆕 Log para verificar tipos de estanque
+      estanques.forEach(estanque => {
+        console.log(`🏷️ Estanque: ${estanque.nombre} - Tipo: ${estanque.tipo_estanque || 'no definido'}`);
+      });
+      
       setEstanquesDisponibles(estanques);
 
     } catch (error) {
@@ -230,6 +285,36 @@ const ConsumoFormMultiEstanque = ({
     const estanque = estanquesDisponibles.find(e => e.id_estanque === parseInt(estanqueId));
     return estanque && (estanque.stock_actual || 0) >= litrosAsignados;
   });
+
+  // 🆕 FUNCIÓN PARA OBTENER INFORMACIÓN DEL TIPO DE OPERACIÓN
+  const obtenerInfoTipoOperacion = useCallback(() => {
+    const tipoOperacion = determinarTipoOperacion(modoMultiEstanque);
+    
+    if (modoMultiEstanque) {
+      const estanquesConLitros = estanquesDisponibles.filter(estanque => 
+        (distribucionLitros[estanque.id_estanque] || 0) > 0
+      );
+      
+      const tiposFijos = estanquesConLitros.filter(e => e.tipo_estanque === 'fijo').length;
+      const tiposMoviles = estanquesConLitros.filter(e => e.tipo_estanque === 'movil').length;
+      
+      return {
+        tipoOperacion,
+        estanquesFijos: tiposFijos,
+        estanquesMoviles: tiposMoviles,
+        total: estanquesConLitros.length,
+        esMixto: tiposFijos > 0 && tiposMoviles > 0
+      };
+    } else if (estanqueSeleccionado) {
+      return {
+        tipoOperacion,
+        tipo_estanque: estanqueSeleccionado.tipo_estanque,
+        nombre: estanqueSeleccionado.nombre
+      };
+    }
+    
+    return { tipoOperacion: 'normal' };
+  }, [modoMultiEstanque, estanquesDisponibles, distribucionLitros, estanqueSeleccionado, determinarTipoOperacion]);
 
   // Función para cambiar modo
   const toggleModoMultiEstanque = useCallback((activar) => {
@@ -357,10 +442,10 @@ const ConsumoFormMultiEstanque = ({
         setIsSaved(true);
         setHasError(false);
         
-     // En handleSubmitWrapper, después de setIsSaved(true):
-if (typeof onComplete === 'function') {
-  onComplete(resultado);
-}
+        // En handleSubmitWrapper, después de setIsSaved(true):
+        if (typeof onComplete === 'function') {
+          onComplete(resultado);
+        }
 
       } else {
         // ❌ ERROR
@@ -393,7 +478,8 @@ if (typeof onComplete === 'function') {
     distribucionCompleta,
     stockSuficienteMulti,
     onComplete,
-    resetFlow
+    resetFlow,
+    determinarTipoOperacion
   ]);
 
   // Formatea la fecha para mostrarla en formato legible
@@ -436,6 +522,9 @@ if (typeof onComplete === 'function') {
     parseFloat(formData.litros) > 0 &&
     tieneStockSuficiente;
 
+  // 🆕 Obtener info del tipo de operación para mostrar
+  const infoTipoOperacion = obtenerInfoTipoOperacion();
+
   return (
     <div className="space-y-4">
       {/* Mensajes de estado */}
@@ -450,6 +539,49 @@ if (typeof onComplete === 'function') {
         <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-2 rounded flex items-start">
           <FaCheckCircle className="text-green-500 mt-0.5 mr-2 flex-shrink-0" />
           <span className="text-sm">Consumo guardado correctamente</span>
+        </div>
+      )}
+
+      {/* 🆕 INDICADOR DE TIPO DE OPERACIÓN */}
+      {(estanqueSeleccionado || (modoMultiEstanque && tieneEstanquesSeleccionados)) && (
+        <div className={`rounded-lg p-3 border ${
+          infoTipoOperacion.tipoOperacion === 'estanque_movil' 
+            ? 'bg-amber-50 border-amber-300' 
+            : 'bg-blue-50 border-blue-300'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              {infoTipoOperacion.tipoOperacion === 'estanque_movil' ? (
+                <FaTruck className="text-amber-600 mr-2" />
+              ) : (
+                <FaGasPump className="text-blue-600 mr-2" />
+              )}
+              <div>
+                <p className="text-sm font-medium text-gray-800">
+                  Tipo de operación: {infoTipoOperacion.tipoOperacion === 'estanque_movil' ? 'Estanque Móvil' : 'Normal (Fijo)'}
+                </p>
+                {modoMultiEstanque && infoTipoOperacion.total > 0 && (
+                  <p className="text-xs text-gray-600">
+                    {infoTipoOperacion.estanquesFijos > 0 && `${infoTipoOperacion.estanquesFijos} fijo(s)`}
+                    {infoTipoOperacion.esMixto && ', '}
+                    {infoTipoOperacion.estanquesMoviles > 0 && `${infoTipoOperacion.estanquesMoviles} móvil(es)`}
+                  </p>
+                )}
+                {!modoMultiEstanque && estanqueSeleccionado && (
+                  <p className="text-xs text-gray-600">
+                    {estanqueSeleccionado.nombre} - {estanqueSeleccionado.tipo_estanque}
+                  </p>
+                )}
+              </div>
+            </div>
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+              infoTipoOperacion.tipoOperacion === 'estanque_movil'
+                ? 'bg-amber-100 text-amber-800'
+                : 'bg-blue-100 text-blue-800'
+            }`}>
+              {infoTipoOperacion.tipoOperacion === 'estanque_movil' ? '🚛 Móvil' : '🏗️ Fijo'}
+            </span>
+          </div>
         </div>
       )}
 
@@ -739,6 +871,7 @@ if (typeof onComplete === 'function') {
                         const porcentajeStock = Math.round((stockActual / capacidad) * 100);
                         const excedeStock = litrosAsignados > stockActual;
                         const tieneAsignacion = litrosAsignados > 0;
+                        const esMovil = estanque.tipo_estanque === 'movil';
                         
                         return (
                           <div 
@@ -749,11 +882,16 @@ if (typeof onComplete === 'function') {
                                 : 'border-gray-300 bg-white hover:border-gray-400'
                             }`}
                           >
-                            {/* Header del estanque igual que el original */}
+                            {/* Header del estanque igual que el original con indicador de tipo */}
                             <div className="flex items-center justify-between mb-3">
-                              <h3 className="text-sm font-semibold text-gray-800">
-                                {estanque.nombre}
-                              </h3>
+                              <div className="flex items-center">
+                                <h3 className="text-sm font-semibold text-gray-800">
+                                  {estanque.nombre}
+                                </h3>
+                                {esMovil && (
+                                  <FaTruck className="ml-2 text-amber-600" size={12} title="Estanque Móvil" />
+                                )}
+                              </div>
                               <div className="text-right">
                                 <div className={`text-sm font-medium ${stockActual > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                   {porcentajeStock}%
@@ -773,6 +911,27 @@ if (typeof onComplete === 'function') {
                                   {stockActual.toLocaleString()} L disponibles
                                 </span>
                               </div>
+                            </div>
+
+                            {/* Indicador de tipo de estanque */}
+                            <div className="mb-3">
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                esMovil 
+                                  ? 'bg-amber-100 text-amber-800' 
+                                  : 'bg-blue-100 text-blue-800'
+                              }`}>
+                                {esMovil ? (
+                                  <>
+                                    <FaTruck className="mr-1" size={10} />
+                                    Móvil
+                                  </>
+                                ) : (
+                                  <>
+                                    <FaGasPump className="mr-1" size={10} />
+                                    Fijo
+                                  </>
+                                )}
+                              </span>
                             </div>
 
                             {/* Barra de progreso igual que el original */}
@@ -851,12 +1010,24 @@ if (typeof onComplete === 'function') {
               <div className="mt-3 bg-white rounded-lg p-3 border border-blue-300">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-800">
+                    <p className="text-sm font-medium text-gray-800 flex items-center">
                       Estanque seleccionado: {estanqueSeleccionado.nombre}
+                      {estanqueSeleccionado.tipo_estanque === 'movil' && (
+                        <FaTruck className="ml-2 text-amber-600" size={14} title="Estanque Móvil" />
+                      )}
                     </p>
                     <p className="text-xs text-gray-600">
                       Stock disponible:{" "}
                       {estanqueSeleccionado.stock_actual.toLocaleString()} litros
+                      {estanqueSeleccionado.tipo_estanque && (
+                        <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          estanqueSeleccionado.tipo_estanque === 'movil' 
+                            ? 'bg-amber-100 text-amber-800' 
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {estanqueSeleccionado.tipo_estanque === 'movil' ? 'Móvil' : 'Fijo'}
+                        </span>
+                      )}
                     </p>
                   </div>
                   <div className="text-right">
@@ -989,12 +1160,13 @@ if (typeof onComplete === 'function') {
               <div>Solicitante RUT: {solicitante?.rut || 'No disponible'}</div>
               <div>ID Usuario: {userInfo?.id || 'No disponible'}</div>
               <div>ID Equipo: {patenteSeleccionada?.id_maquina || categoriaSeleccionada?.id_maquina || 'No disponible'}</div>
+              <div>🚛 Tipo Operación: {infoTipoOperacion.tipoOperacion}</div>
               {estanquesDisponibles.length > 0 && (
                 <div className="mt-2">
                   <div className="font-medium">Estanques cargados:</div>
                   {estanquesDisponibles.map(est => (
                     <div key={est.id_estanque} className="ml-2 text-xs">
-                      {est.nombre}: {est.stock_actual}L (ID: {est.id_estanque})
+                      {est.nombre}: {est.stock_actual}L (ID: {est.id_estanque}) - Tipo: {est.tipo_estanque || 'no definido'}
                     </div>
                   ))}
                 </div>
@@ -1008,7 +1180,7 @@ if (typeof onComplete === 'function') {
                       return (
                         <div key={estanqueId} className="ml-2 text-xs">
                           {estanque?.nombre || `Estanque ${estanqueId}`}: {litros}L
-                          {estanque && ` (Stock: ${estanque.stock_actual}L)`}
+                          {estanque && ` (Stock: ${estanque.stock_actual}L, Tipo: ${estanque.tipo_estanque || 'no definido'})`}
                         </div>
                       );
                     }
