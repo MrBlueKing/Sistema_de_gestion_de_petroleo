@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaGasPump, FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
+import { FaGasPump, FaExclamationTriangle, FaInfoCircle, FaTruck } from "react-icons/fa"; // 🆕 Añadir FaTruck
 import bomberoService from "../../context/bomberoService";
 
 // Componente de tarjeta para cada estanque
@@ -17,6 +17,9 @@ const EstanqueTarjeta = ({ estanque, seleccionado, onSelect, disabled }) => {
     return "bg-green-500";
   };
 
+  // 🆕 Verificar si es móvil
+  const esMovil = estanque.tipo_estanque === 'movil';
+
   return (
     <button
       onClick={() => onSelect(estanque)}
@@ -31,7 +34,13 @@ const EstanqueTarjeta = ({ estanque, seleccionado, onSelect, disabled }) => {
     >
       <div className="p-3 border-b bg-gray-50">
         <div className="flex items-center justify-between">
-          <h3 className="font-medium text-gray-800">{estanque.nombre}</h3>
+          <div className="flex items-center">
+            <h3 className="font-medium text-gray-800">{estanque.nombre}</h3>
+            {/* 🆕 Icono de tipo de estanque */}
+            {esMovil && (
+              <FaTruck className="ml-2 text-amber-600" size={12} title="Estanque Móvil" />
+            )}
+          </div>
           <span
             className={`text-xs px-2 py-1 rounded-full ${
               porcentaje < 20
@@ -55,6 +64,16 @@ const EstanqueTarjeta = ({ estanque, seleccionado, onSelect, disabled }) => {
             {estanque.stock_actual.toLocaleString()} L disponibles
           </span>
         </div>
+
+        {/* 🆕 Badge de tipo si es móvil */}
+        {esMovil && (
+          <div className="mb-2">
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+              <FaTruck className="mr-1" size={8} />
+              Móvil
+            </span>
+          </div>
+        )}
 
         {/* Barra de progreso */}
         <div className="w-full bg-gray-200 rounded-full h-2">
@@ -156,18 +175,48 @@ const SelectorEstanques = ({
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+      {/* 🆕 ENCABEZADO MEJORADO CON SEGMENTADOR */}
       <div className="p-3 bg-orange-50 border-b border-orange-100 flex justify-between items-center">
         <h3 className="font-medium text-gray-800 flex items-center">
           <FaGasPump className="text-orange-500 mr-2" />
           Seleccione Estanque
         </h3>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-3 text-sm">
+          {/* 🆕 Segmentador por tipo de estanque */}
+          {estanques.length > 0 && (
+            <div className="flex items-center space-x-2">
+              {estanques.filter(e => e.tipo_estanque === 'fijo' || !e.tipo_estanque).length > 0 && (
+                <div className="flex items-center">
+                  <FaGasPump className="text-blue-600 mr-1" size={12} />
+                  <span className="text-blue-600 text-xs font-medium">
+                    {estanques.filter(e => e.tipo_estanque === 'fijo' || !e.tipo_estanque).length} Fijo(s)
+                  </span>
+                </div>
+              )}
+              {estanques.filter(e => e.tipo_estanque === 'movil').length > 0 && (
+                <div className="flex items-center">
+                  <FaTruck className="text-amber-600 mr-1" size={12} />
+                  <span className="text-amber-600 text-xs font-medium">
+                    {estanques.filter(e => e.tipo_estanque === 'movil').length} Móvil(es)
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Separador visual */}
+          {estanques.length > 0 && (
+            <div className="h-4 w-px bg-gray-300"></div>
+          )}
+          
+          {/* Info total */}
           {estanques.length > 0 && (
             <div className="text-xs text-gray-500">
               {estanques.length} estanque{estanques.length !== 1 ? "s" : ""} disponible
               {estanques.length !== 1 ? "s" : ""}
             </div>
           )}
+          
           {/* Indicador de cache usado */}
           {cacheUsado && preloadedEstanques && preloadedEstanques.loaded && (
             <div className="text-xs text-green-600 flex items-center">
