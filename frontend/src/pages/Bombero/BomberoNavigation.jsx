@@ -6,6 +6,8 @@ import Solicitante from "../../components/templates/Bombero/BomberoSolicitante";
 import Maquinaria from "../../components/templates/Bombero/BomberoMaquinaria";
 import Patente from "../../components/templates/Bombero/BomberoPatente";
 import Consumo from "../../components/templates/Bombero/BomberoConsumo";
+// 🆕 NUEVO: Componente para transferencia de estanque móvil
+import TransferenciaEstanqueMovil from "../../components/templates/Bombero/BomberoTransferenciaEstanqueMovil";
 import bomberoService from "../../context/bomberoService";
 import axios from "../../lib/axios";
 
@@ -15,6 +17,9 @@ const BomberoNavigation = () => {
   
   // Estados para el flujo de navegación
   const [currentStep, setCurrentStep] = useState(1);
+  
+  // 🆕 NUEVO: Estado para controlar el tipo de flujo
+  const [tipoFlujo, setTipoFlujo] = useState('normal'); // 'normal' o 'estanque_movil'
   
   // Estados para almacenar los datos ingresados en cada paso
   const [tipoSolicitante, setTipoSolicitante] = useState("");
@@ -31,7 +36,6 @@ const BomberoNavigation = () => {
     categorias: { loaded: false, loading: false },
     maquinas: { loaded: false, loading: false },
     estanques: { loaded: false, loading: false },
-    // 🆕 NUEVO: Estado para precarga masiva
     maquinasMasivas: { loaded: false, loading: false }
   });
 
@@ -54,7 +58,6 @@ const BomberoNavigation = () => {
             personal: { loaded: false, loading: true }
           }));
 
-          // Precargar ambos tipos de personal en paralelo
           await Promise.all([
             bomberoService.preloadPersonalData(['interno'], userInfo.faena),
             bomberoService.preloadPersonalData(['externo'], userInfo.faena)
@@ -90,7 +93,6 @@ const BomberoNavigation = () => {
             categorias: { loaded: false, loading: true }
           }));
 
-          // Precargar categorías de maquinaria
           await bomberoService.getCategoriasMaquinaria();
 
           setPreloadStatus(prev => ({
@@ -114,7 +116,7 @@ const BomberoNavigation = () => {
     }
   }, [tipoSolicitante, preloadStatus.categorias.loaded, preloadStatus.categorias.loading]);
 
-  // 🆕 PASO 2.5: PRECARGA MASIVA DE TODAS LAS MÁQUINAS CUANDO SE SELECCIONA TIPO
+  // PASO 2.5: PRECARGA MASIVA DE TODAS LAS MÁQUINAS CUANDO SE SELECCIONA TIPO
   useEffect(() => {
     const preloadMasivoMaquinas = async () => {
       if (tipoSolicitante && userInfo.faena && 
@@ -126,13 +128,12 @@ const BomberoNavigation = () => {
             maquinasMasivas: { loaded: false, loading: true }
           }));
 
-          // 🚀 PRECARGA MASIVA: Todas las máquinas + estanques
           await bomberoService.warmupMasivoMaquinas(tipoSolicitante, userInfo.faena);
 
           setPreloadStatus(prev => ({
             ...prev,
             maquinasMasivas: { loaded: true, loading: false },
-            estanques: { loaded: true, loading: false } // También se precargan estanques
+            estanques: { loaded: true, loading: false }
           }));
           
           console.log('🎉 🎉 PASO 2.5: PRECARGA MASIVA completada - Usuario tendrá navegación instantánea');
@@ -151,9 +152,14 @@ const BomberoNavigation = () => {
     }
   }, [tipoSolicitante, userInfo.faena, preloadStatus.maquinasMasivas.loaded, preloadStatus.maquinasMasivas.loading]);
 
-  // PASO 3: OBSOLETO - Ya no necesitamos precargar máquinas individuales
-  // porque ya las tenemos todas precargadas desde el paso 2.5
-  
+  // 🆕 FUNCIÓN PARA DETECTAR TIPO DE FLUJO BASADO EN CATEGORÍA
+  const detectarTipoFlujo = useCallback((categoria) => {
+    if (categoria.isEstanqueMovil || categoria.tipoOperacion === 'transferencia_estanque_movil' || categoria.id === 'estanque_movil') {
+      return 'estanque_movil';
+    }
+    return 'normal';
+  }, []);
+
   // Función optimizada para reiniciar todo el flujo
   const resetFlow = useCallback(() => {
     console.log('🔄 Reiniciando flujo de bombero');
@@ -162,9 +168,9 @@ const BomberoNavigation = () => {
     setSolicitante(null);
     setCategoriaSeleccionada("");
     setPatenteSeleccionada("");
+    setTipoFlujo('normal'); // 🆕 NUEVO: Resetear tipo de flujo
     setShouldClearCache(true);
     
-    // Reiniciar estados de precarga
     setPreloadStatus({
       personal: { loaded: false, loading: false },
       categorias: { loaded: false, loading: false },
@@ -173,14 +179,13 @@ const BomberoNavigation = () => {
       maquinasMasivas: { loaded: false, loading: false }
     });
     
-    // Limpiar cache después de un breve delay
     setTimeout(() => {
       bomberoService.clearCache();
       setShouldClearCache(false);
     }, 100);
   }, []);
 
-  // Manejar paso siguiente con optimizaciones
+  // 🆕 MANEJAR PASO SIGUIENTE CON DETECCIÓN DE BIFURCACIÓN
   const handleNext = useCallback((value) => {
     console.log(`📍 Avanzando del paso ${currentStep} al ${currentStep + 1}`);
     
@@ -195,21 +200,43 @@ const BomberoNavigation = () => {
         faena: value?.id_faena || userInfo.faena
       });
     } else if (currentStep === 3) {
+      // 🆕 NUEVO: Detectar tipo de flujo basado en categoría seleccionada
+      const nuevoTipoFlujo = detectarTipoFlujo(value);
+      setTipoFlujo(nuevoTipoFlujo);
       setCategoriaSeleccionada(value);
+      
       console.log('✅ Categoría guardada:', value);
+      console.log('🔀 Tipo de flujo detectado:', nuevoTipoFlujo);
+      
+      // 🆕 BIFURCACIÓN: Si es estanque móvil, saltar directamente al paso final
+      if (nuevoTipoFlujo === 'estanque_movil') {
+        console.log('🚛 BIFURCACIÓN: Saltando a transferencia de estanque móvil');
+        setCurrentStep(5); // Saltar directamente al paso de transferencia
+        return;
+      }
     } else if (currentStep === 4) {
       setPatenteSeleccionada(value);
       console.log('✅ Patente guardada:', value);
     }
     
     setCurrentStep(prev => prev + 1);
-  }, [currentStep, userInfo.faena]);
+  }, [currentStep, userInfo.faena, detectarTipoFlujo]);
 
-  // Manejar paso anterior
+  // Manejar paso anterior con consideración del tipo de flujo
   const handlePrevious = useCallback(() => {
     console.log(`📍 Retrocediendo del paso ${currentStep} al ${currentStep - 1}`);
+    
+    // 🆕 NUEVO: Si estamos en transferencia de estanque móvil (paso 5) y venimos de bifurcación,
+    // regresar al paso 3 (selección de categoría)
+    if (currentStep === 5 && tipoFlujo === 'estanque_movil') {
+      console.log('🔙 Regresando de transferencia estanque móvil a selección de categoría');
+      setCurrentStep(3);
+      setTipoFlujo('normal'); // Resetear el tipo de flujo
+      return;
+    }
+    
     setCurrentStep(prev => prev - 1);
-  }, [currentStep]);
+  }, [currentStep, tipoFlujo]);
 
   // Manejar finalización exitosa del flujo
   const handleFlowComplete = useCallback(() => {
@@ -242,7 +269,6 @@ const BomberoNavigation = () => {
     onNext: handleNext,
     onPrevious: handlePrevious,
     userFaena: userInfo.faena,
-    // 🆕 CAMBIO: Ahora pasamos el estado de precarga masiva
     preloadStatus: preloadStatus.maquinasMasivas
   }), [tipoSolicitante, categoriaSeleccionada, handleNext, handlePrevious, userInfo.faena, preloadStatus.maquinasMasivas]);
 
@@ -254,7 +280,6 @@ const BomberoNavigation = () => {
     onNext: handleNext,
     onPrevious: handlePrevious,
     userFaena: userInfo.faena,
-    // 🆕 CAMBIO: Indicar que las máquinas ya están precargadas
     maquinasPrecargadas: preloadStatus.maquinasMasivas.loaded
   }), [tipoSolicitante, categoriaSeleccionada, patenteSeleccionada, solicitante, handleNext, handlePrevious, userInfo.faena, preloadStatus.maquinasMasivas.loaded]);
 
@@ -281,8 +306,36 @@ const BomberoNavigation = () => {
     preloadStatus.estanques
   ]);
 
-  // Renderizar el paso correspondiente con memoización
+  // 🆕 NUEVO: Props para componente de transferencia de estanque móvil
+  const transferenciaEstanqueMovilProps = useMemo(() => ({
+    tipoSolicitante,
+    solicitante,
+    categoriaSeleccionada,
+    onPrevious: handlePrevious,
+    onComplete: handleFlowComplete,
+    resetFlow,
+    userInfo,
+    idFaena: userInfo.faena,
+    preloadedEstanques: preloadStatus.estanques
+  }), [
+    tipoSolicitante,
+    solicitante,
+    categoriaSeleccionada,
+    handlePrevious,
+    handleFlowComplete,
+    resetFlow,
+    userInfo,
+    preloadStatus.estanques
+  ]);
+
+  // 🆕 RENDERIZAR EL PASO CORRESPONDIENTE CON BIFURCACIÓN
   const renderStep = useMemo(() => {
+    // 🆕 NUEVO: Si estamos en paso 5 y es transferencia de estanque móvil
+    if (currentStep === 5 && tipoFlujo === 'estanque_movil') {
+      return <TransferenciaEstanqueMovil {...transferenciaEstanqueMovilProps} />;
+    }
+    
+    // Flujo normal
     switch (currentStep) {
       case 1:
         return <TipoSolicitante {...tipoSolicitanteProps} />;
@@ -299,11 +352,13 @@ const BomberoNavigation = () => {
     }
   }, [
     currentStep, 
+    tipoFlujo,
     tipoSolicitanteProps, 
     solicitanteProps, 
     maquinariaProps, 
     patenteProps, 
-    consumoProps
+    consumoProps,
+    transferenciaEstanqueMovilProps
   ]);
 
   // Return principal del componente
@@ -318,6 +373,13 @@ const BomberoNavigation = () => {
         <div className="container mx-auto">
           {renderStep}
         </div>
+        
+        {/* 🆕 NUEVO: Indicador de tipo de flujo para debugging (solo en desarrollo) */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="fixed bottom-4 left-4 bg-black bg-opacity-75 text-white px-3 py-1 rounded text-xs">
+            Paso: {currentStep} | Flujo: {tipoFlujo}
+          </div>
+        )}
       </div>
     </div>
   );
