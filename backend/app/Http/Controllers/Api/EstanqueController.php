@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Estanque;
 use App\Models\EstanqueStock;
+use App\Models\Faena;
 use App\Models\MovimientoPetroleo;
 use App\Models\StockPetroleo;
 use App\Models\VerificacionAltura;
@@ -42,7 +43,7 @@ class EstanqueController extends Controller
                 ->get();
 
             Log::info("📦 Estanques encontrados", [
-                'faena' => $id_faena, 
+                'faena' => $id_faena,
                 'cantidad' => $estanques->count()
             ]);
 
@@ -59,33 +60,33 @@ class EstanqueController extends Controller
             $estanquesConStock = $estanques->map(function ($estanque) {
                 $stockActual = $estanque->stock ? (float) $estanque->stock->stock_actual : 0.0;
                 $capacidad = (float) $estanque->capacidad;
-                
+
                 return [
                     // IDs como enteros
                     'id_estanque' => (int) $estanque->id_estanque,
-                    
+
                     // Información básica
                     'nombre' => (string) $estanque->nombre,
                     'tipo_estanque' => $estanque->tipo_estanque ?? 'fijo',
                     'activo' => (bool) $estanque->activo,
-                    
+
                     // Capacidades como flotantes
                     'capacidad' => $capacidad,
                     'altura_nominal' => (float) $estanque->altura_nominal,
-                    
+
                     // Stock actual
                     'stock_actual' => $stockActual,
                     'altura_actual' => $estanque->stock ? (float) $estanque->stock->altura_actual : 0.0,
                     'ultima_medicion' => $estanque->stock ? $estanque->stock->ultima_medicion : null,
-                    
+
                     // 🆕 CAMPOS CALCULADOS QUE ESPERA EL FRONTEND
                     'capacidad_disponible' => $capacidad - $stockActual,
                     'porcentaje_llenado' => $capacidad > 0 ? round(($stockActual / $capacidad) * 100, 2) : 0,
-                    
+
                     // 🆕 ESTADO PARA EL FRONTEND
                     'permite_consumo' => $stockActual > 0,
                     'nivel_critico' => $capacidad > 0 ? (($stockActual / $capacidad) * 100) < 20 : false,
-                    
+
                     // Timestamps
                     'created_at' => $estanque->created_at,
                     'updated_at' => $estanque->updated_at,
@@ -113,7 +114,6 @@ class EstanqueController extends Controller
                 'stats' => $stats, // 🆕 ESTADÍSTICAS ADICIONALES
                 'message' => 'Estanques obtenidos exitosamente'
             ], 200);
-
         } catch (\Exception $e) {
             Log::error("❌ Error al obtener estanques para faena {$id_faena}", [
                 'error' => $e->getMessage(),
@@ -184,7 +184,7 @@ class EstanqueController extends Controller
             $stockTotal = $estanques->sum('stock_actual');
 
             // 🎯 ANÁLISIS DE VIABILIDAD
-            
+
             // Buscar estanque único suficiente
             $estanqueSuficiente = $estanques->firstWhere('stock_actual', '>=', $litrosRequeridos);
 
@@ -229,7 +229,6 @@ class EstanqueController extends Controller
                 ],
                 'estanques_disponibles' => $estanques
             ]);
-
         } catch (\Exception $e) {
             Log::error('Error analizando consumo', [
                 'error' => $e->getMessage(),
@@ -377,7 +376,6 @@ class EstanqueController extends Controller
                 'stock_estimado' => $tipoMovimiento === 'ingreso' ? $stockActual + $litrosIngresados : $stockActual - $litrosIngresados,
                 'detalle_estanques' => $resultadosPorEstanque
             ]);
-
         } catch (\Exception $e) {
             Log::error('❌ Error en calcularLitrosPetroleo: ' . $e->getMessage(), ['exception' => $e]);
             return response()->json([
@@ -441,7 +439,6 @@ class EstanqueController extends Controller
                     'detalle_estanques' => $detalleEstanques
                 ]
             ]);
-
         } catch (\Exception $e) {
             Log::error('❌ Error al obtener capacidad disponible', [
                 'faena' => $idFaena,
@@ -530,6 +527,61 @@ class EstanqueController extends Controller
                 'success' => false,
                 'message' => 'Error al obtener los estanques fijos.',
                 'error' => config('app.debug') ? $e->getMessage() : 'Error interno del servidor'
+            ], 500);
+        }
+    }
+
+    /**
+     * Obtener estanques móviles de una faena
+     */
+    public function getEstanquesMoviles($idFaena)
+    {
+        Log::info("Obteniendo ");
+        try {
+            // Validar que la faena exista (asumiendo modelo Faena)
+            if (!Faena::find($idFaena)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'La faena no existe.'
+                ], 404);
+            }
+
+            Log::info("Obteniendo estanques móviles para faena: {$idFaena}");
+
+            // Obtener estanques móviles asociados a la faena
+            $estanquesMoviles = Estanque::where('id_faena', $idFaena)
+                ->where('tipo_estanque', 'movil')
+                ->select('id_estanque', 'nombre', 'capacidad')
+                ->get();
+
+            if ($estanquesMoviles->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'No hay estanques móviles registrados en esta faena.',
+                    'data' => [],
+                    'total' => 0
+                ]);
+            }
+
+            // Agregar stock actual y capacidad disponible
+            $estanquesConStock = $estanquesMoviles->map(function ($estanque) {
+                $stock = EstanqueStock::where('id_estanque', $estanque->id_estanque)->first();
+                $estanque->stock_actual = $stock ? $stock->stock_actual : 0;
+                $estanque->capacidad_disponible = $estanque->capacidad - $estanque->stock_actual;
+                return $estanque;
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Estanques móviles obtenidos correctamente.',
+                'data' => $estanquesConStock,
+                'total' => $estanquesConStock->count()
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener estanques móviles', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Error inesperado al obtener los estanques móviles.'
             ], 500);
         }
     }
