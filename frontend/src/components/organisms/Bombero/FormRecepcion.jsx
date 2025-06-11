@@ -80,7 +80,7 @@ const ModalConfirmacionReinicio = ({ isOpen, onConfirm, onCancel }) => {
             </h3>
             <p className="text-gray-600 text-sm leading-relaxed">
               Los cálculos de diferencia se actualizarán automáticamente con el
-              nuevo valor de litros recibidos.
+              nuevo valor de litros documentados.
               <strong className="text-blue-600">
                 {" "}
                 Las alturas ingresadas se mantendrán.
@@ -131,7 +131,7 @@ const ModalExitoRecepcion = ({ isOpen, onConfirm, datosRecepcion }) => {
   const {
     numeroGuia,
     litrosDocumentados,
-    litrosCalculados,
+    litrosMedidos,
     diferencia,
     precioTotal,
     stockInicial,
@@ -180,7 +180,7 @@ const ModalExitoRecepcion = ({ isOpen, onConfirm, datosRecepcion }) => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-blue-700 text-sm">
-                    Litros Guía:
+                    Litros Documentados:
                   </span>
                   <span className="font-bold text-blue-900">
                     {formatNumberWithSeparators(litrosDocumentados)} L
@@ -216,10 +216,10 @@ const ModalExitoRecepcion = ({ isOpen, onConfirm, datosRecepcion }) => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-orange-700 text-sm">
-                    Litros Calculados:
+                    Litros Medidos:
                   </span>
                   <span className="font-bold text-orange-900">
-                    {formatNumberWithSeparators(litrosCalculados)} L
+                    {formatNumberWithSeparators(litrosMedidos)} L
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -254,7 +254,7 @@ const ModalExitoRecepcion = ({ isOpen, onConfirm, datosRecepcion }) => {
                     Total de la Recepción
                   </h3>
                   <p className="text-green-600 text-sm">
-                    Basado en litros Guía
+                    Basado en litros documentados
                   </p>
                 </div>
               </div>
@@ -283,7 +283,6 @@ const ModalExitoRecepcion = ({ isOpen, onConfirm, datosRecepcion }) => {
                   ✓ Completado
                 </span>
               </div>
-
             </div>
           </div>
         </div>
@@ -309,10 +308,10 @@ const FormRecepcion = () => {
   // Acceder al contexto de usuario
   const { user, loading } = useContext(UserContext);
 
-  // Estados para datos del formulario
+  // ✅ CORREGIDO: Estados para datos del formulario con nombres más claros
   const [formData, setFormData] = useState({
     numeroGuia: "",
-    litrosRecibidos: "",
+    litrosDocumentados: "", // ← CAMBIO: Nombre más claro (antes era litrosRecibidos)
     observacion: "",
     precio: "",
     id_faena: "",
@@ -321,7 +320,7 @@ const FormRecepcion = () => {
   // Estados para controlar el modal de actualización
   const [showModalActualizacion, setShowModalActualizacion] = useState(false);
   const [nuevoValorLitros, setNuevoValorLitros] = useState("");
-  const [valorOriginalLitros, setValorOriginalLitros] = useState(""); // NUEVO ESTADO
+  const [valorOriginalLitros, setValorOriginalLitros] = useState("");
 
   // Estados para distribución de combustible
   const [distribucionLitros, setDistribucionLitros] = useState({});
@@ -346,8 +345,10 @@ const FormRecepcion = () => {
   const [estanques, setEstanques] = useState([]);
   const [alturasEstanques, setAlturasEstanques] = useState({});
   const [capacidadDisponible, setCapacidadDisponible] = useState();
+
+  // ✅ CORREGIDO: Estado del cálculo con nombre más claro
   const [calculoPetroleo, setCalculoPetroleo] = useState({
-    litrosCalculados: 0,
+    litrosMedidos: 0, // ← CAMBIO: Nombre más claro (antes era litrosCalculados)
     diferencia: 0,
     calculoRealizado: false,
   });
@@ -362,7 +363,7 @@ const FormRecepcion = () => {
 
   // Función para validar distribución
   const validarDistribucion = () => {
-    const litrosGuia = parseFloat(formData.litrosRecibidos) || 0;
+    const litrosGuia = parseFloat(formData.litrosDocumentados) || 0;
     const totalDistribuido = Object.values(distribucionLitros).reduce((total, valor) => {
       return total + (parseFloat(valor) || 0);
     }, 0);
@@ -374,35 +375,31 @@ const FormRecepcion = () => {
     if (Math.abs(totalDistribuido - litrosGuia) > 0.01) {
       return {
         valido: false,
-        mensaje: `La distribución (${formatNumberWithSeparators(totalDistribuido)} L) debe coincidir exactamente con los litros de la guía (${formatNumberWithSeparators(litrosGuia)} L).`
+        mensaje: `La distribución (${formatNumberWithSeparators(totalDistribuido)} L) debe coincidir exactamente con los litros documentados (${formatNumberWithSeparators(litrosGuia)} L).`
       };
     }
 
     return { valido: true, mensaje: "" };
   };
 
-  // FUNCIÓN MODIFICADA - Ahora solo maneja cambios normales
-  const handleLitrosRecibidosChange = (value) => {
-    // Permitir cambio normal sin mostrar modal
-    handleChange("litrosRecibidos", value);
+  // ✅ CORREGIDO: Función para manejar cambios en litros documentados
+  const handleLitrosDocumentadosChange = (value) => {
+    handleChange("litrosDocumentados", value);
   };
 
-  // NUEVA FUNCIÓN para manejar cuando el campo pierde el foco
-  const handleLitrosRecibidosBlur = (value) => {
-    // Marcar el campo como tocado
-    handleBlur("litrosRecibidos");
+  // ✅ CORREGIDO: Función para manejar cuando el campo pierde el foco
+  const handleLitrosDocumentadosBlur = (value) => {
+    handleBlur("litrosDocumentados");
 
     // Si ya hay cálculos realizados y el valor ha cambiado, mostrar modal
     if (calculoPetroleo.calculoRealizado) {
-      // Guardar el valor original antes del cambio si no existe
       if (!valorOriginalLitros) {
-        setValorOriginalLitros(formData.litrosRecibidos);
+        setValorOriginalLitros(formData.litrosDocumentados);
       }
 
-      const valorActual = parseFloat(valorOriginalLitros || formData.litrosRecibidos) || 0;
+      const valorActual = parseFloat(valorOriginalLitros || formData.litrosDocumentados) || 0;
       const nuevoValor = parseFloat(value) || 0;
 
-      // Solo mostrar modal si el valor realmente cambió
       if (Math.abs(valorActual - nuevoValor) > 0.01) {
         setNuevoValorLitros(value);
         setShowModalActualizacion(true);
@@ -410,66 +407,57 @@ const FormRecepcion = () => {
     }
   };
 
-  // NUEVA FUNCIÓN para cancelar y restaurar el valor original
+  // Función para cancelar y restaurar el valor original
   const cancelarActualizacion = () => {
-    // Restaurar el valor original
     setFormData((prev) => ({
       ...prev,
-      litrosRecibidos: valorOriginalLitros,
+      litrosDocumentados: valorOriginalLitros,
     }));
 
-    // Limpiar estados del modal
     setShowModalActualizacion(false);
     setNuevoValorLitros("");
     setValorOriginalLitros("");
 
-    // Mostrar mensaje informativo
     mostrarAlerta(
       "info",
       "Se ha restaurado el valor original. Los cálculos permanecen sin cambios."
     );
   };
 
-  // FUNCIÓN MODIFICADA para confirmar actualización automática de cálculos
+  // ✅ CORREGIDO: Función para confirmar actualización automática de cálculos
   const confirmarActualizacion = () => {
-    // Actualizar el valor de litros recibidos
     setFormData((prev) => ({
       ...prev,
-      litrosRecibidos: nuevoValorLitros,
+      litrosDocumentados: nuevoValorLitros,
     }));
 
-    // Recalcular la diferencia con el nuevo valor
     recalcularDiferencia(nuevoValorLitros);
 
-    // Cerrar modal y limpiar estados
     setShowModalActualizacion(false);
     setNuevoValorLitros("");
-    setValorOriginalLitros(""); // Limpiar valor original
+    setValorOriginalLitros("");
 
-    // Mostrar alerta informativa
     mostrarAlerta(
       "info",
       "Los cálculos han sido actualizados automáticamente con el nuevo valor."
     );
   };
 
-  // Función para recalcular solo la diferencia manteniendo los litros calculados
-  const recalcularDiferencia = (nuevosLitrosRecibidos) => {
-    const litrosGuia = parseFloat(nuevosLitrosRecibidos) || 0;
-    const nuevaDiferencia = calculoPetroleo.litrosCalculados - litrosGuia;
+  // ✅ CORREGIDO: Función para recalcular solo la diferencia
+  const recalcularDiferencia = (nuevosLitrosDocumentados) => {
+    const litrosGuia = parseFloat(nuevosLitrosDocumentados) || 0;
+    const nuevaDiferencia = calculoPetroleo.litrosMedidos - litrosGuia;
 
-    // Actualizar solo la diferencia, manteniendo litros calculados
     setCalculoPetroleo((prev) => ({
       ...prev,
       diferencia: nuevaDiferencia,
     }));
 
-    // Actualizar la observación con la nueva diferencia
     setFormData((prev) => ({
       ...prev,
       observacion: generarObservacionDiferencia(
         litrosGuia,
-        calculoPetroleo.litrosCalculados
+        calculoPetroleo.litrosMedidos
       ),
     }));
   };
@@ -511,24 +499,20 @@ const FormRecepcion = () => {
         console.log('Error en distribución:', validacion.mensaje);
       }
     }
-  }, [distribucionLitros, formData.litrosRecibidos]);
+  }, [distribucionLitros, formData.litrosDocumentados]);
 
-  // Función para cargar los estanques de una faena
   // Función para cargar los estanques de una faena
   const cargarEstanques = async (idFaena) => {
     try {
       const token = JSON.parse(localStorage.getItem("authToken"))?.token;
-      // 👇 CAMBIO AQUÍ: Nueva ruta que filtra solo estanques fijos
       const response = await axios.get(`/api/estanques-fijo/${idFaena}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      // Guardar datos de los estanques (la estructura de response.data.data se mantiene igual)
       setEstanques(response.data.data);
 
-      // El resto del código permanece igual...
       const initialAlturas = {};
       const initialDistribucion = {};
       response.data.data.forEach((estanque) => {
@@ -583,7 +567,7 @@ const FormRecepcion = () => {
     );
   };
 
-  // Función para validar campos en tiempo real
+  // ✅ CORREGIDO: Función para validar campos en tiempo real
   const validateField = () => {
     const newErrors = {};
 
@@ -591,14 +575,14 @@ const FormRecepcion = () => {
       newErrors.numeroGuia = "El número de guía es obligatorio";
     }
 
-    if (touched.litrosRecibidos) {
-      if (!formData.litrosRecibidos) {
-        newErrors.litrosRecibidos = "La cantidad de litros es obligatoria";
+    if (touched.litrosDocumentados) {
+      if (!formData.litrosDocumentados) {
+        newErrors.litrosDocumentados = "La cantidad de litros es obligatoria";
       } else if (
-        isNaN(formData.litrosRecibidos) ||
-        parseFloat(formData.litrosRecibidos) <= 0
+        isNaN(formData.litrosDocumentados) ||
+        parseFloat(formData.litrosDocumentados) <= 0
       ) {
-        newErrors.litrosRecibidos = "Debe ingresar un valor numérico mayor a 0";
+        newErrors.litrosDocumentados = "Debe ingresar un valor numérico mayor a 0";
       }
     }
 
@@ -613,20 +597,20 @@ const FormRecepcion = () => {
     setErrors(newErrors);
   };
 
-  // Función para validar todos los campos
+  // ✅ CORREGIDO: Función para validar todos los campos
   const validarFormularioCompleto = () => {
     const newErrors = {};
 
     if (!formData.numeroGuia.trim())
       newErrors.numeroGuia = "Este campo es obligatorio";
 
-    if (!formData.litrosRecibidos) {
-      newErrors.litrosRecibidos = "Este campo es obligatorio";
+    if (!formData.litrosDocumentados) {
+      newErrors.litrosDocumentados = "Este campo es obligatorio";
     } else if (
-      isNaN(formData.litrosRecibidos) ||
-      parseFloat(formData.litrosRecibidos) <= 0
+      isNaN(formData.litrosDocumentados) ||
+      parseFloat(formData.litrosDocumentados) <= 0
     ) {
-      newErrors.litrosRecibidos = "Debe ingresar un valor numérico mayor a 0";
+      newErrors.litrosDocumentados = "Debe ingresar un valor numérico mayor a 0";
     }
 
     if (!formData.precio) {
@@ -658,7 +642,6 @@ const FormRecepcion = () => {
   // Función para manejar cambios en las alturas de estanques
   const handleAlturaChange = (estanqueId, value) => {
     setAlturasEstanques((prevState) => {
-      // Siempre aseguramos formato de objeto para alturas
       if (
         typeof value === "object" &&
         (value.inicial !== undefined || value.final !== undefined)
@@ -677,7 +660,6 @@ const FormRecepcion = () => {
           },
         };
       } else {
-        // Si se recibe un valor simple, asumimos que es altura inicial
         console.warn("Formato de altura no estándar para estanque", estanqueId);
         return {
           ...prevState,
@@ -690,9 +672,8 @@ const FormRecepcion = () => {
     });
   };
 
-  // Función para calcular los litros de petróleo según las alturas
+  // ✅ CORREGIDO: Función para calcular los litros de petróleo según las alturas
   const calcularLitrosPetroleo = async () => {
-    // Validaciones iniciales
     if (!formData.id_faena) {
       mostrarModalAlerta(
         "error",
@@ -706,19 +687,17 @@ const FormRecepcion = () => {
       return null;
     }
 
-    // Validar que se haya ingresado litros recibidos
     if (
-      !formData.litrosRecibidos ||
-      parseFloat(formData.litrosRecibidos) <= 0
+      !formData.litrosDocumentados ||
+      parseFloat(formData.litrosDocumentados) <= 0
     ) {
       mostrarModalAlerta(
         "error",
-        "Debe ingresar la cantidad de litros recibidos antes de calcular."
+        "Debe ingresar la cantidad de litros documentados antes de calcular."
       );
       return null;
     }
 
-    // Validar distribución si existe
     const validacionDistribucion = validarDistribucion();
     if (!validacionDistribucion.valido) {
       mostrarModalAlerta("error", validacionDistribucion.mensaje);
@@ -728,7 +707,6 @@ const FormRecepcion = () => {
     try {
       const token = JSON.parse(localStorage.getItem("authToken"))?.token;
 
-      // Procesar y validar alturas
       const { alturasIniciales, alturasFinales, incompletas } =
         procesarAlturas();
 
@@ -740,11 +718,9 @@ const FormRecepcion = () => {
         return null;
       }
 
-      // Convertir las alturas al formato que espera la API
       const datosAlturasIniciales = convertirAlturasParaAPI(alturasIniciales);
       const datosAlturasFinales = convertirAlturasParaAPI(alturasFinales);
 
-      // Validar completitud de las alturas
       if (
         hayAlturasIncompletas(datosAlturasIniciales) ||
         hayAlturasIncompletas(datosAlturasFinales)
@@ -756,7 +732,6 @@ const FormRecepcion = () => {
         return null;
       }
 
-      // Preparar datos para las peticiones API
       const datosCalcularInicial = {
         id_faena: formData.id_faena,
         id_usuario: user.id,
@@ -771,7 +746,6 @@ const FormRecepcion = () => {
         alturas: datosAlturasFinales,
       };
 
-      // Llamar a la API para calcular los litros iniciales
       const responseInicial = await axios.post(
         "/api/calcular-litros-petroleo",
         datosCalcularInicial,
@@ -789,7 +763,6 @@ const FormRecepcion = () => {
         );
       }
 
-      // Llamar a la API para calcular los litros finales
       const responseFinal = await axios.post(
         "/api/calcular-litros-petroleo",
         datosCalcularFinal,
@@ -806,12 +779,10 @@ const FormRecepcion = () => {
         );
       }
 
-      // Procesar los resultados y actualizar estados
       return procesarResultadosCalculo(responseInicial, responseFinal);
     } catch (error) {
       console.error("Error al calcular litros de petróleo:", error);
 
-      // Obtener mensaje de error más específico si está disponible
       let errorMessage = "Error al calcular los litros de petróleo.";
       if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
@@ -830,23 +801,25 @@ const FormRecepcion = () => {
     const alturasFinales = {};
     let incompletas = false;
 
-    // Separar las alturas en iniciales y finales
-    Object.keys(alturasEstanques).forEach((estanqueId) => {
-      // Considerar la estructura {inicial, final}
+    // Obtener estanques que tienen distribución > 0
+    const estanquesConDistribucion = Object.keys(distribucionLitros).filter(estanqueId => {
+      const distribucion = parseFloat(distribucionLitros[estanqueId]) || 0;
+      return distribucion > 0;
+    });
+
+    estanquesConDistribucion.forEach((estanqueId) => {
       if (typeof alturasEstanques[estanqueId] === "object") {
         alturasIniciales[estanqueId] = alturasEstanques[estanqueId].inicial;
         alturasFinales[estanqueId] = alturasEstanques[estanqueId].final;
       } else {
-        // Compatibilidad con la estructura antigua
         console.warn(
           "Estructura de alturas incorrecta para estanque",
           estanqueId
         );
         alturasIniciales[estanqueId] = alturasEstanques[estanqueId];
-        alturasFinales[estanqueId] = ""; // Valor vacío para altura final
+        alturasFinales[estanqueId] = "";
       }
 
-      // Verificar si falta alguna altura
       if (
         alturasIniciales[estanqueId] === undefined ||
         alturasIniciales[estanqueId] === "" ||
@@ -883,57 +856,64 @@ const FormRecepcion = () => {
     });
   };
 
-  // Función para procesar los resultados del cálculo
+  // ✅ CORREGIDO: Función para procesar los resultados del cálculo
   const procesarResultadosCalculo = (responseInicial, responseFinal) => {
-    // Obtener los valores calculados
     const stockInicial = responseInicial.data.litros_totales || 0;
     const stockFinal = responseFinal.data.litros_totales || 0;
     const litrosIngresados = stockFinal - stockInicial;
-    const litrosGuia = parseFloat(formData.litrosRecibidos);
+    const litrosGuia = parseFloat(formData.litrosDocumentados);
 
-    // CAMBIO: Ahora es litros calculados - litros guía
+    // Diferencia = litros medidos - litros documentados
     const diferencia = litrosIngresados - litrosGuia;
 
-    // Guardar en el estado del componente
+    // ✅ CORREGIDO: Usar litrosMedidos en lugar de litrosCalculados
     setCalculoPetroleo({
-      litrosCalculados: litrosIngresados,
-      diferencia: diferencia, // Este valor ahora será correcto
+      litrosMedidos: litrosIngresados,
+      diferencia: diferencia,
       calculoRealizado: true,
     });
 
-    // Actualizar observación con la diferencia calculada
     setFormData((prevFormData) => ({
       ...prevFormData,
       observacion: generarObservacionDiferencia(litrosGuia, litrosIngresados),
     }));
 
-    // Actualizar stock inicial
     setStockInicial(stockInicial);
 
-    // Retornar los valores que espera EstanquesModal
     return {
       volInicial: stockInicial,
       volFinal: stockFinal,
       discrepanciaIni: stockInicial - 200,
-      discrepanciaCam: diferencia, // Usar la nueva diferencia
+      discrepanciaCam: diferencia,
     };
   };
 
-  // Generar texto de observación basado en diferencia
-  const generarObservacionDiferencia = (litrosGuia, litrosIngresados) => {
-    const diferencia = litrosIngresados - litrosGuia; // CAMBIO: Nuevo orden
+  // ✅ CORREGIDO: Generar texto de observación basado en diferencia
+  const generarObservacionDiferencia = (litrosGuia, litrosMedidos) => {
+    const diferencia = litrosMedidos - litrosGuia;
 
     return `Según cálculo de alturas, se detecta una diferencia de ${formatNumber(
       Math.abs(diferencia)
     )} litros ${diferencia > 0 ? "de más" : "de menos"
       } en la recepción. Litros según guía: ${formatNumber(
         litrosGuia
-      )}. Litros calculados: ${formatNumber(litrosIngresados)}.`;
+      )}. Litros medidos: ${formatNumber(litrosMedidos)}.`;
   };
 
-  // Verificar si hay alturas vacías
+  // Verificar si hay alturas vacías (solo para estanques con distribución)
   const verificarAlturasCompletas = () => {
-    return !Object.values(alturasEstanques).some((alturas) => {
+    // Obtener estanques que tienen distribución > 0
+    const estanquesConDistribucion = Object.keys(distribucionLitros).filter(estanqueId => {
+      const distribucion = parseFloat(distribucionLitros[estanqueId]) || 0;
+      return distribucion > 0;
+    });
+
+    // Si no hay estanques con distribución, no hay nada que validar
+    if (estanquesConDistribucion.length === 0) return false;
+
+    // Validar solo los estanques que tienen distribución
+    return !estanquesConDistribucion.some((estanqueId) => {
+      const alturas = alturasEstanques[estanqueId];
       if (typeof alturas !== "object") return true;
       return !alturas.inicial || !alturas.final;
     });
@@ -946,9 +926,7 @@ const FormRecepcion = () => {
     Object.keys(alturasEstanques).forEach((idEstanque) => {
       const datos = alturasEstanques[idEstanque];
 
-      // Verificar si hay datos de alturas iniciales y finales
       if (datos && typeof datos === "object") {
-        // Agregar altura inicial si existe
         if (datos.inicial !== undefined && datos.inicial !== "") {
           alturas.push({
             id_estanque: parseInt(idEstanque),
@@ -957,7 +935,6 @@ const FormRecepcion = () => {
           });
         }
 
-        // Agregar altura final si existe
         if (datos.final !== undefined && datos.final !== "") {
           alturas.push({
             id_estanque: parseInt(idEstanque),
@@ -966,12 +943,11 @@ const FormRecepcion = () => {
           });
         }
       } else if (datos !== undefined && datos !== "") {
-        // Compatibilidad con formato antiguo (solo altura)
         console.warn("Formato de altura no estándar detectado en envío");
         alturas.push({
           id_estanque: parseInt(idEstanque),
           altura: parseFloat(datos),
-          tipo: "inicial", // Por defecto se considera inicial
+          tipo: "inicial",
         });
       }
     });
@@ -986,12 +962,11 @@ const FormRecepcion = () => {
     window.location.href = "/bombero";
   };
 
-  // Manejar el envío del formulario
+  // ✅ CORREGIDO: Manejar el envío del formulario
   const handleSubmit = async () => {
-    // Marcar todos los campos como tocados para validar
     setTouched({
       numeroGuia: true,
-      litrosRecibidos: true,
+      litrosDocumentados: true,
       precio: true,
     });
 
@@ -1003,7 +978,6 @@ const FormRecepcion = () => {
       return;
     }
 
-    // Validación completa antes de enviar
     if (!validarFormularioCompleto()) {
       mostrarAlerta(
         "error",
@@ -1012,7 +986,6 @@ const FormRecepcion = () => {
       return;
     }
 
-    // Verificar que se haya realizado el cálculo de alturas
     if (!calculoPetroleo.calculoRealizado) {
       mostrarAlerta(
         "error",
@@ -1022,7 +995,6 @@ const FormRecepcion = () => {
       return;
     }
 
-    // Validación adicional de alturas de estanques
     if (!verificarAlturasCompletas()) {
       mostrarAlerta(
         "error",
@@ -1032,7 +1004,6 @@ const FormRecepcion = () => {
       return;
     }
 
-    // Validación final de distribución
     const validacionDistribucion = validarDistribucion();
     if (!validacionDistribucion.valido) {
       mostrarAlerta("error", validacionDistribucion.mensaje);
@@ -1043,23 +1014,22 @@ const FormRecepcion = () => {
     setIsSubmitting(true);
 
     try {
-      // Calcular precio total
+      // ✅ CORREGIDO: Usar litrosDocumentados en lugar de litrosRecibidos
       const precioTotal =
-        parseFloat(formData.litrosRecibidos) * parseFloat(formData.precio);
+        parseFloat(formData.litrosDocumentados) * parseFloat(formData.precio);
 
-      // CAMBIO: Calcular diferencia como litros calculados - litros guía
+      // ✅ CORREGIDO: Diferencia = litros medidos - litros documentados
       const diferencia =
-        calculoPetroleo.litrosCalculados - parseFloat(formData.litrosRecibidos);
+        calculoPetroleo.litrosMedidos - parseFloat(formData.litrosDocumentados);
 
-      // Preparar datos para el formato esperado por la API
       const alturas = prepararDatosAlturas();
 
-      // Preparar los datos según la estructura de la BD
+      // ✅ CORREGIDO: Datos para envío con nombres correctos
       const dataToSend = {
         id_usuario: user.id,
         numero_guia: formData.numeroGuia,
-        litros_documentados: parseFloat(formData.litrosRecibidos), // Valor de la guía
-        litros_recibidos: calculoPetroleo.litrosCalculados, // Valor calculado por alturas
+        litros_documentados: parseFloat(formData.litrosDocumentados), // ← Litros según guía
+        litros_recibidos: calculoPetroleo.litrosMedidos, // ← Litros medidos por alturas
         precio: parseFloat(formData.precio),
         precio_total: precioTotal,
         recibo_conforme: true,
@@ -1067,34 +1037,29 @@ const FormRecepcion = () => {
         id_faena: formData.id_faena,
         diferencia: diferencia,
         stock_inicial: stockInicial,
-        // 🆕 ENVIAR DISTRIBUCIÓN DE LITROS
         distribucion_litros: distribucionLitros,
-        // Modificar formato de alturas para incluir el tipo
         alturas_estanques: prepararDatosAlturasConTipo(),
       };
 
-      // Obtener el token de autenticación
       const token = JSON.parse(localStorage.getItem("authToken"))?.token;
 
-      // Realizar la petición a la API
       const response = await axios.post("/api/ingresos-petroleo", dataToSend, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      // Preparar datos para el modal de éxito
+      // ✅ CORREGIDO: Datos para el modal de éxito con nombres correctos
       const datosParaModalExito = {
         numeroGuia: formData.numeroGuia,
-        litrosDocumentados: parseFloat(formData.litrosRecibidos),
-        litrosCalculados: calculoPetroleo.litrosCalculados,
-        diferencia: diferencia, // Usar la nueva diferencia
+        litrosDocumentados: parseFloat(formData.litrosDocumentados),
+        litrosMedidos: calculoPetroleo.litrosMedidos,
+        diferencia: diferencia,
         precioTotal: precioTotal,
         stockInicial: stockInicial,
         precio: parseFloat(formData.precio),
       };
 
-      // Mostrar modal de éxito
       setDatosRecepcionExitosa(datosParaModalExito);
       setShowExitoModal(true);
     } catch (error) {
@@ -1105,7 +1070,7 @@ const FormRecepcion = () => {
     }
   };
 
-  // Y agregar esta nueva función para preparar las alturas con tipo:
+  // Función para preparar las alturas con tipo
   const prepararDatosAlturasConTipo = () => {
     const alturas = [];
 
@@ -1113,7 +1078,6 @@ const FormRecepcion = () => {
       const datos = alturasEstanques[idEstanque];
 
       if (datos && typeof datos === "object") {
-        // Agregar altura inicial
         if (datos.inicial !== undefined && datos.inicial !== "") {
           alturas.push({
             id_estanque: parseInt(idEstanque),
@@ -1122,7 +1086,6 @@ const FormRecepcion = () => {
           });
         }
 
-        // Agregar altura final
         if (datos.final !== undefined && datos.final !== "") {
           alturas.push({
             id_estanque: parseInt(idEstanque),
@@ -1136,29 +1099,25 @@ const FormRecepcion = () => {
     return alturas;
   };
 
-  // Función para resetear el formulario
+  // ✅ CORREGIDO: Función para resetear el formulario
   const resetearFormulario = () => {
-    // Limpiar el formulario después del envío exitoso pero mantener la faena
     setFormData({
       numeroGuia: "",
-      litrosRecibidos: "",
+      litrosDocumentados: "",
       observacion: "",
       precio: "",
-      id_faena: formData.id_faena, // Mantener la faena actual
+      id_faena: formData.id_faena,
     });
 
-    // Resetear campos tocados y cálculos
     setTouched({});
     setCalculoPetroleo({
-      litrosCalculados: 0,
+      litrosMedidos: 0,
       diferencia: 0,
       calculoRealizado: false,
     });
 
-    // Resetear distribución
     setDistribucionLitros({});
 
-    // Reiniciar las alturas de estanques
     const initialAlturas = {};
     const initialDistribucion = {};
     estanques.forEach((estanque) => {
@@ -1176,7 +1135,6 @@ const FormRecepcion = () => {
   const manejarErrorEnvio = (error) => {
     let errorMessage = "Error al registrar la recepción. Intente nuevamente.";
 
-    // Mostrar mensaje más específico si está disponible
     if (error.response && error.response.data && error.response.data.message) {
       errorMessage = error.response.data.message;
     }
@@ -1184,7 +1142,6 @@ const FormRecepcion = () => {
     mostrarAlerta("error", errorMessage);
   };
 
-  // Mostrar un mensaje de carga mientras se carga la información del usuario
   if (loading) {
     return (
       <div className="flex justify-center items-center h-40">
@@ -1218,10 +1175,8 @@ const FormRecepcion = () => {
           Registro de Recepción de Petróleo
         </h2>
 
-
         {/* Panel de distribución si existe */}
         {Object.values(distribucionLitros).some(valor => parseFloat(valor) > 0) && (
-
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
@@ -1272,29 +1227,28 @@ const FormRecepcion = () => {
             )}
           </div>
 
-          {/* CAMPO LITROS RECIBIDOS - CON ACTUALIZACIÓN AL SALIR DEL CAMPO */}
+          {/* ✅ CORREGIDO: Campo con nombre más claro */}
           <div className="flex flex-col">
             <label className="text-sm font-medium text-gray-600 mb-1 flex items-center">
-              Litros Recibidos *
+              Litros Documentados *
+              <span className="text-xs text-gray-500 ml-2">(según guía)</span>
             </label>
             <div className="relative">
               <InputField
-                placeholder="Ingrese cantidad de litros"
+                placeholder="Ingrese litros según guía"
                 type="number"
-                value={formData.litrosRecibidos}
-                onChange={(e) => handleLitrosRecibidosChange(e.target.value)}
-                className={`bg-white rounded-md text-gray-800 ${errors.litrosRecibidos ? "border-red-500" : "border-gray-300"
+                value={formData.litrosDocumentados}
+                onChange={(e) => handleLitrosDocumentadosChange(e.target.value)}
+                onBlur={(e) => handleLitrosDocumentadosBlur(e.target.value)}
+                className={`bg-white rounded-md text-gray-800 ${errors.litrosDocumentados ? "border-red-500" : "border-gray-300"
                   }`}
-
               />
-
             </div>
-            {errors.litrosRecibidos && (
+            {errors.litrosDocumentados && (
               <span className="text-red-500 text-xs mt-1">
-                {errors.litrosRecibidos}
+                {errors.litrosDocumentados}
               </span>
             )}
-
           </div>
 
           <div className="flex flex-col">
@@ -1326,7 +1280,7 @@ const FormRecepcion = () => {
                 icon={<FaRuler className="mr-2 text-white" />}
                 onClick={() => setShowEstanquesModal(true)}
                 className="bg-orange-600 hover:bg-orange-700 text-white text-sm px-4 py-2 rounded-md flex items-center w-full"
-                disabled={!formData.id_faena || !formData.litrosRecibidos}
+                disabled={!formData.id_faena || !formData.litrosDocumentados}
               />
               {calculoPetroleo.calculoRealizado && (
                 <span className="ml-3 text-green-600 flex items-center text-sm">
@@ -1338,9 +1292,9 @@ const FormRecepcion = () => {
               <span className="text-amber-600 text-xs mt-1">
                 No se ha podido identificar la faena
               </span>
-            ) : !formData.litrosRecibidos ? (
+            ) : !formData.litrosDocumentados ? (
               <span className="text-amber-600 text-xs mt-1">
-                Debe ingresar primero la cantidad de litros recibidos
+                Debe ingresar primero la cantidad de litros documentados
               </span>
             ) : (
               !calculoPetroleo.calculoRealizado && (
@@ -1352,16 +1306,16 @@ const FormRecepcion = () => {
           </div>
         </div>
 
-        {/* Calcular total estimado si hay litros y precio */}
-        {formData.litrosRecibidos &&
+        {/* ✅ CORREGIDO: Calcular total estimado con litrosDocumentados */}
+        {formData.litrosDocumentados &&
           formData.precio &&
-          !errors.litrosRecibidos &&
+          !errors.litrosDocumentados &&
           !errors.precio && (
             <div className="bg-blue-50 p-3 rounded-lg text-center border border-blue-200 mt-2">
               <p className="text-sm text-blue-600">Total Estimado:</p>
               <p className="font-bold text-gray-800 text-lg">
                 {(
-                  parseFloat(formData.litrosRecibidos) *
+                  parseFloat(formData.litrosDocumentados) *
                   parseFloat(formData.precio)
                 ).toLocaleString("es-CL", {
                   style: "currency",
@@ -1371,23 +1325,23 @@ const FormRecepcion = () => {
             </div>
           )}
 
-        {/* RESULTADO DEL CÁLCULO CON ACTUALIZACIÓN AUTOMÁTICA */}
+        {/* ✅ CORREGIDO: Resultado del cálculo con nombres actualizados */}
         {calculoPetroleo.calculoRealizado && (
           <div
             className={`p-4 rounded-lg text-center border mt-2 transition-all duration-300 ${Math.abs(calculoPetroleo.diferencia) <= 0.5
-              ? "bg-gray-50 border-gray-200" // Diferencia mínima
+              ? "bg-gray-50 border-gray-200"
               : calculoPetroleo.diferencia > 0
-                ? "bg-green-50 border-green-200" // Excedente - VERDE
-                : "bg-red-50 border-red-200" // Faltante - ROJO
+                ? "bg-green-50 border-green-200"
+                : "bg-red-50 border-red-200"
               }`}
           >
             <div className="flex items-center justify-center mb-3">
               <p
                 className={`text-sm font-medium ${Math.abs(calculoPetroleo.diferencia) <= 0.5
-                  ? "text-gray-600" // Diferencia mínima
+                  ? "text-gray-600"
                   : calculoPetroleo.diferencia > 0
-                    ? "text-green-600" // Excedente - VERDE
-                    : "text-red-600" // Faltante - ROJO
+                    ? "text-green-600"
+                    : "text-red-600"
                   }`}
               >
                 Resultado del cálculo:
@@ -1398,18 +1352,18 @@ const FormRecepcion = () => {
             </div>
             <div className="space-y-2 font-medium text-gray-800">
               <p className="flex justify-between items-center">
-                <span>Litros según guía:</span>
+                <span>Litros documentados:</span>
                 <span className="font-bold">
                   {formatNumberWithSeparators(
-                    parseFloat(formData.litrosRecibidos)
+                    parseFloat(formData.litrosDocumentados)
                   )}{" "}
                   L
                 </span>
               </p>
               <p className="flex justify-between items-center">
-                <span>Litros ingresados calculados:</span>
+                <span>Litros medidos:</span>
                 <span className="font-bold">
-                  {formatNumberWithSeparators(calculoPetroleo.litrosCalculados)}{" "}
+                  {formatNumberWithSeparators(calculoPetroleo.litrosMedidos)}{" "}
                   L
                 </span>
               </p>
@@ -1418,10 +1372,10 @@ const FormRecepcion = () => {
                   <span>Diferencia:</span>
                   <span
                     className={`font-bold text-lg ${Math.abs(calculoPetroleo.diferencia) <= 0.5
-                      ? "text-gray-600" // Diferencia mínima
+                      ? "text-gray-600"
                       : calculoPetroleo.diferencia > 0
-                        ? "text-green-600" // Excedente - VERDE
-                        : "text-red-600" // Faltante - ROJO
+                        ? "text-green-600"
+                        : "text-red-600"
                       }`}
                   >
                     {formatNumberWithSeparators(
@@ -1456,7 +1410,6 @@ const FormRecepcion = () => {
         </div>
 
         <div className="flex flex-col-reverse sm:flex-row sm:items-center mt-4 pt-2 border-t space-y-reverse space-y-3 sm:space-y-0">
-          {/* Botón Volver - Abajo en móvil, izquierda en desktop */}
           <Button
             to="/Bombero"
             className="flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white text-sm px-4 py-3 sm:py-2 rounded-md w-full sm:w-auto"
@@ -1464,7 +1417,6 @@ const FormRecepcion = () => {
             text="Volver"
           />
 
-          {/* Botón Ingresar - Arriba en móvil, derecha en desktop */}
           <Button
             text={isSubmitting ? "Procesando..." : "Ingresar Recepción"}
             color="orange"
@@ -1479,11 +1431,10 @@ const FormRecepcion = () => {
           Los campos marcados con * son obligatorios
         </div>
 
-        {/* MODAL DE ESTANQUES CON DISTRIBUCIÓN */}
+        {/* ✅ CORREGIDO: Modal de estanques con prop actualizada */}
         <EstanquesModal
           isOpen={showEstanquesModal}
           onClose={(stockSistema = null) => {
-            // Si se proporciona stockSistema, actualizarlo
             if (stockSistema !== null) {
               setStockInicial(stockSistema);
             }
@@ -1495,21 +1446,18 @@ const FormRecepcion = () => {
           calcularLitrosPetroleo={calcularLitrosPetroleo}
           modalAlert={modalAlert}
           capacidadDisponible={capacidadDisponible}
-          litrosRecibidos={parseFloat(formData.litrosRecibidos) || 0}
-          // PROPS PARA DISTRIBUCIÓN:
+          litrosRecibidos={parseFloat(formData.litrosDocumentados) || 0}
           distribucionLitros={distribucionLitros}
           onDistribucionChange={handleDistribucionChange}
         />
       </div>
 
-      {/* MODAL DE CONFIRMACIÓN PARA ACTUALIZACIÓN */}
       <ModalConfirmacionReinicio
         isOpen={showModalActualizacion}
         onConfirm={confirmarActualizacion}
         onCancel={cancelarActualizacion}
       />
 
-      {/* MODAL DE ÉXITO */}
       {datosRecepcionExitosa && (
         <ModalExitoRecepcion
           isOpen={showExitoModal}

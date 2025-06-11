@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import Header from "../../components/organisms/Bombero/Header";
-import FormRecepcionFijos from "../../components/templates/Bombero/BomberoRecepcion";
+import FormRecepcionNormal from "../../components/templates/Bombero/BomberoRecepcion";
 import FormRecepcionMovil from "../../components/templates/Bombero/BomberoRecepcionMovil";
 import { 
   FaTruck, 
@@ -76,7 +76,7 @@ const BomberoRecepcion = () => {
 
       {/* Contenido del formulario */}
       <div className="">
-        {tipoRecepcion === 'estanques_fijos' && <FormRecepcionFijos />}
+        {tipoRecepcion === 'estanques_fijos' && <FormRecepcionNormal />}
         {tipoRecepcion === 'estanque_movil' && <FormRecepcionMovil />}
         {tipoRecepcion === 'trasvasije' && (
           <div className="text-center py-16 text-gray-500">

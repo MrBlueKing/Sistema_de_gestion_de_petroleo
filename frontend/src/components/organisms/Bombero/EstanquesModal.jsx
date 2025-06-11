@@ -36,11 +36,9 @@ const InputNivel = ({
         onChange={onChange}
         placeholder={placeholder}
         disabled={disabled}
-        className={`w-full border ${
-          disabled ? "bg-gray-100" : "bg-white"
-        } rounded-lg p-3 pr-14 text-base md:text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all shadow-sm ${
-          !disabled && "group-hover:border-orange-300"
-        } appearance-none`}
+        className={`w-full border ${disabled ? "bg-gray-100" : "bg-white"
+          } rounded-lg p-3 pr-14 text-base md:text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all shadow-sm ${!disabled && "group-hover:border-orange-300"
+          } appearance-none`}
         style={{
           WebkitAppearance: "none",
           MozAppearance: "textfield",
@@ -70,11 +68,9 @@ const InputLitros = ({ value, onChange, placeholder, disabled, error }) => (
         disabled={disabled}
         min="0"
         step="0.01"
-        className={`w-full border ${disabled ? "bg-gray-100" : "bg-white"} ${
-          error ? "border-red-500 focus:border-red-500" : "border-gray-300"
-        } rounded-lg p-3 pr-14 text-base md:text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all shadow-sm ${
-          !disabled && "group-hover:border-orange-300"
-        } appearance-none`}
+        className={`w-full border ${disabled ? "bg-gray-100" : "bg-white"} ${error ? "border-red-500 focus:border-red-500" : "border-gray-300"
+          } rounded-lg p-3 pr-14 text-base md:text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all shadow-sm ${!disabled && "group-hover:border-orange-300"
+          } appearance-none`}
         style={{
           WebkitAppearance: "none",
           MozAppearance: "textfield",
@@ -100,15 +96,14 @@ const InputLitros = ({ value, onChange, placeholder, disabled, error }) => (
 // Componente de notificación/alerta optimizado
 const InfoBox = ({ type, message }) => (
   <div
-    className={`p-4 rounded-lg mb-4 flex items-start ${
-      type === "info"
-        ? "bg-blue-50 text-blue-800 border-l-4 border-blue-500"
-        : type === "error"
+    className={`p-4 rounded-lg mb-4 flex items-start ${type === "info"
+      ? "bg-blue-50 text-blue-800 border-l-4 border-blue-500"
+      : type === "error"
         ? "bg-red-50 text-red-800 border-l-4 border-red-500"
         : type === "warning"
-        ? "bg-amber-50 text-amber-800 border-l-4 border-amber-500"
-        : "bg-green-50 text-green-800 border-l-4 border-green-500"
-    }`}
+          ? "bg-amber-50 text-amber-800 border-l-4 border-amber-500"
+          : "bg-green-50 text-green-800 border-l-4 border-green-500"
+      }`}
   >
     <div className="flex-shrink-0 mr-3 mt-0.5">
       {type === "info" ? (
@@ -169,7 +164,7 @@ const EstanquesModal = ({
   const [isMobile, setIsMobile] = useState(false);
   const errorRef = useRef(null);
   const modalRef = useRef(null);
-  
+
   // Estados para errores específicos de validación
   const [errorValidacion, setErrorValidacion] = useState({
     show: false,
@@ -271,6 +266,15 @@ const EstanquesModal = ({
       : distribucionLocal;
   };
 
+  // Función para obtener solo los estanques que tienen distribución de combustible
+  const getEstanquesConDistribucion = () => {
+    const distribucion = getDistribucionActual();
+    return estanques.filter(estanque => {
+      const litrosAsignados = parseFloat(distribucion[estanque.id_estanque]) || 0;
+      return litrosAsignados > 0;
+    });
+  };
+
   // Función para actualizar la distribución
   const actualizarDistribucion = (estanqueId, valor) => {
     const nuevaDistribucion = {
@@ -310,19 +314,21 @@ const EstanquesModal = ({
 
   // Verificar si se han ingresado todos los niveles iniciales
   const nivelesInicialesCompletos = () => {
-    if (!Array.isArray(estanques) || estanques.length === 0) return false;
+    const estanquesConDistribucion = getEstanquesConDistribucion();
+    if (estanquesConDistribucion.length === 0) return false;
 
-    return estanques.every((estanque) => {
+    return estanquesConDistribucion.every((estanque) => {
       const alturas = alturasEstanques[estanque.id_estanque] || {};
       return alturas.inicial && alturas.inicial !== "";
     });
   };
 
-  // Verificar si se han ingresado todos los niveles finales
+  // Verificar si se han ingresado todos los niveles finales (solo estanques con distribución)
   const nivelesFinalesCompletos = () => {
-    if (!Array.isArray(estanques) || estanques.length === 0) return false;
+    const estanquesConDistribucion = getEstanquesConDistribucion();
+    if (estanquesConDistribucion.length === 0) return false;
 
-    return estanques.every((estanque) => {
+    return estanquesConDistribucion.every((estanque) => {
       const alturas = alturasEstanques[estanque.id_estanque] || {};
       return alturas.final && alturas.final !== "";
     });
@@ -358,7 +364,7 @@ const EstanquesModal = ({
     const diferencia = Math.abs(totalDistribuido - litrosRecibidos);
     if (diferencia > 0.01) {
       const esMayor = totalDistribuido > litrosRecibidos;
-      const mensaje = esMayor 
+      const mensaje = esMayor
         ? `La distribución total (${formatNumber(totalDistribuido)} L) supera los litros de la guía (${formatNumber(litrosRecibidos)} L). Debe ajustar la distribución para que coincida exactamente.`
         : `La distribución total (${formatNumber(totalDistribuido)} L) es menor a los litros de la guía (${formatNumber(litrosRecibidos)} L). Debe distribuir todos los litros recibidos.`;
 
@@ -380,12 +386,12 @@ const EstanquesModal = ({
 
     // PASO 3: Validar niveles iniciales (después de que la distribución esté correcta)
     if (!nivelesCompletos) {
-      const estanquesSinNivel = estanques.filter((estanque) => {
+      const estanquesSinNivel = getEstanquesConDistribucion().filter((estanque) => {
         const alturas = alturasEstanques[estanque.id_estanque] || {};
         return !alturas.inicial || alturas.inicial === "";
       });
 
-      const mensaje = estanquesSinNivel.length === 1 
+      const mensaje = estanquesSinNivel.length === 1
         ? `Debe ingresar el nivel inicial del estanque "${estanquesSinNivel[0].nombre}".`
         : `Debe completar los niveles iniciales de ${estanquesSinNivel.length} estanques: ${estanquesSinNivel.map(e => e.nombre).join(", ")}.`;
 
@@ -418,12 +424,12 @@ const EstanquesModal = ({
   // Manejar el cálculo de diferencia
   const handleCalcular = async () => {
     if (!nivelesFinalesCompletos()) {
-      const estanquesSinNivel = estanques.filter((estanque) => {
+      const estanquesSinNivel = getEstanquesConDistribucion().filter((estanque) => {
         const alturas = alturasEstanques[estanque.id_estanque] || {};
         return !alturas.final || alturas.final === "";
       });
 
-      const mensaje = estanquesSinNivel.length === 1 
+      const mensaje = estanquesSinNivel.length === 1
         ? `Debe ingresar el nivel final del estanque "${estanquesSinNivel[0].nombre}".`
         : `Debe completar los niveles finales de ${estanquesSinNivel.length} estanques: ${estanquesSinNivel.map(e => e.nombre).join(", ")}.`;
 
@@ -482,12 +488,12 @@ const EstanquesModal = ({
   // Calcular el stock total del sistema
   const stockTotalSistema = Array.isArray(estanques)
     ? estanques.reduce((total, estanque) => {
-        const stockActual =
-          estanque.stock_actual !== undefined && estanque.stock_actual !== null
-            ? parseFloat(estanque.stock_actual)
-            : 0;
-        return total + stockActual;
-      }, 0)
+      const stockActual =
+        estanque.stock_actual !== undefined && estanque.stock_actual !== null
+          ? parseFloat(estanque.stock_actual)
+          : 0;
+      return total + stockActual;
+    }, 0)
     : 0;
 
   // Calcular el porcentaje de capacidad utilizada
@@ -521,15 +527,15 @@ const EstanquesModal = ({
   const totalDistribuido = getTotalDistribuido();
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-black bg-opacity-60 backdrop-blur-sm flex">
+    <div className="fixed inset-0 z-50 overflow-hidden bg-transparent bg-opacity-60 backdrop-blur-sm flex">
       <div className="w-full h-full flex flex-col">
         {/* ✅ MODAL MEJORADO PARA MÓVILES */}
         <div
           ref={modalRef}
           className={`
             bg-white shadow-2xl w-full flex flex-col
-            ${isMobile 
-              ? 'h-full' 
+            ${isMobile
+              ? 'h-full'
               : 'rounded-lg max-w-7xl mx-auto my-4 max-h-[95vh] min-h-[600px]'
             }
             animate-fadeInScale
@@ -543,8 +549,8 @@ const EstanquesModal = ({
                   {isResultadosStep
                     ? "Panel de Control de Combustible"
                     : paso === "inicial"
-                    ? "Registro de Niveles Iniciales y Distribución"
-                    : "Registro de Niveles Finales"}
+                      ? "Registro de Niveles Iniciales y Distribución"
+                      : "Registro de Niveles Finales"}
                 </h2>
                 {!isResultadosStep && (
                   <p className="text-orange-100 text-sm md:text-base opacity-90 mt-1">
@@ -626,20 +632,18 @@ const EstanquesModal = ({
                       <React.Fragment key={index}>
                         {index > 0 && (
                           <div
-                            className={`h-0.5 w-2 md:w-4 rounded-full transition-colors ${
-                              isActive
-                                ? "bg-orange-200"
-                                : "bg-orange-800 opacity-30"
-                            }`}
+                            className={`h-0.5 w-2 md:w-4 rounded-full transition-colors ${isActive
+                              ? "bg-orange-200"
+                              : "bg-orange-800 opacity-30"
+                              }`}
                           />
                         )}
                         <div className="relative group">
                           <div
-                            className={`w-6 h-6 md:w-7 md:h-7 flex items-center justify-center rounded-full text-xs font-medium transition-all ${
-                              isActive
-                                ? "bg-white text-orange-600"
-                                : "bg-orange-800 text-orange-300 opacity-50"
-                            } ${isCurrentStep ? "ring-2 ring-orange-200" : ""}`}
+                            className={`w-6 h-6 md:w-7 md:h-7 flex items-center justify-center rounded-full text-xs font-medium transition-all ${isActive
+                              ? "bg-white text-orange-600"
+                              : "bg-orange-800 text-orange-300 opacity-50"
+                              } ${isCurrentStep ? "ring-2 ring-orange-200" : ""}`}
                           >
                             {isActive ? (
                               index < currentStep ? (
@@ -681,7 +685,7 @@ const EstanquesModal = ({
               {modalAlert && modalAlert.show && (
                 <InfoBox type={modalAlert.type} message={modalAlert.message} />
               )}
-              
+
               {errorValidacion && errorValidacion.show && (
                 <InfoBox type={errorValidacion.type} message={errorValidacion.message} />
               )}
@@ -841,7 +845,7 @@ const EstanquesModal = ({
                               <span className="font-semibold">
                                 {formatNumber(
                                   resultadoCalculo.volFinal -
-                                    resultadoCalculo.volInicial
+                                  resultadoCalculo.volInicial
                                 )}{" "}
                                 L
                               </span>
@@ -889,6 +893,86 @@ const EstanquesModal = ({
                             </div>
                           </div>
                         </div>
+                      </div>
+                      {/* 👇 NUEVA SECCIÓN: Distribución por Estanque - MOBILE FIRST */}
+                      <div className="mt-6 bg-white rounded-xl p-4 shadow-lg border border-gray-200">
+                        <div className="flex items-center mb-4">
+                          <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+                            <FaGasPump className="mr-2 text-orange-500" />
+                            Distribución por Estanque
+                          </h3>
+                        </div>
+
+                        {(() => {
+                          const distribucion = getDistribucionActual();
+                          const estanquesConDistribucion = estanques.filter(estanque => {
+                            const litros = parseFloat(distribucion[estanque.id_estanque]) || 0;
+                            return litros > 0;
+                          });
+
+                          if (estanquesConDistribucion.length === 0) {
+                            return (
+                              <div className="text-center py-8 text-gray-500">
+                                <FaGasPump className="mx-auto text-3xl mb-3 opacity-30" />
+                                <p>No hay estanques con distribución de combustible</p>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div className="space-y-4">
+                              {estanquesConDistribucion.map((estanque, index) => {
+                                const litrosAsignados = parseFloat(distribucion[estanque.id_estanque]) || 0;
+                                const alturas = alturasEstanques[estanque.id_estanque] || {};
+                                const alturaInicial = parseFloat(alturas.inicial) || 0;
+                                const alturaFinal = parseFloat(alturas.final) || 0;
+                                const diferenciaAltura = alturaFinal - alturaInicial;
+
+                                // Colores simples y bonitos
+                                const colores = [
+                                  { bg: "bg-orange-50", border: "border-orange-200", dot: "bg-orange-500", text: "text-orange-700" },
+                                  { bg: "bg-blue-50", border: "border-blue-200", dot: "bg-blue-500", text: "text-blue-700" },
+                                  { bg: "bg-green-50", border: "border-green-200", dot: "bg-green-500", text: "text-green-700" },
+                                  { bg: "bg-purple-50", border: "border-purple-200", dot: "bg-purple-500", text: "text-purple-700" },
+                                  { bg: "bg-pink-50", border: "border-pink-200", dot: "bg-pink-500", text: "text-pink-700" }
+                                ];
+                                const color = colores[index % colores.length];
+
+                                return (
+                                  <div key={estanque.id_estanque} className={`${color.bg} ${color.border} border rounded-lg p-4`}>
+
+                                    {/* HEADER CON NOMBRE Y LITROS */}
+                                    <div className="flex items-center justify-between mb-3">
+                                      <div className="flex items-center">
+                                        <div className={`w-3 h-3 ${color.dot} rounded-full mr-2`}></div>
+                                        <h4 className="font-semibold text-gray-800">{estanque.nombre}</h4>
+                                      </div>
+                                    </div>
+
+                                    {/* MEDICIONES EN UNA FILA - MOBILE FRIENDLY */}
+                                    <div className="grid grid-cols-3 gap-2 text-sm">
+                                      <div className="text-center">
+                                        <div className="text-gray-600 text-xs mb-1">Inicial</div>
+                                        <div className="font-semibold">{formatNumber(alturaInicial)} cm</div>
+                                      </div>
+                                      <div className="text-center">
+                                        <div className="text-gray-600 text-xs mb-1">Final</div>
+                                        <div className="font-semibold">{formatNumber(alturaFinal)} cm</div>
+                                      </div>
+                                      <div className="text-center">
+                                        <div className="text-gray-600 text-xs mb-1">Asignado</div>
+                                        <div className={`font-semibold flex items-center justify-center ${color.text}`}>
+                                          <FaGasPump className="mr-1 text-xs" />
+                                          {formatNumber(litrosAsignados)} L
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -966,11 +1050,10 @@ const EstanquesModal = ({
                           {formatNumber(totalDistribuido)} L
                         </p>
                         <p
-                          className={`text-xs ${
-                            Math.abs(totalDistribuido - litrosRecibidos) <= 0.01
-                              ? "text-green-600"
-                              : "text-amber-600"
-                          }`}
+                          className={`text-xs ${Math.abs(totalDistribuido - litrosRecibidos) <= 0.01
+                            ? "text-green-600"
+                            : "text-amber-600"
+                            }`}
                         >
                           de {formatNumber(litrosRecibidos)} L
                         </p>
@@ -1004,9 +1087,8 @@ const EstanquesModal = ({
                             </span>
                           </div>
                           <FaArrowRight
-                            className={`text-orange-600 transition-transform ${
-                              mostrarConsejos ? "rotate-90" : ""
-                            }`}
+                            className={`text-orange-600 transition-transform ${mostrarConsejos ? "rotate-90" : ""
+                              }`}
                             size={12}
                           />
                         </button>
@@ -1047,12 +1129,11 @@ const EstanquesModal = ({
 
                     {/* Estanques para el paso actual */}
                     <div
-                      className={`space-y-6 ${
-                        isMobile ? "" : "grid grid-cols-1 lg:grid-cols-3 gap-6"
-                      }`}
+                      className={`space-y-6 ${isMobile ? "" : "grid grid-cols-1 lg:grid-cols-3 gap-6"
+                        }`}
                     >
                       {Array.isArray(estanques) &&
-                        estanques.map((estanque, index) => {
+                        (paso === "inicial" ? estanques : getEstanquesConDistribucion()).map((estanque, index) => {
                           const alturas =
                             alturasEstanques[estanque.id_estanque] || {};
                           const capacidadPorcentaje =
@@ -1060,7 +1141,7 @@ const EstanquesModal = ({
                           const distribucion = getDistribucionActual();
                           const litrosAsignados =
                             distribucion[estanque.id_estanque] || "";
-                          
+
                           // Para mostrar en el paso 2, usar 0.00 si está vacío
                           const litrosParaMostrar = litrosAsignados || "0.00";
                           const errorDistribucion =
@@ -1130,19 +1211,15 @@ const EstanquesModal = ({
                           return (
                             <div
                               key={estanque.id_estanque}
-                              className={`bg-white border-2 ${
-                                colorEstanque.border
-                              } rounded-xl shadow-lg overflow-hidden transition-all hover:shadow-xl transform hover:scale-[1.01] duration-200 ${
-                                isMobile ? "mb-6" : "h-full flex flex-col"
-                              }`}
+                              className={`bg-white border-2 ${colorEstanque.border
+                                } rounded-xl shadow-lg overflow-hidden transition-all hover:shadow-xl transform hover:scale-[1.01] duration-200 ${isMobile ? "mb-6" : "h-full flex flex-col"
+                                }`}
                             >
                               {/* CABECERA ÚNICA CON COLOR DEL ESTANQUE */}
                               <div
-                                className={`bg-gradient-to-r ${
-                                  colorEstanque.bg
-                                } ${
-                                  isMobile ? "p-3" : "p-4"
-                                } relative overflow-hidden`}
+                                className={`bg-gradient-to-r ${colorEstanque.bg
+                                  } ${isMobile ? "p-3" : "p-4"
+                                  } relative overflow-hidden`}
                               >
                                 {/* Patrón sutil de fondo */}
                                 <div className="absolute inset-0 opacity-5">
@@ -1155,9 +1232,8 @@ const EstanquesModal = ({
                                     <div className="flex items-center flex-1">
                                       <div className="flex-1 min-w-0">
                                         <h3
-                                          className={`font-bold ${
-                                            isMobile ? "text-lg" : "text-xl"
-                                          } ${colorEstanque.text} truncate`}
+                                          className={`font-bold ${isMobile ? "text-lg" : "text-xl"
+                                            } ${colorEstanque.text} truncate`}
                                         >
                                           {estanque.nombre}
                                         </h3>
@@ -1170,26 +1246,24 @@ const EstanquesModal = ({
                                     {/* Información del stock expandible/fija según el dispositivo */}
                                     {(!isMobile ||
                                       estanquesExpandidos[
-                                        estanque.id_estanque
+                                      estanque.id_estanque
                                       ]) && (
-                                      <div
-                                        className={`flex justify-between ${
-                                          colorEstanque.text
-                                        } opacity-90 ${
-                                          isMobile ? "text-xs" : "text-sm"
-                                        }`}
-                                      >
-                                        <span>Stock Actual</span>
-                                        <span className="font-semibold">
-                                          {formatNumber(
-                                            estanque.stock_actual || 0
-                                          )}{" "}
-                                          L / {formatNumber(
-                                            estanque.capacidad || 0
-                                          )}{"   "} ({capacidadPorcentaje}%)
-                                        </span>
-                                      </div>
-                                    )}
+                                        <div
+                                          className={`flex justify-between ${colorEstanque.text
+                                            } opacity-90 ${isMobile ? "text-xs" : "text-sm"
+                                            }`}
+                                        >
+                                          <span>Stock Actual</span>
+                                          <span className="font-semibold">
+                                            {formatNumber(
+                                              estanque.stock_actual || 0
+                                            )}{" "}
+                                            L / {formatNumber(
+                                              estanque.capacidad || 0
+                                            )}{"   "} ({capacidadPorcentaje}%)
+                                          </span>
+                                        </div>
+                                      )}
 
                                     {/* Barra de progreso elegante - siempre visible */}
                                     <div className="w-full bg-orange-50 bg-opacity-25 rounded-full h-2.5 overflow-hidden border border-white border-opacity-20">
@@ -1211,19 +1285,19 @@ const EstanquesModal = ({
                                     {/* Información condensada para móvil cuando está colapsado */}
                                     {isMobile &&
                                       !estanquesExpandidos[
-                                        estanque.id_estanque
+                                      estanque.id_estanque
                                       ] && (
                                         <div
                                           className={`text-center ${colorEstanque.text} opacity-80 text-xs`}
                                         >
                                           <span className="font-semibold">
-                                          {formatNumber(
-                                            estanque.stock_actual || 0
-                                          )}{" "}
-                                          L / {formatNumber(
-                                            estanque.capacidad || 0
-                                          )}{"   "} ({capacidadPorcentaje}%)
-                                        </span>
+                                            {formatNumber(
+                                              estanque.stock_actual || 0
+                                            )}{" "}
+                                            L / {formatNumber(
+                                              estanque.capacidad || 0
+                                            )}{"   "} ({capacidadPorcentaje}%)
+                                          </span>
                                         </div>
                                       )}
                                   </div>
@@ -1370,8 +1444,8 @@ const EstanquesModal = ({
           {/* ✅ PIE DEL MODAL MEJORADO PARA MÓVILES */}
           <div className={`
             border-t border-gray-200 bg-white flex-shrink-0
-            ${isMobile 
-              ? 'px-4 py-4 space-y-3' 
+            ${isMobile
+              ? 'px-4 py-4 space-y-3'
               : 'px-8 py-5 flex justify-between items-center'
             }
             shadow-lg
@@ -1379,8 +1453,8 @@ const EstanquesModal = ({
             {isResultadosStep ? (
               // Botones para el paso de resultados
               <div className={`
-                ${isMobile 
-                  ? 'flex flex-col space-y-3' 
+                ${isMobile
+                  ? 'flex flex-col space-y-3'
                   : 'flex justify-between items-center w-full'
                 }
               `}>
@@ -1395,8 +1469,8 @@ const EstanquesModal = ({
                     hover:bg-gray-50 hover:text-gray-900 focus:outline-none 
                     focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 
                     transition-all font-medium shadow-sm
-                    ${isMobile 
-                      ? 'w-full px-4 py-3 text-base order-2' 
+                    ${isMobile
+                      ? 'w-full px-4 py-3 text-base order-2'
                       : 'px-4 py-2.5 text-sm'
                     }
                   `}
@@ -1417,8 +1491,8 @@ const EstanquesModal = ({
                     bg-green-600 hover:bg-green-700 focus:outline-none 
                     focus:ring-2 focus:ring-offset-2 focus:ring-green-500 
                     transition-all
-                    ${isMobile 
-                      ? 'w-full px-4 py-3 text-base order-1' 
+                    ${isMobile
+                      ? 'w-full px-4 py-3 text-base order-1'
                       : 'px-5 py-2.5 text-sm'
                     }
                   `}
@@ -1432,8 +1506,8 @@ const EstanquesModal = ({
             ) : paso === "inicial" ? (
               // Botones para el paso inicial
               <div className={`
-                ${isMobile 
-                  ? 'flex flex-col space-y-3' 
+                ${isMobile
+                  ? 'flex flex-col space-y-3'
                   : 'flex justify-between items-center w-full'
                 }
               `}>
@@ -1444,8 +1518,8 @@ const EstanquesModal = ({
                     hover:bg-gray-50 hover:text-gray-900 focus:outline-none 
                     focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 
                     transition-all font-medium shadow-sm
-                    ${isMobile 
-                      ? 'w-full px-4 py-3 text-base order-2' 
+                    ${isMobile
+                      ? 'w-full px-4 py-3 text-base order-2'
                       : 'px-4 py-2.5 text-sm'
                     }
                   `}
@@ -1465,8 +1539,8 @@ const EstanquesModal = ({
                       ? "bg-orange-400 cursor-not-allowed opacity-70"
                       : "bg-orange-600 hover:bg-orange-700"
                     }
-                    ${isMobile 
-                      ? 'w-full px-4 py-3 text-base order-1' 
+                    ${isMobile
+                      ? 'w-full px-4 py-3 text-base order-1'
                       : 'px-5 py-2.5 text-sm'
                     }
                   `}
@@ -1491,8 +1565,8 @@ const EstanquesModal = ({
             ) : (
               // Botones para el paso final
               <div className={`
-                ${isMobile 
-                  ? 'flex flex-col space-y-3' 
+                ${isMobile
+                  ? 'flex flex-col space-y-3'
                   : 'flex justify-between items-center w-full'
                 }
               `}>
@@ -1506,8 +1580,8 @@ const EstanquesModal = ({
                     hover:bg-gray-50 hover:text-gray-900 focus:outline-none 
                     focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 
                     transition-all font-medium shadow-sm
-                    ${isMobile 
-                      ? 'w-full px-4 py-3 text-base order-2' 
+                    ${isMobile
+                      ? 'w-full px-4 py-3 text-base order-2'
                       : 'px-4 py-2.5 text-sm'
                     }
                   `}
@@ -1534,8 +1608,8 @@ const EstanquesModal = ({
                       ? "bg-orange-400 cursor-not-allowed opacity-70"
                       : "bg-orange-600 hover:bg-orange-700"
                     }
-                    ${isMobile 
-                      ? 'w-full px-4 py-3 text-base order-1' 
+                    ${isMobile
+                      ? 'w-full px-4 py-3 text-base order-1'
                       : 'px-5 py-2.5 text-sm'
                     }
                   `}
