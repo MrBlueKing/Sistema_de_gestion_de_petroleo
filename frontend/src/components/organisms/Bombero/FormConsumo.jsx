@@ -13,9 +13,9 @@ import {
   FaTruck,
 } from "react-icons/fa";
 import { GiGasPump } from "react-icons/gi";
-import SelectorEstanques from "../../molecules/SelectorEstanque";
+import SelectorEstanque from "../../molecules/SelectorEstanque"; // Componente extendido
 import bomberoService from "../../../context/bomberoService";
-import axios from "../../../lib/axios"; // Tu instancia de axios configurada
+import axios from "../../../lib/axios";
 
 const FormConsumo = ({
   formData,
@@ -36,17 +36,33 @@ const FormConsumo = ({
   const showHorometro = tipoMedicion === "Horometro";
   const showKilometraje = tipoMedicion === "Kilometraje";
 
-  // Estados para multi-estanques
+  // Estados simplificados - ahora el selector maneja su propio estado
   const [modoMultiEstanque, setModoMultiEstanque] = useState(false);
   const [distribucionLitros, setDistribucionLitros] = useState({});
   const [estanquesDisponibles, setEstanquesDisponibles] = useState([]);
-  const [cargandoEstanques, setCargandoEstanques] = useState(false);
 
   // Estados para el manejo del envío
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  // ===================================
+  // HANDLERS PARA EL SELECTOR EXTENDIDO
+  // ===================================
+  const handleModoChange = useCallback((nuevoModo) => {
+    console.log("🔄 Cambiando modo a:", nuevoModo);
+    setModoMultiEstanque(nuevoModo);
+    if (nuevoModo) {
+      // Al activar modo múltiple, limpiar distribución
+      setDistribucionLitros({});
+    }
+  }, []);
+
+  const handleDistribucionChange = useCallback((nuevaDistribucion) => {
+    console.log("📊 Nueva distribución:", nuevaDistribucion);
+    setDistribucionLitros(nuevaDistribucion);
+  }, []);
 
   // ===================================
   // FUNCIÓN PARA DETERMINAR TIPO DE OPERACIÓN
@@ -104,7 +120,7 @@ const FormConsumo = ({
   );
 
   // ===================================
-  // FUNCIÓN PARA ENVIAR CONSUMO AL BACKEND
+  // FUNCIÓN PARA ENVIAR CONSUMO AL BACKEND (manteniendo tu lógica original)
   // ===================================
   const enviarConsumoAlBackend = async (datosConsumo, modoMultiEstanque) => {
     try {
@@ -247,16 +263,13 @@ const FormConsumo = ({
   };
 
   // ===================================
-  // FUNCIÓN PARA CARGAR ESTANQUES
+  // FUNCIÓN PARA CARGAR ESTANQUES (manteniendo tu lógica original)
   // ===================================
   const cargarEstanquesIgualQueSimple = useCallback(async () => {
-    if (!idFaena || cargandoEstanques) return;
+    if (!idFaena) return;
 
-    setCargandoEstanques(true);
     try {
-      console.log(
-        "🔄 Cargando estanques usando la misma lógica que modo simple..."
-      );
+      console.log("🔄 Cargando estanques...");
 
       const response = await bomberoService.getEstanques(idFaena);
 
@@ -270,7 +283,6 @@ const FormConsumo = ({
         estanques = response.data;
       }
 
-      console.log("📦 Respuesta del servicio getEstanques:", response);
       console.log("✅ Estanques procesados:", estanques);
 
       // 🆕 Log para verificar tipos de estanque
@@ -286,76 +298,48 @@ const FormConsumo = ({
     } catch (error) {
       console.error("❌ Error cargando estanques:", error);
       setEstanquesDisponibles([]);
-    } finally {
-      setCargandoEstanques(false);
     }
-  }, [idFaena, cargandoEstanques]);
+  }, [idFaena]);
 
-  // Cargar estanques cuando se activa el modo múltiple O cuando el componente se monta
+  // Cargar estanques cuando se monta el componente
   useEffect(() => {
-    if (modoMultiEstanque && estanquesDisponibles.length === 0) {
+    if (idFaena && estanquesDisponibles.length === 0) {
       cargarEstanquesIgualQueSimple();
     }
-  }, [
-    modoMultiEstanque,
-    estanquesDisponibles.length,
-    cargarEstanquesIgualQueSimple,
-  ]);
+  }, [idFaena, estanquesDisponibles.length, cargarEstanquesIgualQueSimple]);
 
-  useEffect(() => {
-    if (idFaena && estanquesDisponibles.length === 0 && !cargandoEstanques) {
-      cargarEstanquesIgualQueSimple();
-    }
-  }, [
-    idFaena,
-    estanquesDisponibles.length,
-    cargandoEstanques,
-    cargarEstanquesIgualQueSimple,
-  ]);
-
-  // Verificar si necesitamos modo multi-estanque
+  // ===================================
+  // CÁLCULOS Y VALIDACIONES
+  // ===================================
   const litrosTotalesRequeridos = parseFloat(formData.litros) || 0;
+  
   const stockTotalDisponible = estanquesDisponibles.reduce(
     (total, est) => total + (est.stock_actual || 0),
     0
   );
+  
   const estanqueConStockSuficiente = estanquesDisponibles.find(
     (est) => (est.stock_actual || 0) >= litrosTotalesRequeridos
   );
+  
   const necesitaMultiEstanque =
     litrosTotalesRequeridos > 0 &&
     !estanqueConStockSuficiente &&
     stockTotalDisponible >= litrosTotalesRequeridos;
-
-  // Auto-activar modo multi-estanque si es necesario
-  useEffect(() => {
-    if (
-      necesitaMultiEstanque &&
-      !modoMultiEstanque &&
-      litrosTotalesRequeridos > 0
-    ) {
-      console.log("🔄 Auto-activando modo multi-estanque");
-      setModoMultiEstanque(true);
-      onEstanqueSelect(null);
-      setDistribucionLitros({});
-    }
-  }, [
-    necesitaMultiEstanque,
-    modoMultiEstanque,
-    litrosTotalesRequeridos,
-    onEstanqueSelect,
-  ]);
 
   // Validaciones para multi-estanque
   const litrosDistribuidos = Object.values(distribucionLitros).reduce(
     (total, litros) => total + (parseFloat(litros) || 0),
     0
   );
+  
   const distribucionCompleta =
     Math.abs(litrosDistribuidos - litrosTotalesRequeridos) < 0.01;
+  
   const tieneEstanquesSeleccionados = Object.keys(distribucionLitros).some(
     (key) => (distribucionLitros[key] || 0) > 0
   );
+  
   const stockSuficienteMulti = Object.keys(distribucionLitros).every(
     (estanqueId) => {
       const litrosAsignados = distribucionLitros[estanqueId] || 0;
@@ -407,42 +391,11 @@ const FormConsumo = ({
     determinarTipoOperacion,
   ]);
 
-  // Función para cambiar modo
-  const toggleModoMultiEstanque = useCallback(
-    (activar) => {
-      console.log("🔄 Cambiando modo multi-estanque a:", activar);
-      setModoMultiEstanque(activar);
-      if (activar) {
-        onEstanqueSelect(null);
-        setDistribucionLitros({});
-        if (estanquesDisponibles.length === 0) {
-          cargarEstanquesIgualQueSimple();
-        }
-      } else {
-        setDistribucionLitros({});
-      }
-    },
-    [
-      onEstanqueSelect,
-      estanquesDisponibles.length,
-      cargarEstanquesIgualQueSimple,
-    ]
-  );
-
   // ===================================
-  // FUNCIÓN PRINCIPAL DE ENVÍO
+  // FUNCIÓN PRINCIPAL DE ENVÍO (manteniendo tu lógica original)
   // ===================================
   const handleSubmitWrapper = useCallback(async () => {
     console.log("🚀 Iniciando envío de consumo...");
-    console.log("🔍 Props del componente:", {
-      solicitante,
-      patenteSeleccionada,
-      categoriaSeleccionada,
-      userInfo,
-      idFaena,
-      estanqueSeleccionado,
-      formData,
-    });
 
     // ❌ VALIDACIONES PREVIAS
     if (!solicitante?.rut) {
@@ -720,7 +673,7 @@ const FormConsumo = ({
         </div>
       )}
 
-      {/* PASO 2: Datos de consumo */}
+      {/* PASO 1: Datos de consumo (manteniendo tu estructura original) */}
       <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
         <div className="mb-3">
           <h3 className="text-left text-gray-800 font-semibold text-sm sm:text-base flex items-center">
@@ -756,27 +709,9 @@ const FormConsumo = ({
               <input
                 type="number"
                 step="0.01"
-                value={formData.horometro}
-                onChange={(e) => handleChange("horometro", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                placeholder="Ej: 1234"
-              />
-            </div>
-          )}
-
-          {showKilometraje && (
-            <div className="col-span-1">
-              <label className="block text-left text-gray-700 text-xs sm:text-sm font-medium mb-1">
-                <span className="flex items-center">
-                  <FaTachometerAlt className="text-gray-500 mr-1" size={14} />
-                  Kilometraje Actual <span className="text-red-500">*</span>
-                </span>
-              </label>
-              <input
-                type="number"
-                step="0.01"
                 value={formData.kilometraje}
                 onChange={(e) => handleChange("kilometraje", e.target.value)}
+                disabled={isSaving || isSaved}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 placeholder="Ej: 1234"
               />
@@ -793,6 +728,7 @@ const FormConsumo = ({
               step="0.01"
               value={formData.numeralInicial}
               onChange={(e) => handleChange("numeralInicial", e.target.value)}
+              disabled={isSaving || isSaved}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               placeholder="Ej: 100.5"
             />
@@ -808,6 +744,7 @@ const FormConsumo = ({
               step="0.01"
               value={formData.numeralFinal}
               onChange={(e) => handleChange("numeralFinal", e.target.value)}
+              disabled={isSaving || isSaved}
               className={`w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
                 hasNumeralError ? "border-red-500 bg-red-50" : "border-gray-300"
               }`}
@@ -870,6 +807,7 @@ const FormConsumo = ({
           <textarea
             value={formData.observacion}
             onChange={(e) => handleChange("observacion", e.target.value)}
+            disabled={isSaving || isSaved}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
             placeholder="Observaciones adicionales (opcional)"
             rows="3"
@@ -877,434 +815,72 @@ const FormConsumo = ({
         </div>
       </div>
 
-      {/* PASO 1: Selector de Estanques */}
+      {/* PASO 2: Selector de Estanques - USANDO EL COMPONENTE EXTENDIDO */}
       <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-        <div className="mb-3">
-          <h3 className="text-left text-gray-800 font-semibold text-sm sm:text-base flex items-center">
-            <FaGasPump className="text-blue-600 mr-2" />
-            Paso 2: Seleccione el/los estanque(s) a utilizar
-          </h3>
-          <p className="text-xs text-gray-600 mt-1">
-            {modoMultiEstanque
-              ? "Configure múltiples estanques para completar el consumo requerido"
-              : "Elija el estanque del cual extraerá el combustible"}
-          </p>
-        </div>
+        <SelectorEstanque
+          idFaena={faenaIdForSelector}
+          onEstanqueSelect={onEstanqueSelect}
+          estanqueSeleccionado={estanqueSeleccionado}
+          litrosRequeridos={parseFloat(formData.litros) || 0}
+          disabled={isSaving || isSaved}
+          preloadedEstanques={preloadedEstanques}
+          tipoEstanque="todos"
+          selectorId="form-consumo"
+          // Props para modo múltiple
+          modoMultiple={modoMultiEstanque}
+          distribucionLitros={distribucionLitros}
+          onDistribucionChange={handleDistribucionChange}
+          mostrarToggle={true}
+          onModoChange={handleModoChange}
+          showTitle={true}
+          className=""
+        />
 
-        {/* Alerta de stock insuficiente */}
-        {necesitaMultiEstanque && (
-          <div className="mb-4 bg-orange-100 border-l-4 border-orange-500 text-orange-700 p-3 rounded">
-            <div className="flex items-start">
-              <FaExclamationTriangle className="text-orange-500 mt-0.5 mr-2 flex-shrink-0" />
-              <div className="text-sm">
-                <p className="font-medium">
-                  Stock insuficiente en estanques individuales
+        {/* Información del estanque seleccionado (modo simple) - manteniendo tu estilo */}
+        {!modoMultiEstanque && estanqueSeleccionado && (
+          <div className="mt-3 bg-white rounded-lg p-3 border border-blue-300">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-800 flex items-center">
+                  Estanque seleccionado: {estanqueSeleccionado.nombre}
+                  {estanqueSeleccionado.tipo_estanque === "movil" && (
+                    <FaTruck
+                      className="ml-2 text-amber-600"
+                      size={14}
+                      title="Estanque Móvil"
+                    />
+                  )}
                 </p>
-                <p>
-                  Se requieren {litrosTotalesRequeridos.toLocaleString()}L.
-                  Ningún estanque individual tiene suficiente stock. Use
-                  múltiples estanques para completar el consumo.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Toggle de modo */}
-        <div className="mb-4 flex items-center justify-between bg-white p-3 rounded border">
-          <div>
-            <label className="text-sm font-medium text-gray-700">
-              Modo de consumo
-            </label>
-            <p className="text-xs text-gray-500">
-              {modoMultiEstanque
-                ? "Consumo desde múltiples estanques"
-                : "Consumo desde un solo estanque"}
-            </p>
-          </div>
-          <div className="flex items-center space-x-2">
-            <button
-              type="button"
-              onClick={() => toggleModoMultiEstanque(false)}
-              disabled={necesitaMultiEstanque}
-              className={`px-3 py-1 text-xs rounded transition-colors ${
-                !modoMultiEstanque
-                  ? "bg-blue-600 text-white"
-                  : necesitaMultiEstanque
-                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                  : "bg-gray-200 text-gray-600 hover:bg-gray-300"
-              }`}
-            >
-              Simple
-            </button>
-            <button
-              type="button"
-              onClick={() => toggleModoMultiEstanque(true)}
-              className={`px-3 py-1 text-xs rounded transition-colors flex items-center ${
-                modoMultiEstanque
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-200 text-gray-600 hover:bg-gray-300"
-              }`}
-            >
-              <FaLayerGroup className="mr-1" />
-              Múltiple
-            </button>
-          </div>
-        </div>
-
-        {faenaIdForSelector ? (
-          <>
-            {/* MODO SIMPLE - Usando el SelectorEstanques original */}
-            {!modoMultiEstanque && (
-              <SelectorEstanques
-                idFaena={faenaIdForSelector}
-                onEstanqueSelect={onEstanqueSelect}
-                estanqueSeleccionado={estanqueSeleccionado}
-                litrosRequeridos={parseFloat(formData.litros) || 0}
-                disabled={isSaving}
-                preloadedEstanques={preloadedEstanques}
-              />
-            )}
-
-            {/* MODO MÚLTIPLE - EXACTAMENTE igual al SelectorEstanques */}
-            {modoMultiEstanque && (
-              <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-                {/* Header idéntico al SelectorEstanques */}
-                <div className="p-3 bg-orange-50 border-b border-orange-100 flex justify-between items-center">
-                  <h3 className="font-medium text-gray-800 flex items-center">
-                    <FaGasPump className="text-orange-500 mr-2" />
-                    Seleccione Estanques
-                  </h3>
-                  <div className="flex items-center space-x-3 text-sm">
-                    {/* Segmentador por tipo de estanque */}
-                    {estanquesDisponibles.length > 0 && (
-                      <div className="flex items-center space-x-2">
-                        {estanquesDisponibles.filter(
-                          (e) => e.tipo_estanque === "fijo" || !e.tipo_estanque
-                        ).length > 0 && (
-                          <div className="flex items-center">
-                            <FaGasPump
-                              className="text-blue-600 mr-1"
-                              size={12}
-                            />
-                            <span className="text-blue-600 text-xs font-medium">
-                              {
-                                estanquesDisponibles.filter(
-                                  (e) =>
-                                    e.tipo_estanque === "fijo" ||
-                                    !e.tipo_estanque
-                                ).length
-                              }{" "}
-                              Fijo(s)
-                            </span>
-                          </div>
-                        )}
-                        {estanquesDisponibles.filter(
-                          (e) => e.tipo_estanque === "movil"
-                        ).length > 0 && (
-                          <div className="flex items-center">
-                            <FaTruck
-                              className="text-amber-600 mr-1"
-                              size={12}
-                            />
-                            <span className="text-amber-600 text-xs font-medium">
-                              {
-                                estanquesDisponibles.filter(
-                                  (e) => e.tipo_estanque === "movil"
-                                ).length
-                              }{" "}
-                              Móvil(es)
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Separador visual */}
-                    {estanquesDisponibles.length > 0 && (
-                      <div className="h-4 w-px bg-gray-300"></div>
-                    )}
-
-                    {/* Info total */}
-                    {estanquesDisponibles.length > 0 && (
-                      <div className="text-xs text-gray-500">
-                        {estanquesDisponibles.length} estanque
-                        {estanquesDisponibles.length !== 1 ? "s" : ""}{" "}
-                        disponible
-                        {estanquesDisponibles.length !== 1 ? "s" : ""}
-                      </div>
-                    )}
-
-                    {/* Indicador de precargado */}
-                    <div className="text-xs text-green-600 flex items-center">
-                      <svg
-                        className="w-3 h-3 mr-1"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      Precargado
-                    </div>
-                  </div>
-                </div>
-
-                {/* Estado de carga idéntico */}
-                {cargandoEstanques ? (
-                  <div className="p-4 text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-2"></div>
-                    <p className="text-gray-500 text-sm">
-                      Cargando estanques...
-                    </p>
-                  </div>
-                ) : estanquesDisponibles.length === 0 ? (
-                  <div className="p-4 text-center">
-                    <div className="flex justify-center mb-2">
-                      <FaInfoCircle className="text-yellow-500 text-xl" />
-                    </div>
-                    <p className="text-yellow-600">
-                      No hay estanques disponibles para esta faena.
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    {/* Lista de estanques con layout idéntico */}
-                    <div className="max-h-[300px] overflow-y-auto p-3 grid gap-3 grid-cols-1 md:grid-cols-2">
-                      {estanquesDisponibles.map((estanque) => {
-                        const litrosAsignados =
-                          distribucionLitros[estanque.id_estanque] || 0;
-                        const stockActual = estanque.stock_actual || 0;
-                        const capacidad = estanque.capacidad || 1000;
-                        const porcentaje = Math.min(
-                          Math.round((stockActual / capacidad) * 100),
-                          100
-                        );
-                        const excedeStock = litrosAsignados > stockActual;
-                        const tieneAsignacion = litrosAsignados > 0;
-                        const esMovil = estanque.tipo_estanque === "movil";
-
-                        // Función para color de barra idéntica al SelectorEstanques
-                        const getColorBarra = (nivel) => {
-                          if (nivel < 20) return "bg-red-500";
-                          if (nivel < 50) return "bg-yellow-500";
-                          return "bg-green-500";
-                        };
-
-                        return (
-                          <div
-                            key={estanque.id_estanque}
-                            className={`w-full text-left border rounded-lg overflow-hidden transition-all duration-200 ${
-                              tieneAsignacion
-                                ? "border-orange-500 bg-orange-50 shadow-md"
-                                : "border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300"
-                            }`}
-                          >
-                            {/* Header idéntico al SelectorEstanques */}
-                            <div className="p-3 border-b bg-gray-50">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center">
-                                  <h3 className="font-medium text-gray-800">
-                                    {estanque.nombre}
-                                  </h3>
-                                  {/* Icono de tipo de estanque */}
-                                  {esMovil && (
-                                    <FaTruck
-                                      className="ml-2 text-amber-600"
-                                      size={12}
-                                      title="Estanque Móvil"
-                                    />
-                                  )}
-                                </div>
-                                <span
-                                  className={`text-xs px-2 py-1 rounded-full ${
-                                    porcentaje < 20
-                                      ? "bg-red-100 text-red-800"
-                                      : porcentaje < 50
-                                      ? "bg-yellow-100 text-yellow-800"
-                                      : "bg-green-100 text-green-800"
-                                  }`}
-                                >
-                                  {porcentaje}%
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Contenido idéntico al SelectorEstanques */}
-                            <div className="p-3">
-                              <div className="flex justify-between text-sm mb-2">
-                                <span className="text-gray-600">
-                                  Capacidad: {capacidad.toLocaleString()} L
-                                </span>
-                                <span className="font-medium">
-                                  {stockActual.toLocaleString()} L disponibles
-                                </span>
-                              </div>
-
-                              {/* Badge de tipo si es móvil */}
-                              {esMovil && (
-                                <div className="mb-2">
-                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                                    <FaTruck className="mr-1" size={8} />
-                                    Móvil
-                                  </span>
-                                </div>
-                              )}
-
-                              {/* Barra de progreso idéntica */}
-                              <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
-                                <div
-                                  className={`h-2 rounded-full ${getColorBarra(
-                                    porcentaje
-                                  )}`}
-                                  style={{ width: `${porcentaje}%` }}
-                                ></div>
-                              </div>
-
-                              {/* Alerta de nivel crítico */}
-                              {porcentaje < 20 && (
-                                <div className="mb-3 text-xs text-red-600 flex items-center">
-                                  <FaExclamationTriangle className="mr-1" />
-                                  <span>Nivel crítico</span>
-                                </div>
-                              )}
-
-                              {/* 🆕 ÚNICA DIFERENCIA: Input para litros */}
-                              <div className="mt-3 pt-3 border-t border-gray-100">
-                                <label className="block text-xs font-medium text-gray-700 mb-1">
-                                  Litros a extraer:
-                                </label>
-                                <div className="relative">
-                                  <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    max={stockActual}
-                                    value={litrosAsignados || ""}
-                                    onChange={(e) => {
-                                      const valor =
-                                        parseFloat(e.target.value) || 0;
-                                      setDistribucionLitros((prev) => ({
-                                        ...prev,
-                                        [estanque.id_estanque]: valor,
-                                      }));
-                                    }}
-                                    className={`w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 ${
-                                      excedeStock
-                                        ? "border-red-300 bg-red-50"
-                                        : "border-gray-300 bg-white"
-                                    }`}
-                                    placeholder="0.00"
-                                    disabled={isSaving}
-                                  />
-                                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                    <span className="text-gray-500 text-xs">
-                                      L
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {/* Mensaje de error simple */}
-                                {excedeStock && (
-                                  <p className="text-xs text-red-600 mt-1">
-                                    Excede stock disponible
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Resumen simple al final */}
-                    {litrosTotalesRequeridos > 0 && (
-                      <div className="p-3 border-t border-gray-200 bg-gray-50">
-                        <div className="text-sm text-center">
-                          <span className="text-gray-700">
-                            Total distribuido:{" "}
-                          </span>
-                          <span
-                            className={`font-medium ${
-                              distribucionCompleta
-                                ? "text-green-600"
-                                : "text-red-600"
-                            }`}
-                          >
-                            {litrosDistribuidos.toLocaleString()}/
-                            {litrosTotalesRequeridos.toLocaleString()}L
-                          </span>
-                          {distribucionCompleta && (
-                            <FaCheckCircle className="inline ml-1 text-green-600" />
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Información del estanque seleccionado (modo simple) */}
-            {!modoMultiEstanque && estanqueSeleccionado && (
-              <div className="mt-3 bg-white rounded-lg p-3 border border-blue-300">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-800 flex items-center">
-                      Estanque seleccionado: {estanqueSeleccionado.nombre}
-                      {estanqueSeleccionado.tipo_estanque === "movil" && (
-                        <FaTruck
-                          className="ml-2 text-amber-600"
-                          size={14}
-                          title="Estanque Móvil"
-                        />
-                      )}
-                    </p>
-                    <p className="text-xs text-gray-600">
-                      Stock disponible:{" "}
-                      {estanqueSeleccionado.stock_actual.toLocaleString()}{" "}
-                      litros
-                      {estanqueSeleccionado.tipo_estanque && (
-                        <span
-                          className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                            estanqueSeleccionado.tipo_estanque === "movil"
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-blue-100 text-blue-800"
-                          }`}
-                        >
-                          {estanqueSeleccionado.tipo_estanque === "movil"
-                            ? "Móvil"
-                            : "Fijo"}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      ✓ Seleccionado
+                <p className="text-xs text-gray-600">
+                  Stock disponible:{" "}
+                  {estanqueSeleccionado.stock_actual.toLocaleString()}{" "}
+                  litros
+                  {estanqueSeleccionado.tipo_estanque && (
+                    <span
+                      className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                        estanqueSeleccionado.tipo_estanque === "movil"
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-blue-100 text-blue-800"
+                      }`}
+                    >
+                      {estanqueSeleccionado.tipo_estanque === "movil"
+                        ? "Móvil"
+                        : "Fijo"}
                     </span>
-                  </div>
-                </div>
+                  )}
+                </p>
               </div>
-            )}
-          </>
-        ) : (
-          <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-3 rounded">
-            <div className="flex items-start">
-              <FaInfoCircle className="text-yellow-500 mt-0.5 mr-2 flex-shrink-0" />
-              <span className="text-sm">
-                No se ha podido determinar la faena para cargar los estanques
-                disponibles. Por favor, contacte al administrador del sistema.
-              </span>
+              <div className="text-right">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  ✓ Seleccionado
+                </span>
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Botón de guardar */}
+      {/* Botón de guardar - manteniendo tu lógica original */}
       <div className="pt-2">
         <button
           onClick={handleSubmitWrapper}
@@ -1369,7 +945,7 @@ const FormConsumo = ({
           )}
         </button>
 
-        {/* Ayuda adicional */}
+        {/* Ayuda adicional - manteniendo tu lógica original */}
         {modoMultiEstanque ? (
           <div className="mt-2 text-xs text-gray-500 text-center">
             <p>

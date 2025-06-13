@@ -1,121 +1,170 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { FaGasPump, FaExclamationTriangle, FaInfoCircle, FaTruck, FaBuilding } from "react-icons/fa";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  FaGasPump,
+  FaExclamationTriangle,
+  FaCheckCircle,
+  FaInfoCircle,
+  FaBuilding,
+  FaTruck,
+  FaLayerGroup,
+  FaSpinner,
+  FaBalanceScale,
+} from "react-icons/fa";
 import bomberoService from "../../context/bomberoService";
 
-// Componente de tarjeta para cada estanque
-const EstanqueTarjeta = ({ estanque, seleccionado, onSelect, disabled }) => {
-  // Cálculo del porcentaje de nivel actual para la barra de progreso
-  const porcentaje = Math.min(
-    Math.round((estanque.stock_actual / estanque.capacidad) * 100),
-    100
-  );
-
-  // Determinar el color de la barra de progreso según el nivel
-  const getColorBarra = (nivel) => {
-    if (nivel < 20) return "bg-red-500";
-    if (nivel < 50) return "bg-yellow-500";
-    return "bg-green-500";
-  };
-
-  // Verificar si es móvil
-  const esMovil = estanque.tipo_estanque === 'movil';
-
-  return (
-    <button
-      onClick={() => onSelect(estanque)}
-      disabled={disabled}
-      className={`w-full text-left border rounded-lg overflow-hidden transition-all duration-200 ${
-        disabled
-          ? "opacity-60 cursor-not-allowed bg-gray-100"
-          : seleccionado
-          ? "border-orange-500 bg-orange-50 shadow-md"
-          : "border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300"
-      }`}
-    >
-      <div className="p-3 border-b bg-gray-50">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <h3 className="font-medium text-gray-800">{estanque.nombre}</h3>
-            {/* Icono de tipo de estanque */}
-            {esMovil && (
-              <FaTruck className="ml-2 text-amber-600" size={12} title="Estanque Móvil" />
-            )}
-          </div>
-          <span
-            className={`text-xs px-2 py-1 rounded-full ${
-              porcentaje < 20
-                ? "bg-red-100 text-red-800"
-                : porcentaje < 50
-                ? "bg-yellow-100 text-yellow-800"
-                : "bg-green-100 text-green-800"
-            }`}
-          >
-            {porcentaje}%
-          </span>
-        </div>
-      </div>
-
-      <div className="p-3">
-        <div className="flex justify-between text-sm mb-2">
-          <span className="text-gray-600">
-            Capacidad: {estanque.capacidad.toLocaleString()} L
-          </span>
-          <span className="font-medium">
-            {estanque.stock_actual.toLocaleString()} L disponibles
-          </span>
-        </div>
-
-        {/* Badge de tipo si es móvil */}
-        {esMovil && (
-          <div className="mb-2">
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-              <FaTruck className="mr-1" size={8} />
-              Móvil
-            </span>
-          </div>
-        )}
-
-        {/* Barra de progreso */}
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div
-            className={`h-2 rounded-full ${getColorBarra(porcentaje)}`}
-            style={{ width: `${porcentaje}%` }}
-          ></div>
-        </div>
-
-        {porcentaje < 20 && (
-          <div className="mt-2 text-xs text-red-600 flex items-center">
-            <FaExclamationTriangle className="mr-1" />
-            <span>Nivel crítico</span>
-          </div>
-        )}
-      </div>
-    </button>
-  );
-};
-
-// Componente para separador de sección
+// Componente para separador de sección (manteniendo tu lógica original)
 const SeparadorSeccion = ({ icono, titulo, cantidad, color = "blue" }) => {
-  const colores = {
-    blue: "bg-blue-50 border-blue-200 text-blue-800",
-    amber: "bg-amber-50 border-amber-200 text-amber-800",
-    green: "bg-green-50 border-green-200 text-green-800"
+  const colorClasses = {
+    blue: "bg-blue-50 text-blue-700 border-blue-200",
+    amber: "bg-amber-50 text-amber-700 border-amber-200",
+    green: "bg-green-50 text-green-700 border-green-200",
   };
 
   return (
-    <div className={`px-3 py-2 border-t border-b ${colores[color]} flex items-center justify-between`}>
-      <div className="flex items-center space-x-2">
-        {icono}
-        <span className="font-medium text-sm">{titulo}</span>
+    <div className={`px-3 py-2 text-xs font-medium border-t ${colorClasses[color]}`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          {icono}
+          <span>{titulo}</span>
+        </div>
+        <span className="text-xs">
+          {cantidad} estanque{cantidad !== 1 ? 's' : ''}
+        </span>
       </div>
-      <span className="text-xs font-medium">
-        {cantidad} estanque{cantidad !== 1 ? 's' : ''}
-      </span>
     </div>
   );
 };
 
-const SelectorEstanques = ({
+// Componente para tarjeta de estanque (manteniendo tu lógica original)
+const EstanqueTarjeta = ({ 
+  estanque, 
+  seleccionado, 
+  onSelect, 
+  disabled,
+  // Nuevas props para modo múltiple
+  modoMultiple = false,
+  litrosAsignados = 0,
+  onCambiarLitros,
+  maxLitros
+}) => {
+  const stockSuficiente = modoMultiple 
+    ? (estanque.stock_actual || 0) >= litrosAsignados
+    : (estanque.stock_actual || 0) > 0;
+
+  const handleClick = () => {
+    if (!disabled && !modoMultiple) {
+      onSelect(estanque);
+    }
+  };
+
+  const handleLitrosChange = (e) => {
+    if (modoMultiple && onCambiarLitros) {
+      const valor = parseFloat(e.target.value) || 0;
+      onCambiarLitros(estanque.id_estanque, valor);
+    }
+  };
+
+  return (
+    <div
+      className={`
+        border rounded-lg p-3 transition-all duration-200 cursor-pointer
+        ${
+          modoMultiple
+            ? "bg-white border-gray-200 hover:border-orange-300"
+            : seleccionado
+            ? "border-orange-500 bg-orange-50 shadow-md"
+            : disabled
+            ? "border-gray-200 bg-gray-50 cursor-not-allowed opacity-60"
+            : "border-gray-200 bg-white hover:border-orange-300 hover:shadow-sm"
+        }
+      `}
+      onClick={!modoMultiple ? handleClick : undefined}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex items-start space-x-3 flex-1">
+          {/* Icono del tipo de estanque */}
+          <div className="flex-shrink-0 mt-1">
+            {estanque.tipo_estanque === "movil" ? (
+              <FaTruck className="text-amber-600" size={16} />
+            ) : (
+              <FaBuilding className="text-blue-600" size={16} />
+            )}
+          </div>
+
+          {/* Información del estanque */}
+          <div className="flex-1 min-w-0">
+            <h4 className="font-medium text-gray-900 text-sm truncate">
+              {estanque.nombre}
+            </h4>
+            <div className="text-xs text-gray-500 space-y-1">
+              <div className="flex justify-between">
+                <span>Stock:</span>
+                <span className={stockSuficiente ? "text-green-600" : "text-red-600"}>
+                  {(estanque.stock_actual || 0).toLocaleString()}L
+                </span>
+              </div>
+              {estanque.capacidad && (
+                <div className="flex justify-between">
+                  <span>Capacidad:</span>
+                  <span>{estanque.capacidad.toLocaleString()}L</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Modo simple: Indicador de selección */}
+          {!modoMultiple && seleccionado && (
+            <div className="flex-shrink-0">
+              <FaCheckCircle className="text-orange-500" size={16} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modo múltiple: Input para litros */}
+      {modoMultiple && (
+        <div className="mt-3 pt-3 border-t border-gray-200">
+          <div className="flex items-center justify-between">
+            <label className="text-xs text-gray-600">Litros a extraer:</label>
+            <div className="flex items-center space-x-2">
+              <input
+                type="number"
+                min="0"
+                max={maxLitros || estanque.stock_actual || 0}
+                step="0.1"
+                value={litrosAsignados}
+                onChange={handleLitrosChange}
+                disabled={disabled}
+                className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
+                placeholder="0"
+              />
+              <span className="text-xs text-gray-500">L</span>
+            </div>
+          </div>
+          
+          {/* Validación de stock en modo múltiple */}
+          {litrosAsignados > 0 && (
+            <div className="mt-2 flex items-center justify-end">
+              {stockSuficiente ? (
+                <div className="flex items-center text-green-600 text-xs">
+                  <FaCheckCircle className="mr-1" size={10} />
+                  Stock suficiente
+                </div>
+              ) : (
+                <div className="flex items-center text-red-600 text-xs">
+                  <FaExclamationTriangle className="mr-1" size={10} />
+                  Stock insuficiente
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const SelectorEstanque = ({
   idFaena,
   onEstanqueSelect,
   estanqueSeleccionado,
@@ -124,18 +173,51 @@ const SelectorEstanques = ({
   preloadedEstanques,
   tipoEstanque = 'todos',
   selectorId = 'default',
+  // NUEVAS PROPS PARA MODO MÚLTIPLE
+  modoMultiple = false,
+  distribucionLitros = {},
+  onDistribucionChange,
+  mostrarToggle = false,
+  onModoChange,
+  showTitle = true,
+  className = "",
 }) => {
   const [estanques, setEstanques] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [mostrarTodos, setMostrarTodos] = useState(false);
   const [cacheUsado, setCacheUsado] = useState(false);
+  const [modoInternoMultiple, setModoInternoMultiple] = useState(modoMultiple);
 
   // Función de selección mejorada con logging para debug
   const handleSeleccionEstanque = useCallback((estanque) => {
     console.log(`🎯 Selector ${selectorId}: Estanque seleccionado`, estanque);
-    onEstanqueSelect(estanque);
-  }, [selectorId, onEstanqueSelect]);
+    if (!modoInternoMultiple) {
+      onEstanqueSelect(estanque);
+    }
+  }, [selectorId, onEstanqueSelect, modoInternoMultiple]);
+
+  // Función para manejar cambios en litros (modo múltiple)
+  const handleCambiarLitros = useCallback((estanqueId, litros) => {
+    if (onDistribucionChange) {
+      const nuevaDistribucion = {
+        ...distribucionLitros,
+        [estanqueId]: litros,
+      };
+      onDistribucionChange(nuevaDistribucion);
+    }
+  }, [distribucionLitros, onDistribucionChange]);
+
+  // Función para cambiar modo
+  const handleCambiarModo = useCallback((nuevoModo) => {
+    setModoInternoMultiple(nuevoModo);
+    if (onModoChange) {
+      onModoChange(nuevoModo);
+    }
+    if (nuevoModo && onEstanqueSelect) {
+      onEstanqueSelect(null); // Limpiar selección al activar modo múltiple
+    }
+  }, [onModoChange, onEstanqueSelect]);
 
   // Cargar estanques al montar el componente o cuando cambia la faena
   useEffect(() => {
@@ -186,8 +268,8 @@ const SelectorEstanques = ({
     cargarEstanques();
   }, [idFaena, tipoEstanque, selectorId]);
 
-  // AGRUPAR ESTANQUES POR TIPO
-  const estanquesAgrupados = React.useMemo(() => {
+  // AGRUPAR ESTANQUES POR TIPO (manteniendo tu lógica original)
+  const estanquesAgrupados = useMemo(() => {
     // Separar por tipo
     const fijos = estanques.filter(e => e.tipo_estanque === 'fijo' || !e.tipo_estanque);
     const moviles = estanques.filter(e => e.tipo_estanque === 'movil');
@@ -205,12 +287,15 @@ const SelectorEstanques = ({
     return { fijos, moviles };
   }, [estanques]);
 
-  // Filtrar estanques por disponibilidad según los litros requeridos
-  const filtrarPorDisponibilidad = (grupoEstanques) => {
+  // Filtrar estanques por disponibilidad según los litros requeridos (solo para modo simple)
+  const filtrarPorDisponibilidad = useCallback((grupoEstanques) => {
+    if (modoInternoMultiple) {
+      return grupoEstanques; // En modo múltiple, mostrar todos
+    }
     return grupoEstanques.filter(
       (estanque) => estanque.stock_actual >= (litrosRequeridos || 0)
     );
-  };
+  }, [litrosRequeridos, modoInternoMultiple]);
 
   const estanquesFijosDisponibles = filtrarPorDisponibilidad(estanquesAgrupados.fijos);
   const estanquesMovilesDisponibles = filtrarPorDisponibilidad(estanquesAgrupados.moviles);
@@ -221,6 +306,35 @@ const SelectorEstanques = ({
 
   const totalEstanques = estanques.length;
   const totalDisponibles = estanquesFijosDisponibles.length + estanquesMovilesDisponibles.length;
+
+  // Calcular valores para el modo múltiple
+  const litrosTotalesRequeridos = litrosRequeridos || 0;
+  const litrosDistribuidos = Object.values(distribucionLitros).reduce(
+    (suma, litros) => suma + (parseFloat(litros) || 0),
+    0
+  );
+
+  const tieneEstanquesSeleccionados = Object.values(distribucionLitros).some(
+    (litros) => (parseFloat(litros) || 0) > 0
+  );
+
+  const distribucionCompleta = modoInternoMultiple &&
+    Math.abs(litrosDistribuidos - litrosTotalesRequeridos) < 0.01;
+
+  // Determinar si necesita modo múltiple automáticamente
+  const stockMaximoIndividual = Math.max(
+    ...estanques.map((e) => e.stock_actual || 0),
+    0
+  );
+  
+  const stockTotalDisponible = estanques.reduce(
+    (total, estanque) => total + (estanque.stock_actual || 0),
+    0
+  );
+
+  const necesitaMultiEstanque = litrosTotalesRequeridos > 0 &&
+    stockMaximoIndividual < litrosTotalesRequeridos &&
+    stockTotalDisponible >= litrosTotalesRequeridos;
 
   // Obtener texto descriptivo del tipo de estanque
   const getTextoTipo = useCallback(() => {
@@ -233,6 +347,29 @@ const SelectorEstanques = ({
         return '';
     }
   }, [tipoEstanque]);
+
+  // Si hay error, mostrar mensaje
+  if (error) {
+    return (
+      <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-center">
+        <div className="flex justify-center mb-2">
+          <FaExclamationTriangle className="text-red-500 text-xl" />
+        </div>
+        <h4 className="font-medium text-red-800 mb-1">Error al cargar estanques</h4>
+        <p className="text-sm text-red-700">{error}</p>
+      </div>
+    );
+  }
+
+  // Si está cargando, mostrar spinner
+  if (loading) {
+    return (
+      <div className="rounded-lg bg-white border border-gray-200 p-8 text-center">
+        <FaSpinner className="animate-spin text-orange-500 text-2xl mx-auto mb-2" />
+        <p className="text-gray-600 text-sm">Cargando estanques...</p>
+      </div>
+    );
+  }
 
   // Si no hay estanques, mostrar mensaje indicativo
   if (!loading && totalEstanques === 0) {
@@ -251,106 +388,184 @@ const SelectorEstanques = ({
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-      {/* ENCABEZADO MEJORADO CON SEGMENTADOR */}
-      <div className="p-3 bg-orange-50 border-b border-orange-100 flex justify-between items-center">
-        <h3 className="font-medium text-gray-800 flex items-center">
-          <FaGasPump className="text-orange-500 mr-2" />
-          Seleccione Estanque
-          {tipoEstanque !== 'todos' && (
-            <span className="ml-2 text-xs bg-orange-200 text-orange-800 px-2 py-1 rounded-full">
-              {tipoEstanque === 'fijo' ? 'Solo Fijos' : 'Solo Móviles'}
-            </span>
-          )}
-        </h3>
-        <div className="flex items-center space-x-3 text-sm">
-          {/* Segmentador por tipo de estanque */}
-          {totalEstanques > 0 && tipoEstanque === 'todos' && (
-            <div className="flex items-center space-x-2">
-              {estanquesAgrupados.fijos.length > 0 && (
-                <div className="flex items-center">
-                  <FaBuilding className="text-blue-600 mr-1" size={12} />
-                  <span className="text-blue-600 text-xs font-medium">
-                    {estanquesAgrupados.fijos.length} Fijo{estanquesAgrupados.fijos.length !== 1 ? 's' : ''}
-                  </span>
-                </div>
-              )}
-              {estanquesAgrupados.moviles.length > 0 && (
-                <div className="flex items-center">
-                  <FaTruck className="text-amber-600 mr-1" size={12} />
-                  <span className="text-amber-600 text-xs font-medium">
-                    {estanquesAgrupados.moviles.length} Móvil{estanquesAgrupados.moviles.length !== 1 ? 'es' : ''}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-          
-          {/* Separador visual */}
-          {totalEstanques > 0 && (
-            <div className="h-4 w-px bg-gray-300"></div>
-          )}
-          
-          {/* Info total */}
-          {totalEstanques > 0 && (
-            <div className="text-xs text-gray-500">
-              {totalEstanques} estanque{totalEstanques !== 1 ? "s" : ""} total
-              {totalDisponibles < totalEstanques && (
-                <span className="text-green-600 ml-1">
-                  ({totalDisponibles} disponible{totalDisponibles !== 1 ? "s" : ""})
-                </span>
-              )}
-            </div>
-          )}
-          
-          {/* Indicador de cache usado */}
-          {cacheUsado && preloadedEstanques && preloadedEstanques.loaded && (
-            <div className="text-xs text-green-600 flex items-center">
-              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              Precargado
-            </div>
-          )}
-        </div>
-      </div>
-      
-      {loading ? (
-        <div className="p-4 text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-2"></div>
-          <p className="text-gray-500 text-sm">
-            {preloadedEstanques && preloadedEstanques.loaded 
-              ? "Cargando desde cache..." 
-              : "Cargando estanques..."
-            }
+    <div className={`${className}`}>
+      {/* Título del componente */}
+      {showTitle && (
+        <div className="mb-3">
+          <h3 className="text-left text-gray-800 font-semibold text-sm sm:text-base flex items-center">
+            <FaGasPump className="text-blue-600 mr-2" />
+            {modoInternoMultiple ? "Seleccione múltiples estanques" : "Seleccione estanque"}
+          </h3>
+          <p className="text-xs text-gray-600 mt-1">
+            {modoInternoMultiple
+              ? "Configure múltiples estanques para completar el consumo requerido"
+              : "Elija el estanque del cual extraerá el combustible"}
           </p>
         </div>
-      ) : error ? (
-        <div className="p-4 text-center">
-          <div className="flex justify-center mb-2">
-            <FaExclamationTriangle className="text-red-500 text-xl" />
+      )}
+
+      {/* Alerta de stock insuficiente */}
+      {necesitaMultiEstanque && !modoInternoMultiple && (
+        <div className="mb-4 bg-orange-100 border-l-4 border-orange-500 text-orange-700 p-3 rounded">
+          <div className="flex items-start">
+            <FaExclamationTriangle className="text-orange-500 mt-0.5 mr-2 flex-shrink-0" />
+            <div className="text-sm">
+              <p className="font-medium">Stock insuficiente en estanques individuales</p>
+              <p>
+                Se requieren {litrosTotalesRequeridos.toLocaleString()}L.
+                Ningún estanque individual tiene suficiente stock. 
+                {mostrarToggle && " Active el modo múltiple para completar el consumo."}
+              </p>
+            </div>
           </div>
-          <p className="text-red-600">{error}</p>
         </div>
-      ) : (
-        <>
-          {/* Toggle para mostrar todos los estanques */}
-          {totalDisponibles < totalEstanques && (
-            <div className="px-3 py-2 bg-gray-50 border-b flex justify-end">
-              <label className="inline-flex items-center cursor-pointer">
-                <span className="text-xs text-gray-500 mr-2">
-                  Mostrar todos los estanques
-                </span>
+      )}
+
+      {/* Toggle de modo simple/múltiple */}
+      {mostrarToggle && (
+        <div className="mb-4 flex items-center justify-between bg-white p-3 rounded border">
+          <div>
+            <label className="text-sm font-medium text-gray-700">Modo de consumo</label>
+            <p className="text-xs text-gray-500">
+              {modoInternoMultiple
+                ? "Consumo desde múltiples estanques"
+                : "Consumo desde un solo estanque"}
+            </p>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={() => handleCambiarModo(false)}
+              disabled={necesitaMultiEstanque || disabled}
+              className={`px-3 py-1 text-xs rounded transition-colors ${
+                !modoInternoMultiple
+                  ? "bg-blue-600 text-white"
+                  : necesitaMultiEstanque || disabled
+                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+              }`}
+            >
+              Simple
+            </button>
+            <button
+              type="button"
+              onClick={() => handleCambiarModo(true)}
+              disabled={disabled}
+              className={`px-3 py-1 text-xs rounded transition-colors flex items-center ${
+                modoInternoMultiple
+                  ? "bg-blue-600 text-white"
+                  : disabled
+                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+              }`}
+            >
+              <FaLayerGroup className="mr-1" />
+              Múltiple
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Panel de información para modo múltiple */}
+      {modoInternoMultiple && litrosTotalesRequeridos > 0 && (
+        <div className="mb-4 p-3 bg-gray-50 rounded border">
+          <div className="flex justify-between items-center text-sm">
+            <span>Litros requeridos:</span>
+            <span className="font-medium">{litrosTotalesRequeridos.toLocaleString()}L</span>
+          </div>
+          <div className="flex justify-between items-center text-sm">
+            <span>Litros distribuidos:</span>
+            <span
+              className={`font-medium ${
+                distribucionCompleta ? "text-green-600" : "text-orange-600"
+              }`}
+            >
+              {litrosDistribuidos.toLocaleString()}L
+            </span>
+          </div>
+          {tieneEstanquesSeleccionados && !distribucionCompleta && (
+            <div className="flex justify-between items-center text-sm">
+              <span>Restante:</span>
+              <span className="font-medium text-red-600">
+                {(litrosTotalesRequeridos - litrosDistribuidos).toFixed(2)}L
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+        {/* ENCABEZADO MEJORADO CON SEGMENTADOR */}
+        <div className="p-3 bg-orange-50 border-b border-orange-100 flex justify-between items-center">
+          <h3 className="font-medium text-gray-800 flex items-center">
+            <FaGasPump className="text-orange-500 mr-2" />
+            {modoInternoMultiple ? "Distribuir por estanques" : "Seleccione Estanque"}
+            {tipoEstanque !== 'todos' && (
+              <span className="ml-2 text-xs bg-orange-200 text-orange-800 px-2 py-1 rounded-full">
+                {tipoEstanque === 'fijo' ? 'Solo Fijos' : 'Solo Móviles'}
+              </span>
+            )}
+          </h3>
+          <div className="flex items-center space-x-3 text-sm">
+            {/* Segmentador por tipo de estanque */}
+            {totalEstanques > 0 && tipoEstanque === 'todos' && (
+              <div className="flex items-center space-x-2">
+                {estanquesAgrupados.fijos.length > 0 && (
+                  <div className="flex items-center">
+                    <FaBuilding className="text-blue-600 mr-1" size={12} />
+                    <span className="text-blue-600 text-xs font-medium">
+                      {estanquesAgrupados.fijos.length} Fijo{estanquesAgrupados.fijos.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                )}
+                {estanquesAgrupados.moviles.length > 0 && (
+                  <div className="flex items-center">
+                    <FaTruck className="text-amber-600 mr-1" size={12} />
+                    <span className="text-amber-600 text-xs font-medium">
+                      {estanquesAgrupados.moviles.length} Móvil{estanquesAgrupados.moviles.length !== 1 ? 'es' : ''}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Separador visual */}
+            {totalEstanques > 0 && (
+              <div className="h-4 w-px bg-gray-300"></div>
+            )}
+            
+            {/* Info total */}
+            {totalEstanques > 0 && (
+              <div className="text-xs text-gray-500">
+                {totalEstanques} estanque{totalEstanques !== 1 ? "s" : ""} total
+                {!modoInternoMultiple && totalDisponibles < totalEstanques && (
+                  <span className="text-green-600 ml-1">
+                    ({totalDisponibles} disponible{totalDisponibles !== 1 ? 's' : ''})
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Toggle "Mostrar todos" solo para modo simple */}
+        {!modoInternoMultiple && totalDisponibles < totalEstanques && (
+          <div className="px-3 py-2 bg-gray-50 border-b border-gray-100">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-600">
+                Mostrando solo estanques con stock suficiente
+              </span>
+              <label className="flex items-center cursor-pointer">
+                <span className="text-xs text-gray-600 mr-2">Mostrar todos</span>
                 <div className="relative">
                   <input
                     type="checkbox"
                     className="sr-only"
                     checked={mostrarTodos}
-                    onChange={() => setMostrarTodos(!mostrarTodos)}
-                    disabled={disabled}
+                    onChange={(e) => setMostrarTodos(e.target.checked)}
                   />
                   <div
-                    className={`block w-9 h-5 rounded-full ${
+                    className={`block w-8 h-4 rounded-full transition ${
                       mostrarTodos ? "bg-orange-500" : "bg-gray-300"
                     }`}
                   ></div>
@@ -362,108 +577,83 @@ const SelectorEstanques = ({
                 </div>
               </label>
             </div>
+          </div>
+        )}
+
+        {/* LISTA DE ESTANQUES AGRUPADA POR TIPO */}
+        <div className="max-h-[400px] overflow-y-auto">
+          
+          {/* SECCIÓN DE ESTANQUES FIJOS */}
+          {(tipoEstanque === 'todos' || tipoEstanque === 'fijo') && estanquesFijosMostrados.length > 0 && (
+            <>
+              <SeparadorSeccion 
+                icono={<FaBuilding className="text-blue-600" size={14} />}
+                titulo="Estanques Fijos"
+                cantidad={estanquesFijosMostrados.length}
+                color="blue"
+              />
+              <div className="p-3 grid gap-3 grid-cols-1 md:grid-cols-2">
+                {estanquesFijosMostrados.map((estanque) => (
+                  <EstanqueTarjeta
+                    key={`${selectorId}-fijo-${estanque.id_estanque}`}
+                    estanque={estanque}
+                    seleccionado={
+                      estanqueSeleccionado?.id_estanque === estanque.id_estanque
+                    }
+                    onSelect={handleSeleccionEstanque}
+                    disabled={
+                      disabled ||
+                      (!modoInternoMultiple &&
+                        litrosRequeridos &&
+                        estanque.stock_actual < litrosRequeridos &&
+                        !mostrarTodos)
+                    }
+                    modoMultiple={modoInternoMultiple}
+                    litrosAsignados={distribucionLitros[estanque.id_estanque] || 0}
+                    onCambiarLitros={handleCambiarLitros}
+                    maxLitros={estanque.stock_actual}
+                  />
+                ))}
+              </div>
+            </>
           )}
+        </div>
 
-          {/* LISTA DE ESTANQUES AGRUPADA POR TIPO */}
-          <div className="max-h-[400px] overflow-y-auto">
-            
-            {/* SECCIÓN DE ESTANQUES FIJOS */}
-            {(tipoEstanque === 'todos' || tipoEstanque === 'fijo') && estanquesFijosMostrados.length > 0 && (
-              <>
-                <SeparadorSeccion 
-                  icono={<FaBuilding className="text-blue-600" size={14} />}
-                  titulo="Estanques Fijos"
-                  cantidad={estanquesFijosMostrados.length}
-                  color="blue"
-                />
-                <div className="p-3 grid gap-3 grid-cols-1 md:grid-cols-2">
-                  {estanquesFijosMostrados.map((estanque) => (
-                    <EstanqueTarjeta
-                      key={`${selectorId}-fijo-${estanque.id_estanque}`}
-                      estanque={estanque}
-                      seleccionado={
-                        estanqueSeleccionado?.id_estanque === estanque.id_estanque
-                      }
-                      onSelect={handleSeleccionEstanque}
-                      disabled={
-                        disabled ||
-                        (litrosRequeridos &&
-                          estanque.stock_actual < litrosRequeridos &&
-                          !mostrarTodos)
-                      }
-                    />
-                  ))}
-                </div>
-              </>
-            )}
+        {/* Mensaje cuando no hay estanques en la vista actual */}
+        {estanquesFijosMostrados.length === 0 && estanquesMovilesMostrados.length === 0 && (
+          <div className="p-8 text-center">
+            <FaInfoCircle className="text-gray-400 text-2xl mx-auto mb-2" />
+            <p className="text-gray-600 text-sm">
+              {modoInternoMultiple
+                ? "No hay estanques disponibles para distribución"
+                : mostrarTodos
+                ? "No se encontraron estanques"
+                : "No hay estanques con stock suficiente. Active 'Mostrar todos' para ver todos los estanques."}
+            </p>
+          </div>
+        )}
+      </div>
 
-            {/* SECCIÓN DE ESTANQUES MÓVILES */}
-            {(tipoEstanque === 'todos' || tipoEstanque === 'movil') && estanquesMovilesMostrados.length > 0 && (
-              <>
-                <SeparadorSeccion 
-                  icono={<FaTruck className="text-amber-600" size={14} />}
-                  titulo="Estanques Móviles"
-                  cantidad={estanquesMovilesMostrados.length}
-                  color="amber"
-                />
-                <div className="p-3 grid gap-3 grid-cols-1 md:grid-cols-2">
-                  {estanquesMovilesMostrados.map((estanque) => (
-                    <EstanqueTarjeta
-                      key={`${selectorId}-movil-${estanque.id_estanque}`}
-                      estanque={estanque}
-                      seleccionado={
-                        estanqueSeleccionado?.id_estanque === estanque.id_estanque
-                      }
-                      onSelect={handleSeleccionEstanque}
-                      disabled={
-                        disabled ||
-                        (litrosRequeridos &&
-                          estanque.stock_actual < litrosRequeridos &&
-                          !mostrarTodos)
-                      }
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-
-            {/* Mensaje cuando no hay estanques para mostrar */}
-            {estanquesFijosMostrados.length === 0 && estanquesMovilesMostrados.length === 0 && (
-              <div className="p-4 text-center bg-gray-50 border-t">
-                <FaInfoCircle className="mx-auto mb-2 text-gray-400 text-xl" />
-                <p className="text-gray-600">
-                  No hay estanques con suficiente combustible para esta operación.
-                </p>
-                {!mostrarTodos && (
-                  <button
-                    onClick={() => setMostrarTodos(true)}
-                    className="mt-2 text-xs text-orange-600 hover:text-orange-800 underline"
-                    disabled={disabled}
-                  >
-                    Ver todos los estanques disponibles
-                  </button>
-                )}
+      {/* Resumen de estado para modo múltiple */}
+      {modoInternoMultiple && tieneEstanquesSeleccionados && (
+        <div className="mt-4 p-3 bg-blue-50 rounded border border-blue-200">
+          <div className="text-sm">
+            {distribucionCompleta ? (
+              <div className="flex items-center text-green-600">
+                <FaCheckCircle className="mr-2" />
+                ✓ Distribución completa de {litrosTotalesRequeridos}L
+              </div>
+            ) : (
+              <div className="flex items-center text-orange-600">
+                <FaBalanceScale className="mr-2" />
+                Faltan {(litrosTotalesRequeridos - litrosDistribuidos).toFixed(2)}L por distribuir
               </div>
             )}
           </div>
-
-          {/* Alerta si no hay estanque seleccionado */}
-          {litrosRequeridos > 0 && estanqueSeleccionado && estanqueSeleccionado.stock_actual < litrosRequeridos && (
-            <div className="p-3 border-t border-red-200 bg-red-50 flex items-start">
-              <FaExclamationTriangle className="text-red-500 mr-2 mt-0.5 flex-shrink-0" />
-              <div className="text-sm text-red-800">
-                <p className="font-medium">Advertencia: Stock insuficiente</p>
-                <p>
-                  El estanque seleccionado no tiene suficiente combustible para
-                  dispensar {litrosRequeridos.toLocaleString()} litros.
-                </p>
-              </div>
-            </div>
-          )}
-        </>
+        </div>
       )}
     </div>
   );
 };
 
-export default SelectorEstanques;
+export default SelectorEstanque;
