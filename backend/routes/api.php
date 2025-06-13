@@ -33,7 +33,7 @@ use App\Http\Controllers\Api\VerificacionIngresosController;
 use App\Http\Controllers\Api\MaquinasExternasController;
 use App\Http\Controllers\Api\SolicitantesOptimizadoController;
 use App\Http\Controllers\Api\ConsumoCategoriasController;
-
+use App\Http\Controllers\Api\TrasvasijeController;
 
 /*
 |--------------------------------------------------------------------------
@@ -193,7 +193,6 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/calcular-litros', [EstanqueController::class, 'calcularLitrosPetroleo']);
             Route::get('/capacidad-disponible/{id_faena}', [EstanqueController::class, 'capacidadDisponible']);
         });
-
     });
 
     Route::get('/ingresos-petroleo', [IngresoPetroleoController::class, 'index']);
@@ -205,13 +204,46 @@ Route::middleware('auth:sanctum')->group(function () {
     // CASO 2: Recepción móvil (Copec → Estanque móvil)
     Route::post('/recepciones/estanque-movil', [IngresoPetroleoController::class, 'storeRecepcionMovil']);
 
-    // CASO 3: Trasvasije (Estanque móvil → Estanques fijos)
-    Route::post('/trasvasijes', [IngresoPetroleoController::class, 'storeTrasvasije']);
-
 
     //Route::get('/capacidad-disponible/{idFaena}', [IngresoPetroleoController::class, 'capacidadDisponible']);
     Route::get('/recepciones/stats', [IngresoPetroleoController::class, 'getStats']);
     Route::get('/recepciones', [IngresoPetroleoController::class, 'getRecepciones']);
+
+
+    // ========================================
+    // 🔄 SISTEMA DE TRASVASIJES
+    // ========================================
+
+    Route::middleware('auth:sanctum')->prefix('trasvasijes')->group(function () {
+
+        // Dashboard y estadísticas
+        Route::get('/dashboard', [TrasvasijeController::class, 'dashboard']);
+        Route::get('/estadisticas', [TrasvasijeController::class, 'estadisticas']);
+        Route::get('/datos-formulario', [TrasvasijeController::class, 'datosFormulario']);
+
+        // Listado general de trasvasijes
+        Route::get('/', [TrasvasijeController::class, 'index']);
+
+        // Registrar trasvasijes
+        Route::post('/movil-a-fijo', [TrasvasijeController::class, 'registrarMovilAFijo']);
+        Route::post('/fijo-a-movil', [TrasvasijeController::class, 'registrarFijoAMovil']);
+
+        // Verificar trasvasijes móvil→fijo
+        Route::post('/movil-a-fijo/{id}/verificar', [TrasvasijeController::class, 'verificarMovilAFijo']);
+
+        // Obtener detalle específico
+        Route::get('/{tipo}/{id}', [TrasvasijeController::class, 'show'])
+            ->where('tipo', 'movil-a-fijo|fijo-a-movil');
+    });
+
+    // Rutas legacy para compatibilidad (si las necesitas)
+    Route::middleware('auth:sanctum')->group(function () {
+        // Alias cortos
+        Route::post('/trasvasije-movil-fijo', [TrasvasijeController::class, 'registrarMovilAFijo']);
+        Route::post('/trasvasije-fijo-movil', [TrasvasijeController::class, 'registrarFijoAMovil']);
+        Route::get('/trasvasijes-dashboard', [TrasvasijeController::class, 'dashboard']);
+    });
+
 
     /*
     |--------------------------------------------------------------------------
@@ -247,18 +279,18 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
 
-// Rutas para Consumos
-Route::prefix('consumos')->group(function () {
-    // Ruta original para consumos
-    Route::post('/', [ConsumoController::class, 'store']);
-    
-    // ✅ NUEVA RUTA: Consumos multi-estanque
-    Route::post('/multi', [ConsumoController::class, 'storeMultiEstanque']);
-    
-    // Otras rutas de consumos
-    Route::get('/recientes', [ConsumoController::class, 'getConsumosRecientes']);
-    Route::get('/', [ConsumoController::class, 'getConsumos']);
-});
+    // Rutas para Consumos
+    Route::prefix('consumos')->group(function () {
+        // Ruta original para consumos
+        Route::post('/', [ConsumoController::class, 'store']);
+
+        // ✅ NUEVA RUTA: Consumos multi-estanque
+        Route::post('/multi', [ConsumoController::class, 'storeMultiEstanque']);
+
+        // Otras rutas de consumos
+        Route::get('/recientes', [ConsumoController::class, 'getConsumosRecientes']);
+        Route::get('/', [ConsumoController::class, 'getConsumos']);
+    });
 
 
 
@@ -542,9 +574,6 @@ Route::prefix('consumos')->group(function () {
     | 📂 CATEGORÍAS (MANTENIMIENTO)
     |--------------------------------------------------------------------------
     */
-
-
-
 });
 
 // Rutas para consumos
@@ -556,4 +585,3 @@ Route::get('/dashboard/stats', [IngresoPetroleoController::class, 'getStats']);
 // En tu routes/api.php
 Route::get('/recepcionesFecha', [IngresoPetroleoController::class, 'getRecepciones']);
 Route::get('/consumosFecha', [ConsumoController::class, 'getConsumos']);
-
