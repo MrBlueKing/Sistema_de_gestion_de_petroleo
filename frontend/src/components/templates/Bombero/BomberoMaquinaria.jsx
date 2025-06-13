@@ -36,7 +36,7 @@ const BomberoMaquinaria = ({
 
   // 🆕 CATEGORÍA ESPECIAL PARA ESTANQUE MÓVIL
   const CATEGORIA_ESTANQUE_MOVIL = {
-    id: 'estanque_movil',
+    id: 'estanque_movil 11',
     nombre: 'Estanque Móvil',
     tipo_medicion: 'N/A',
     descripcion: 'Transferencia de combustible a estanque móvil',

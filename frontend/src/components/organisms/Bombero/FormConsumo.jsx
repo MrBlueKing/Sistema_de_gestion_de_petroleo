@@ -17,7 +17,7 @@ import SelectorEstanques from "../../molecules/SelectorEstanque";
 import bomberoService from "../../../context/bomberoService";
 import axios from "../../../lib/axios"; // Tu instancia de axios configurada
 
-const ConsumoFormMultiEstanque = ({
+const FormConsumo = ({
   formData,
   handleChange,
   tipoMedicion = "Kilometraje",
@@ -1399,4 +1399,4 @@ const ConsumoFormMultiEstanque = ({
   );
 };
 
-export default ConsumoFormMultiEstanque;
+export default FormConsumo;

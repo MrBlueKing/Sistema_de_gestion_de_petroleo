@@ -1,16 +1,25 @@
 import React from "react";
 
-const StepHeader = ({ text = "Cargar Combustible", icon = "⛽" }) => {
+const StepHeader = ({
+  text = "Cargar Combustible",
+  icon = "⛽",
+  subtitle = "",
+}) => {
   return (
     <div className="w-full">
-      <div className="w-full flex items-center justify-center gap-1 sm:gap-2 md:gap-3 text-white px-2 py-1 sm:px-3 sm:py-2 md:px-4 md:py-3 rounded-lg md:rounded-xl shadow-md bg-gradient-to-r from-orange-600 to-amber-500">
-        <span className="text-base sm:text-lg md:text-2xl">{icon}</span>
-        <span className="text-xs sm:text-sm md:text-lg font-semibold text-center truncate max-w-[80%]">
+      <div className="w-full flex flex-col items-center justify-center text-white px-4 py-3 rounded-xl shadow-md bg-gradient-to-r from-orange-600 to-amber-500 text-center">
+        <span className="text-2xl md:text-3xl">{icon}</span>
+        <h1 className="text-lg sm:text-xl md:text-2xl font-bold mt-1">
           {text}
-        </span>
+        </h1>
+        {subtitle && (
+          <p className="text-sm sm:text-base md:text-lg mt-1 text-white/90 italic">
+            {subtitle}
+          </p>
+        )}
       </div>
     </div>
   );
-};  
+};
 
 export default StepHeader;

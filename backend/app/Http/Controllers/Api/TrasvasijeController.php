@@ -11,10 +11,12 @@ use App\Models\Estanque;
 use App\Models\EstanqueStock;
 use App\Models\User;
 use App\Models\Faena;
+use App\Models\Trasvasijes_multi_fijo_a_movil;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
+
 class TrasvasijeController extends Controller
 {
     // ========================================
@@ -308,7 +310,7 @@ class TrasvasijeController extends Controller
             }
 
             // 📝 CREAR REGISTRO DE TRASVASIJE
-            $trasvasije = TrasvasijeFijoAMovil::create([
+            $trasvasije = Trasvasijes_multi_fijo_a_movil::create([
                 'id_usuario' => $request->id_usuario,
                 'id_estanque_fijo' => $request->id_estanque_fijo,
                 'id_estanque_movil' => $request->id_estanque_movil,
@@ -318,7 +320,7 @@ class TrasvasijeController extends Controller
                 // Numerales de bomba
                 'numeral_inicial' => $request->numeral_inicial,
                 'numeral_final' => $request->numeral_final,
-                'litros_bombeados' => $litrosBombeados,
+                'litros_bombeados_total' => $litrosBombeados,
 
                 // Stocks
                 'stock_inicial_fijo' => $stockInicialFijo,
@@ -339,7 +341,7 @@ class TrasvasijeController extends Controller
                 'id_trasvasije' => $trasvasije->id_trasvasije,
                 'estanque_fijo' => $estanqueFijo->nombre,
                 'estanque_movil' => $estanqueMovil->nombre,
-                'litros_bombeados' => $litrosBombeados
+                'litros_bombeados_total' => $litrosBombeados
             ]);
 
             return response()->json([
@@ -446,7 +448,7 @@ class TrasvasijeController extends Controller
             }
 
             if (!$request->tipo || $request->tipo === 'todos' || $request->tipo === 'fijo_a_movil') {
-                $fijoAMovil = TrasvasijeFijoAMovil::with([
+                $fijoAMovil = Trasvasijes_multi_fijo_a_movil::with([
                     'usuario:id,nombre,apellido',
                     'estanqueFijo:id_estanque,nombre,tipo_estanque',
                     'estanqueMovil:id_estanque,nombre,tipo_estanque',
@@ -590,7 +592,7 @@ class TrasvasijeController extends Controller
 
             // Construir consultas base
             $queryMovilAFijo = TrasvasijeMovilAFijo::query();
-            $queryFijoAMovil = TrasvasijeFijoAMovil::query();
+            $queryFijoAMovil = Trasvasijes_multi_fijo_a_movil::query();
 
             if ($request->id_faena) {
                 $queryMovilAFijo->where('id_faena', $request->id_faena);
@@ -611,7 +613,7 @@ class TrasvasijeController extends Controller
             $totalMovilAFijo = $queryMovilAFijo->count();
             $totalFijoAMovil = $queryFijoAMovil->count();
             $litrosTotalMovilAFijo = $queryMovilAFijo->sum('litros_trasvasijados');
-            $litrosTotalFijoAMovil = $queryFijoAMovil->sum('litros_bombeados');
+            $litrosTotalFijoAMovil = $queryFijoAMovil->sum('litros_bombeados_total');
 
             // Trasvasijes pendientes de verificación
             $pendientesVerificacion = TrasvasijeMovilAFijo::where('verificado', false)
@@ -785,7 +787,7 @@ class TrasvasijeController extends Controller
                     'observaciones' => $trasvasije->observaciones
                 ];
             } else {
-                $trasvasije = TrasvasijeFijoAMovil::with([
+                $trasvasije = Trasvasijes_multi_fijo_a_movil::with([
                     'usuario:id,nombre,apellido,rut',
                     'estanqueFijo:id_estanque,nombre,tipo_estanque,capacidad',
                     'estanqueMovil:id_estanque,nombre,tipo_estanque,capacidad',
@@ -803,7 +805,7 @@ class TrasvasijeController extends Controller
                     'mediciones' => [
                         'numeral_inicial' => $trasvasije->numeral_inicial,
                         'numeral_final' => $trasvasije->numeral_final,
-                        'litros_bombeados' => $trasvasije->litros_bombeados
+                        'litros_bombeados_total' => $trasvasije->litros_bombeados
                     ],
                     'stocks' => [
                         'fijo' => [
@@ -863,7 +865,7 @@ class TrasvasijeController extends Controller
 
             // Query base
             $queryMovilAFijo = TrasvasijeMovilAFijo::where('fecha_trasvasije', '>=', $fechaDesde);
-            $queryFijoAMovil = TrasvasijeFijoAMovil::where('fecha_trasvasije', '>=', $fechaDesde);
+            $queryFijoAMovil = Trasvasijes_multi_fijo_a_movil::where('fecha_trasvasije', '>=', $fechaDesde);
 
             if ($request->id_faena) {
                 $queryMovilAFijo->where('id_faena', $request->id_faena);
@@ -872,7 +874,7 @@ class TrasvasijeController extends Controller
 
             // Métricas principales
             $totalTrasvasijes = $queryMovilAFijo->count() + $queryFijoAMovil->count();
-            $litrosTotalMovidos = $queryMovilAFijo->sum('litros_trasvasijados') + $queryFijoAMovil->sum('litros_bombeados');
+            $litrosTotalMovidos = $queryMovilAFijo->sum('litros_trasvasijados') + $queryFijoAMovil->sum('litros_bombeados_total');
             $pendientesVerificacion = TrasvasijeMovilAFijo::where('verificado', false)
                 ->where('fecha_trasvasije', '>=', $fechaDesde)
                 ->when($request->id_faena, function ($q, $faena) {
@@ -942,7 +944,7 @@ class TrasvasijeController extends Controller
                     })
                     ->count();
 
-                $fijoAMovilDia = TrasvasijeFijoAMovil::whereDate('fecha_trasvasije', $fecha)
+                $fijoAMovilDia = Trasvasijes_multi_fijo_a_movil::whereDate('fecha_trasvasije', $fecha)
                     ->when($request->id_faena, function ($q, $faena) {
                         return $q->where('id_faena', $faena);
                     })

@@ -1,10 +1,8 @@
 import React, { useState } from "react";
-import Button from "../../atoms/Button/Button";
-import { FaHome } from "react-icons/fa";
 import FormRecepcion from "../../organisms/Bombero/FormRecepcion";
-import StepHeader from "../../molecules/StepHeader";
+import FormRecepcionTrasvasije from "../../organisms/Bombero/FormRecepcionTrasvasije";
 
-const Main = () => {
+const Main = ({ tipo = "recepcion" }) => {
   const [formData, setFormData] = useState({
     fechaHora: "",
     numeroGuia: "",
@@ -21,18 +19,37 @@ const Main = () => {
   };
 
   const handleSubmit = () => {
-    console.log("Datos de recepción enviados:", formData);
-    // Aquí podrías hacer una llamada a la API
+    console.log(`Datos de ${tipo} enviados:`, formData);
+    // Aquí podrías hacer una llamada a la API específica según el tipo
+  };
+
+  // Determinar qué formulario renderizar
+  const renderForm = () => {
+    switch (tipo) {
+      case "trasvasije":
+        return (
+          <FormRecepcionTrasvasije
+            formData={formData}
+            handleChange={handleChange}
+            handleSubmit={handleSubmit}
+          />
+        );
+      case "recepcion":
+      default:
+        return (
+          <FormRecepcion
+            formData={formData}
+            handleChange={handleChange}
+            handleSubmit={handleSubmit}
+          />
+        );
+    }
   };
 
   return (
-    <main className="flex-1 w-full p-2 sm:p-3  text-center">
+    <main className="flex-1 w-full p-2 sm:p-3 text-center">
       <div className="bg-orange-500 p-4 rounded-3xl w-full">
-        <FormRecepcion
-          formData={formData}
-          handleChange={handleChange}
-          handleSubmit={handleSubmit}
-        />
+        {renderForm()}
       </div>
     </main>
   );

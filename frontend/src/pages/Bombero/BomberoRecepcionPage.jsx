@@ -1,52 +1,43 @@
 import React, { useState } from "react";
 import Header from "../../components/organisms/Bombero/Header";
-import FormRecepcionNormal from "../../components/templates/Bombero/BomberoRecepcion";
-import FormRecepcionMovil from "../../components/templates/Bombero/BomberoRecepcionMovil";
-import { 
-  FaTruck, 
-  FaExchangeAlt
-} from "react-icons/fa";
+import BomberoFormLayout from "../../components/templates/Bombero/BomberoFormRecepcion";
+
+import { FaExchangeAlt } from "react-icons/fa";
+import { RiOilFill } from "react-icons/ri";
 import { FaGasPump } from "react-icons/fa";
 
-const BomberoRecepcion = () => {
-  const [tipoRecepcion, setTipoRecepcion] = useState('estanques_fijos');
-  
-  // Opciones de recepción
+const BomberoRecepcionPage = () => {
+  // 🔧 CAMBIAR los IDs para que coincidan con el componente unificado
+  const [tipoRecepcion, setTipoRecepcion] = useState('recepcion');
+
+  // 🔧 ACTUALIZAR los IDs en el array
   const tiposRecepcion = [
     {
-      id: 'estanques_fijos',
+      id: 'recepcion',        // 👈 Cambio: era 'estanques_fijos'
       titulo: 'Tradicional',
       descripcion: 'Estanques Fijos',
       icon: <FaGasPump className="w-5 h-5" />,
       disponible: true
     },
     {
-      id: 'estanque_movil',
+      id: 'movil',           // 👈 Cambio: era 'estanque_movil'
       titulo: 'Móvil',
       descripcion: 'Estanque Móvil',
-      icon: <FaTruck className="w-5 h-5" />,
+      icon: <RiOilFill className="w-5 h-5" />,
       disponible: true
     },
     {
-      id: 'trasvasije',
+      id: 'trasvasije',      // 👈 Este se mantiene igual
       titulo: 'Trasvasije',
       descripcion: 'Redistribuir',
       icon: <FaExchangeAlt className="w-5 h-5" />,
-      disponible: false
+      disponible: true
     }
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pt-5">
       <Header />
-      
-      {/* Título principal */}
-      <div className="bg-white border-b border-gray-200 px-4 py-10">
-        <h1 className="text-xl font-bold text-gray-800 text-center">
-          Recepción de Combustible
-        </h1>
-      </div>
-
       {/* Tabs de navegación */}
       <div className="bg-white border-b border-gray-200">
         <div className="flex">
@@ -74,20 +65,12 @@ const BomberoRecepcion = () => {
         </div>
       </div>
 
-      {/* Contenido del formulario */}
+      {/* 🎯 CONTENIDO SIMPLIFICADO - 1 línea en lugar de 3 */}
       <div className="">
-        {tipoRecepcion === 'estanques_fijos' && <FormRecepcionNormal />}
-        {tipoRecepcion === 'estanque_movil' && <FormRecepcionMovil />}
-        {tipoRecepcion === 'trasvasije' && (
-          <div className="text-center py-16 text-gray-500">
-            <div className="mb-4 text-4xl">🚧</div>
-            <p className="font-medium">Funcionalidad en desarrollo</p>
-            <p className="text-sm mt-1">Próximamente disponible</p>
-          </div>
-        )}
+        <BomberoFormLayout tipo={tipoRecepcion} />
       </div>
     </div>
   );
 };
 
-export default BomberoRecepcion;
+export default BomberoRecepcionPage;
