@@ -119,18 +119,6 @@ const EstanqueTarjeta = ({
 
             {/* Información básica */}
             <div className="text-xs text-gray-500 space-y-1">
-              <div className="flex justify-between">
-                <span>Stock Actual:</span>
-                <span className={esDestino ? "text-gray-700" : (esValido ? "text-green-600" : "text-red-600")}>
-                  {(estanque.stock_actual || 0).toLocaleString()}L
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>Capacidad Disponible:</span>
-                <span className={esDestino ? (esValido ? "text-green-600" : "text-red-600") : "text-gray-700"}>
-                  {((estanque.capacidad || 0) - (estanque.stock_actual || 0)).toLocaleString()}L
-                </span>
-              </div>
               {esDestino ? (
                 // Información para estanques destino (móviles)
                 <>
@@ -179,9 +167,10 @@ const EstanqueTarjeta = ({
             {/* Barra de progreso visual */}
             <div className="mt-2">
               <div className="flex justify-between text-xs mb-1">
-                <span className="text-gray-500">Ocupación</span>
-                <span className={`font-medium ${
-                  porcentaje < 20 ? "text-red-600" :
+                <span className="text-gray-500">
+                  {esDestino ? "Ocupación" : "Nivel"}
+                </span>
+                <span className={`font-medium ${porcentaje < 20 ? "text-red-600" :
                   porcentaje < 50 ? "text-yellow-600" :
                     "text-green-600"
                   }`}>
@@ -852,4 +841,4 @@ const SelectorEstanque = ({
   );
 };
 
-export default SelectorEstanque;  
+export default SelectorEstanque;
