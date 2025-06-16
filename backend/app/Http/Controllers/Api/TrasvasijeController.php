@@ -376,7 +376,7 @@ class TrasvasijeController extends Controller
                 $stockFinalMovil = $stockInicialMovil; // No se modifica en detalles
             } else {
                 // Para principal o simple: usar litros bombeados totales
-                $stockFinalFijo = $stockInicialFijo - $litrosBombeados;
+                $stockFinalFijo = $stockInicialFijo - $litrosDesdeEsteEstanque;
                 $stockFinalMovil = $stockInicialMovil + $litrosBombeados;
 
                 // Validar capacidad del estanque móvil (solo para principal/simple)
