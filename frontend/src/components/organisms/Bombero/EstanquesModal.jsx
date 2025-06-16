@@ -158,6 +158,7 @@ const EstanquesModal = ({
   // Nuevas props para distribución
   distribucionLitros = {},
   onDistribucionChange,
+  esTrasvasije = false // true para trasvasije (1 estanque), false para recepción (múltiples)
 }) => {
   const [loading, setLoading] = useState(false);
   const [resultadoCalculo, setResultadoCalculo] = useState(null);
@@ -196,6 +197,171 @@ const EstanquesModal = ({
       ...prev,
       [estanqueId]: !prev[estanqueId],
     }));
+  };
+
+  // 🔧 FUNCIÓN MODIFICADA PARA MANEJAR DISTRIBUCIÓN
+  const handleDistribucionChange = (estanqueId, valor) => {
+    if (esTrasvasije) {
+      // MODO TRASVASIJE: Solo un estanque puede tener valor
+      const nuevaDistribucion = {};
+
+      // Limpiar todos los estanques
+      estanques.forEach(estanque => {
+        nuevaDistribucion[estanque.id_estanque] = "";
+      });
+
+      // Si el valor es mayor a 0, asignar TODOS los litros a este estanque
+      if (parseFloat(valor) > 0) {
+        nuevaDistribucion[estanqueId] = litrosRecibidos.toString();
+      }
+
+      // Llamar al handler del padre
+      if (onDistribucionChange) {
+        onDistribucionChange(nuevaDistribucion);
+      }
+    } else {
+      // MODO RECEPCIÓN: Mantener comportamiento original (múltiples estanques)
+      const distribucionActual = getDistribucionActual();
+      const nuevaDistribucion = {
+        ...distribucionActual,
+        [estanqueId]: valor
+      };
+
+      if (onDistribucionChange) {
+        onDistribucionChange(nuevaDistribucion);
+      }
+    }
+  };
+
+  // 🔧 FUNCIÓN PARA RENDERIZAR CAMPOS DE DISTRIBUCIÓN
+  const renderCampoDistribucion = (estanque) => {
+    const distribucionActual = getDistribucionActual();
+    const valorActual = distribucionActual[estanque.id_estanque] || "";
+
+    if (esTrasvasije) {
+      // MODO TRASVASIJE: Mostrar radio button
+      const esSeleccionado = parseFloat(valorActual) > 0;
+
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center space-x-3">
+            <input
+              type="radio"
+              name="estanque-destino-trasvasije"
+              checked={esSeleccionado}
+              onChange={() => {
+                if (!esSeleccionado) {
+                  // Al seleccionar este estanque, asignar todos los litros
+                  handleDistribucionChange(estanque.id_estanque, litrosRecibidos.toString());
+                }
+              }}
+              className="h-4 w-4 text-orange-600 border-gray-300 focus:ring-orange-500"
+            />
+            <label className="text-sm font-medium text-gray-700">
+              Seleccionar como destino único del trasvasije
+            </label>
+          </div>
+
+          {esSeleccionado && (
+            <div className="ml-7">
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-orange-700">Litros a trasvasijar:</span>
+                  <span className="font-bold text-orange-800">
+                    {parseFloat(litrosRecibidos).toLocaleString('es-CL')} L
+                  </span>
+                </div>
+                <p className="text-xs text-orange-600 mt-1">
+                  💡 En trasvasije, todos los litros van a un solo estanque
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    } else {
+      // MODO RECEPCIÓN: Mantener input normal (comportamiento original)
+      return (
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">
+            Litros a recibir en este estanque:
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            max={litrosRecibidos}
+            value={valorActual}
+            onChange={(e) => handleDistribucionChange(estanque.id_estanque, e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+            placeholder="0.00"
+          />
+        </div>
+      );
+    }
+  };
+
+  // 🔧 VALIDACIÓN ESPECÍFICA PARA TRASVASIJE
+  const validarDistribucion = () => {
+    const distribucionActual = getDistribucionActual();
+    const estanquesConLitros = Object.values(distribucionActual).filter(
+      val => parseFloat(val) > 0
+    );
+
+    if (esTrasvasije) {
+      // En trasvasije debe haber exactamente 1 estanque seleccionado
+      if (estanquesConLitros.length === 0) {
+        return {
+          valido: false,
+          mensaje: "Debe seleccionar un estanque de destino para el trasvasije"
+        };
+      }
+
+      if (estanquesConLitros.length > 1) {
+        return {
+          valido: false,
+          mensaje: "En trasvasije solo puede seleccionar un estanque de destino"
+        };
+      }
+
+      return { valido: true, mensaje: "" };
+    } else {
+      // Validación original para recepción (múltiples estanques permitidos)
+      const totalDistribuido = estanquesConLitros.reduce((sum, val) => sum + parseFloat(val), 0);
+
+      if (totalDistribuido === 0) {
+        return {
+          valido: false,
+          mensaje: "Debe distribuir los litros en al menos un estanque"
+        };
+      }
+
+      if (Math.abs(totalDistribuido - litrosRecibidos) > 0.01) {
+        return {
+          valido: false,
+          mensaje: `La distribución (${totalDistribuido.toLocaleString('es-CL')} L) debe coincidir con los litros documentados (${litrosRecibidos.toLocaleString('es-CL')} L)`
+        };
+      }
+
+      return { valido: true, mensaje: "" };
+    }
+  };
+
+  // 🔧 TEXTOS ADAPTATIVOS
+  const getTitulos = () => {
+    if (esTrasvasije) {
+      return {
+        seccionDistribucion: "Selección de Estanque Destino",
+        descripcionDistribucion: "Seleccione el estanque fijo que recibirá todo el combustible del trasvasije:",
+        totalLabel: "Total a trasvasijar"
+      };
+    } else {
+      return {
+        seccionDistribucion: "Distribución de Combustible",
+        descripcionDistribucion: "Distribuya los litros entre los estanques fijos disponibles:",
+        totalLabel: "Total distribuido"
+      };
+    }
   };
 
   // Detectar si el dispositivo es móvil basado en el ancho de pantalla
@@ -277,11 +443,30 @@ const EstanquesModal = ({
 
   // Función para actualizar la distribución
   const actualizarDistribucion = (estanqueId, valor) => {
-    const nuevaDistribucion = {
-      ...getDistribucionActual(),
-      [estanqueId]: valor,
-    };
+    let nuevaDistribucion;
 
+    if (esTrasvasije) {
+      // MODO TRASVASIJE: Solo un estanque puede tener litros
+      nuevaDistribucion = {};
+
+      // Limpiar todos los estanques
+      estanques.forEach((estanque) => {
+        nuevaDistribucion[estanque.id_estanque] = "";
+      });
+
+      // Solo asignar valor al estanque actual si tiene valor
+      if (valor && parseFloat(valor) > 0) {
+        nuevaDistribucion[estanqueId] = valor;
+      }
+    } else {
+      // MODO RECEPCIÓN: Comportamiento original (múltiples estanques)
+      nuevaDistribucion = {
+        ...getDistribucionActual(),
+        [estanqueId]: valor,
+      };
+    }
+
+    // Actualizar distribución
     if (onDistribucionChange) {
       onDistribucionChange(nuevaDistribucion);
     } else {
@@ -525,6 +710,8 @@ const EstanquesModal = ({
   const currentStep = getCurrentStep();
   const isResultadosStep = currentStep === 2;
   const totalDistribuido = getTotalDistribuido();
+  // En la sección de distribución del render:
+  const titulos = getTitulos();
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-transparent bg-opacity-60 backdrop-blur-sm flex">

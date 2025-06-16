@@ -1,24 +1,26 @@
 import React, { useContext, useState, useEffect } from "react";
 import InputField from "../../atoms/Inputs/InputField";
 import Button from "../../atoms/Button/Button";
+import EstanquesModal from "./EstanquesModal";
+import SelectorEstanque from "../../molecules/SelectorEstanque";
 import {
   FaHome,
   FaExclamationTriangle,
-  FaRuler,
   FaCheck,
   FaFileAlt,
   FaGasPump,
-  FaCalculator,
   FaArrowRight,
   FaInfoCircle,
   FaSync,
   FaTruck,
   FaBuilding,
   FaExchangeAlt,
-  FaCheckCircle
+  FaCheckCircle,
+  FaRuler,
+  FaCalculator,
+  FaOilCan
 } from "react-icons/fa";
-
-import { FaDropletSlash } from "react-icons/fa6";
+import { RiOilFill } from "react-icons/ri";
 import { UserContext } from "../../../context/userContext";
 import axios from "../../../lib/axios";
 
@@ -44,7 +46,13 @@ const formatNumberWithSeparators = (num) => {
 const ModalExitoTrasvasije = ({ isOpen, onConfirm, datosTrasvasije }) => {
   if (!isOpen) return null;
 
-  const { tipo, litrosTransferidos, estanqueOrigen, estanqueDestino, diferenciaMedicion, verificado } = datosTrasvasije;
+  const {
+    litrosTransferidos,
+    estanqueMovil,
+    estanquesFijos,
+    diferenciaMedicion,
+    verificado
+  } = datosTrasvasije;
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -59,7 +67,7 @@ const ModalExitoTrasvasije = ({ isOpen, onConfirm, datosTrasvasije }) => {
                 ¡Trasvasije Registrado Exitosamente!
               </h2>
               <p className="text-green-100 text-sm mt-1">
-                {tipo === 'movil_a_fijo' ? 'Móvil → Fijo' : 'Fijo → Móvil'}
+                Móvil → Fijo
               </p>
             </div>
           </div>
@@ -72,19 +80,13 @@ const ModalExitoTrasvasije = ({ isOpen, onConfirm, datosTrasvasije }) => {
                 <div className="bg-blue-500 p-2 rounded-lg mr-3">
                   <FaTruck className="text-white text-sm" />
                 </div>
-                <h3 className="font-semibold text-blue-800">Estanques</h3>
+                <h3 className="font-semibold text-blue-800">Estanque Móvil</h3>
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-blue-700 text-sm">Origen:</span>
                   <span className="font-bold text-blue-900 text-sm">
-                    {estanqueOrigen}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-blue-700 text-sm">Destino:</span>
-                  <span className="font-bold text-blue-900 text-sm">
-                    {estanqueDestino}
+                    {estanqueMovil}
                   </span>
                 </div>
               </div>
@@ -93,7 +95,7 @@ const ModalExitoTrasvasije = ({ isOpen, onConfirm, datosTrasvasije }) => {
             <div className="bg-green-50 rounded-lg p-4 border border-green-200">
               <div className="flex items-center mb-3">
                 <div className="bg-green-500 p-2 rounded-lg mr-3">
-                  <FaDropletSlash className="text-white text-sm" />
+                  <FaOilCan className="text-white text-sm" />
                 </div>
                 <h3 className="font-semibold text-green-800">Trasvasije</h3>
               </div>
@@ -113,6 +115,23 @@ const ModalExitoTrasvasije = ({ isOpen, onConfirm, datosTrasvasije }) => {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+
+          <div className="bg-orange-50 rounded-lg p-4 border border-orange-200 mb-4">
+            <h4 className="font-medium text-orange-800 mb-2 flex items-center">
+              <FaBuilding className="mr-2 text-orange-600" />
+              Estanques Fijos Destino
+            </h4>
+            <div className="grid grid-cols-1 gap-2">
+              {estanquesFijos.map((estanque, index) => (
+                <div key={index} className="flex justify-between items-center py-1">
+                  <span className="text-orange-700 text-sm">{estanque.nombre}:</span>
+                  <span className="font-bold text-orange-900 text-sm">
+                    {formatNumberWithSeparators(estanque.litros)} L
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -156,41 +175,42 @@ const ModalExitoTrasvasije = ({ isOpen, onConfirm, datosTrasvasije }) => {
 const FormularioTrasvasije = () => {
   const { user, loading } = useContext(UserContext);
 
-  // Estados principales
-  const [tipoTrasvasije, setTipoTrasvasije] = useState(''); // 'movil_a_fijo' o 'fijo_a_movil'
-  const [estanquesDisponibles, setEstanquesDisponibles] = useState({
-    fijos: [],
-    moviles: []
-  });
-
-  // Estados del formulario
+  // Estados principales del formulario
   const [formData, setFormData] = useState({
     id_usuario: '',
     id_faena: '',
-    id_estanque_origen: '',
-    id_estanque_destino: '',
-    observaciones: ''
+    id_estanque_movil: '',
+    litrosDocumentados: '',
+    observacion: ''
   });
 
-  // Estados específicos para móvil → fijo
-  const [datosMovilAFijo, setDatosMovilAFijo] = useState({
-    litros_movil_inicial: '',
-    litros_movil_final: '',
-    altura_fijo_inicial: '',
-    altura_fijo_final: ''
+  // Estados para estanques disponibles
+  const [estanquesMoviles, setEstanquesMoviles] = useState([]);
+  const [estanquesFijos, setEstanquesFijos] = useState([]);
+  const [estanqueMovilSeleccionado, setEstanqueMovilSeleccionado] = useState(null);
+
+  // Estados para el cálculo
+  const [calculoPetroleo, setCalculoPetroleo] = useState({
+    litrosMedidos: 0,
+    diferencia: 0,
+    calculoRealizado: false,
   });
 
-  // Estados específicos para fijo → móvil
-  const [datosFijoAMovil, setDatosFijoAMovil] = useState({
-    numeral_inicial: '',
-    numeral_final: ''
-  });
+  const [alturasEstanques, setAlturasEstanques] = useState({});
+  const [distribucionLitros, setDistribucionLitros] = useState({});
+  const [stockInicial, setStockInicial] = useState(0);
+  const [capacidadDisponible, setCapacidadDisponible] = useState(0);
 
   // Estados de UI
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [alert, setAlert] = useState({ show: false, message: "", type: "" });
+  const [modalAlert, setModalAlert] = useState({ show: false, message: "", type: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingCalculo, setLoadingCalculo] = useState(false);
+
+  // Estados para modales
+  const [showEstanquesModal, setShowEstanquesModal] = useState(false);
   const [showExitoModal, setShowExitoModal] = useState(false);
   const [datosExito, setDatosExito] = useState(null);
 
@@ -206,6 +226,59 @@ const FormularioTrasvasije = () => {
     }
   }, [user]);
 
+  // Función para seleccionar estanque móvil
+  const handleEstanqueMovilSelect = (estanque) => {
+    console.log("🚛 Estanque móvil seleccionado:", estanque);
+    setEstanqueMovilSeleccionado(estanque);
+
+    setFormData(prev => ({
+      ...prev,
+      id_estanque_movil: estanque ? estanque.id_estanque : ''
+    }));
+
+    // Limpiar cálculo previo
+    setCalculoPetroleo({
+      litrosMedidos: 0,
+      diferencia: 0,
+      calculoRealizado: false,
+    });
+  };
+
+  // Inicializar alturas cuando se cargan los estanques fijos
+  useEffect(() => {
+    if (estanquesFijos.length > 0) {
+      const initialAlturas = {};
+      const initialDistribucion = {};
+      estanquesFijos.forEach((estanque) => {
+        initialAlturas[estanque.id_estanque] = {
+          inicial: "",
+          final: "",
+        };
+        initialDistribucion[estanque.id_estanque] = "";
+      });
+      setAlturasEstanques(initialAlturas);
+      setDistribucionLitros(initialDistribucion);
+    }
+  }, [estanquesFijos]);
+
+  // Calcular capacidad disponible cuando se selecciona estanque móvil
+  useEffect(() => {
+    if (formData.id_estanque_movil) {
+      const estanqueSeleccionado = estanquesMoviles.find(e => e.id_estanque == formData.id_estanque_movil);
+      if (estanqueSeleccionado) {
+        setFormData(prev => ({
+          ...prev,
+          litrosDocumentados: estanqueSeleccionado.stock_actual.toString()
+        }));
+      }
+    }
+
+    const totalCapacidadDisponible = estanquesFijos.reduce((total, estanque) => {
+      return total + (estanque.capacidad - estanque.stock_actual);
+    }, 0);
+    setCapacidadDisponible(totalCapacidadDisponible);
+  }, [formData.id_estanque_movil, estanquesMoviles, estanquesFijos]);
+
   // Cargar estanques disponibles
   const cargarEstanquesDisponibles = async (idFaena) => {
     try {
@@ -215,10 +288,12 @@ const FormularioTrasvasije = () => {
       });
 
       if (response.data.success) {
-        setEstanquesDisponibles({
-          fijos: response.data.data.estanques_fijos,
-          moviles: response.data.data.estanques_moviles
-        });
+        const estanquesMovilesDisponibles = response.data.data.estanques_moviles.filter(e =>
+          e.disponible_para_trasvasije && e.stock_actual > 0
+        );
+
+        setEstanquesMoviles(estanquesMovilesDisponibles);
+        setEstanquesFijos(response.data.data.estanques_fijos);
       }
     } catch (error) {
       console.error("Error al cargar estanques:", error);
@@ -232,71 +307,296 @@ const FormularioTrasvasije = () => {
     setTimeout(() => setAlert({ show: false, message: "", type: "" }), 5000);
   };
 
+  const mostrarModalAlerta = (type, message) => {
+    setModalAlert({ show: true, type, message });
+    setTimeout(() => setModalAlert({ show: false, message: "", type: "" }), 4000);
+  };
+
   // Manejar cambios en campos
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+
+    if (field === 'litrosDocumentados' || field === 'id_estanque_movil') {
+      setCalculoPetroleo({
+        litrosMedidos: 0,
+        diferencia: 0,
+        calculoRealizado: false,
+      });
+    }
   };
 
-  const handleMovilAFijoChange = (field, value) => {
-    setDatosMovilAFijo(prev => ({ ...prev, [field]: value }));
+  // Manejar cambios en alturas
+  const handleAlturaChange = (estanqueId, value) => {
+    setAlturasEstanques((prevState) => {
+      if (
+        typeof value === "object" &&
+        (value.inicial !== undefined || value.final !== undefined)
+      ) {
+        return {
+          ...prevState,
+          [estanqueId]: {
+            inicial:
+              value.inicial !== undefined
+                ? value.inicial
+                : prevState[estanqueId]?.inicial || "",
+            final:
+              value.final !== undefined
+                ? value.final
+                : prevState[estanqueId]?.final || "",
+          },
+        };
+      } else {
+        console.warn("Formato de altura no estándar para estanque", estanqueId);
+        return {
+          ...prevState,
+          [estanqueId]: {
+            inicial: value || "",
+            final: prevState[estanqueId]?.final || "",
+          },
+        };
+      }
+    });
   };
 
-  const handleFijoAMovilChange = (field, value) => {
-    setDatosFijoAMovil(prev => ({ ...prev, [field]: value }));
+  // Manejar cambios en distribución - CORREGIDO PARA UN SOLO ESTANQUE
+  // Manejar cambios en distribución - CORREGIDO PARA UN SOLO ESTANQUE
+  const handleDistribucionChange = (nuevaDistribucionCompleta) => {
+    console.log("🔄 Actualizando distribución:", nuevaDistribucionCompleta);
+
+    // Validar que solo haya un estanque con litros asignados
+    const estanquesConLitros = Object.entries(nuevaDistribucionCompleta)
+      .filter(([id, litros]) => parseFloat(litros) > 0);
+
+    if (estanquesConLitros.length > 1) {
+      // Si hay más de un estanque, mantener solo el último modificado
+      const ultimoEstanque = estanquesConLitros[estanquesConLitros.length - 1];
+      const distribucionLimpia = {};
+
+      estanquesFijos.forEach((estanque) => {
+        distribucionLimpia[estanque.id_estanque] =
+          estanque.id_estanque == ultimoEstanque[0] ? ultimoEstanque[1] : "";
+      });
+
+      setDistribucionLitros(distribucionLimpia);
+      mostrarAlerta("warning", "⚠️ Solo puede trasvasijar a UN estanque fijo a la vez. Se ha limpiado la selección anterior.");
+    } else {
+      // Si hay 0 o 1 estanque, actualizar normalmente
+      setDistribucionLitros(nuevaDistribucionCompleta);
+    }
+
+    // Limpiar cálculo previo cuando cambia la distribución
+    setCalculoPetroleo({
+      litrosMedidos: 0,
+      diferencia: 0,
+      calculoRealizado: false,
+    });
   };
 
-  // Validaciones
-  const validarFormulario = () => {
+  // Función para obtener el estanque fijo seleccionado
+  const obtenerEstanqueFijoSeleccionado = () => {
+    const estanquesConDistribucion = Object.keys(distribucionLitros).filter(estanqueId => {
+      const distribucion = parseFloat(distribucionLitros[estanqueId]) || 0;
+      return distribucion > 0;
+    });
+
+    if (estanquesConDistribucion.length === 1) {
+      return estanquesFijos.find(e => e.id_estanque == estanquesConDistribucion[0]);
+    }
+    return null;
+  };
+
+  // Calcular litros de petróleo
+  const calcularLitrosPetroleo = async () => {
+    console.log("🧮 Iniciando cálculo de litros de petróleo...");
+
+    if (!formData.litrosDocumentados || parseFloat(formData.litrosDocumentados) <= 0) {
+      mostrarModalAlerta("error", "Debe ingresar los litros del estanque móvil.");
+      return;
+    }
+
+    const totalDistribucion = Object.values(distribucionLitros).reduce((sum, val) => {
+      return sum + (parseFloat(val) || 0);
+    }, 0);
+
+    if (totalDistribucion <= 0) {
+      mostrarModalAlerta("error", "Debe distribuir los litros en al menos un estanque fijo.");
+      return;
+    }
+
+    if (Math.abs(totalDistribucion - parseFloat(formData.litrosDocumentados)) > 0.01) {
+      mostrarModalAlerta("error",
+        `La distribución total (${formatNumber(totalDistribucion)} L) debe coincidir con los litros del móvil (${formatNumber(parseFloat(formData.litrosDocumentados))} L).`
+      );
+      return;
+    }
+
+    setLoadingCalculo(true);
+
+    try {
+      const token = JSON.parse(localStorage.getItem("authToken"))?.token;
+
+      const alturasIniciales = prepararDatosAlturas("inicial");
+      const alturasFinal = prepararDatosAlturas("final");
+
+      if (hayAlturasIncompletas(alturasIniciales) || hayAlturasIncompletas(alturasFinal)) {
+        mostrarModalAlerta("error", "Debe completar todas las alturas iniciales y finales.");
+        return;
+      }
+
+      const datosCalcularInicial = {
+        id_faena: formData.id_faena,
+        id_usuario: formData.id_usuario,
+        tipo_movimiento: "ingreso",
+        alturas: alturasIniciales,
+      };
+
+      const datosCalcularFinal = {
+        id_faena: formData.id_faena,
+        id_usuario: formData.id_usuario,
+        tipo_movimiento: "ingreso",
+        alturas: alturasFinal,
+      };
+
+      const responseInicial = await axios.post("/api/calcular-litros-petroleo", datosCalcularInicial, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!responseInicial.data.success) {
+        throw new Error(responseInicial.data.message || "Error al calcular los litros iniciales");
+      }
+
+      const responseFinal = await axios.post("/api/calcular-litros-petroleo", datosCalcularFinal, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!responseFinal.data.success) {
+        throw new Error(responseFinal.data.message || "Error al calcular los litros finales");
+      }
+
+      if (responseInicial.data.success && responseFinal.data.success) {
+        const resultado = procesarResultadosCalculo(responseInicial, responseFinal);
+        mostrarModalAlerta("success", "Cálculo realizado correctamente.");
+        return resultado;
+      }
+    } catch (error) {
+      console.error("❌ Error al calcular volumen:", error);
+      let errorMessage = "Error al calcular el volumen. Intente nuevamente.";
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+      mostrarModalAlerta("error", errorMessage);
+    } finally {
+      setLoadingCalculo(false);
+    }
+  };
+
+  // Preparar datos de alturas
+  const prepararDatosAlturas = (tipoAltura) => {
+    return Object.keys(alturasEstanques)
+      .filter(estanqueId => {
+        const distribucion = parseFloat(distribucionLitros[estanqueId]) || 0;
+        return distribucion > 0;
+      })
+      .map(estanqueId => {
+        const altura = alturasEstanques[estanqueId]?.[tipoAltura];
+        const alturaNum = altura !== "" ? parseFloat(altura) : null;
+        return {
+          id_estanque: parseInt(estanqueId),
+          altura: alturaNum,
+        };
+      });
+  };
+
+  // Verificar alturas incompletas
+  const hayAlturasIncompletas = (datosAlturas) => {
+    return datosAlturas.some((item) => {
+      return (
+        item.altura === undefined ||
+        item.altura === null ||
+        Number.isNaN(item.altura)
+      );
+    });
+  };
+
+  // Procesar resultados del cálculo
+  const procesarResultadosCalculo = (responseInicial, responseFinal) => {
+    const stockInicial = responseInicial.data.litros_totales || 0;
+    const stockFinal = responseFinal.data.litros_totales || 0;
+    const litrosIngresados = stockFinal - stockInicial;
+    const litrosMovil = parseFloat(formData.litrosDocumentados);
+    const diferencia = litrosIngresados - litrosMovil;
+
+    setCalculoPetroleo({
+      litrosMedidos: litrosIngresados,
+      diferencia: diferencia,
+      calculoRealizado: true,
+    });
+
+    setFormData((prevFormData) => ({
+      ...prevFormData,
+      observacion: generarObservacionDiferencia(litrosMovil, litrosIngresados),
+    }));
+
+    setStockInicial(stockInicial);
+
+    return {
+      volInicial: stockInicial,
+      volFinal: stockFinal,
+      discrepanciaIni: stockInicial - 200,
+      discrepanciaCam: diferencia,
+    };
+  };
+
+  // Generar observación de diferencia
+  const generarObservacionDiferencia = (litrosMovil, litrosMedidos) => {
+    const diferencia = litrosMedidos - litrosMovil;
+    return `Según cálculo de alturas, se detecta una diferencia de ${formatNumber(
+      Math.abs(diferencia)
+    )} litros ${diferencia > 0 ? "de más" : "de menos"
+      } en el trasvasije. Litros del móvil: ${formatNumber(
+        litrosMovil
+      )}. Litros medidos: ${formatNumber(litrosMedidos)}.`;
+  };
+
+  // Validaciones actualizadas - SOLO UN ESTANQUE FIJO
+  const validarFormularioCompleto = () => {
     const newErrors = {};
 
-    if (!formData.id_estanque_origen) {
-      newErrors.estanque_origen = "Debe seleccionar un estanque origen";
+    if (!formData.id_estanque_movil) {
+      newErrors.estanque_movil = "Debe seleccionar un estanque móvil";
     }
 
-    if (!formData.id_estanque_destino) {
-      newErrors.estanque_destino = "Debe seleccionar un estanque destino";
+    if (!formData.litrosDocumentados || parseFloat(formData.litrosDocumentados) <= 0) {
+      newErrors.litros_documentados = "Los litros deben ser mayor a 0";
     }
 
-    if (tipoTrasvasije === 'movil_a_fijo') {
-      if (!datosMovilAFijo.litros_movil_inicial || parseFloat(datosMovilAFijo.litros_movil_inicial) <= 0) {
-        newErrors.litros_movil_inicial = "Debe ingresar los litros iniciales del móvil";
-      }
-      if (!datosMovilAFijo.litros_movil_final || parseFloat(datosMovilAFijo.litros_movil_final) < 0) {
-        newErrors.litros_movil_final = "Debe ingresar los litros finales del móvil";
-      }
-      if (!datosMovilAFijo.altura_fijo_inicial || parseFloat(datosMovilAFijo.altura_fijo_inicial) < 0) {
-        newErrors.altura_fijo_inicial = "Debe ingresar la altura inicial del estanque fijo";
-      }
-      if (!datosMovilAFijo.altura_fijo_final || parseFloat(datosMovilAFijo.altura_fijo_final) < 0) {
-        newErrors.altura_fijo_final = "Debe ingresar la altura final del estanque fijo";
-      }
-      
-      // Validaciones de lógica
-      if (datosMovilAFijo.litros_movil_inicial && datosMovilAFijo.litros_movil_final) {
-        if (parseFloat(datosMovilAFijo.litros_movil_inicial) <= parseFloat(datosMovilAFijo.litros_movil_final)) {
-          newErrors.litros_movil = "Los litros iniciales deben ser mayores que los finales";
-        }
-      }
-      
-      if (datosMovilAFijo.altura_fijo_inicial && datosMovilAFijo.altura_fijo_final) {
-        if (parseFloat(datosMovilAFijo.altura_fijo_inicial) >= parseFloat(datosMovilAFijo.altura_fijo_final)) {
-          newErrors.altura_fijo = "La altura final debe ser mayor que la inicial";
-        }
+    const estanquesConDistribucion = Object.keys(distribucionLitros).filter(estanqueId => {
+      const distribucion = parseFloat(distribucionLitros[estanqueId]) || 0;
+      return distribucion > 0;
+    });
+
+    if (estanquesConDistribucion.length === 0) {
+      newErrors.distribucion = "Debe seleccionar un estanque fijo y distribuir los litros";
+    } else if (estanquesConDistribucion.length > 1) {
+      newErrors.distribucion = "Solo puede trasvasijar a UN estanque fijo a la vez";
+    } else {
+      const litrosDistribuidos = parseFloat(distribucionLitros[estanquesConDistribucion[0]]) || 0;
+      const litrosDocumentados = parseFloat(formData.litrosDocumentados) || 0;
+
+      if (Math.abs(litrosDistribuidos - litrosDocumentados) > 0.01) {
+        newErrors.distribucion = "Los litros distribuidos deben coincidir con los litros documentados del móvil";
       }
     }
 
-    if (tipoTrasvasije === 'fijo_a_movil') {
-      if (!datosFijoAMovil.numeral_inicial || parseFloat(datosFijoAMovil.numeral_inicial) < 0) {
-        newErrors.numeral_inicial = "Debe ingresar el numeral inicial";
-      }
-      if (!datosFijoAMovil.numeral_final || parseFloat(datosFijoAMovil.numeral_final) < 0) {
-        newErrors.numeral_final = "Debe ingresar el numeral final";
-      }
-      
-      // Validación de lógica
-      if (datosFijoAMovil.numeral_inicial && datosFijoAMovil.numeral_final) {
-        if (parseFloat(datosFijoAMovil.numeral_inicial) >= parseFloat(datosFijoAMovil.numeral_final)) {
-          newErrors.numerales = "El numeral final debe ser mayor que el inicial";
+    if (estanquesConDistribucion.length === 1) {
+      const idEstanque = estanquesConDistribucion[0];
+      const litrosDistribuidos = parseFloat(distribucionLitros[idEstanque]) || 0;
+      const estanque = estanquesFijos.find(e => e.id_estanque == idEstanque);
+
+      if (estanque) {
+        const capacidadDisponible = estanque.capacidad - estanque.stock_actual;
+        if (litrosDistribuidos > capacidadDisponible) {
+          newErrors.capacidad = `El estanque ${estanque.nombre} no tiene capacidad suficiente. Disponible: ${capacidadDisponible}L`;
         }
       }
     }
@@ -305,39 +605,51 @@ const FormularioTrasvasije = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Obtener estanques filtrados según el tipo de trasvasije
-  const getEstanquesOrigen = () => {
-    if (tipoTrasvasije === 'movil_a_fijo') {
-      return estanquesDisponibles.moviles.filter(e => e.disponible_para_trasvasije);
-    } else if (tipoTrasvasije === 'fijo_a_movil') {
-      return estanquesDisponibles.fijos.filter(e => e.disponible_para_trasvasije);
-    }
-    return [];
+  // Verificar alturas completas - SOLO PARA EL ESTANQUE SELECCIONADO
+  const verificarAlturasCompletas = () => {
+    const estanquesConDistribucion = Object.keys(distribucionLitros).filter(estanqueId => {
+      const distribucion = parseFloat(distribucionLitros[estanqueId]) || 0;
+      return distribucion > 0;
+    });
+
+    if (estanquesConDistribucion.length !== 1) return false;
+
+    const idEstanqueSeleccionado = estanquesConDistribucion[0];
+    const alturas = alturasEstanques[idEstanqueSeleccionado];
+
+    if (!alturas || typeof alturas !== "object") return false;
+
+    return alturas.inicial && alturas.final &&
+      parseFloat(alturas.inicial) > 0 &&
+      parseFloat(alturas.final) > parseFloat(alturas.inicial);
   };
 
-  const getEstanquesDestino = () => {
-    if (tipoTrasvasije === 'movil_a_fijo') {
-      return estanquesDisponibles.fijos;
-    } else if (tipoTrasvasije === 'fijo_a_movil') {
-      return estanquesDisponibles.moviles;
-    }
-    return [];
-  };
-
-  // Calcular litros a transferir
-  const calcularLitrosTransferidos = () => {
-    if (tipoTrasvasije === 'movil_a_fijo') {
-      return parseFloat(datosMovilAFijo.litros_movil_inicial || 0) - parseFloat(datosMovilAFijo.litros_movil_final || 0);
-    } else if (tipoTrasvasije === 'fijo_a_movil') {
-      return parseFloat(datosFijoAMovil.numeral_final || 0) - parseFloat(datosFijoAMovil.numeral_inicial || 0);
-    }
-    return 0;
-  };
-
-  // Enviar trasvasije
+  // Enviar trasvasije - VERSIÓN CORREGIDA PARA API SIMPLE
   const handleSubmit = async () => {
-    if (!validarFormulario()) {
-      mostrarAlerta("error", "Por favor, complete todos los campos correctamente.");
+    setTouched({
+      litrosDocumentados: true,
+      estanque_movil: true,
+    });
+
+    if (loading || !user) {
+      mostrarAlerta("error", "No se ha podido acceder a la información del usuario.");
+      return;
+    }
+
+    if (!validarFormularioCompleto()) {
+      mostrarAlerta("error", "Por favor, complete todos los campos obligatorios correctamente.");
+      return;
+    }
+
+    if (!calculoPetroleo.calculoRealizado) {
+      mostrarAlerta("error", "Debe ingresar las alturas de los estanques y calcular la diferencia.");
+      setShowEstanquesModal(true);
+      return;
+    }
+
+    if (!verificarAlturasCompletas()) {
+      mostrarAlerta("error", "Debe ingresar todas las alturas iniciales y finales de los estanques.");
+      setShowEstanquesModal(true);
       return;
     }
 
@@ -345,62 +657,90 @@ const FormularioTrasvasije = () => {
 
     try {
       const token = JSON.parse(localStorage.getItem("authToken"))?.token;
-      
-      let endpoint = '';
-      let datos = {
-        id_usuario: formData.id_usuario,
-        id_faena: formData.id_faena,
-        observaciones: formData.observaciones
-      };
 
-      if (tipoTrasvasije === 'movil_a_fijo') {
-        endpoint = '/api/trasvasijes/movil-a-fijo';
-        datos = {
-          ...datos,
-          id_estanque_movil: formData.id_estanque_origen,
-          id_estanque_fijo: formData.id_estanque_destino,
-          litros_movil_inicial: parseFloat(datosMovilAFijo.litros_movil_inicial),
-          litros_movil_final: parseFloat(datosMovilAFijo.litros_movil_final),
-          altura_fijo_inicial: parseFloat(datosMovilAFijo.altura_fijo_inicial),
-          altura_fijo_final: parseFloat(datosMovilAFijo.altura_fijo_final)
-        };
-      } else {
-        endpoint = '/api/trasvasijes/fijo-a-movil';
-        datos = {
-          ...datos,
-          id_estanque_fijo: formData.id_estanque_origen,
-          id_estanque_movil: formData.id_estanque_destino,
-          numeral_inicial: parseFloat(datosFijoAMovil.numeral_inicial),
-          numeral_final: parseFloat(datosFijoAMovil.numeral_final)
-        };
+      // Obtener el PRIMER estanque fijo con distribución
+      const estanquesFijosConDistribucion = Object.keys(distribucionLitros).filter(estanqueId => {
+        const distribucion = parseFloat(distribucionLitros[estanqueId]) || 0;
+        return distribucion > 0;
+      });
+
+      if (estanquesFijosConDistribucion.length === 0) {
+        mostrarAlerta("error", "Debe distribuir los litros en al menos un estanque fijo.");
+        return;
       }
 
-      const response = await axios.post(endpoint, datos, {
+      if (estanquesFijosConDistribucion.length > 1) {
+        mostrarAlerta("error", "Para esta versión, solo puede trasvasijar a UN estanque fijo a la vez.");
+        return;
+      }
+
+      const idEstanqueFijoSeleccionado = estanquesFijosConDistribucion[0];
+      const litrosDistribuidos = parseFloat(distribucionLitros[idEstanqueFijoSeleccionado]);
+      const alturasEstanqueFijo = alturasEstanques[idEstanqueFijoSeleccionado];
+
+      // Validar que las alturas estén completas
+      if (!alturasEstanqueFijo || !alturasEstanqueFijo.inicial || !alturasEstanqueFijo.final) {
+        mostrarAlerta("error", "Debe ingresar altura inicial y final del estanque fijo.");
+        return;
+      }
+
+      // Preparar datos en el formato que espera la API
+      const datosEnvio = {
+        id_usuario: formData.id_usuario,
+        id_faena: formData.id_faena,
+        id_estanque_movil: parseInt(formData.id_estanque_movil),
+        id_estanque_fijo: parseInt(idEstanqueFijoSeleccionado),
+
+        // Datos del móvil - FORMATO CORRECTO
+        litros_movil_inicial: parseFloat(formData.litrosDocumentados),
+        litros_movil_final: parseFloat(formData.litrosDocumentados) - litrosDistribuidos,
+
+        // Alturas del fijo - FORMATO CORRECTO  
+        altura_fijo_inicial: parseFloat(alturasEstanqueFijo.inicial),
+        altura_fijo_final: parseFloat(alturasEstanqueFijo.final),
+
+        observaciones: formData.observacion || null
+      };
+
+      console.log("📤 Enviando datos a API:", datosEnvio);
+
+      const response = await axios.post('/api/trasvasijes/movil-a-fijo', datosEnvio, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
       if (response.data.success) {
         // Preparar datos para modal de éxito
-        const estanqueOrigen = getEstanquesOrigen().find(e => e.id_estanque == formData.id_estanque_origen);
-        const estanqueDestino = getEstanquesDestino().find(e => e.id_estanque == formData.id_estanque_destino);
-        
+        const estanqueMovil = estanquesMoviles.find(e => e.id_estanque == formData.id_estanque_movil);
+        const estanqueFijo = estanquesFijos.find(e => e.id_estanque == idEstanqueFijoSeleccionado);
+
         setDatosExito({
-          tipo: tipoTrasvasije,
-          litrosTransferidos: calcularLitrosTransferidos(),
-          estanqueOrigen: estanqueOrigen?.nombre || 'Desconocido',
-          estanqueDestino: estanqueDestino?.nombre || 'Desconocido',
-          diferenciaMedicion: response.data.data.trasvasije?.diferencia_medicion,
+          litrosTransferidos: litrosDistribuidos,
+          estanqueMovil: estanqueMovil?.nombre || 'Desconocido',
+          estanquesFijos: [{
+            nombre: estanqueFijo?.nombre || 'Desconocido',
+            litros: litrosDistribuidos
+          }],
+          diferenciaMedicion: response.data.data.diferencia_medicion || 0,
           verificado: response.data.data.trasvasije?.verificado !== false
         });
-        
+
         setShowExitoModal(true);
+        mostrarAlerta("success", "Trasvasije registrado exitosamente.");
       }
     } catch (error) {
       console.error("Error al registrar trasvasije:", error);
+
       let errorMessage = "Error al registrar el trasvasije.";
-      if (error.response?.data?.message) {
+
+      // Mostrar errores específicos de validación
+      if (error.response?.status === 422 && error.response?.data?.errors) {
+        const errors = error.response.data.errors;
+        const firstError = Object.values(errors)[0];
+        errorMessage = Array.isArray(firstError) ? firstError[0] : firstError;
+      } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       }
+
       mostrarAlerta("error", errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -409,43 +749,59 @@ const FormularioTrasvasije = () => {
 
   // Resetear formulario
   const resetearFormulario = () => {
-    setTipoTrasvasije('');
     setFormData({
       id_usuario: user?.id || '',
       id_faena: user?.id_faena || '',
-      id_estanque_origen: '',
-      id_estanque_destino: '',
-      observaciones: ''
+      id_estanque_movil: '',
+      litrosDocumentados: '',
+      observacion: ''
     });
-    setDatosMovilAFijo({
-      litros_movil_inicial: '',
-      litros_movil_final: '',
-      altura_fijo_inicial: '',
-      altura_fijo_final: ''
-    });
-    setDatosFijoAMovil({
-      numeral_inicial: '',
-      numeral_final: ''
-    });
-    setErrors({});
+
     setTouched({});
+    setCalculoPetroleo({
+      litrosMedidos: 0,
+      diferencia: 0,
+      calculoRealizado: false,
+    });
+
+    setDistribucionLitros({});
+    setStockInicial(0);
+
+    const initialAlturas = {};
+    const initialDistribucion = {};
+    estanquesFijos.forEach((estanque) => {
+      initialAlturas[estanque.id_estanque] = {
+        inicial: "",
+        final: "",
+      };
+      initialDistribucion[estanque.id_estanque] = "";
+    });
+    setAlturasEstanques(initialAlturas);
+    setDistribucionLitros(initialDistribucion);
+    setErrors({});
+  };
+
+  // Función para obtener litros disponibles
+  const obtenerLitrosDisponibles = () => {
+    return parseFloat(formData.litrosDocumentados) || 0;
   };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-40">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-orange-500"></div>
       </div>
     );
   }
 
+  // ===== RENDER CON DISEÑO ORDENADO =====
   return (
     <>
-      <div className="flex flex-col space-y-6 bg-gray-50 p-6 rounded-lg shadow-sm">
-        {/* Alertas */}
+      <div className="flex flex-col space-y-4 bg-gray-50 p-5 rounded-lg shadow-sm">
+        {/* Mostrar alertas */}
         {alert.show && (
           <div
-            className={`flex items-center p-4 rounded-lg shadow-sm ${
+            className={`flex items-center p-3 rounded-lg ${
               alert.type === "success"
                 ? "bg-green-100 text-green-800 border-l-4 border-green-500"
                 : alert.type === "info"
@@ -453,369 +809,314 @@ const FormularioTrasvasije = () => {
                 : "bg-red-100 text-red-800 border-l-4 border-red-500"
             }`}
           >
-            {alert.type === "error" && <FaExclamationTriangle className="mr-3 flex-shrink-0" />}
-            {alert.type === "info" && <FaInfoCircle className="mr-3 flex-shrink-0" />}
-            <span className="text-sm">{alert.message}</span>
+            {alert.type === "error" && <FaExclamationTriangle className="mr-2" />}
+            {alert.type === "info" && <FaInfoCircle className="mr-2" />}
+            {alert.message}
           </div>
         )}
 
-        {/* Título */}
-        <div className="border-b border-gray-200 pb-4">
-          <h2 className="text-2xl font-bold text-gray-800 flex items-center">
-            <FaExchangeAlt className="mr-3 text-blue-500" />
-            Registro de Trasvasije
-          </h2>
-          <p className="text-gray-600 text-sm mt-2">
-            Transfiera combustible entre estanques móviles y fijos
-          </p>
-        </div>
+        <h2 className="text-xl font-semibold text-gray-700 border-b pb-2 mb-4">
+          Registro de Trasvasije: Móvil → Fijos
+        </h2>
 
-        {/* Selector de tipo de trasvasije */}
-        <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Tipo de Trasvasije</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <button
-              onClick={() => setTipoTrasvasije('movil_a_fijo')}
-              className={`p-4 rounded-lg border-2 transition-all ${
-                tipoTrasvasije === 'movil_a_fijo'
-                  ? 'border-blue-500 bg-blue-50 text-blue-800'
-                  : 'border-gray-300 bg-white text-gray-700 hover:border-blue-300'
-              }`}
-            >
-              <div className="flex items-center justify-center mb-2">
-                <FaTruck className="text-2xl mr-2" />
-                <FaArrowRight className="text-lg mx-2" />
-                <FaBuilding className="text-2xl" />
-              </div>
-              <h4 className="font-semibold">Móvil → Fijo</h4>
-              <p className="text-sm mt-1">Transferir desde estanque móvil a estanque fijo</p>
-            </button>
+        {/* SECCIÓN 1: ESTANQUE MÓVIL DE ORIGEN */}
+        <div className="text-left space-y-4">
+          <h3 className="text-lg font-medium text-gray-700 flex items-center border-b pb-2">
+            <RiOilFill className="mr-2 text-orange-600" />
+            1. Seleccione el Estanque Móvil de Origen
+          </h3>
 
-            <button
-              onClick={() => setTipoTrasvasije('fijo_a_movil')}
-              className={`p-4 rounded-lg border-2 transition-all ${
-                tipoTrasvasije === 'fijo_a_movil'
-                  ? 'border-green-500 bg-green-50 text-green-800'
-                  : 'border-gray-300 bg-white text-gray-700 hover:border-green-300'
-              }`}
-            >
-              <div className="flex items-center justify-center mb-2">
-                <FaBuilding className="text-2xl mr-2" />
-                <FaArrowRight className="text-lg mx-2" />
-                <FaTruck className="text-2xl" />
-              </div>
-              <h4 className="font-semibold">Fijo → Móvil</h4>
-              <p className="text-sm mt-1">Transferir desde estanque fijo a estanque móvil</p>
-            </button>
-          </div>
-        </div>
-
-        {/* Formulario principal */}
-        {tipoTrasvasije && (
-          <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-              <FaFileAlt className="mr-2 text-gray-600" />
-              Información del Trasvasije
-            </h3>
-
-            {/* Selección de estanques */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Estanque Origen *
-                </label>
-                <select
-                  value={formData.id_estanque_origen}
-                  onChange={(e) => handleChange('id_estanque_origen', e.target.value)}
-                  className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.estanque_origen ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                >
-                  <option value="">Seleccionar estanque origen</option>
-                  {getEstanquesOrigen().map(estanque => (
-                    <option key={estanque.id_estanque} value={estanque.id_estanque}>
-                      {estanque.nombre} ({formatNumberWithSeparators(estanque.stock_actual)} L disponibles)
-                    </option>
-                  ))}
-                </select>
-                {errors.estanque_origen && (
-                  <span className="text-red-500 text-xs mt-1">{errors.estanque_origen}</span>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Estanque Destino *
-                </label>
-                <select
-                  value={formData.id_estanque_destino}
-                  onChange={(e) => handleChange('id_estanque_destino', e.target.value)}
-                  className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.estanque_destino ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                >
-                  <option value="">Seleccionar estanque destino</option>
-                  {getEstanquesDestino().map(estanque => (
-                    <option key={estanque.id_estanque} value={estanque.id_estanque}>
-                      {estanque.nombre} ({formatNumberWithSeparators(estanque.capacidad - estanque.stock_actual)} L capacidad disponible)
-                    </option>
-                  ))}
-                </select>
-                {errors.estanque_destino && (
-                  <span className="text-red-500 text-xs mt-1">{errors.estanque_destino}</span>
-                )}
-              </div>
-            </div>
-
-            {/* Campos específicos según tipo de trasvasije */}
-            {tipoTrasvasije === 'movil_a_fijo' && (
-              <div className="border-t border-gray-200 pt-6">
-                <h4 className="text-md font-semibold text-blue-800 mb-4 flex items-center">
-                  <FaRuler className="mr-2" />
-                  Mediciones Móvil → Fijo
-                </h4>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <h5 className="font-medium text-gray-700">Estanque Móvil (Litros)</h5>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Litros Iniciales *
-                      </label>
-                      <InputField
-                        type="number"
-                        step="0.01"
-                        placeholder="Litros iniciales del móvil"
-                        value={datosMovilAFijo.litros_movil_inicial}
-                        onChange={(e) => handleMovilAFijoChange('litros_movil_inicial', e.target.value)}
-                        className={`${errors.litros_movil_inicial ? 'border-red-500' : 'border-gray-300'}`}
-                      />
-                      {errors.litros_movil_final && (
-                        <span className="text-red-500 text-xs mt-1">{errors.litros_movil_final}</span>
-                      )}
-                    </div>
-                    {errors.litros_movil && (
-                      <div className="text-red-500 text-sm p-2 bg-red-50 rounded">
-                        {errors.litros_movil}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-4">
-                    <h5 className="font-medium text-gray-700">Estanque Fijo (Alturas en cm)</h5>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Altura Inicial *
-                      </label>
-                      <InputField
-                        type="number"
-                        step="0.01"
-                        placeholder="Altura inicial en cm"
-                        value={datosMovilAFijo.altura_fijo_inicial}
-                        onChange={(e) => handleMovilAFijoChange('altura_fijo_inicial', e.target.value)}
-                        className={`${errors.altura_fijo_inicial ? 'border-red-500' : 'border-gray-300'}`}
-                      />
-                      {errors.altura_fijo_inicial && (
-                        <span className="text-red-500 text-xs mt-1">{errors.altura_fijo_inicial}</span>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Altura Final *
-                      </label>
-                      <InputField
-                        type="number"
-                        step="0.01"
-                        placeholder="Altura final en cm"
-                        value={datosMovilAFijo.altura_fijo_final}
-                        onChange={(e) => handleMovilAFijoChange('altura_fijo_final', e.target.value)}
-                        className={`${errors.altura_fijo_final ? 'border-red-500' : 'border-gray-300'}`}
-                      />
-                      {errors.altura_fijo_final && (
-                        <span className="text-red-500 text-xs mt-1">{errors.altura_fijo_final}</span>
-                      )}
-                    </div>
-                    {errors.altura_fijo && (
-                      <div className="text-red-500 text-sm p-2 bg-red-50 rounded">
-                        {errors.altura_fijo}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Mostrar cálculo en tiempo real */}
-                {datosMovilAFijo.litros_movil_inicial && datosMovilAFijo.litros_movil_final && (
-                  <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <h5 className="font-medium text-blue-800 mb-2">Cálculo Automático</h5>
-                    <p className="text-blue-700">
-                      Litros a transferir: <span className="font-bold">
-                        {formatNumberWithSeparators(calcularLitrosTransferidos())} L
-                      </span>
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {tipoTrasvasije === 'fijo_a_movil' && (
-              <div className="border-t border-gray-200 pt-6">
-                <h4 className="text-md font-semibold text-green-800 mb-4 flex items-center">
-                  <FaCalculator className="mr-2" />
-                  Numerales de Bomba
-                </h4>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Numeral Inicial *
-                    </label>
-                    <InputField
-                      type="number"
-                      step="0.01"
-                      placeholder="Lectura inicial del numeral"
-                      value={datosFijoAMovil.numeral_inicial}
-                      onChange={(e) => handleFijoAMovilChange('numeral_inicial', e.target.value)}
-                      className={`${errors.numeral_inicial ? 'border-red-500' : 'border-gray-300'}`}
-                    />
-                    {errors.numeral_inicial && (
-                      <span className="text-red-500 text-xs mt-1">{errors.numeral_inicial}</span>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Numeral Final *
-                    </label>
-                    <InputField
-                      type="number"
-                      step="0.01"
-                      placeholder="Lectura final del numeral"
-                      value={datosFijoAMovil.numeral_final}
-                      onChange={(e) => handleFijoAMovilChange('numeral_final', e.target.value)}
-                      className={`${errors.numeral_final ? 'border-red-500' : 'border-gray-300'}`}
-                    />
-                    {errors.numeral_final && (
-                      <span className="text-red-500 text-xs mt-1">{errors.numeral_final}</span>
-                    )}
-                  </div>
-                </div>
-
-                {errors.numerales && (
-                  <div className="mt-4 text-red-500 text-sm p-2 bg-red-50 rounded">
-                    {errors.numerales}
-                  </div>
-                )}
-
-                {/* Mostrar cálculo en tiempo real */}
-                {datosFijoAMovil.numeral_inicial && datosFijoAMovil.numeral_final && (
-                  <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
-                    <h5 className="font-medium text-green-800 mb-2">Cálculo Automático</h5>
-                    <p className="text-green-700">
-                      Litros bombeados: <span className="font-bold">
-                        {formatNumberWithSeparators(calcularLitrosTransferidos())} L
-                      </span>
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Observaciones */}
-            <div className="border-t border-gray-200 pt-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Observaciones
-              </label>
-              <InputField
-                placeholder="Ingrese observaciones sobre el trasvasije..."
-                isTextarea={true}
-                value={formData.observaciones}
-                onChange={(e) => handleChange("observaciones", e.target.value)}
-                className="bg-white rounded-lg px-4 py-3 min-h-[100px] text-gray-800 border-gray-300 focus:border-blue-500 transition-colors"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Resumen antes de enviar */}
-        {tipoTrasvasije && formData.id_estanque_origen && formData.id_estanque_destino && calcularLitrosTransferidos() > 0 && (
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-blue-800 mb-4 flex items-center">
-              <FaInfoCircle className="mr-2" />
-              Resumen del Trasvasije
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white p-4 rounded-lg border border-blue-100">
-                <h4 className="font-medium text-gray-700 mb-2">Origen</h4>
-                <p className="text-sm text-gray-600">
-                  {getEstanquesOrigen().find(e => e.id_estanque == formData.id_estanque_origen)?.nombre}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Stock: {formatNumberWithSeparators(
-                    getEstanquesOrigen().find(e => e.id_estanque == formData.id_estanque_origen)?.stock_actual || 0
-                  )} L
-                </p>
-              </div>
-              
-              <div className="bg-white p-4 rounded-lg border border-blue-100">
-                <h4 className="font-medium text-gray-700 mb-2">Transferencia</h4>
-                <p className="text-lg font-bold text-blue-600">
-                  {formatNumberWithSeparators(calcularLitrosTransferidos())} L
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {tipoTrasvasije === 'movil_a_fijo' ? 'Móvil → Fijo' : 'Fijo → Móvil'}
-                </p>
-              </div>
-              
-              <div className="bg-white p-4 rounded-lg border border-blue-100">
-                <h4 className="font-medium text-gray-700 mb-2">Destino</h4>
-                <p className="text-sm text-gray-600">
-                  {getEstanquesDestino().find(e => e.id_estanque == formData.id_estanque_destino)?.nombre}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Disponible: {formatNumberWithSeparators(
-                    (getEstanquesDestino().find(e => e.id_estanque == formData.id_estanque_destino)?.capacidad || 0) -
-                    (getEstanquesDestino().find(e => e.id_estanque == formData.id_estanque_destino)?.stock_actual || 0)
-                  )} L
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Botones de acción */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4 border-t border-gray-200">
-          <div className="flex space-x-3">
-            <Button
-              to="/bombero"
-              className="flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white text-sm px-6 py-3 rounded-lg transition-colors shadow-sm"
-              icon={<FaHome className="mr-2 text-white" />}
-              text="Volver al Inicio"
+          <div className="pl-4 space-y-4">
+            <p className="text-sm text-gray-600">
+              Seleccione el estanque móvil que contiene el combustible a trasvasijar:
+            </p>
+            
+            <SelectorEstanque
+              idFaena={formData.id_faena}
+              tipoEstanque="movil"
+              onEstanqueSelect={handleEstanqueMovilSelect}
+              estanqueSeleccionado={estanqueMovilSeleccionado}
+              disabled={isSubmitting}
+              selectorId="estanque-movil-trasvasije"
+              showTitle={false}
+              className="mt-2"
             />
             
-            {tipoTrasvasije && (
-              <Button
-                text="Limpiar Formulario"
-                onClick={resetearFormulario}
-                className="flex items-center justify-center bg-amber-600 hover:bg-amber-700 text-white text-sm px-6 py-3 rounded-lg transition-colors shadow-sm"
-                icon={<FaSync className="mr-2 text-white" />}
-              />
+            {errors.estanque_movil && (
+              <span className="text-red-500 text-xs">{errors.estanque_movil}</span>
             )}
           </div>
+        </div>
 
-          {tipoTrasvasije && (
-            <Button
-              text={isSubmitting ? "Procesando..." : "Registrar Trasvasije"}
-              onClick={handleSubmit}
-              disabled={isSubmitting || !formData.id_estanque_origen || !formData.id_estanque_destino || calcularLitrosTransferidos() <= 0}
-              className={`bg-blue-600 hover:bg-blue-700 text-white text-sm px-8 py-3 rounded-lg transition-colors shadow-sm ${
-                isSubmitting ? "opacity-70 cursor-wait" : ""
-              }`}
-              icon={!isSubmitting && <FaExchangeAlt className="mr-2 text-white" />}
-            />
-          )}
+        {/* Información del estanque móvil seleccionado */}
+        {estanqueMovilSeleccionado && (
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="bg-orange-500 p-2 rounded-lg mr-3">
+                  <FaTruck className="text-white" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-800">
+                    ✅ {estanqueMovilSeleccionado.nombre}
+                  </h4>
+                  <p className="text-sm text-gray-600">Estanque móvil seleccionado como origen</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-gray-600">Combustible disponible</p>
+                <p className="text-xl font-bold text-orange-600">
+                  {formatNumberWithSeparators(estanqueMovilSeleccionado.stock_actual)} L
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SECCIÓN 2: LITROS A TRASVASIJAR */}
+        {formData.id_estanque_movil && (
+          <div className="text-left space-y-4">
+            <h3 className="text-lg font-medium text-gray-700 flex items-center border-b pb-2">
+              <FaOilCan className="mr-2 text-green-600" />
+              2. Cantidad de Combustible a Trasvasijar
+            </h3>
+
+            <div className="pl-4">
+              <div className="flex flex-col">
+                <label className="text-sm font-medium text-gray-600 mb-1">
+                  Litros del Estanque Móvil a Trasvasijar *
+                  <span className="text-xs text-gray-500 ml-1">(se completa automáticamente con el stock disponible)</span>
+                </label>
+                <InputField
+                  type="number"
+                  step="0.01"
+                  placeholder="Litros disponibles en el estanque móvil"
+                  value={formData.litrosDocumentados}
+                  onChange={(e) => handleChange("litrosDocumentados", e.target.value)}
+                  disabled={!formData.id_estanque_movil}
+                  className={`${errors.litros_documentados ? 'border-red-500' : 'border-gray-300'} ${
+                    !formData.id_estanque_movil ? 'bg-gray-100' : 'bg-white'
+                  }`}
+                />
+                {errors.litros_documentados && (
+                  <span className="text-red-500 text-xs mt-1">{errors.litros_documentados}</span>
+                )}
+                {formData.id_estanque_movil && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    💡 Los litros se cargan automáticamente según el stock del estanque móvil seleccionado
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SECCIÓN 3: DISTRIBUCIÓN Y MEDICIÓN */}
+        {formData.litrosDocumentados && parseFloat(formData.litrosDocumentados) > 0 && (
+          <div className="text-left space-y-4">
+            <h3 className="text-lg font-medium text-gray-700 flex items-center border-b pb-2">
+              <FaRuler className="mr-2 text-blue-600" />
+              3. Configurar Distribución y Medición en Estanques Fijos
+            </h3>
+
+            <div className="pl-4 space-y-4">
+              <p className="text-sm text-gray-600">
+                Configure cómo se distribuirá el combustible entre los estanques fijos 
+                e ingrese las mediciones antes y después del trasvasije:
+              </p>
+
+              <button
+                onClick={() => setShowEstanquesModal(true)}
+                className="flex items-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                disabled={isSubmitting}
+              >
+                <FaRuler className="mr-2" />
+                <span>Configurar Estanques Fijos y Medición</span>
+              </button>
+
+              {/* Mostrar resultados del cálculo si existen */}
+              {calculoPetroleo.calculoRealizado && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-medium text-blue-800 mb-3 flex items-center">
+                    <FaCalculator className="mr-2" />
+                    Resultados del Cálculo
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <span className="text-blue-600 font-medium">Litros del Móvil:</span>
+                      <p className="text-blue-800 font-bold">
+                        {formatNumberWithSeparators(formData.litrosDocumentados)} L
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-blue-600 font-medium">Litros Medidos:</span>
+                      <p className="text-blue-800 font-bold">
+                        {formatNumberWithSeparators(calculoPetroleo.litrosMedidos)} L
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-blue-600 font-medium">Diferencia:</span>
+                      <p className={`font-bold ${
+                        calculoPetroleo.diferencia === 0
+                          ? "text-gray-600"
+                          : calculoPetroleo.diferencia > 0
+                          ? "text-green-600"
+                          : "text-red-600"
+                      }`}>
+                        {formatNumberWithSeparators(Math.abs(calculoPetroleo.diferencia))} L
+                        <span className="text-sm ml-1">
+                          ({calculoPetroleo.diferencia > 0 ? "de más" : calculoPetroleo.diferencia < 0 ? "de menos" : "exacto"})
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 text-xs text-gray-500 flex items-center justify-center">
+                    <FaSync className="mr-1" />
+                    Cálculo completado correctamente
+                  </div>
+                </div>
+              )}
+
+              {/* Mostrar distribución configurada */}
+              {Object.values(distribucionLitros).some(valor => parseFloat(valor) > 0) && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <h4 className="font-medium text-green-800 mb-3 flex items-center">
+                    <FaBuilding className="mr-2" />
+                    Distribución Configurada
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    {Object.keys(distribucionLitros).map(estanqueId => {
+                      const litros = parseFloat(distribucionLitros[estanqueId]) || 0;
+                      if (litros > 0) {
+                        return (
+                          <div key={estanqueId} className="flex justify-between">
+                            <span className="text-green-600">Estanque {estanqueId}:</span>
+                            <span className="font-bold text-green-800">
+                              {formatNumberWithSeparators(litros)} L
+                            </span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })}
+                    <div className="border-t border-green-300 pt-2 mt-2">
+                      <div className="flex justify-between font-bold">
+                        <span className="text-green-600">Total distribuido:</span>
+                        <span className="text-green-800">
+                          {formatNumberWithSeparators(
+                            Object.values(distribucionLitros).reduce((total, valor) => {
+                              return total + (parseFloat(valor) || 0);
+                            }, 0)
+                          )} L
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* SECCIÓN 4: OBSERVACIONES Y CONFIRMACIÓN */}
+        <div className="text-left space-y-4">
+          <h3 className="text-lg font-medium text-gray-700 flex items-center border-b pb-2">
+            <FaCheckCircle className="mr-2 text-purple-600" />
+            4. Observaciones y Confirmación
+          </h3>
+
+          <div className="pl-4 space-y-4">
+            <div className="flex flex-col">
+              <label className="text-sm font-medium text-gray-600 mb-1">
+                Observaciones (Opcional)
+                <span className="text-xs text-gray-500 ml-1">(comentarios sobre el trasvasije)</span>
+              </label>
+              <InputField
+                placeholder="Ej: Trasvasije realizado sin inconvenientes..."
+                isTextarea={true}
+                value={formData.observacion}
+                onChange={(e) => handleChange("observacion", e.target.value)}
+                className="bg-white rounded-md px-3 py-2 min-h-[80px] text-gray-800 border-gray-300"
+              />
+            </div>
+
+            {/* Resumen final antes de enviar */}
+            {estanqueMovilSeleccionado && formData.litrosDocumentados && calculoPetroleo.calculoRealizado && (
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <h4 className="font-medium text-purple-800 mb-3 flex items-center">
+                  <FaCheckCircle className="mr-2" />
+                  Resumen del Trasvasije
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <span className="text-purple-600 font-medium">Origen:</span>
+                    <p className="text-purple-800">{estanqueMovilSeleccionado.nombre}</p>
+                  </div>
+                  <div>
+                    <span className="text-purple-600 font-medium">Litros a transferir:</span>
+                    <p className="text-purple-800">{formatNumberWithSeparators(formData.litrosDocumentados)} L</p>
+                  </div>
+                  <div>
+                    <span className="text-purple-600 font-medium">Estanques destino:</span>
+                    <p className="text-purple-800">
+                      {Object.keys(distribucionLitros).filter(id => parseFloat(distribucionLitros[id]) > 0).length} estanques
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-purple-600 font-medium">Estado:</span>
+                    <p className="text-purple-800 font-bold">✓ Listo para registrar</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* BOTONES DE ACCIÓN */}
+        <div className="flex flex-col-reverse sm:flex-row sm:items-center mt-6 pt-4 border-t space-y-reverse space-y-3 sm:space-y-0">
+          <Button
+            to="/Bombero"
+            className="flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white text-sm px-4 py-3 sm:py-2 rounded-md w-full sm:w-auto"
+            icon={<FaHome className="mr-2 text-white" />}
+            text="Volver"
+          />
+
+          <Button
+            text={isSubmitting ? "Procesando..." : "Registrar Trasvasije"}
+            onClick={handleSubmit}
+            disabled={isSubmitting || !formData.id_estanque_movil || !calculoPetroleo.calculoRealizado}
+            className={`bg-orange-600 hover:bg-orange-700 text-white text-sm px-8 py-3 rounded-lg transition-colors shadow-sm w-full sm:w-auto sm:ml-auto ${
+              isSubmitting ? "opacity-70 cursor-wait" : ""
+            }`}
+            icon={!isSubmitting && <FaExchangeAlt className="mr-2 text-white" />}
+          />
         </div>
 
         <div className="text-xs text-gray-500 text-center">
           Los campos marcados con * son obligatorios
         </div>
+
+        {/* Modal de estanques fijos */}
+        <EstanquesModal
+          isOpen={showEstanquesModal}
+          onClose={(stockSistema = null) => {
+            if (stockSistema !== null) {
+              setStockInicial(stockSistema);
+            }
+            setShowEstanquesModal(false);
+          }}
+          estanques={estanquesFijos}
+          alturasEstanques={alturasEstanques}
+          handleAlturaChange={handleAlturaChange}
+          calcularLitrosPetroleo={calcularLitrosPetroleo}
+          modalAlert={modalAlert}
+          capacidadDisponible={capacidadDisponible}
+          litrosRecibidos={obtenerLitrosDisponibles()}
+          distribucionLitros={distribucionLitros}
+          onDistribucionChange={handleDistribucionChange}
+          loadingCalculo={loadingCalculo}
+          esTrasvasije={true} // 🆕 ESTA ES LA LÍNEA CLAVE
+        />
       </div>
 
       {/* Modal de éxito */}

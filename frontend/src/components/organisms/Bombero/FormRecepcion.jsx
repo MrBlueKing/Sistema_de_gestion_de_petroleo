@@ -24,6 +24,7 @@ import {
 import { UserContext } from "../../../context/userContext";
 import axios from "../../../lib/axios";
 import EstanquesModal from "./EstanquesModal";
+import { FaCheckCircle } from "react-icons/fa";
 
 registerLocale("es", es);
 
@@ -80,7 +81,7 @@ const ModalConfirmacionReinicio = ({ isOpen, onConfirm, onCancel }) => {
             </h3>
             <p className="text-gray-600 text-sm leading-relaxed">
               Los cálculos de diferencia se actualizarán automáticamente con el
-              nuevo valor de litros documentados.
+              nuevo valor de litros guía.
               <strong className="text-blue-600">
                 {" "}
                 Las alturas ingresadas se mantendrán.
@@ -180,7 +181,7 @@ const ModalExitoRecepcion = ({ isOpen, onConfirm, datosRecepcion }) => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-blue-700 text-sm">
-                    Litros Documentados:
+                    Litros Guía:
                   </span>
                   <span className="font-bold text-blue-900">
                     {formatNumberWithSeparators(litrosDocumentados)} L
@@ -254,7 +255,7 @@ const ModalExitoRecepcion = ({ isOpen, onConfirm, datosRecepcion }) => {
                     Total de la Recepción
                   </h3>
                   <p className="text-green-600 text-sm">
-                    Basado en litros documentados
+                    Basado en litros Guía
                   </p>
                 </div>
               </div>
@@ -375,7 +376,7 @@ const FormRecepcion = () => {
     if (Math.abs(totalDistribuido - litrosGuia) > 0.01) {
       return {
         valido: false,
-        mensaje: `La distribución (${formatNumberWithSeparators(totalDistribuido)} L) debe coincidir exactamente con los litros documentados (${formatNumberWithSeparators(litrosGuia)} L).`
+        mensaje: `La distribución (${formatNumberWithSeparators(totalDistribuido)} L) debe coincidir exactamente con los litros Guía (${formatNumberWithSeparators(litrosGuia)} L).`
       };
     }
 
@@ -693,7 +694,7 @@ const FormRecepcion = () => {
     ) {
       mostrarModalAlerta(
         "error",
-        "Debe ingresar la cantidad de litros documentados antes de calcular."
+        "Debe ingresar la cantidad de litros Guía antes de calcular."
       );
       return null;
     }
@@ -1150,18 +1151,20 @@ const FormRecepcion = () => {
     );
   }
 
+  // ===== RENDER CON DISEÑO ORDENADO =====
   return (
     <>
       <div className="flex flex-col space-y-4 bg-gray-50 p-5 rounded-lg shadow-sm">
         {/* Mostrar alertas */}
         {alert.show && (
           <div
-            className={`flex items-center p-3 rounded-lg ${alert.type === "success"
-              ? "bg-green-100 text-green-800 border-l-4 border-green-500"
-              : alert.type === "info"
+            className={`flex items-center p-3 rounded-lg ${
+              alert.type === "success"
+                ? "bg-green-100 text-green-800 border-l-4 border-green-500"
+                : alert.type === "info"
                 ? "bg-blue-100 text-blue-800 border-l-4 border-blue-500"
                 : "bg-red-100 text-red-800 border-l-4 border-red-500"
-              }`}
+            }`}
           >
             {alert.type === "error" && (
               <FaExclamationTriangle className="mr-2" />
@@ -1171,8 +1174,8 @@ const FormRecepcion = () => {
           </div>
         )}
 
-        <h2 className="text-xl font-semibold text-gray-700 border-b pb-2 mb-2">
-          Registro de Recepción de Petróleo
+        <h2 className="text-xl font-semibold text-gray-700 border-b pb-2 mb-4">
+          Registro de Recepción de Petróleo desde Camión
         </h2>
 
         {/* Panel de distribución si existe */}
@@ -1197,8 +1200,9 @@ const FormRecepcion = () => {
                 </div>
               </div>
               <div className="flex items-center text-blue-600">
-                <div className={`w-3 h-3 rounded-full mr-2 ${validarDistribucion().valido ? 'bg-green-500' : 'bg-amber-500'
-                  }`}></div>
+                <div className={`w-3 h-3 rounded-full mr-2 ${
+                  validarDistribucion().valido ? 'bg-green-500' : 'bg-amber-500'
+                }`}></div>
                 <span className="text-sm font-medium">
                   {validarDistribucion().valido ? 'Válida' : 'Requiere ajuste'}
                 </span>
@@ -1207,209 +1211,236 @@ const FormRecepcion = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex flex-col">
-            <label className="text-sm font-medium text-gray-600 mb-1">
-              N° Guía de Despacho *
-            </label>
-            <InputField
-              placeholder="Ingrese número de guía"
-              value={formData.numeroGuia}
-              onChange={(e) => handleChange("numeroGuia", e.target.value)}
-              onBlur={() => handleBlur("numeroGuia")}
-              className={`bg-white rounded-md text-gray-800 ${errors.numeroGuia ? "border-red-500" : "border-gray-300"
-                }`}
-            />
-            {errors.numeroGuia && (
-              <span className="text-red-500 text-xs mt-1">
-                {errors.numeroGuia}
-              </span>
-            )}
-          </div>
+        {/* SECCIÓN 1: DATOS DE LA GUÍA */}
+        <div className="text-left space-y-4">
+          <h3 className="text-lg font-medium text-gray-700 flex items-center border-b pb-2">
+            <FaFileAlt className="mr-2 text-orange-600" />
+            1. Datos de la Guía de Despacho
+          </h3>
 
-          {/* ✅ CORREGIDO: Campo con nombre más claro */}
-          <div className="flex flex-col">
-            <label className="text-sm font-medium text-gray-600 mb-1 flex items-center">
-              Litros Documentados *
-              <span className="text-xs text-gray-500 ml-2">(según guía)</span>
-            </label>
-            <div className="relative">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-4">
+            <div className="flex flex-col">
+              <label className="text-sm font-medium text-gray-600 mb-1">
+                Número de Guía de Despacho *
+                <span className="text-xs text-gray-500 ml-1">(según documento de compra)</span>
+              </label>
               <InputField
-                placeholder="Ingrese litros según guía"
-                type="number"
-                value={formData.litrosDocumentados}
-                onChange={(e) => handleLitrosDocumentadosChange(e.target.value)}
-                onBlur={(e) => handleLitrosDocumentadosBlur(e.target.value)}
-                className={`bg-white rounded-md text-gray-800 ${errors.litrosDocumentados ? "border-red-500" : "border-gray-300"
-                  }`}
-              />
-            </div>
-            {errors.litrosDocumentados && (
-              <span className="text-red-500 text-xs mt-1">
-                {errors.litrosDocumentados}
-              </span>
-            )}
-          </div>
-
-          <div className="flex flex-col">
-            <label className="text-sm font-medium text-gray-600 mb-1">
-              Precio del Petróleo (por litro) *
-            </label>
-            <InputField
-              placeholder="Ingrese precio por litro"
-              type="number"
-              value={formData.precio}
-              onChange={(e) => handleChange("precio", e.target.value)}
-              onBlur={() => handleBlur("precio")}
-              className={`bg-white rounded-md text-gray-800 ${errors.precio ? "border-red-500" : "border-gray-300"
+                placeholder="Ej: 123456789"
+                value={formData.numeroGuia}
+                onChange={(e) => handleChange("numeroGuia", e.target.value)}
+                onBlur={() => handleBlur("numeroGuia")}
+                className={`bg-white rounded-md text-gray-800 ${
+                  errors.numeroGuia ? "border-red-500" : "border-gray-300"
                 }`}
-            />
-            {errors.precio && (
-              <span className="text-red-500 text-xs mt-1">{errors.precio}</span>
-            )}
-          </div>
-
-          <div className="flex flex-col">
-            <label className="text-sm font-medium text-gray-600 mb-1">
-              Niveles de Estanques *
-            </label>
-            <div className="flex">
-              <Button
-                text="Ingresar Niveles"
-                color="orange"
-                icon={<FaRuler className="mr-2 text-white" />}
-                onClick={() => setShowEstanquesModal(true)}
-                className="bg-orange-600 hover:bg-orange-700 text-white text-sm px-4 py-2 rounded-md flex items-center w-full"
-                disabled={!formData.id_faena || !formData.litrosDocumentados}
               />
-              {calculoPetroleo.calculoRealizado && (
-                <span className="ml-3 text-green-600 flex items-center text-sm">
-                  ✓ Alturas ingresadas
+              {errors.numeroGuia && (
+                <span className="text-red-500 text-xs mt-1">
+                  {errors.numeroGuia}
                 </span>
               )}
             </div>
-            {!formData.id_faena ? (
-              <span className="text-amber-600 text-xs mt-1">
-                No se ha podido identificar la faena
-              </span>
-            ) : !formData.litrosDocumentados ? (
-              <span className="text-amber-600 text-xs mt-1">
-                Debe ingresar primero la cantidad de litros documentados
-              </span>
-            ) : (
-              !calculoPetroleo.calculoRealizado && (
+
+            <div className="flex flex-col">
+              <label className="text-sm font-medium text-gray-600 mb-1">
+                Precio del Petróleo (por litro) *
+                <span className="text-xs text-gray-500 ml-1">($/litro)</span>
+              </label>
+              <InputField
+                placeholder="Ej: 850"
+                type="number"
+                value={formData.precio}
+                onChange={(e) => handleChange("precio", e.target.value)}
+                onBlur={() => handleBlur("precio")}
+                className={`bg-white rounded-md text-gray-800 ${
+                  errors.precio ? "border-red-500" : "border-gray-300"
+                }`}
+              />
+              {errors.precio && (
                 <span className="text-red-500 text-xs mt-1">
-                  Debe ingresar las alturas para calcular la diferencia
+                  {errors.precio}
                 </span>
-              )
+              )}
+            </div>
+
+            <div className="flex flex-col md:col-span-2">
+              <label className="text-sm font-medium text-gray-600 mb-1 flex items-center">
+                Litros Según Guía *
+                <span className="text-xs text-gray-500 ml-2">(según guía de despacho)</span>
+              </label>
+              <div className="relative">
+                <InputField
+                  placeholder="Ej: 5000.00"
+                  type="number"
+                  value={formData.litrosDocumentados}
+                  onChange={(e) => handleLitrosDocumentadosChange(e.target.value)}
+                  onBlur={(e) => handleLitrosDocumentadosBlur(e.target.value)}
+                  className={`bg-white rounded-md text-gray-800 ${
+                    errors.litrosDocumentados ? "border-red-500" : "border-gray-300"
+                  }`}
+                />
+              </div>
+              {errors.litrosDocumentados && (
+                <span className="text-red-500 text-xs mt-1">
+                  {errors.litrosDocumentados}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* SECCIÓN 2: MEDICIÓN EN ESTANQUES */}
+        <div className="text-left space-y-4">
+          <h3 className="text-lg font-medium text-gray-700 flex items-center border-b pb-2">
+            <FaRuler className="mr-2 text-green-600" />
+            2. Medición en Estanques y Distribución
+          </h3>
+
+          <div className="pl-4 space-y-4">
+            <p className="text-sm text-gray-600">
+              Ingrese las alturas de los estanques antes y después del vaciado del camión, 
+              y configure cómo se distribuirán los litros entre los estanques fijos:
+            </p>
+
+            <button
+              onClick={() => setShowEstanquesModal(true)}
+              className="flex items-center px-4 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
+            >
+              <FaRuler className="mr-2" />
+              <span>Abrir Medición de Estanques</span>
+            </button>
+
+            {/* Mostrar resultados del cálculo si existen */}
+            {calculoPetroleo.calculoRealizado && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <h4 className="font-medium text-green-800 mb-3 flex items-center">
+                  <FaCalculator className="mr-2" />
+                  Resultados del Cálculo
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <span className="text-green-600 font-medium">Litros Medidos:</span>
+                    <p className="text-green-800 font-bold">
+                      {formatNumberWithSeparators(calculoPetroleo.litrosMedidos)} L
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-green-600 font-medium">Diferencia:</span>
+                    <p className={`font-bold ${
+                      calculoPetroleo.diferencia === 0
+                        ? "text-gray-600"
+                        : calculoPetroleo.diferencia > 0
+                        ? "text-green-600"
+                        : "text-red-600"
+                    }`}>
+                      {formatNumberWithSeparators(Math.abs(calculoPetroleo.diferencia))} L
+                      <span className="text-sm ml-1">
+                        ({calculoPetroleo.diferencia > 0 ? "de más" : calculoPetroleo.diferencia < 0 ? "de menos" : "exacto"})
+                      </span>
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-green-600 font-medium">Estado:</span>
+                    <p className="text-green-800 font-bold">✓ Calculado</p>
+                  </div>
+                </div>
+                <div className="mt-3 text-xs text-gray-500 flex items-center justify-center">
+                  <FaSync className="mr-1" />
+                  Los valores se actualizan automáticamente
+                </div>
+              </div>
             )}
           </div>
         </div>
 
-        {/* ✅ CORREGIDO: Calcular total estimado con litrosDocumentados */}
-        {formData.litrosDocumentados &&
-          formData.precio &&
-          !errors.litrosDocumentados &&
-          !errors.precio && (
-            <div className="bg-blue-50 p-3 rounded-lg text-center border border-blue-200 mt-2">
-              <p className="text-sm text-blue-600">Total Estimado:</p>
-              <p className="font-bold text-gray-800 text-lg">
-                {(
-                  parseFloat(formData.litrosDocumentados) *
-                  parseFloat(formData.precio)
-                ).toLocaleString("es-CL", {
-                  style: "currency",
-                  currency: "CLP",
-                })}
-              </p>
-            </div>
-          )}
+        {/* SECCIÓN 3: INFORMACIÓN ECONÓMICA */}
+        {formData.litrosDocumentados && formData.precio && (
+          <div className="text-left space-y-4">
+            <h3 className="text-lg font-medium text-gray-700 flex items-center border-b pb-2">
+              <FaDollarSign className="mr-2 text-green-600" />
+              3. Información Económica
+            </h3>
 
-        {/* ✅ CORREGIDO: Resultado del cálculo con nombres actualizados */}
-        {calculoPetroleo.calculoRealizado && (
-          <div
-            className={`p-4 rounded-lg text-center border mt-2 transition-all duration-300 ${Math.abs(calculoPetroleo.diferencia) <= 0.5
-              ? "bg-gray-50 border-gray-200"
-              : calculoPetroleo.diferencia > 0
-                ? "bg-green-50 border-green-200"
-                : "bg-red-50 border-red-200"
-              }`}
-          >
-            <div className="flex items-center justify-center mb-3">
-              <p
-                className={`text-sm font-medium ${Math.abs(calculoPetroleo.diferencia) <= 0.5
-                  ? "text-gray-600"
-                  : calculoPetroleo.diferencia > 0
-                    ? "text-green-600"
-                    : "text-red-600"
-                  }`}
-              >
-                Resultado del cálculo:
-              </p>
-              <div className="ml-2 bg-green-100 px-2 py-1 rounded-full">
-                <FaCheck className="text-green-600 text-xs" />
-              </div>
-            </div>
-            <div className="space-y-2 font-medium text-gray-800">
-              <p className="flex justify-between items-center">
-                <span>Litros documentados:</span>
-                <span className="font-bold">
-                  {formatNumberWithSeparators(
-                    parseFloat(formData.litrosDocumentados)
-                  )}{" "}
-                  L
-                </span>
-              </p>
-              <p className="flex justify-between items-center">
-                <span>Litros medidos:</span>
-                <span className="font-bold">
-                  {formatNumberWithSeparators(calculoPetroleo.litrosMedidos)}{" "}
-                  L
-                </span>
-              </p>
-              <div className="border-t pt-2">
-                <p className="flex justify-between items-center">
-                  <span>Diferencia:</span>
-                  <span
-                    className={`font-bold text-lg ${Math.abs(calculoPetroleo.diferencia) <= 0.5
-                      ? "text-gray-600"
-                      : calculoPetroleo.diferencia > 0
-                        ? "text-green-600"
-                        : "text-red-600"
-                      }`}
-                  >
-                    {formatNumberWithSeparators(
-                      Math.abs(calculoPetroleo.diferencia)
-                    )}{" "}
-                    L
-                    <span className="text-sm ml-1">
-                      ({calculoPetroleo.diferencia > 0 ? "de más" : "de menos"})
-                    </span>
-                  </span>
+            <div className="pl-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-green-600 font-medium">Precio por Litro:</span>
+                    <p className="text-black-800 font-bold">${formData.precio}</p>
+                  </div>
+                  <div>
+                    <span className="text-green-600 font-medium">Precio Total Estimado:</span>
+                    <p className="text-black-800 font-bold text-lg">
+                      {formatCurrency(parseFloat(formData.litrosDocumentados) * parseFloat(formData.precio))}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs text-green-600 mt-2">
+                  * El precio total se calculará exactamente con los litros medidos finales
                 </p>
               </div>
-            </div>
-            <div className="mt-3 text-xs text-gray-500 flex items-center justify-center">
-              <FaSync className="mr-1" />
-              Los valores se actualizan automáticamente
             </div>
           </div>
         )}
 
-        <div className="flex flex-col col-span-full mt-2">
-          <label className="text-sm font-medium text-gray-600 mb-1">
-            Observación
-          </label>
-          <InputField
-            placeholder="Ingrese sus observaciones"
-            isTextarea={true}
-            value={formData.observacion}
-            onChange={(e) => handleChange("observacion", e.target.value)}
-            className="bg-white rounded-md px-3 py-2 min-h-[80px] text-gray-800 border-gray-300"
-          />
+        {/* SECCIÓN 4: OBSERVACIONES Y CONFIRMACIÓN */}
+        <div className="text-left space-y-4">
+          <h3 className="text-lg font-medium text-gray-700 flex items-center border-b pb-2">
+            <FaCheckCircle className="mr-2 text-blue-600" />
+            4. Observaciones y Confirmación
+          </h3>
+
+          <div className="pl-4 space-y-4">
+            <div className="flex flex-col">
+              <label className="text-sm font-medium text-gray-600 mb-1">
+                Observaciones (Opcional)
+                <span className="text-xs text-gray-500 ml-1">(comentarios sobre la recepción)</span>
+              </label>
+              <InputField
+                placeholder="Ej: Recepción realizada sin inconvenientes..."
+                isTextarea={true}
+                value={formData.observacion}
+                onChange={(e) => handleChange("observacion", e.target.value)}
+                className="bg-white rounded-md px-3 py-2 min-h-[80px] text-gray-800 border-gray-300"
+              />
+            </div>
+
+            {/* Resumen final antes de enviar */}
+            {formData.numeroGuia && formData.litrosDocumentados && formData.precio && calculoPetroleo.calculoRealizado && (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <h4 className="font-medium text-orange-800 mb-3 flex items-center">
+                  <FaCheckCircle className="mr-2" />
+                  Resumen de la Recepción
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <span className="text-orange-600 font-medium">Guía:</span>
+                    <p className="text-orange-800">{formData.numeroGuia}</p>
+                  </div>
+                  <div>
+                    <span className="text-orange-600 font-medium">Documentados:</span>
+                    <p className="text-orange-800">{formatNumberWithSeparators(formData.litrosDocumentados)} L</p>
+                  </div>
+                  <div>
+                    <span className="text-orange-600 font-medium">Medidos:</span>
+                    <p className="text-orange-800">{formatNumberWithSeparators(calculoPetroleo.litrosMedidos)} L</p>
+                  </div>
+                  <div>
+                    <span className="text-orange-600 font-medium">Diferencia:</span>
+                    <p className={`font-bold ${
+                      calculoPetroleo.diferencia === 0 ? "text-gray-600" :
+                      calculoPetroleo.diferencia > 0 ? "text-green-600" : "text-red-600"
+                    }`}>
+                      {calculoPetroleo.diferencia > 0 ? "+" : ""}{formatNumberWithSeparators(calculoPetroleo.diferencia)} L
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="flex flex-col-reverse sm:flex-row sm:items-center mt-4 pt-2 border-t space-y-reverse space-y-3 sm:space-y-0">
+        {/* BOTONES DE ACCIÓN */}
+        <div className="flex flex-col-reverse sm:flex-row sm:items-center mt-6 pt-4 border-t space-y-reverse space-y-3 sm:space-y-0">
           <Button
             to="/Bombero"
             className="flex items-center justify-center bg-gray-600 hover:bg-gray-700 text-white text-sm px-4 py-3 sm:py-2 rounded-md w-full sm:w-auto"
@@ -1418,12 +1449,13 @@ const FormRecepcion = () => {
           />
 
           <Button
-            text={isSubmitting ? "Procesando..." : "Ingresar Recepción"}
+            text={isSubmitting ? "Procesando..." : "Registrar Recepción"}
             color="orange"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className={`bg-orange-600 hover:bg-orange-700 text-white text-sm px-6 py-3 sm:py-2 rounded-md w-full sm:w-auto sm:ml-auto ${isSubmitting ? "opacity-70 cursor-wait" : ""
-              }`}
+            className={`bg-orange-600 hover:bg-orange-700 text-white text-sm px-6 py-3 sm:py-2 rounded-md w-full sm:w-auto sm:ml-auto ${
+              isSubmitting ? "opacity-70 cursor-wait" : ""
+            }`}
           />
         </div>
 

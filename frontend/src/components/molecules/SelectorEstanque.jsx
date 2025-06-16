@@ -10,6 +10,7 @@ import {
   FaSpinner,
   FaBalanceScale,
 } from "react-icons/fa";
+import { RiOilFill } from "react-icons/ri";
 import bomberoService from "../../context/bomberoService";
 
 // Componente para separador de sección
@@ -36,10 +37,10 @@ const SeparadorSeccion = ({ icono, titulo, cantidad, color = "blue" }) => {
 };
 
 // Componente para tarjeta de estanque
-const EstanqueTarjeta = ({ 
-  estanque, 
-  seleccionado, 
-  onSelect, 
+const EstanqueTarjeta = ({
+  estanque,
+  seleccionado,
+  onSelect,
   disabled,
   // Props para modo múltiple
   modoMultiple = false,
@@ -57,7 +58,7 @@ const EstanqueTarjeta = ({
       const capacidadDisponible = (estanque.capacidad || 0) - (estanque.stock_actual || 0);
       return capacidadRequerida <= capacidadDisponible;
     } else {
-      const stockSuficiente = modoMultiple 
+      const stockSuficiente = modoMultiple
         ? (estanque.stock_actual || 0) >= litrosAsignados
         : (estanque.stock_actual || 0) > 0;
       return stockSuficiente;
@@ -95,72 +96,70 @@ const EstanqueTarjeta = ({
     <div
       className={`
         border rounded-lg p-3 transition-all duration-200 cursor-pointer
-        ${
-          modoMultiple
-            ? "bg-white border-gray-200 hover:border-orange-300"
-            : seleccionado
-            ? esDestino 
+        ${modoMultiple
+          ? "bg-white border-gray-200 hover:border-orange-300"
+          : seleccionado
+            ? esDestino
               ? "border-green-500 bg-green-50 shadow-md"
               : "border-orange-500 bg-orange-50 shadow-md"
             : disabled || !esValido
-            ? "border-gray-200 bg-gray-50 cursor-not-allowed opacity-60"
-            : "border-gray-200 bg-white hover:border-orange-300 hover:shadow-sm"
+              ? "border-gray-200 bg-gray-50 cursor-not-allowed opacity-60"
+              : "border-gray-200 bg-white hover:border-orange-300 hover:shadow-sm"
         }
       `}
       onClick={!modoMultiple ? handleClick : undefined}
     >
       <div className="flex items-start justify-between">
         <div className="flex items-start space-x-3 flex-1">
-          {/* Icono del tipo de estanque */}
-          <div className="flex-shrink-0 mt-1">
-            {estanque.tipo_estanque === "movil" ? (
-              <FaTruck className="text-amber-600" size={16} />
-            ) : (
-              <FaBuilding className="text-blue-600" size={16} />
-            )}
-          </div>
-
           {/* Información del estanque */}
           <div className="flex-1 min-w-0">
             <h4 className="font-medium text-gray-900 text-sm truncate">
               {estanque.nombre}
             </h4>
-            
+
             {/* Información básica */}
             <div className="text-xs text-gray-500 space-y-1">
               {esDestino ? (
                 // Información para estanques destino (móviles)
                 <>
                   <div className="flex justify-between">
-                    <span>Capacidad:</span>
-                    <span>{(estanque.capacidad || 0).toLocaleString()}L</span>
+                    <span>Capacidad total:</span>
+                    <span>{(estanque.capacidad || 0).toLocaleString()} L</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Stock actual:</span>
-                    <span>{(estanque.stock_actual || 0).toLocaleString()}L</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Disponible:</span>
-                    <span className={esValido ? "text-green-600" : "text-red-600"}>
-                      {((estanque.capacidad || 0) - (estanque.stock_actual || 0)).toLocaleString()}L
-                    </span>
-                  </div>
-                </>
-              ) : (
-                // Información para estanques origen (fijos)
-                <>
                   <div className="flex justify-between">
                     <span>Stock:</span>
                     <span className={esValido ? "text-green-600" : "text-red-600"}>
                       {(estanque.stock_actual || 0).toLocaleString()}L
                     </span>
                   </div>
+                  <div className="flex justify-between">
+                    <span>Espacio disponible:</span>
+                    <span>
+                      {((estanque.capacidad || 0) - (estanque.stock_actual || 0)).toLocaleString()} L
+                    </span>
+                  </div>
+                </>
+              ) : (
+                // Información para estanques origen (fijos)
+                <>
                   {estanque.capacidad && (
                     <div className="flex justify-between">
-                      <span>Capacidad:</span>
+                      <span>Capacidad Total:</span>
                       <span>{estanque.capacidad.toLocaleString()}L</span>
                     </div>
                   )}
+                  <div className="flex justify-between">
+                    <span>Stock:</span>
+                    <span className={esValido ? "text-green-600" : "text-red-600"}>
+                      {(estanque.stock_actual || 0).toLocaleString()}L
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Espacio disponible:</span>
+                    <span>
+                      {((estanque.capacidad || 0) - (estanque.stock_actual || 0)).toLocaleString()} L
+                    </span>
+                  </div>
                 </>
               )}
             </div>
@@ -171,11 +170,10 @@ const EstanqueTarjeta = ({
                 <span className="text-gray-500">
                   {esDestino ? "Ocupación" : "Nivel"}
                 </span>
-                <span className={`font-medium ${
-                  porcentaje < 20 ? "text-red-600" :
+                <span className={`font-medium ${porcentaje < 20 ? "text-red-600" :
                   porcentaje < 50 ? "text-yellow-600" :
-                  "text-green-600"
-                }`}>
+                    "text-green-600"
+                  }`}>
                   {porcentaje}%
                 </span>
               </div>
@@ -234,7 +232,7 @@ const EstanqueTarjeta = ({
               <span className="text-xs text-gray-500">L</span>
             </div>
           </div>
-          
+
           {/* Validación de stock en modo múltiple */}
           {litrosAsignados > 0 && (
             <div className="mt-2 flex items-center justify-end">
@@ -397,7 +395,7 @@ const SelectorEstanque = ({
     if (modoInternoMultiple) {
       return grupoEstanques; // En modo múltiple, mostrar todos
     }
-    
+
     return grupoEstanques.filter((estanque) => {
       if (esParaDestino) {
         // Para destino: verificar capacidad disponible
@@ -439,7 +437,7 @@ const SelectorEstanque = ({
     ...estanques.map((e) => e.stock_actual || 0),
     0
   );
-  
+
   const stockTotalDisponible = estanques.reduce(
     (total, estanque) => total + (estanque.stock_actual || 0),
     0
@@ -516,8 +514,8 @@ const SelectorEstanque = ({
             {modoInternoMultiple
               ? "Configure múltiples estanques para completar el consumo requerido"
               : esSeleccionDestino
-              ? "Elija el estanque móvil que recibirá el combustible"
-              : "Elija el estanque del cual extraerá el combustible"}
+                ? "Elija el estanque móvil que recibirá el combustible"
+                : "Elija el estanque del cual extraerá el combustible"}
           </p>
         </div>
       )}
@@ -531,7 +529,7 @@ const SelectorEstanque = ({
               <p className="font-medium">Stock insuficiente en estanques individuales</p>
               <p>
                 Se requieren {litrosTotalesRequeridos.toLocaleString()}L.
-                Ningún estanque individual tiene suficiente stock. 
+                Ningún estanque individual tiene suficiente stock.
                 {mostrarToggle && " Active el modo múltiple para completar el consumo."}
               </p>
             </div>
@@ -555,13 +553,12 @@ const SelectorEstanque = ({
               type="button"
               onClick={() => handleCambiarModo(false)}
               disabled={necesitaMultiEstanque || disabled}
-              className={`px-3 py-1 text-xs rounded transition-colors ${
-                !modoInternoMultiple
-                  ? "bg-blue-600 text-white"
-                  : necesitaMultiEstanque || disabled
+              className={`px-3 py-1 text-xs rounded transition-colors ${!modoInternoMultiple
+                ? "bg-blue-600 text-white"
+                : necesitaMultiEstanque || disabled
                   ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                   : "bg-gray-200 text-gray-600 hover:bg-gray-300"
-              }`}
+                }`}
             >
               Simple
             </button>
@@ -569,13 +566,12 @@ const SelectorEstanque = ({
               type="button"
               onClick={() => handleCambiarModo(true)}
               disabled={disabled}
-              className={`px-3 py-1 text-xs rounded transition-colors flex items-center ${
-                modoInternoMultiple
-                  ? "bg-blue-600 text-white"
-                  : disabled
+              className={`px-3 py-1 text-xs rounded transition-colors flex items-center ${modoInternoMultiple
+                ? "bg-blue-600 text-white"
+                : disabled
                   ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                   : "bg-gray-200 text-gray-600 hover:bg-gray-300"
-              }`}
+                }`}
             >
               <FaLayerGroup className="mr-1" />
               Múltiple
@@ -594,9 +590,8 @@ const SelectorEstanque = ({
           <div className="flex justify-between items-center text-sm">
             <span>Litros distribuidos:</span>
             <span
-              className={`font-medium ${
-                distribucionCompleta ? "text-green-600" : "text-orange-600"
-              }`}
+              className={`font-medium ${distribucionCompleta ? "text-green-600" : "text-orange-600"
+                }`}
             >
               {litrosDistribuidos.toLocaleString()}L
             </span>
@@ -616,7 +611,7 @@ const SelectorEstanque = ({
         {/* ENCABEZADO MEJORADO CON SEGMENTADOR */}
         <div className="p-3 bg-orange-50 border-b border-orange-100 flex justify-between items-center">
           <h3 className="font-medium text-gray-800 flex items-center">
-            <FaGasPump className="text-orange-500 mr-2" />
+            <RiOilFill className="text-orange-500 mr-2" />
             {modoInternoMultiple ? "Distribuir por estanques" : "Seleccione Estanque"}
             {tipoEstanque !== 'todos' && (
               <span className="ml-2 text-xs bg-orange-200 text-orange-800 px-2 py-1 rounded-full">
@@ -646,12 +641,12 @@ const SelectorEstanque = ({
                 )}
               </div>
             )}
-            
+
             {/* Separador visual */}
             {totalEstanques > 0 && (
               <div className="h-4 w-px bg-gray-300"></div>
             )}
-            
+
             {/* Info total */}
             {totalEstanques > 0 && (
               <div className="text-xs text-gray-500">
@@ -683,14 +678,12 @@ const SelectorEstanque = ({
                     onChange={(e) => setMostrarTodos(e.target.checked)}
                   />
                   <div
-                    className={`block w-8 h-4 rounded-full transition ${
-                      mostrarTodos ? "bg-orange-500" : "bg-gray-300"
-                    }`}
+                    className={`block w-8 h-4 rounded-full transition ${mostrarTodos ? "bg-orange-500" : "bg-gray-300"
+                      }`}
                   ></div>
                   <div
-                    className={`dot absolute left-1 top-1 bg-white w-3 h-3 rounded-full transition ${
-                      mostrarTodos ? "transform translate-x-4" : ""
-                    }`}
+                    className={`dot absolute left-1 top-1 bg-white w-3 h-3 rounded-full transition ${mostrarTodos ? "transform translate-x-4" : ""
+                      }`}
                   ></div>
                 </div>
               </label>
@@ -700,11 +693,11 @@ const SelectorEstanque = ({
 
         {/* LISTA DE ESTANQUES AGRUPADA POR TIPO */}
         <div className="max-h-[400px] overflow-y-auto">
-          
+
           {/* SECCIÓN DE ESTANQUES FIJOS */}
           {(tipoEstanque === 'todos' || tipoEstanque === 'fijo') && estanquesFijosMostrados.length > 0 && (
             <>
-              <SeparadorSeccion 
+              <SeparadorSeccion
                 icono={<FaBuilding className="text-blue-600" size={14} />}
                 titulo="Estanques Fijos"
                 cantidad={estanquesFijosMostrados.length}
@@ -741,8 +734,7 @@ const SelectorEstanque = ({
           {/* SECCIÓN DE ESTANQUES MÓVILES */}
           {(tipoEstanque === 'todos' || tipoEstanque === 'movil') && estanquesMovilesMostrados.length > 0 && (
             <>
-              <SeparadorSeccion 
-                icono={<FaTruck className="text-amber-600" size={14} />}
+              <SeparadorSeccion
                 titulo="Estanques Móviles"
                 cantidad={estanquesMovilesMostrados.length}
                 color="amber"
@@ -785,8 +777,8 @@ const SelectorEstanque = ({
               {modoInternoMultiple
                 ? "No hay estanques disponibles para distribución"
                 : mostrarTodos
-                ? "No se encontraron estanques"
-                : `No hay estanques con ${esSeleccionDestino ? 'capacidad' : 'stock'} suficiente. Active 'Mostrar todos' para ver todos los estanques.`}
+                  ? "No se encontraron estanques"
+                  : `No hay estanques con ${esSeleccionDestino ? 'capacidad' : 'stock'} suficiente. Active 'Mostrar todos' para ver todos los estanques.`}
             </p>
           </div>
         )}
@@ -825,7 +817,7 @@ const SelectorEstanque = ({
                 <span className="font-medium">{estanqueSeleccionado.nombre}</span>
               </div>
               <div className="flex justify-between">
-                <span>Capacidad disponible:</span>
+                <span>Espacio disponible:</span>
                 <span className="font-medium text-green-600">
                   {((estanqueSeleccionado.capacidad || 0) - (estanqueSeleccionado.stock_actual || 0)).toLocaleString()}L
                 </span>
@@ -833,11 +825,10 @@ const SelectorEstanque = ({
               {litrosRequeridos > 0 && (
                 <div className="flex justify-between">
                   <span>Litros requeridos:</span>
-                  <span className={`font-medium ${
-                    ((estanqueSeleccionado.capacidad || 0) - (estanqueSeleccionado.stock_actual || 0)) >= litrosRequeridos
-                      ? 'text-green-600' 
-                      : 'text-red-600'
-                  }`}>
+                  <span className={`font-medium ${((estanqueSeleccionado.capacidad || 0) - (estanqueSeleccionado.stock_actual || 0)) >= litrosRequeridos
+                    ? 'text-green-600'
+                    : 'text-red-600'
+                    }`}>
                     {litrosRequeridos.toLocaleString()}L
                   </span>
                 </div>
