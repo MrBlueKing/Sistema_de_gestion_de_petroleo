@@ -373,13 +373,9 @@ const BomberoNavigation = () => {
         <div className="container mx-auto">
           {renderStep}
         </div>
-        
-        {/* 🆕 NUEVO: Indicador de tipo de flujo para debugging (solo en desarrollo) */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="fixed bottom-4 left-4 bg-black bg-opacity-75 text-white px-3 py-1 rounded text-xs">
-            Paso: {currentStep} | Flujo: {tipoFlujo}
-          </div>
-        )}
+       
+
+
       </div>
     </div>
   );
