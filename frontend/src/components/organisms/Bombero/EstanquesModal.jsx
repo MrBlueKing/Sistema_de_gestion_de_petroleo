@@ -160,6 +160,14 @@ const EstanquesModal = ({
   onDistribucionChange,
   esTrasvasije = false // true para trasvasije (1 estanque), false para recepción (múltiples)
 }) => {
+
+  // 🔍 AGREGAR ESTO PARA DEPURAR:
+  console.log("🔍 EstanquesModal recibió:", {
+    esTrasvasije,
+    litrosRecibidos,
+    distribucionLitros
+  });
+
   const [loading, setLoading] = useState(false);
   const [resultadoCalculo, setResultadoCalculo] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -190,6 +198,38 @@ const EstanquesModal = ({
 
   // Estado para controlar si se muestran los consejos de medición en móvil
   const [mostrarConsejos, setMostrarConsejos] = useState(false);
+
+  // Función para manejar selección automática de estanque en trasvasijes
+  // CORRECCIÓN EN EstanquesModal.jsx
+  // Modificar la función de selección automática:
+
+  const seleccionarEstanqueAutomatico = (estanqueId) => {
+    if (!esTrasvasije) return;
+
+    const litrosTotal = litrosRecibidos || 0;
+    const estanqueSeleccionado = estanques.find(e => e.id_estanque === estanqueId);
+
+    // Verificar capacidad
+    const capacidadDisponible = estanqueSeleccionado.capacidad - estanqueSeleccionado.stock_actual;
+    if (litrosTotal > capacidadDisponible) {
+      alert(`❌ Capacidad insuficiente. Disponible: ${capacidadDisponible.toLocaleString('es-CL')} L`);
+      return;
+    }
+
+    // 🆕 ASIGNACIÓN AUTOMÁTICA - Solo este estanque recibe TODOS los litros
+    const nuevaDistribucion = {};
+    estanques.forEach((estanque) => {
+      nuevaDistribucion[estanque.id_estanque] =
+        estanque.id_estanque === estanqueId ? litrosTotal.toString() : "0";
+    });
+
+    // Enviar al padre
+    if (onDistribucionChange) {
+      onDistribucionChange(nuevaDistribucion);
+    }
+
+    console.log(`✅ Estanque seleccionado: ${estanqueSeleccionado.nombre} recibirá ${litrosTotal} L`);
+  };
 
   // Función para toggle del estado expandido
   const toggleEstanqueExpandido = (estanqueId) => {
@@ -1154,6 +1194,59 @@ const EstanquesModal = ({
                                         </div>
                                       </div>
                                     </div>
+                                    {/* SECCIÓN DE DISTRIBUCIÓN */}
+                                    <div className="mt-4 pt-4 border-t">
+                                      <h4 className="text-sm font-medium text-gray-700 mb-2">
+                                        {esTrasvasije ? "Seleccionar como destino" : "Distribución"}
+                                      </h4>
+
+                                      {esTrasvasije ? (
+                                        // MODO TRASVASIJE - Botón de selección
+                                        <div className="space-y-2">
+                                          <button
+                                            onClick={() => seleccionarEstanqueAutomatico(estanque.id_estanque)}
+                                            className={`
+                w-full p-3 rounded-lg border-2 text-center font-medium transition-all
+                ${(distribucionLitros[estanque.id_estanque] && parseFloat(distribucionLitros[estanque.id_estanque]) > 0)
+                                                ? 'border-green-500 bg-green-50 text-green-700'
+                                                : 'border-gray-300 hover:border-blue-400 text-gray-700'
+                                              }
+              `}
+                                          >
+                                            {(distribucionLitros[estanque.id_estanque] && parseFloat(distribucionLitros[estanque.id_estanque]) > 0)
+                                              ? `✅ SELECCIONADO - ${parseFloat(distribucionLitros[estanque.id_estanque]).toLocaleString('es-CL')} L`
+                                              : '👆 Tocar para seleccionar'
+                                            }
+                                          </button>
+
+                                          {/* Mostrar capacidad disponible */}
+                                          <div className="text-xs text-gray-500 text-center">
+                                            Capacidad disponible: {(estanque.capacidad - estanque.stock_actual).toLocaleString('es-CL')} L
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        // MODO RECEPCIÓN - Input manual (mantener original)
+                                        <div>
+                                          <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            value={distribucionLitros[estanque.id_estanque] || ""}
+                                            onChange={(e) => {
+                                              const nuevaDistribucion = {
+                                                ...distribucionLitros,
+                                                [estanque.id_estanque]: e.target.value
+                                              };
+                                              if (onDistribucionChange) {
+                                                onDistribucionChange(nuevaDistribucion);
+                                              }
+                                            }}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                            placeholder="Litros a distribuir..."
+                                          />
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                 );
                               })}
@@ -1495,23 +1588,77 @@ const EstanquesModal = ({
                               <div className={`p-6 ${!isMobile ? "flex-1" : ""}`}>
                                 {/* SECCIÓN 1: DISTRIBUCIÓN DE COMBUSTIBLE (solo en paso inicial) */}
                                 {paso === "inicial" && (
-                                  <>
-                                    <div className="mb-6">
-                                      <div className="flex items-center mb-4">
-                                        <div
-                                          className={`${colorEstanque.solid} p-2 rounded-lg mr-3`}
-                                        >
-                                          <FaGasPump className="text-white text-sm" />
-                                        </div>
-                                        <div>
-                                          <h4
-                                            className={`font-semibold ${colorEstanque.darkText} text-base`}
-                                          >
-                                            Distribución de Combustible
-                                          </h4>
-                                        </div>
-                                      </div>
+                                  <div className="mt-4 pt-4 border-t">
+                                    {esTrasvasije ? (
+                                      // MODO TRASVASIJE - Solo seleccionar, sin input de litros
+                                      <div className="space-y-3">
+                                        <h4 className="text-sm font-medium text-gray-700">
+                                          Seleccionar como estanque destino
+                                        </h4>
 
+                                        <button
+                                          onClick={() => seleccionarEstanqueAutomatico(estanque.id_estanque)}
+                                          className={`
+            w-full p-4 rounded-lg border-2 text-center font-medium transition-all
+            ${(distribucionLitros[estanque.id_estanque] && parseFloat(distribucionLitros[estanque.id_estanque]) > 0)
+                                              ? 'border-green-500 bg-green-50 text-green-700 shadow-md'
+                                              : 'border-gray-300 hover:border-orange-400 hover:bg-orange-50 text-gray-700'
+                                            }
+          `}
+                                        >
+                                          <div className="flex items-center justify-center space-x-2">
+                                            <div className={`
+              w-5 h-5 rounded-full border-2 flex items-center justify-center
+              ${(distribucionLitros[estanque.id_estanque] && parseFloat(distribucionLitros[estanque.id_estanque]) > 0)
+                                                ? 'border-green-500 bg-green-500'
+                                                : 'border-gray-400'
+                                              }
+            `}>
+                                              {(distribucionLitros[estanque.id_estanque] && parseFloat(distribucionLitros[estanque.id_estanque]) > 0) && (
+                                                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                </svg>
+                                              )}
+                                            </div>
+
+                                            <span>
+                                              {(distribucionLitros[estanque.id_estanque] && parseFloat(distribucionLitros[estanque.id_estanque]) > 0)
+                                                ? `✅ SELECCIONADO - Recibirá ${parseFloat(distribucionLitros[estanque.id_estanque]).toLocaleString('es-CL')} L`
+                                                : 'Seleccionar como destino del trasvasije'
+                                              }
+                                            </span>
+                                          </div>
+                                        </button>
+
+                                        {/* Info de capacidad */}
+                                        <div className="text-xs text-gray-500 text-center">
+                                          💧 Capacidad disponible: {(estanque.capacidad - estanque.stock_actual).toLocaleString('es-CL')} L
+                                        </div>
+
+                                        {/* Mostrar info adicional si está seleccionado */}
+                                        {(distribucionLitros[estanque.id_estanque] && parseFloat(distribucionLitros[estanque.id_estanque]) > 0) && (
+                                          <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm">
+                                            <div className="flex items-center justify-between text-green-700">
+                                              <span>Stock actual:</span>
+                                              <span className="font-bold">{estanque.stock_actual.toLocaleString('es-CL')} L</span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-green-700">
+                                              <span>Después del trasvasije:</span>
+                                              <span className="font-bold">
+                                                {(parseFloat(estanque.stock_actual) + parseFloat(distribucionLitros[estanque.id_estanque] || 0)).toFixed(2)} L
+                                                {console.log(
+                                                  "Capacidad total:", estanque.capacidad,
+                                                  "Stock actual:", estanque.stock_actual,
+                                                  "Distribución:", distribucionLitros[estanque.id_estanque]
+                                                )}
+                                              </span>
+
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      // MODO RECEPCIÓN - Input manual (mantener original)
                                       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                                         <InputLitros
                                           value={litrosAsignados}
@@ -1526,16 +1673,8 @@ const EstanquesModal = ({
                                           error={errorDistribucion}
                                         />
                                       </div>
-                                    </div>
-
-                                    {/* SEPARADOR ELEGANTE */}
-                                    <div className="mb-6">
-                                      <div className="flex items-center">
-                                        <div className="flex-grow border-t border-gray-300"></div>
-                                        <div className="flex-grow border-t border-gray-300"></div>
-                                      </div>
-                                    </div>
-                                  </>
+                                    )}
+                                  </div>
                                 )}
 
                                 {/* SECCIÓN 2: MEDICIÓN DE ALTURA */}

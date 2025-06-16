@@ -147,25 +147,25 @@ const FormConsumo = ({
       if (!id_dotacion) {
         throw new Error(
           "❌ No se encontró el RUT del solicitante. Datos: " +
-            JSON.stringify(solicitante)
+          JSON.stringify(solicitante)
         );
       }
       if (!id_equipo) {
         throw new Error(
           "❌ No se encontró el ID del equipo. Datos: " +
-            JSON.stringify({ patenteSeleccionada, categoriaSeleccionada })
+          JSON.stringify({ patenteSeleccionada, categoriaSeleccionada })
         );
       }
       if (!id_usuario) {
         throw new Error(
           "❌ No se encontró el ID del usuario. Datos: " +
-            JSON.stringify(userInfo)
+          JSON.stringify(userInfo)
         );
       }
       if (!id_faena) {
         throw new Error(
           "❌ No se encontró el ID de la faena. Datos: " +
-            JSON.stringify({ userInfo, idFaena })
+          JSON.stringify({ userInfo, idFaena })
         );
       }
 
@@ -205,20 +205,20 @@ const FormConsumo = ({
         // Datos específicos según el modo
         ...(modoMultiEstanque
           ? {
-              // MODO MÚLTIPLE
-              estanques_multiples: datosConsumo.estanques_multiples || [],
-            }
+            // MODO MÚLTIPLE
+            estanques_multiples: datosConsumo.estanques_multiples || [],
+          }
           : {
-              // MODO SIMPLE
-              id_estanque:
-                datosConsumo.id_estanque || estanqueSeleccionado?.id_estanque,
-              medicion: parseFloat(
-                datosConsumo.medicion ||
-                  datosConsumo.horometro ||
-                  datosConsumo.kilometraje ||
-                  0
-              ),
-            }),
+            // MODO SIMPLE
+            id_estanque:
+              datosConsumo.id_estanque || estanqueSeleccionado?.id_estanque,
+            medicion: parseFloat(
+              datosConsumo.medicion ||
+              datosConsumo.horometro ||
+              datosConsumo.kilometraje ||
+              0
+            ),
+          }),
       };
 
       console.log("📦 Datos preparados para envío:", consumoData);
@@ -288,8 +288,7 @@ const FormConsumo = ({
       // 🆕 Log para verificar tipos de estanque
       estanques.forEach((estanque) => {
         console.log(
-          `🏷️ Estanque: ${estanque.nombre} - Tipo: ${
-            estanque.tipo_estanque || "no definido"
+          `🏷️ Estanque: ${estanque.nombre} - Tipo: ${estanque.tipo_estanque || "no definido"
           }`
         );
       });
@@ -312,16 +311,16 @@ const FormConsumo = ({
   // CÁLCULOS Y VALIDACIONES
   // ===================================
   const litrosTotalesRequeridos = parseFloat(formData.litros) || 0;
-  
+
   const stockTotalDisponible = estanquesDisponibles.reduce(
     (total, est) => total + (est.stock_actual || 0),
     0
   );
-  
+
   const estanqueConStockSuficiente = estanquesDisponibles.find(
     (est) => (est.stock_actual || 0) >= litrosTotalesRequeridos
   );
-  
+
   const necesitaMultiEstanque =
     litrosTotalesRequeridos > 0 &&
     !estanqueConStockSuficiente &&
@@ -332,14 +331,14 @@ const FormConsumo = ({
     (total, litros) => total + (parseFloat(litros) || 0),
     0
   );
-  
+
   const distribucionCompleta =
     Math.abs(litrosDistribuidos - litrosTotalesRequeridos) < 0.01;
-  
+
   const tieneEstanquesSeleccionados = Object.keys(distribucionLitros).some(
     (key) => (distribucionLitros[key] || 0) > 0
   );
-  
+
   const stockSuficienteMulti = Object.keys(distribucionLitros).every(
     (estanqueId) => {
       const litrosAsignados = distribucionLitros[estanqueId] || 0;
@@ -580,14 +579,14 @@ const FormConsumo = ({
   const tieneStockSuficiente = modoMultiEstanque
     ? stockSuficienteMulti && distribucionCompleta
     : estanqueSeleccionado &&
-      estanqueSeleccionado.stock_actual >= litrosTotalesRequeridos;
+    estanqueSeleccionado.stock_actual >= litrosTotalesRequeridos;
 
   // Verificar si el formulario está completo para habilitar el botón
   const formularioCompleto =
     (modoMultiEstanque
       ? tieneEstanquesSeleccionados &&
-        distribucionCompleta &&
-        stockSuficienteMulti
+      distribucionCompleta &&
+      stockSuficienteMulti
       : estanqueSeleccionado) &&
     formData.numeralInicial &&
     formData.numeralFinal &&
@@ -596,6 +595,21 @@ const FormConsumo = ({
     (showKilometraje ? formData.kilometraje : true) &&
     parseFloat(formData.litros) > 0 &&
     tieneStockSuficiente;
+
+  // Justo después de la línea que define formularioCompleto, agrega:
+  console.log("🔍 DEBUG Validaciones del formulario:", {
+    estanqueSeleccionado: !!estanqueSeleccionado,
+    numeralInicial: !!formData.numeralInicial,
+    numeralFinal: !!formData.numeralFinal,
+    hasNumeralError,
+    showHorometro,
+    horometro: formData.horometro,
+    showKilometraje,
+    kilometraje: formData.kilometraje,
+    litros: parseFloat(formData.litros),
+    tieneStockSuficiente,
+    formularioCompleto
+  });
 
   // 🆕 Obtener info del tipo de operación para mostrar
   const infoTipoOperacion = obtenerInfoTipoOperacion();
@@ -620,58 +634,56 @@ const FormConsumo = ({
       {/* 🆕 INDICADOR DE TIPO DE OPERACIÓN */}
       {(estanqueSeleccionado ||
         (modoMultiEstanque && tieneEstanquesSeleccionados)) && (
-        <div
-          className={`rounded-lg p-3 border ${
-            infoTipoOperacion.tipoOperacion === "estanque_movil"
+          <div
+            className={`rounded-lg p-3 border ${infoTipoOperacion.tipoOperacion === "estanque_movil"
               ? "bg-amber-50 border-amber-300"
               : "bg-blue-50 border-blue-300"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              {infoTipoOperacion.tipoOperacion === "estanque_movil" ? (
-                <FaTruck className="text-amber-600 mr-2" />
-              ) : (
-                <FaGasPump className="text-blue-600 mr-2" />
-              )}
-              <div>
-                <p className="text-sm font-medium text-gray-800">
-                  Tipo de operación:{" "}
-                  {infoTipoOperacion.tipoOperacion === "estanque_movil"
-                    ? "Estanque Móvil"
-                    : "Normal (Fijo)"}
-                </p>
-                {modoMultiEstanque && infoTipoOperacion.total > 0 && (
-                  <p className="text-xs text-gray-600">
-                    {infoTipoOperacion.estanquesFijos > 0 &&
-                      `${infoTipoOperacion.estanquesFijos} fijo(s)`}
-                    {infoTipoOperacion.esMixto && ", "}
-                    {infoTipoOperacion.estanquesMoviles > 0 &&
-                      `${infoTipoOperacion.estanquesMoviles} móvil(es)`}
-                  </p>
+              }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                {infoTipoOperacion.tipoOperacion === "estanque_movil" ? (
+                  <FaTruck className="text-amber-600 mr-2" />
+                ) : (
+                  <FaGasPump className="text-blue-600 mr-2" />
                 )}
-                {!modoMultiEstanque && estanqueSeleccionado && (
-                  <p className="text-xs text-gray-600">
-                    {estanqueSeleccionado.nombre} -{" "}
-                    {estanqueSeleccionado.tipo_estanque}
+                <div>
+                  <p className="text-sm font-medium text-gray-800">
+                    Tipo de operación:{" "}
+                    {infoTipoOperacion.tipoOperacion === "estanque_movil"
+                      ? "Estanque Móvil"
+                      : "Normal (Fijo)"}
                   </p>
-                )}
+                  {modoMultiEstanque && infoTipoOperacion.total > 0 && (
+                    <p className="text-xs text-gray-600">
+                      {infoTipoOperacion.estanquesFijos > 0 &&
+                        `${infoTipoOperacion.estanquesFijos} fijo(s)`}
+                      {infoTipoOperacion.esMixto && ", "}
+                      {infoTipoOperacion.estanquesMoviles > 0 &&
+                        `${infoTipoOperacion.estanquesMoviles} móvil(es)`}
+                    </p>
+                  )}
+                  {!modoMultiEstanque && estanqueSeleccionado && (
+                    <p className="text-xs text-gray-600">
+                      {estanqueSeleccionado.nombre} -{" "}
+                      {estanqueSeleccionado.tipo_estanque}
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-            <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                infoTipoOperacion.tipoOperacion === "estanque_movil"
+              <span
+                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${infoTipoOperacion.tipoOperacion === "estanque_movil"
                   ? "bg-amber-100 text-amber-800"
                   : "bg-blue-100 text-blue-800"
-              }`}
-            >
-              {infoTipoOperacion.tipoOperacion === "estanque_movil"
-                ? "🚛 Móvil"
-                : "🏗️ Fijo"}
-            </span>
+                  }`}
+              >
+                {infoTipoOperacion.tipoOperacion === "estanque_movil"
+                  ? "🚛 Móvil"
+                  : "🏗️ Fijo"}
+              </span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* PASO 1: Datos de consumo (manteniendo tu estructura original) */}
       <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
@@ -709,11 +721,31 @@ const FormConsumo = ({
               <input
                 type="number"
                 step="0.01"
+                value={formData.horometro}  // ✅ USAR horometro
+                onChange={(e) => handleChange("horometro", e.target.value)}  // ✅ ACTUALIZAR horometro
+                disabled={isSaving || isSaved}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                placeholder="Ej: 1234"
+              />
+            </div>
+          )}
+
+          {showKilometraje && (
+            <div className="col-span-1">
+              <label className="block text-left text-gray-700 text-xs sm:text-sm font-medium mb-1">
+                <span className="flex items-center">
+                  <FaTachometerAlt className="text-gray-500 mr-1" size={14} />
+                  Kilometraje Actual <span className="text-red-500">*</span>
+                </span>
+              </label>
+              <input
+                type="number"
+                step="0.01"
                 value={formData.kilometraje}
                 onChange={(e) => handleChange("kilometraje", e.target.value)}
                 disabled={isSaving || isSaved}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                placeholder="Ej: 1234"
+                placeholder="Ej: 12345"
               />
             </div>
           )}
@@ -745,9 +777,8 @@ const FormConsumo = ({
               value={formData.numeralFinal}
               onChange={(e) => handleChange("numeralFinal", e.target.value)}
               disabled={isSaving || isSaved}
-              className={`w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
-                hasNumeralError ? "border-red-500 bg-red-50" : "border-gray-300"
-              }`}
+              className={`w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${hasNumeralError ? "border-red-500 bg-red-50" : "border-gray-300"
+                }`}
               placeholder="Ej: 150.5"
             />
             {hasNumeralError && (
@@ -817,6 +848,13 @@ const FormConsumo = ({
 
       {/* PASO 2: Selector de Estanques - USANDO EL COMPONENTE EXTENDIDO */}
       <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+        {/* ✅ DEBUG: Agregar esto */}
+        {console.log("🔍 FormConsumo - Props que envío al SelectorEstanque:", {
+          onEstanqueSelect: typeof onEstanqueSelect,
+          estanqueSeleccionado,
+          modoMultiEstanque,
+          faenaIdForSelector
+        })}
         <SelectorEstanque
           idFaena={faenaIdForSelector}
           onEstanqueSelect={onEstanqueSelect}
@@ -857,11 +895,10 @@ const FormConsumo = ({
                   litros
                   {estanqueSeleccionado.tipo_estanque && (
                     <span
-                      className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        estanqueSeleccionado.tipo_estanque === "movil"
-                          ? "bg-amber-100 text-amber-800"
-                          : "bg-blue-100 text-blue-800"
-                      }`}
+                      className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${estanqueSeleccionado.tipo_estanque === "movil"
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-blue-100 text-blue-800"
+                        }`}
                     >
                       {estanqueSeleccionado.tipo_estanque === "movil"
                         ? "Móvil"
@@ -885,15 +922,13 @@ const FormConsumo = ({
         <button
           onClick={handleSubmitWrapper}
           disabled={isSaving || isSaved || !formularioCompleto}
-          className={`w-full md:w-auto px-6 py-2.5 rounded-lg flex items-center justify-center transition-colors ${
-            isSaved
-              ? "bg-green-600 hover:bg-green-700 text-white"
-              : "bg-orange-500 hover:bg-orange-600 text-white"
-          } ${
-            isSaving || isSaved || !formularioCompleto
+          className={`w-full md:w-auto px-6 py-2.5 rounded-lg flex items-center justify-center transition-colors ${isSaved
+            ? "bg-green-600 hover:bg-green-700 text-white"
+            : "bg-orange-500 hover:bg-orange-600 text-white"
+            } ${isSaving || isSaved || !formularioCompleto
               ? "opacity-80 cursor-not-allowed"
               : ""
-          }`}
+            }`}
         >
           {isSaving ? (
             <>
