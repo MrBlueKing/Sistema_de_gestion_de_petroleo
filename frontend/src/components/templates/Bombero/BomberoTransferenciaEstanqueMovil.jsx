@@ -3,9 +3,9 @@ import StepHeader from "../../molecules/StepHeader";
 import TabProgressBar from "../../molecules/TabProgressBar";
 import Button from "../../atoms/Button/Button";
 import PageControl from "../../molecules/PageControl";
-import { 
-  FaArrowLeft, 
-  FaGasPump, 
+import {
+  FaArrowLeft,
+  FaGasPump,
   FaTruck,
   FaCheckCircle,
   FaExclamationTriangle,
@@ -20,26 +20,28 @@ import {
   FaBars,
   FaPlus,
   FaMinus,
-  FaUndo
+  FaUndo,
 } from "react-icons/fa";
 import { GiGasPump } from "react-icons/gi";
 import SelectorEstanque from "../../molecules/SelectorEstanque";
 import bomberoService from "../../../context/bomberoService";
+// 🆕 IMPORTAR EL NUEVO SERVICIO
+import transferenciaService from "../../../context/transferenciaService";
 
-const BomberoTransferenciaEstanqueMovil = ({ 
+const BomberoTransferenciaEstanqueMovil = ({
   tipoSolicitante,
-  solicitante, 
+  solicitante,
   categoriaSeleccionada,
-  onPrevious, 
+  onPrevious,
   onComplete,
   resetFlow,
   userInfo,
   idFaena,
-  preloadedEstanques
+  preloadedEstanques,
 }) => {
   // Estados para los numerales y cálculo automático
-  const [numeralInicial, setNumeralInicial] = useState('');
-  const [numeralFinal, setNumeralFinal] = useState('');
+  const [numeralInicial, setNumeralInicial] = useState("");
+  const [numeralFinal, setNumeralFinal] = useState("");
   const [litrosCalculados, setLitrosCalculados] = useState(0);
 
   // Estados para estanques usando el patrón del SelectorEstanque
@@ -47,14 +49,18 @@ const BomberoTransferenciaEstanqueMovil = ({
   const [estanqueOrigenSimple, setEstanqueOrigenSimple] = useState(null);
   const [modoMultipleOrigen, setModoMultipleOrigen] = useState(false);
   const [distribucionLitrosOrigen, setDistribucionLitrosOrigen] = useState({});
-  
+
   // Estados para el formulario
-  const [observaciones, setObservaciones] = useState('');
+  const [observaciones, setObservaciones] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState("");
   const [showValidation, setShowValidation] = useState(false);
+
+  // 🆕 ESTADOS ADICIONALES PARA FEEDBACK
+  const [progressMessage, setProgressMessage] = useState("");
+  const [transferenciaCompletada, setTransferenciaCompletada] = useState(null);
 
   // Cálculo automático de litros cuando cambian los numerales
   useEffect(() => {
@@ -62,14 +68,17 @@ const BomberoTransferenciaEstanqueMovil = ({
     const final = parseFloat(numeralFinal) || 0;
     const calculados = final > inicial ? final - inicial : 0;
     setLitrosCalculados(calculados);
-    
+
     console.log(`🧮 Litros calculados: ${calculados} (${final} - ${inicial})`);
   }, [numeralInicial, numeralFinal]);
 
   // Calcular capacidad disponible del destino
   const capacidadDisponibleDestino = useMemo(() => {
     if (!estanqueDestino) return 0;
-    return Math.max(0, estanqueDestino.capacidad - estanqueDestino.stock_actual);
+    return Math.max(
+      0,
+      estanqueDestino.capacidad - estanqueDestino.stock_actual
+    );
   }, [estanqueDestino]);
 
   // Calcular suma de distribución actual para modo múltiple origen
@@ -77,55 +86,62 @@ const BomberoTransferenciaEstanqueMovil = ({
     (total, litros) => total + (parseFloat(litros) || 0),
     0
   );
-  const distribucionCompleta = Math.abs(litrosDistribuidos - litrosCalculados) < 0.01;
-  const tieneEstanquesOrigenSeleccionados = Object.keys(distribucionLitrosOrigen).some(
-    (key) => (distribucionLitrosOrigen[key] || 0) > 0
-  );
+  const distribucionCompleta =
+    Math.abs(litrosDistribuidos - litrosCalculados) < 0.01;
+  const tieneEstanquesOrigenSeleccionados = Object.keys(
+    distribucionLitrosOrigen
+  ).some((key) => (distribucionLitrosOrigen[key] || 0) > 0);
 
   // Validaciones completas
   const validaciones = useMemo(() => {
-    const numeralesValidos = parseFloat(numeralFinal) > parseFloat(numeralInicial) && 
-                           numeralInicial !== '' && numeralFinal !== '';
-    
-    const stockSuficienteOrigen = modoMultipleOrigen ? 
-      distribucionCompleta && tieneEstanquesOrigenSeleccionados :
-      estanqueOrigenSimple && litrosCalculados <= (estanqueOrigenSimple.stock_actual || 0);
+    const numeralesValidos =
+      parseFloat(numeralFinal) > parseFloat(numeralInicial) &&
+      numeralInicial !== "" &&
+      numeralFinal !== "";
 
-    const capacidadSuficienteDestino = litrosCalculados <= capacidadDisponibleDestino;
+    const stockSuficienteOrigen = modoMultipleOrigen
+      ? distribucionCompleta && tieneEstanquesOrigenSeleccionados
+      : estanqueOrigenSimple &&
+        litrosCalculados <= (estanqueOrigenSimple.stock_actual || 0);
+
+    const capacidadSuficienteDestino =
+      litrosCalculados <= capacidadDisponibleDestino;
 
     return {
       numeralesValidos,
       litrosCalculadosValidos: litrosCalculados > 0,
       estanqueDestinoSeleccionado: !!estanqueDestino,
-      estanqueOrigenSeleccionado: modoMultipleOrigen ? tieneEstanquesOrigenSeleccionados : !!estanqueOrigenSimple,
+      estanqueOrigenSeleccionado: modoMultipleOrigen
+        ? tieneEstanquesOrigenSeleccionados
+        : !!estanqueOrigenSimple,
       stockSuficienteOrigen,
       capacidadSuficienteDestino,
       distribucionValida: modoMultipleOrigen ? distribucionCompleta : true,
-      solicitanteValido: !!solicitante
+      solicitanteValido: !!solicitante,
     };
   }, [
-    numeralInicial, 
-    numeralFinal, 
-    litrosCalculados, 
-    estanqueDestino, 
-    estanqueOrigenSimple, 
+    numeralInicial,
+    numeralFinal,
+    litrosCalculados,
+    estanqueDestino,
+    estanqueOrigenSimple,
     modoMultipleOrigen,
     distribucionCompleta,
     tieneEstanquesOrigenSeleccionados,
     capacidadDisponibleDestino,
-    solicitante
+    solicitante,
   ]);
 
   // Verificar si el formulario está completo
   const formularioCompleto = useMemo(() => {
-    return Object.values(validaciones).every(v => v === true);
+    return Object.values(validaciones).every((v) => v === true);
   }, [validaciones]);
 
   // Función para obtener el texto del tipo de solicitante con color
   const getTipoSolicitanteDisplay = useCallback(() => {
-    if (tipoSolicitante === 'interno') {
+    if (tipoSolicitante === "interno") {
       return <span className="text-blue-600 font-medium">Interno</span>;
-    } else if (tipoSolicitante === 'externo') {
+    } else if (tipoSolicitante === "externo") {
       return <span className="text-green-600 font-medium">Externo</span>;
     }
     return <span className="text-gray-600">No definido</span>;
@@ -133,8 +149,8 @@ const BomberoTransferenciaEstanqueMovil = ({
 
   // Manejar cambio de numerales
   const handleNumeralChange = useCallback((tipo, valor) => {
-    if (valor === '' || (!isNaN(valor) && parseFloat(valor) >= 0)) {
-      if (tipo === 'inicial') {
+    if (valor === "" || (!isNaN(valor) && parseFloat(valor) >= 0)) {
+      if (tipo === "inicial") {
         setNumeralInicial(valor);
       } else {
         setNumeralFinal(valor);
@@ -170,81 +186,120 @@ const BomberoTransferenciaEstanqueMovil = ({
     setEstanqueDestino(estanque);
   }, []);
 
-  // Manejar envío del formulario
   const handleSubmit = useCallback(async () => {
     setShowValidation(true);
-    
+
     if (!formularioCompleto) {
-      console.warn('⚠️ Formulario incompleto');
+      console.warn("⚠️ Formulario incompleto");
       return;
     }
 
     setIsSaving(true);
     setHasError(false);
-    setErrorMessage('');
+    setErrorMessage("");
+    setProgressMessage("Preparando transferencia...");
 
     try {
-      console.log('📤 Enviando transferencia de estanque móvil...');
-
+      // 🔍 PREPARAR DATOS PARA EL SERVICIO
       const transferData = {
         tipo_solicitante: tipoSolicitante,
         id_dotacion: solicitante?.rut || solicitante?.id,
         categoria: categoriaSeleccionada,
-        tipo_operacion: 'estanque_movil',
-        
-        // Datos de numerales y cálculos
-        numeral_inicial: parseFloat(numeralInicial),
-        numeral_final: parseFloat(numeralFinal),
+        tipo_operacion: "estanque_movil",
+
+        // 🆕 ENVIAR NUMERALES COMO ESTÁN (el servicio los convertirá)
+        numeral_inicial: numeralInicial,
+        numeral_final: numeralFinal,
         litros_calculados: litrosCalculados,
-        
+
         // Datos de estanques
         estanque_destino: estanqueDestino.id_estanque,
         modo_multiple_origen: modoMultipleOrigen,
-        
+
         // Datos de origen según modo
-        ...(modoMultipleOrigen ? {
-          estanques_origen: Object.keys(distribucionLitrosOrigen)
-            .filter(id => distribucionLitrosOrigen[id] > 0)
-            .map(id => parseInt(id)),
-          distribucion_litros: distribucionLitrosOrigen
-        } : {
-          estanque_origen: estanqueOrigenSimple.id_estanque,
-          litros_transferir: litrosCalculados
-        }),
-        
+        ...(modoMultipleOrigen
+          ? {
+              estanques_origen: Object.keys(distribucionLitrosOrigen)
+                .filter((id) => distribucionLitrosOrigen[id] > 0)
+                .map((id) => parseInt(id)),
+              distribucion_litros: distribucionLitrosOrigen,
+            }
+          : {
+              estanque_origen: estanqueOrigenSimple.id_estanque,
+              litros_transferir: litrosCalculados,
+            }),
+
         observaciones: observaciones.trim(),
         id_faena: idFaena,
         fecha_transferencia: new Date().toISOString(),
-        
+
         // Información adicional para auditoría
-        capacidad_disponible_destino: capacidadDisponibleDestino
+        capacidad_disponible_destino: capacidadDisponibleDestino,
+        userInfo: userInfo,
       };
 
-      console.log('📋 Datos de transferencia:', transferData);
+      console.log(
+        "📋 Datos de transferencia preparados para servicio:",
+        transferData
+      );
 
-      // Simular API call (reemplazar con tu endpoint real)
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // 🔍 VALIDACIÓN CON EL SERVICIO
+      const validacionLocal =
+        transferenciaService.validarTransferencia(transferData);
+      if (!validacionLocal.valido) {
+        throw new Error(validacionLocal.errores.join(", "));
+      }
 
-      console.log('✅ Transferencia registrada exitosamente');
+      setProgressMessage("Enviando al servidor...");
+
+      // 🚀 ENVÍO USANDO EL SERVICIO
+      let resultado;
+      if (modoMultipleOrigen) {
+        console.log("📤 Enviando transferencia múltiple...");
+        resultado = await transferenciaService.registrarMultipleFijoAMovil(
+          transferData
+        );
+      } else {
+        console.log("📤 Enviando transferencia simple...");
+        resultado = await transferenciaService.registrarFijoAMovil(
+          transferData
+        );
+      }
+
+      console.log("✅ Transferencia registrada exitosamente:", resultado);
+
+      setProgressMessage("Transferencia completada exitosamente");
       setIsSaved(true);
-      
-      // Completar el flujo después de un breve delay
-      setTimeout(() => {
-        onComplete(transferData);
-      }, 1500);
+      setTransferenciaCompletada(resultado);
 
+      // 🔄 LIMPIAR CACHE DE ESTANQUES PARA REFLEJAR NUEVOS STOCKS
+      if (bomberoService?.clearEstanquesCache) {
+        bomberoService.clearEstanquesCache();
+      }
+
+      // Completar el flujo después de un breve delay para mostrar el éxito
+      setTimeout(() => {
+        onComplete({
+          ...transferData,
+          resultado: resultado,
+          success: true,
+        });
+      }, 2000);
     } catch (error) {
-      console.error('❌ Error registrando transferencia:', error);
+      console.error("❌ Error registrando transferencia:", error);
       setHasError(true);
-      setErrorMessage(error.response?.data?.message || 'Error al registrar la transferencia');
+      setErrorMessage(
+        error.message || "Error desconocido al registrar la transferencia"
+      );
+      setProgressMessage("");
     } finally {
       setIsSaving(false);
     }
   }, [
-    formularioCompleto, 
-    tipoSolicitante, 
-    solicitante, 
-    categoriaSeleccionada, 
+    formularioCompleto,
+    tipoSolicitante,
+    solicitante,
+    categoriaSeleccionada,
     numeralInicial,
     numeralFinal,
     litrosCalculados,
@@ -252,12 +307,12 @@ const BomberoTransferenciaEstanqueMovil = ({
     modoMultipleOrigen,
     estanqueOrigenSimple,
     distribucionLitrosOrigen,
-    observaciones, 
-    idFaena, 
+    observaciones,
+    idFaena,
     capacidadDisponibleDestino,
-    onComplete
+    userInfo,
+    onComplete,
   ]);
-
   // Formatear fecha para mostrar
   const formatDate = (dateString) => {
     if (!dateString) return "";
@@ -272,13 +327,13 @@ const BomberoTransferenciaEstanqueMovil = ({
   };
 
   // Asegurarse de que idFaena sea un valor numérico
-  const faenaIdForSelector = idFaena !== undefined && idFaena !== null ? Number(idFaena) : null;
+  const faenaIdForSelector =
+    idFaena !== undefined && idFaena !== null ? Number(idFaena) : null;
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 pt-6">
       <main className="flex-1 w-full p-2 sm:p-3 md:p-4 text-center">
         <div className="bg-gray-200 py-3 sm:py-4 md:py-6 px-2 sm:px-3 md:px-4 rounded-2xl sm:rounded-3xl flex flex-col items-center space-y-3 sm:space-y-4 md:space-y-6 max-w-6xl mx-auto">
-          
           {/* Header */}
           <div className="w-full">
             <StepHeader text="Transferencia Estanque Móvil" />
@@ -295,7 +350,10 @@ const BomberoTransferenciaEstanqueMovil = ({
           {/* Información de contexto */}
           <div className="flex flex-wrap gap-2 justify-center items-center text-xs">
             <div className="bg-blue-100 text-blue-800 rounded-lg py-1 px-3">
-              Solicitante: <span className="font-medium">{solicitante?.nombre || 'N/A'}</span>
+              Solicitante:{" "}
+              <span className="font-medium">
+                {solicitante?.nombre || "N/A"}
+              </span>
             </div>
             <div className="bg-green-100 text-green-800 rounded-lg py-1 px-3">
               <FaGasPump className="inline mr-1" />
@@ -313,32 +371,54 @@ const BomberoTransferenciaEstanqueMovil = ({
           </div>
 
           <div className="bg-orange-500 w-full rounded-2xl sm:rounded-3xl md:rounded-[40px] py-3 sm:py-4 md:py-6 px-2 sm:px-3 md:px-4 space-y-2 sm:space-y-3 md:space-y-4 min-h-[700px] md:min-h-[800px] flex flex-col">
-            
             <TabProgressBar activeTab="transferencia" />
 
             <div className="bg-white rounded-xl sm:rounded-2xl md:rounded-3xl p-2 sm:p-3 md:p-4 flex-grow flex flex-col space-y-4 overflow-y-auto max-h-[calc(100vh-200px)]">
-              
               {/* Mensajes de estado */}
               {hasError && (
                 <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-3 rounded flex items-start">
                   <FaExclamationTriangle className="text-red-500 mt-0.5 mr-2 flex-shrink-0" />
-                  <span className="text-sm">{errorMessage}</span>
+                  <div>
+                    <span className="text-sm font-medium">
+                      Error en la transferencia:
+                    </span>
+                    <p className="text-sm mt-1">{errorMessage}</p>
+                  </div>
                 </div>
               )}
 
               {isSaved && (
                 <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-3 rounded flex items-start">
                   <FaCheckCircle className="text-green-500 mt-0.5 mr-2 flex-shrink-0" />
-                  <span className="text-sm">Transferencia registrada correctamente</span>
+                  <div>
+                    <span className="text-sm font-medium">
+                      Transferencia registrada correctamente
+                    </span>
+                    {transferenciaCompletada && (
+                      <p className="text-xs mt-1">
+                        ID:{" "}
+                        {transferenciaCompletada.data?.trasvasije
+                          ?.id_trasvasije ||
+                          transferenciaCompletada.data?.id_trasvasije ||
+                          "N/A"}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* 🆕 MENSAJE DE PROGRESO */}
+              {isSaving && progressMessage && (
+                <div className="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-3 rounded flex items-start">
+                  <FaSpinner className="animate-spin text-blue-500 mt-0.5 mr-2 flex-shrink-0" />
+                  <span className="text-sm">{progressMessage}</span>
                 </div>
               )}
 
               {/* Grid layout para mostrar todo el contenido */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                
                 {/* COLUMNA IZQUIERDA: Datos de transferencia y destino */}
                 <div className="space-y-4">
-                  
                   {/* Datos de transferencia */}
                   <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                     <div className="mb-3">
@@ -347,7 +427,8 @@ const BomberoTransferenciaEstanqueMovil = ({
                         Datos de transferencia
                       </h3>
                       <p className="text-xs text-gray-600 mt-1">
-                        Ingrese los datos que muestra la bomba después de la transferencia
+                        Ingrese los datos que muestra la bomba después de la
+                        transferencia
                       </p>
                     </div>
 
@@ -365,15 +446,20 @@ const BomberoTransferenciaEstanqueMovil = ({
                       {/* Numeral Inicial */}
                       <div className="col-span-1">
                         <label className="block text-left text-gray-700 text-xs sm:text-sm font-medium mb-1">
-                          Numeral Inicial <span className="text-red-500">*</span>
+                          Numeral Inicial{" "}
+                          <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="number"
                           step="0.01"
                           value={numeralInicial}
-                          onChange={(e) => handleNumeralChange('inicial', e.target.value)}
+                          onChange={(e) =>
+                            handleNumeralChange("inicial", e.target.value)
+                          }
                           className={`w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
-                            showValidation && !validaciones.numeralesValidos ? "border-red-500 bg-red-50" : "border-gray-300"
+                            showValidation && !validaciones.numeralesValidos
+                              ? "border-red-500 bg-red-50"
+                              : "border-gray-300"
                           }`}
                           placeholder="Ej: 100.5"
                           disabled={isSaving}
@@ -389,9 +475,13 @@ const BomberoTransferenciaEstanqueMovil = ({
                           type="number"
                           step="0.01"
                           value={numeralFinal}
-                          onChange={(e) => handleNumeralChange('final', e.target.value)}
+                          onChange={(e) =>
+                            handleNumeralChange("final", e.target.value)
+                          }
                           className={`w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
-                            showValidation && !validaciones.numeralesValidos ? "border-red-500 bg-red-50" : "border-gray-300"
+                            showValidation && !validaciones.numeralesValidos
+                              ? "border-red-500 bg-red-50"
+                              : "border-gray-300"
                           }`}
                           placeholder="Ej: 150.5"
                           disabled={isSaving}
@@ -417,7 +507,8 @@ const BomberoTransferenciaEstanqueMovil = ({
                           </div>
                         </div>
                         <p className="text-left text-xs text-gray-500 mt-1">
-                          Calculado automáticamente: Numeral Final - Numeral Inicial = {litrosCalculados}
+                          Calculado automáticamente: Numeral Final - Numeral
+                          Inicial = {litrosCalculados}
                         </p>
                       </div>
                     </div>
@@ -440,7 +531,7 @@ const BomberoTransferenciaEstanqueMovil = ({
                         Elija el estanque móvil que recibirá el combustible
                       </p>
                     </div>
-                    
+
                     {faenaIdForSelector ? (
                       <SelectorEstanque
                         idFaena={faenaIdForSelector}
@@ -461,29 +552,31 @@ const BomberoTransferenciaEstanqueMovil = ({
                         <div className="flex items-start">
                           <FaInfoCircle className="text-yellow-500 mt-0.5 mr-2 flex-shrink-0" />
                           <span className="text-sm">
-                            No se ha podido determinar la faena para cargar los estanques móviles disponibles.
+                            No se ha podido determinar la faena para cargar los
+                            estanques móviles disponibles.
                           </span>
                         </div>
                       </div>
                     )}
 
-                    {showValidation && !validaciones.estanqueDestinoSeleccionado && (
-                      <p className="text-left text-xs text-red-500 mt-2">
-                        Debe seleccionar un estanque de destino
-                      </p>
-                    )}
+                    {showValidation &&
+                      !validaciones.estanqueDestinoSeleccionado && (
+                        <p className="text-left text-xs text-red-500 mt-2">
+                          Debe seleccionar un estanque de destino
+                        </p>
+                      )}
 
-                    {showValidation && !validaciones.capacidadSuficienteDestino && (
-                      <p className="text-left text-xs text-red-500 mt-2">
-                        El estanque destino no tiene capacidad suficiente
-                      </p>
-                    )}
+                    {showValidation &&
+                      !validaciones.capacidadSuficienteDestino && (
+                        <p className="text-left text-xs text-red-500 mt-2">
+                          El estanque destino no tiene capacidad suficiente
+                        </p>
+                      )}
                   </div>
                 </div>
 
                 {/* COLUMNA DERECHA: Estanques Origen */}
                 <div className="space-y-4">
-                  
                   {/* Estanques Origen (fijos) usando SelectorEstanque */}
                   <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                     <div className="mb-3">
@@ -521,18 +614,20 @@ const BomberoTransferenciaEstanqueMovil = ({
                         <div className="flex items-start">
                           <FaInfoCircle className="text-yellow-500 mt-0.5 mr-2 flex-shrink-0" />
                           <span className="text-sm">
-                            No se ha podido determinar la faena para cargar los estanques origen disponibles.
+                            No se ha podido determinar la faena para cargar los
+                            estanques origen disponibles.
                           </span>
                         </div>
                       </div>
                     )}
 
                     {/* Validaciones origen */}
-                    {showValidation && !validaciones.estanqueOrigenSeleccionado && (
-                      <p className="text-left text-xs text-red-500 mt-2">
-                        Debe seleccionar al menos un estanque de origen
-                      </p>
-                    )}
+                    {showValidation &&
+                      !validaciones.estanqueOrigenSeleccionado && (
+                        <p className="text-left text-xs text-red-500 mt-2">
+                          Debe seleccionar al menos un estanque de origen
+                        </p>
+                      )}
 
                     {showValidation && !validaciones.stockSuficienteOrigen && (
                       <p className="text-left text-xs text-red-500 mt-2">
@@ -540,53 +635,75 @@ const BomberoTransferenciaEstanqueMovil = ({
                       </p>
                     )}
 
-                    {showValidation && !validaciones.distribucionValida && modoMultipleOrigen && (
-                      <p className="text-left text-xs text-red-500 mt-2">
-                        La distribución debe sumar exactamente {litrosCalculados.toLocaleString()} L
-                      </p>
-                    )}
+                    {showValidation &&
+                      !validaciones.distribucionValida &&
+                      modoMultipleOrigen && (
+                        <p className="text-left text-xs text-red-500 mt-2">
+                          La distribución debe sumar exactamente{" "}
+                          {litrosCalculados.toLocaleString()} L
+                        </p>
+                      )}
                   </div>
 
                   {/* Resumen final */}
-                  {validaciones.numeralesValidos && validaciones.litrosCalculadosValidos && (
-                    <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                      <h3 className="text-left text-gray-800 font-semibold text-sm sm:text-base flex items-center mb-3">
-                        <FaCheckCircle className="text-green-600 mr-2" />
-                        Resumen de la transferencia
-                      </h3>
-                      
-                      <div className="grid grid-cols-1 gap-3 text-sm">
-                        <div className="flex justify-between">
-                          <span className="font-medium text-gray-700">Cantidad:</span>
-                          <span className="text-gray-600">{litrosCalculados.toLocaleString()} litros</span>
-                        </div>
-                        
-                        {estanqueDestino && (
+                  {validaciones.numeralesValidos &&
+                    validaciones.litrosCalculadosValidos && (
+                      <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                        <h3 className="text-left text-gray-800 font-semibold text-sm sm:text-base flex items-center mb-3">
+                          <FaCheckCircle className="text-green-600 mr-2" />
+                          Resumen de la transferencia
+                        </h3>
+
+                        <div className="grid grid-cols-1 gap-3 text-sm">
                           <div className="flex justify-between">
-                            <span className="font-medium text-gray-700">Destino (móvil):</span>
-                            <span className="text-gray-600">{estanqueDestino.nombre}</span>
+                            <span className="font-medium text-gray-700">
+                              Cantidad:
+                            </span>
+                            <span className="text-gray-600">
+                              {litrosCalculados.toLocaleString()} litros
+                            </span>
                           </div>
-                        )}
-                        
-                        <div className="flex justify-between">
-                          <span className="font-medium text-gray-700">Origen (fijo):</span>
-                          <span className="text-gray-600">
-                            {modoMultipleOrigen ? 
-                              `${Object.values(distribucionLitrosOrigen).filter(v => v > 0).length} estanque(s) múltiples` : 
-                              estanqueOrigenSimple?.nombre || 'No seleccionado'
-                            }
-                          </span>
-                        </div>
-                        
-                        <div className="flex justify-between">
-                          <span className="font-medium text-gray-700">Modo:</span>
-                          <span className="text-gray-600">
-                            {modoMultipleOrigen ? 'Distribución múltiple' : 'Estanque único'}
-                          </span>
+
+                          {estanqueDestino && (
+                            <div className="flex justify-between">
+                              <span className="font-medium text-gray-700">
+                                Destino (móvil):
+                              </span>
+                              <span className="text-gray-600">
+                                {estanqueDestino.nombre}
+                              </span>
+                            </div>
+                          )}
+
+                          <div className="flex justify-between">
+                            <span className="font-medium text-gray-700">
+                              Origen (fijo):
+                            </span>
+                            <span className="text-gray-600">
+                              {modoMultipleOrigen
+                                ? `${
+                                    Object.values(
+                                      distribucionLitrosOrigen
+                                    ).filter((v) => v > 0).length
+                                  } estanque(s) múltiples`
+                                : estanqueOrigenSimple?.nombre ||
+                                  "No seleccionado"}
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between">
+                            <span className="font-medium text-gray-700">
+                              Modo:
+                            </span>
+                            <span className="text-gray-600">
+                              {modoMultipleOrigen
+                                ? "Distribución múltiple"
+                                : "Estanque único"}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
                 </div>
               </div>
 
@@ -596,7 +713,7 @@ const BomberoTransferenciaEstanqueMovil = ({
                   <FaClipboardCheck className="text-yellow-600 mr-2" />
                   Observaciones (opcional)
                 </h3>
-                
+
                 <textarea
                   value={observaciones}
                   onChange={(e) => setObservaciones(e.target.value)}
@@ -681,7 +798,10 @@ const BomberoTransferenciaEstanqueMovil = ({
                   ) : !validaciones.distribucionValida && modoMultipleOrigen ? (
                     <>
                       <FaBalanceScale className="mr-2" />
-                      <span>Complete distribución ({litrosDistribuidos.toFixed(1)}/{litrosCalculados.toFixed(1)} L)</span>
+                      <span>
+                        Complete distribución ({litrosDistribuidos.toFixed(1)}/
+                        {litrosCalculados.toFixed(1)} L)
+                      </span>
                     </>
                   ) : (
                     <>
@@ -701,22 +821,35 @@ const BomberoTransferenciaEstanqueMovil = ({
                   </h4>
                   <ul className="text-left text-blue-700 text-xs space-y-1">
                     {!validaciones.numeralesValidos && (
-                      <li>• Ingresar numerales válidos (final mayor que inicial)</li>
+                      <li>
+                        • Ingresar numerales válidos (final mayor que inicial)
+                      </li>
                     )}
                     {!validaciones.estanqueDestinoSeleccionado && (
                       <li>• Seleccionar un estanque de destino (móvil)</li>
                     )}
                     {!validaciones.estanqueOrigenSeleccionado && (
-                      <li>• Seleccionar al menos un estanque de origen (fijo)</li>
+                      <li>
+                        • Seleccionar al menos un estanque de origen (fijo)
+                      </li>
                     )}
                     {!validaciones.stockSuficienteOrigen && (
-                      <li>• Verificar que hay stock suficiente en el/los estanque(s) de origen</li>
+                      <li>
+                        • Verificar que hay stock suficiente en el/los
+                        estanque(s) de origen
+                      </li>
                     )}
                     {!validaciones.capacidadSuficienteDestino && (
-                      <li>• Verificar que el estanque destino tiene capacidad suficiente</li>
+                      <li>
+                        • Verificar que el estanque destino tiene capacidad
+                        suficiente
+                      </li>
                     )}
                     {!validaciones.distribucionValida && modoMultipleOrigen && (
-                      <li>• Completar la distribución para que sume exactamente {litrosCalculados.toLocaleString()} L</li>
+                      <li>
+                        • Completar la distribución para que sume exactamente{" "}
+                        {litrosCalculados.toLocaleString()} L
+                      </li>
                     )}
                   </ul>
                 </div>
@@ -733,12 +866,98 @@ const BomberoTransferenciaEstanqueMovil = ({
                   </div>
                 </div>
               )}
+
+              {/* 🆕 INFORMACIÓN DE TRANSFERENCIA COMPLETADA */}
+              {isSaved && transferenciaCompletada && (
+                <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4 mt-4">
+                  <h4 className="text-left text-green-800 font-medium text-sm flex items-center mb-3">
+                    <FaCheckCircle className="mr-2 text-green-600" />
+                    Detalles de la transferencia completada
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    {transferenciaCompletada.data?.trasvasije && (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="font-medium text-gray-700">
+                            ID Transferencia:
+                          </span>
+                          <span className="text-gray-600">
+                            #
+                            {
+                              transferenciaCompletada.data.trasvasije
+                                .id_trasvasije
+                            }
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between">
+                          <span className="font-medium text-gray-700">
+                            Litros transferidos:
+                          </span>
+                          <span className="text-gray-600">
+                            {
+                              transferenciaCompletada.data.trasvasije
+                                .litros_bombeados_total
+                            }
+                            L
+                          </span>
+                        </div>
+
+                        {transferenciaCompletada.data.estanques && (
+                          <>
+                            <div className="col-span-1 md:col-span-2 border-t border-gray-200 pt-2 mt-2">
+                              <span className="font-medium text-gray-700 text-sm">
+                                Stocks actualizados:
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">
+                                {
+                                  transferenciaCompletada.data.estanques.fijo
+                                    ?.nombre
+                                }{" "}
+                                (origen):
+                              </span>
+                              <span className="text-gray-600">
+                                {
+                                  transferenciaCompletada.data.estanques.fijo
+                                    ?.stock_actual
+                                }
+                                L
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">
+                                {
+                                  transferenciaCompletada.data.estanques.movil
+                                    ?.nombre
+                                }{" "}
+                                (destino):
+                              </span>
+                              <span className="text-gray-600">
+                                {
+                                  transferenciaCompletada.data.estanques.movil
+                                    ?.stock_actual
+                                }
+                                L
+                              </span>
+                            </div>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Control de página inferior */}
           <div className="w-full">
-            <PageControl 
+            <PageControl
               onPrevious={onPrevious}
               onNext={null}
               showNext={false}
