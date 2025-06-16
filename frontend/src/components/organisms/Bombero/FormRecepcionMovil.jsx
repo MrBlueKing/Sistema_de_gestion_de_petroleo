@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useContext } from "react";
-import { FaTruck, FaGasPump, FaCheckCircle, FaExclamationTriangle, FaFileAlt, FaInfoCircle, FaSpinner } from "react-icons/fa";
+import { FaTruck, FaGasPump, FaCheckCircle, FaExclamationTriangle, FaFileAlt, FaStickyNote, FaFileInvoice, FaInfoCircle, FaSpinner } from "react-icons/fa";
 import { UserContext } from "../../../context/userContext";
 import axios from "../../../lib/axios";
 import { getAuthToken } from "../../../utils/session";
 import SelectorEstanque from "../../molecules/SelectorEstanque";
+import ModalExitoRecepcionMovil from "../../molecules/ModalExitoRecepcionMovil";
 
 const FormRecepcionMovil = () => {
     const { user } = useContext(UserContext);
@@ -11,12 +12,9 @@ const FormRecepcionMovil = () => {
     const [formData, setFormData] = useState({
         numeroGuia: "",
         numeroFactura: "",
-        nombreEstacion: "",
         litrosComprados: "",
         precioLitro: "",
         precioTotal: "",
-        tipoCombustible: "Diesel",
-        reciboConforme: true,
         observacion: "",
         idEstanqueMovil: ""
     });
@@ -26,14 +24,9 @@ const FormRecepcionMovil = () => {
     const [errors, setErrors] = useState({});
     const [touched, setTouched] = useState({});
     const [alert, setAlert] = useState({ show: false, message: "", type: "" });
-
-    const tiposCombustible = [
-        { value: "Diesel", label: "Diesel" },
-        { value: "Petróleo", label: "Petróleo" },
-        { value: "Gasolina 93", label: "Gasolina 93" },
-        { value: "Gasolina 95", label: "Gasolina 95" },
-        { value: "Gasolina 97", label: "Gasolina 97" }
-    ];
+    // ✅ 2. AGREGAR ESTADOS PARA EL MODAL DE ÉXITO
+    const [showExitoModal, setShowExitoModal] = useState(false);
+    const [datosRecepcionExitosa, setDatosRecepcionExitosa] = useState(null);
 
     const handleEstanqueMovilSelect = (estanque) => {
         setEstanqueMovilSeleccionado(estanque);
@@ -54,6 +47,16 @@ const FormRecepcionMovil = () => {
         }
     };
 
+    // ✅ 3. FUNCIÓN PARA MANEJAR EL CIERRE DEL MODAL
+    const handleExitoModalConfirm = () => {
+        setShowExitoModal(false);
+        setDatosRecepcionExitosa(null);
+
+        // Opcional: Redireccionar o limpiar formulario
+        // window.location.href = "/dashboard"; // Si quieres redireccionar
+        // O simplemente limpiar el formulario para nueva compra
+    };
+
     const mostrarAlerta = (tipo, mensaje) => {
         setAlert({ show: true, type: tipo, message: mensaje });
         setTimeout(() => setAlert({ show: false, message: "", type: "" }), 5000);
@@ -61,19 +64,22 @@ const FormRecepcionMovil = () => {
 
     const handleChange = (field, value) => {
         setFormData(prev => {
-            const updated = { ...prev, [field]: value };
+            const updated = {
+                ...prev,
+                [field]: value
+            };
 
-            // Auto-calcular precio total cuando cambian litros comprados o precio por litro
+            // Calcular precio total automáticamente
             if (field === 'litrosComprados' || field === 'precioLitro') {
                 const litros = field === 'litrosComprados' ? parseFloat(value) || 0 : parseFloat(updated.litrosComprados) || 0;
                 const precio = field === 'precioLitro' ? parseFloat(value) || 0 : parseFloat(updated.precioLitro) || 0;
-                updated.precioTotal = (litros * precio).toFixed(0); // Sin decimales como boletas reales
+                updated.precioTotal = (litros * precio).toFixed(0);
             }
 
             return updated;
         });
 
-        // Limpiar errores
+        // Limpiar errores del campo actual
         if (errors[field]) {
             setErrors(prev => ({
                 ...prev,
@@ -92,22 +98,22 @@ const FormRecepcionMovil = () => {
     const validateForm = () => {
         const newErrors = {};
 
+        // Validar número de factura (obligatorio)
         if (!formData.numeroFactura.trim()) {
             newErrors.numeroFactura = "Número de factura/boleta es obligatorio";
         }
 
-        if (!formData.nombreEstacion.trim()) {
-            newErrors.nombreEstacion = "Nombre de la estación de servicio es obligatorio";
-        }
-
+        // Validar litros comprados (obligatorio y > 0)
         if (!formData.litrosComprados || parseFloat(formData.litrosComprados) <= 0) {
             newErrors.litrosComprados = "Los litros comprados deben ser mayor a 0";
         }
 
+        // Validar precio por litro (obligatorio y > 0)
         if (!formData.precioLitro || parseFloat(formData.precioLitro) <= 0) {
             newErrors.precioLitro = "El precio por litro debe ser mayor a 0";
         }
 
+        // Validar selección de estanque móvil (obligatorio)
         if (!formData.idEstanqueMovil) {
             newErrors.idEstanqueMovil = "Debe seleccionar un estanque móvil donde depositar el combustible";
         }
@@ -126,10 +132,10 @@ const FormRecepcionMovil = () => {
         return Object.keys(newErrors).length === 0;
     };
 
+    // ✅ 4. HANDLESUBMIT ACTUALIZADO CON MODAL DE ÉXITO
     const handleSubmit = async () => {
         setTouched({
             numeroFactura: true,
-            nombreEstacion: true,
             litrosComprados: true,
             precioLitro: true,
             idEstanqueMovil: true,
@@ -154,22 +160,22 @@ const FormRecepcionMovil = () => {
                 return;
             }
 
+            // ✅ PAYLOAD CORREGIDO
             const payload = {
                 id_usuario: user.id,
                 id_faena: user.id_faena,
-                numero_guia: formData.numeroGuia?.trim() || null,
-                numero_factura: formData.numeroFactura.trim(),
-                nombre_estacion: formData.nombreEstacion.trim(),
-                litros_comprados: parseFloat(formData.litrosComprados),
-                precio_litro: parseFloat(formData.precioLitro),
+                numero_guia: formData.numeroGuia?.trim() || formData.numeroFactura.trim(),
+                litros_documentados: parseFloat(formData.litrosComprados),
+                litros_recibidos: parseFloat(formData.litrosComprados),
+                precio: parseFloat(formData.precioLitro),
                 precio_total: parseFloat(formData.precioTotal),
-                tipo_combustible: formData.tipoCombustible,
-                recibo_conforme: formData.reciboConforme,
+                recibo_conforme: true,
+                diferencia: 0,
                 observacion: formData.observacion?.trim() || null,
                 id_estanque_movil: parseInt(formData.idEstanqueMovil)
             };
 
-            console.log('Enviando compra de combustible:', payload);
+            console.log('✅ Enviando compra de combustible:', payload);
 
             const response = await axios.post('/api/recepciones/estanque-movil', payload, {
                 headers: {
@@ -179,18 +185,31 @@ const FormRecepcionMovil = () => {
             });
 
             if (response.data.success) {
-                mostrarAlerta('success', '¡Compra de combustible registrada exitosamente!');
+                // ✅ PREPARAR DATOS PARA EL MODAL DE ÉXITO
+                const datosParaModal = {
+                    numeroFactura: formData.numeroFactura,
+                    numeroGuia: formData.numeroGuia || null,
+                    litrosComprados: parseFloat(formData.litrosComprados),
+                    precioLitro: parseFloat(formData.precioLitro),
+                    precioTotal: parseFloat(formData.precioTotal),
+                    estanqueNombre: estanqueMovilSeleccionado.nombre,
+                    capacidadTotal: estanqueMovilSeleccionado.capacidad,
+                    stockAnterior: response.data.data.stock_anterior || 0,
+                    stockNuevo: response.data.data.stock_nuevo || 0,
+                    observacion: formData.observacion || null
+                };
 
-                // Resetear formulario
+                // ✅ MOSTRAR MODAL DE ÉXITO EN LUGAR DE ALERTA SIMPLE
+                setDatosRecepcionExitosa(datosParaModal);
+                setShowExitoModal(true);
+
+                // ✅ RESETEAR FORMULARIO
                 setFormData({
                     numeroGuia: "",
                     numeroFactura: "",
-                    nombreEstacion: "",
                     litrosComprados: "",
                     precioLitro: "",
                     precioTotal: "",
-                    tipoCombustible: "Diesel",
-                    reciboConforme: true,
                     observacion: "",
                     idEstanqueMovil: ""
                 });
@@ -203,7 +222,16 @@ const FormRecepcionMovil = () => {
             }
         } catch (error) {
             console.error('Error al registrar compra:', error);
-            const mensaje = error.response?.data?.message || 'Error de conexión. Intente nuevamente.';
+            console.log('📋 Detalles del error:', error.response?.data);
+
+            let mensaje = 'Error de conexión. Intente nuevamente.';
+            if (error.response?.data?.message) {
+                mensaje = error.response.data.message;
+            } else if (error.response?.data?.errors) {
+                const errores = Object.values(error.response.data.errors).flat();
+                mensaje = errores.join(', ');
+            }
+
             mostrarAlerta('error', mensaje);
         } finally {
             setLoading(false);
@@ -277,7 +305,7 @@ const FormRecepcionMovil = () => {
                             <div className="flex flex-col">
                                 <label className="text-sm font-medium text-gray-600 mb-1">
                                     Cantidad de Litros *
-                                    <span className="text-xs text-gray-500 ml-1">(según boleta)</span>
+                                    <span className="text-xs text-gray-500 ml-1">(según Factura)</span>
                                 </label>
                                 <input
                                     type="number"
@@ -411,44 +439,144 @@ const FormRecepcionMovil = () => {
                         </div>
                     </div>
 
-                    {/* Resumen final antes de enviar */}
+                    {/* Resumen final antes de enviar - VERSIÓN MEJORADA */}
                     {formData.litrosComprados && formData.precioTotal && estanqueMovilSeleccionado && (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                            <h4 className="font-medium text-green-800 mb-3 flex items-center">
-                                <FaCheckCircle className="mr-2" />
-                                Resumen de la Compra
+                        <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-xl p-6 shadow-sm">
+                            <h4 className="font-semibold text-green-800 mb-4 flex items-center text-lg">
+                                <FaCheckCircle className="mr-2 text-green-600" />
+                                Resumen de la Compra de Combustible
                             </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-                                <div>
-                                    <span className="text-green-600 font-medium">Estación:</span>
-                                    <p className="text-green-800">{formData.nombreEstacion || "Por completar"}</p>
+
+                            {/* Información principal en cards */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                {/* Card: Datos de la compra */}
+                                <div className="bg-white rounded-lg p-4 border border-gray-100">
+                                    <h5 className="font-medium text-gray-700 mb-3 flex items-center">
+                                        <FaFileInvoice className="mr-2 text-blue-500" />
+                                        Datos de la Compra
+                                    </h5>
+                                    <div className="space-y-2 text-sm">
+                                        {formData.numeroGuia && (
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">N° Guía:</span>
+                                                <span className="font-medium text-gray-800">{formData.numeroGuia}</span>
+                                            </div>
+                                        )}
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">N° Factura/Boleta:</span>
+                                            <span className="font-medium text-gray-800">{formData.numeroFactura}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Cantidad:</span>
+                                            <span className="font-bold text-blue-600">{parseFloat(formData.litrosComprados).toLocaleString()} Litros</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Precio unitario:</span>
+                                            <span className="font-medium text-gray-800">${parseFloat(formData.precioLitro).toLocaleString('es-CL')}/L</span>
+                                        </div>
+                                        <div className="flex justify-between pt-2 border-t border-gray-200">
+                                            <span className="text-gray-700 font-medium">Total pagado:</span>
+                                            <span className="font-bold text-green-600 text-lg">${parseInt(formData.precioTotal).toLocaleString('es-CL')}</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <span className="text-green-600 font-medium">Combustible:</span>
-                                    <p className="text-green-800">{formData.tipoCombustible} - {formData.litrosComprados}L</p>
-                                </div>
-                                <div>
-                                    <span className="text-green-600 font-medium">Total pagado:</span>
-                                    <p className="text-green-800 font-bold">${parseInt(formData.precioTotal).toLocaleString('es-CL')}</p>
-                                </div>
-                                <div>
-                                    <span className="text-green-600 font-medium">Destino:</span>
-                                    <p className="text-green-800">{estanqueMovilSeleccionado.nombre}</p>
+
+                                {/* Card: Información del estanque */}
+                                <div className="bg-white rounded-lg p-4 border border-gray-100">
+                                    <h5 className="font-medium text-gray-700 mb-3 flex items-center">
+                                        <FaTruck className="mr-2 text-orange-500" />
+                                        Estanque Destino
+                                    </h5>
+                                    <div className="space-y-3 text-sm">
+                                        <div>
+                                            <span className="text-gray-600 block">Nombre del estanque:</span>
+                                            <span className="font-medium text-gray-800">{estanqueMovilSeleccionado.nombre}</span>
+                                        </div>
+
+                                        <div>
+                                            <span className="text-gray-600 block">Capacidad total:</span>
+                                            <span className="font-medium text-gray-800">{estanqueMovilSeleccionado.capacidad.toLocaleString()} L</span>
+                                        </div>
+
+                                        <div>
+                                            <span className="text-gray-600 block">Stock actual:</span>
+                                            <span className="font-medium text-gray-800">{estanqueMovilSeleccionado.stock_actual.toLocaleString()} L</span>
+                                        </div>
+
+                                        <div>
+                                            <span className="text-gray-600 block">Disponible:</span>
+                                            <span className={`font-bold ${(estanqueMovilSeleccionado.capacidad - estanqueMovilSeleccionado.stock_actual) >= parseFloat(formData.litrosComprados)
+                                                ? "text-green-600" : "text-red-600"
+                                                }`}>
+                                                {(estanqueMovilSeleccionado.capacidad - estanqueMovilSeleccionado.stock_actual).toLocaleString()} L
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* Información de capacidad */}
-                            <div className="mt-3 pt-3 border-t border-green-300">
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-green-600">Capacidad disponible en destino:</span>
+                            {/* Validación de capacidad destacada */}
+                            <div className={`p-4 rounded-lg border-2 ${(estanqueMovilSeleccionado.capacidad - estanqueMovilSeleccionado.stock_actual) >= parseFloat(formData.litrosComprados)
+                                ? "bg-green-100 border-green-300" : "bg-red-100 border-red-300"
+                                }`}>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center">
+                                        {(estanqueMovilSeleccionado.capacidad - estanqueMovilSeleccionado.stock_actual) >= parseFloat(formData.litrosComprados) ? (
+                                            <FaCheckCircle className="text-green-600 mr-2" />
+                                        ) : (
+                                            <FaExclamationTriangle className="text-red-600 mr-2" />
+                                        )}
+                                        <span className={`font-medium ${(estanqueMovilSeleccionado.capacidad - estanqueMovilSeleccionado.stock_actual) >= parseFloat(formData.litrosComprados)
+                                            ? "text-green-800" : "text-red-800"
+                                            }`}>
+                                            Estado de la operación:
+                                        </span>
+                                    </div>
                                     <span className={`font-bold ${(estanqueMovilSeleccionado.capacidad - estanqueMovilSeleccionado.stock_actual) >= parseFloat(formData.litrosComprados)
-                                        ? "text-green-700" : "text-red-600"
+                                        ? "text-green-600" : "text-red-600"
                                         }`}>
-                                        {(estanqueMovilSeleccionado.capacidad - estanqueMovilSeleccionado.stock_actual).toLocaleString()} L
                                         {(estanqueMovilSeleccionado.capacidad - estanqueMovilSeleccionado.stock_actual) >= parseFloat(formData.litrosComprados)
-                                            ? " ✅ Suficiente" : " ⚠️ Insuficiente"}
+                                            ? "✅ Operación viable" : "⚠️ Capacidad insuficiente"}
                                     </span>
                                 </div>
+
+                                {/* Cálculo detallado */}
+                                <div className="mt-2 text-sm space-y-1">
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Stock después de la compra:</span>
+                                        <span className="font-medium">
+                                            {(estanqueMovilSeleccionado.stock_actual + parseFloat(formData.litrosComprados)).toLocaleString()} L
+                                            <span className="text-gray-500 ml-1">
+                                                ({((estanqueMovilSeleccionado.stock_actual + parseFloat(formData.litrosComprados)) / estanqueMovilSeleccionado.capacidad * 100).toFixed(1)}%)
+                                            </span>
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Capacidad restante:</span>
+                                        <span className="font-medium">
+                                            {(estanqueMovilSeleccionado.capacidad - estanqueMovilSeleccionado.stock_actual - parseFloat(formData.litrosComprados)).toLocaleString()} L
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Observaciones si las hay */}
+                            {formData.observacion && (
+                                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                    <h6 className="font-medium text-yellow-800 mb-1 flex items-center">
+                                        <FaStickyNote className="mr-2" />
+                                        Observaciones:
+                                    </h6>
+                                    <p className="text-yellow-700 text-sm">{formData.observacion}</p>
+                                </div>
+                            )}
+
+                            {/* Mensaje de confirmación */}
+                            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                <p className="text-blue-800 text-sm flex items-center">
+                                    <FaInfoCircle className="mr-2" />
+                                    Verifique que todos los datos sean correctos antes de registrar la compra.
+                                </p>
                             </div>
                         </div>
                     )}
@@ -457,8 +585,8 @@ const FormRecepcionMovil = () => {
                     <div className="text-center pt-4">
                         <button
                             onClick={handleSubmit}
-                            disabled={loading || !user?.id || !user?.id_faena || !formData.reciboConforme}
-                            className={`px-8 py-3 text-lg font-semibold rounded-lg text-white flex items-center justify-center mx-auto space-x-2 transition-all ${loading || !user?.id || !user?.id_faena || !formData.reciboConforme
+                            disabled={loading || !user?.id || !user?.id_faena}
+                            className={`px-8 py-3 text-lg font-semibold rounded-lg text-white flex items-center justify-center mx-auto space-x-2 transition-all ${loading || !user?.id || !user?.id_faena
                                 ? 'bg-gray-400 cursor-not-allowed'
                                 : 'bg-orange-600 hover:bg-orange-700 focus:ring-4 focus:ring-orange-300 transform hover:scale-105'
                                 }`}
@@ -481,12 +609,6 @@ const FormRecepcionMovil = () => {
                                 ⚠️ Error: No se puede identificar el usuario o la faena
                             </p>
                         )}
-
-                        {!formData.reciboConforme && (
-                            <p className="text-amber-600 text-xs mt-2">
-                                ⚠️ Debe confirmar que los datos son correctos para continuar
-                            </p>
-                        )}
                     </div>
 
                     {/* Información adicional */}
@@ -496,6 +618,14 @@ const FormRecepcionMovil = () => {
                     </div>
                 </div>
             </div>
+            {/* ✅ MODAL DE ÉXITO */}
+            {datosRecepcionExitosa && (
+                <ModalExitoRecepcionMovil
+                    isOpen={showExitoModal}
+                    onConfirm={handleExitoModalConfirm}
+                    datosRecepcion={datosRecepcionExitosa}
+                />
+            )}  
         </main>
     );
 };

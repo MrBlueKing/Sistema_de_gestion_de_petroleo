@@ -27,9 +27,12 @@ import axios from "../../../lib/axios";
 // Función de utilidad para formatear números
 const formatNumber = (num) => {
   if (num === undefined || num === null || isNaN(parseFloat(num))) {
-    return "0.00";
+    return "0,00";
   }
-  return parseFloat(num).toFixed(2);
+  return parseFloat(num).toLocaleString("es-CL", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 };
 
 const formatNumberWithSeparators = (num) => {
@@ -55,7 +58,7 @@ const ModalExitoTrasvasije = ({ isOpen, onConfirm, datosTrasvasije }) => {
   } = datosTrasvasije;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 overflow-hidden bg-black/40 backdrop-blur-sm bg-opacity-60 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-fadeInScale">
         <div className="bg-gradient-to-r from-green-500 to-green-600 px-6 py-5 text-white">
           <div className="flex items-center justify-center">
@@ -214,13 +217,13 @@ const FormularioTrasvasije = () => {
   const [showExitoModal, setShowExitoModal] = useState(false);
   const [datosExito, setDatosExito] = useState(null);
 
-  // Efectos
+  // ✅ VALIDACIÓN ADICIONAL: Asegurar que user.id existe antes de cualquier operación
   useEffect(() => {
     if (user?.id_faena && user?.id) {
       setFormData(prev => ({
         ...prev,
         id_faena: user.id_faena,
-        id_usuario: user.id
+        id_usuario: user.id  // ← Asegurar que se guarde
       }));
       cargarEstanquesDisponibles(user.id_faena);
     }
@@ -243,6 +246,91 @@ const FormularioTrasvasije = () => {
       diferencia: 0,
       calculoRealizado: false,
     });
+  };
+
+
+  // 🔧 FUNCIÓN DE RESETEO COMPLETO MEJORADA
+  const resetearFormularioCompleto = () => {
+    console.log("🔄 Iniciando reseteo completo del formulario");
+
+    // 1. Resetear datos del formulario (mantener usuario y faena)
+    setFormData({
+      id_usuario: user?.id || '',
+      id_faena: user?.id_faena || '',
+      id_estanque_movil: '',
+      litrosDocumentados: '',
+      observacion: ''
+    });
+
+    // 2. Limpiar selección de estanque móvil
+    setEstanqueMovilSeleccionado(null);
+
+    // 3. Resetear estados de cálculo
+    setCalculoPetroleo({
+      litrosMedidos: 0,
+      diferencia: 0,
+      calculoRealizado: false,
+    });
+
+    // 4. Limpiar alturas y distribución
+    setAlturasEstanques({});
+    setDistribucionLitros({});
+    setStockInicial(0);
+
+    // 5. Limpiar errores y estados de UI
+    setErrors({});
+    setTouched({});
+    setAlert({ show: false, message: "", type: "" });
+    setModalAlert({ show: false, message: "", type: "" });
+
+    // 6. Cerrar modales si están abiertos
+    setShowEstanquesModal(false);
+
+    // 7. Reinicializar distribución para estanques fijos (si existen)
+    if (estanquesFijos.length > 0) {
+      const initialAlturas = {};
+      const initialDistribucion = {};
+      estanquesFijos.forEach((estanque) => {
+        initialAlturas[estanque.id_estanque] = {
+          inicial: "",
+          final: "",
+        };
+        initialDistribucion[estanque.id_estanque] = "";
+      });
+      setAlturasEstanques(initialAlturas);
+      setDistribucionLitros(initialDistribucion);
+    }
+
+    console.log("✅ Reseteo completo finalizado");
+  };
+
+  // ✅ REEMPLAZAR TU FUNCIÓN ACTUAL DEL MODAL POR ESTA:
+  const handleModalConfirm = () => {
+    console.log("✅ Trasvasije completado exitosamente, preparando nuevo formulario");
+
+    // 1. Cerrar modal
+    setShowExitoModal(false);
+    setDatosExito(null);
+
+    // 2. Mostrar loading temporal para mejor UX
+    setLoading(true);
+
+    // 3. Resetear formulario completo
+    resetearFormularioCompleto();
+
+    // 4. Recargar datos frescos (importante para stocks actualizados)
+    if (user?.id_faena) {
+      cargarEstanquesDisponibles(user.id_faena);
+    }
+
+    // 5. Mostrar confirmación y quitar loading
+    setTimeout(() => {
+      setLoading(false);
+      mostrarAlerta("success", "📝 Formulario listo para un nuevo trasvasije");
+
+      // 6. Scroll hacia arriba para mejor UX
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 1500); // Dar tiempo para que se carguen los datos
   };
 
   // Inicializar alturas cuando se cargan los estanques fijos
@@ -357,12 +445,15 @@ const FormularioTrasvasije = () => {
         };
       }
     });
+    resetearCalculo();
   };
 
   // Manejar cambios en distribución - CORREGIDO PARA UN SOLO ESTANQUE
   // Manejar cambios en distribución - CORREGIDO PARA UN SOLO ESTANQUE
   const handleDistribucionChange = (nuevaDistribucionCompleta) => {
     console.log("🔄 Actualizando distribución:", nuevaDistribucionCompleta);
+    setDistribucionLitros(nuevaDistribucionCompleta);
+    resetearCalculo(); // ← Permitir recalcular
 
     // Validar que solo haya un estanque con litros asignados
     const estanquesConLitros = Object.entries(nuevaDistribucionCompleta)
@@ -383,6 +474,7 @@ const FormularioTrasvasije = () => {
     } else {
       // Si hay 0 o 1 estanque, actualizar normalmente
       setDistribucionLitros(nuevaDistribucionCompleta);
+      resetearCalculo(); // ← Permitir recalcular
     }
 
     // Limpiar cálculo previo cuando cambia la distribución
@@ -406,13 +498,19 @@ const FormularioTrasvasije = () => {
     return null;
   };
 
-  // Calcular litros de petróleo
+  // 🔧 FUNCIÓN CALCULAR LITROS CORREGIDA:
   const calcularLitrosPetroleo = async () => {
     console.log("🧮 Iniciando cálculo de litros de petróleo...");
 
-    // ✅ PREVENIR BUCLE: Si ya se calculó, no volver a calcular
-    if (calculoPetroleo.calculoRealizado) {
-      console.log("⚠️ Cálculo ya realizado, evitando bucle");
+    if (loadingCalculo) {
+      console.log("⚠️ Cálculo en progreso, evitando duplicado");
+      return;
+    }
+
+    // Validar que el usuario esté disponible
+    if (!user || !user.id) {
+      console.log("❌ Error: Usuario no identificado");
+      mostrarModalAlerta("error", "No se puede identificar al usuario actual.");
       return;
     }
 
@@ -426,8 +524,6 @@ const FormularioTrasvasije = () => {
       return sum + (parseFloat(val) || 0);
     }, 0);
 
-    console.log("🔍 Total distribución:", totalDistribucion);
-
     if (totalDistribucion <= 0) {
       console.log("❌ Error: No hay distribución");
       mostrarModalAlerta("error", "Debe distribuir los litros en al menos un estanque fijo.");
@@ -435,10 +531,7 @@ const FormularioTrasvasije = () => {
     }
 
     if (Math.abs(totalDistribucion - parseFloat(formData.litrosDocumentados)) > 0.01) {
-      console.log("❌ Error: Distribución no coincide", {
-        totalDistribucion,
-        litrosDocumentados: parseFloat(formData.litrosDocumentados)
-      });
+      console.log("❌ Error: Distribución no coincide");
       mostrarModalAlerta("error",
         `La distribución total (${formatNumber(totalDistribucion)} L) debe coincidir con los litros del móvil (${formatNumber(parseFloat(formData.litrosDocumentados))} L).`
       );
@@ -450,90 +543,113 @@ const FormularioTrasvasije = () => {
 
     try {
       const token = JSON.parse(localStorage.getItem("authToken"))?.token;
-      console.log("🔑 Token obtenido:", !!token);
-
-      const alturasIniciales = prepararDatosAlturas("inicial");
-      const alturasFinal = prepararDatosAlturas("final");
-
-      console.log("📏 Alturas preparadas:", {
-        iniciales: alturasIniciales,
-        finales: alturasFinal
-      });
-
-      if (hayAlturasIncompletas(alturasIniciales) || hayAlturasIncompletas(alturasFinal)) {
-        console.log("❌ Error: Alturas incompletas");
-        mostrarModalAlerta("error", "Debe completar todas las alturas iniciales y finales.");
-        return;
+      if (!token) {
+        throw new Error("No hay token de autenticación");
       }
 
-      console.log("🚀 Enviando a API inicial...");
+      // Preparar datos de alturas inicial y final
+      const datosAlturasInicial = prepararDatosAlturas("inicial");
+      const datosAlturasFinal = prepararDatosAlturas("final");
 
-      const datosCalcularInicial = {
+      console.log("📊 Datos para API:", {
+        alturasInicial: datosAlturasInicial,
+        alturasFinal: datosAlturasFinal,
+        usuario: user.id
+      });
+
+      if (hayAlturasIncompletas(datosAlturasInicial)) {
+        throw new Error("Faltan alturas iniciales");
+      }
+
+      if (hayAlturasIncompletas(datosAlturasFinal)) {
+        throw new Error("Faltan alturas finales");
+      }
+
+      // ✅ CORREGIDO (con id_usuario):
+      const payloadInicial = {
         id_faena: formData.id_faena,
-        id_usuario: formData.id_usuario,
+        id_usuario: user.id,  // ← ¡ESTO FALTABA!
         tipo_movimiento: "ingreso",
-        alturas: alturasIniciales,
+        alturas: datosAlturasInicial,
       };
 
-      console.log("📤 Datos para API inicial:", datosCalcularInicial);
-
-      const datosCalcularFinal = {
+      const payloadFinal = {
         id_faena: formData.id_faena,
-        id_usuario: formData.id_usuario,
+        id_usuario: user.id,        // ← AGREGADO
         tipo_movimiento: "ingreso",
-        alturas: alturasFinal,
+        alturas: datosAlturasFinal,
       };
 
-      console.log("📤 Datos para API final:", datosCalcularFinal);
+      console.log("📤 Enviando payloads corregidos:", { payloadInicial, payloadFinal });
 
-      const responseInicial = await axios.post("/api/calcular-litros-petroleo", datosCalcularInicial, {
-        headers: { Authorization: `Bearer ${token}` }
+      // Llamadas a la API
+      const [responseInicial, responseFinal] = await Promise.all([
+        axios.post("/api/calcular-litros-petroleo", payloadInicial, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+
+        axios.post("/api/calcular-litros-petroleo", payloadFinal, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      ]);
+
+      console.log("📊 Respuestas de API:", {
+        inicial: responseInicial.data,
+        final: responseFinal.data
       });
-
-      console.log("✅ Respuesta API inicial recibida:", responseInicial.data);
-
-      if (!responseInicial.data.success) {
-        throw new Error(responseInicial.data.message || "Error al calcular los litros iniciales");
-      }
-
-      console.log("🚀 Enviando a API final...");
-
-      const responseFinal = await axios.post("/api/calcular-litros-petroleo", datosCalcularFinal, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      console.log("✅ Respuesta API final recibida:", responseFinal.data);
-
-      if (!responseFinal.data.success) {
-        throw new Error(responseFinal.data.message || "Error al calcular los litros finales");
-      }
-
-      console.log("🎯 Ambas APIs exitosas, procesando resultados...");
 
       if (responseInicial.data.success && responseFinal.data.success) {
-        console.log("✅ Entrando a procesar resultados...");
         const resultado = procesarResultadosCalculo(responseInicial, responseFinal);
-        console.log("🎉 Resultado procesado:", resultado);
-        console.log("🔄 Actualizando estado calculoRealizado...");
-        mostrarModalAlerta("success", "Cálculo realizado correctamente.");
+        console.log("✅ Cálculo completado:", resultado);
         return resultado;
       } else {
         console.log("❌ Alguna API falló");
+        throw new Error("Error en el cálculo de volúmenes");
       }
     } catch (error) {
       console.error("❌ Error al calcular volumen:", error);
+
+      // Mostrar el error específico de validación si está disponible
       let errorMessage = "Error al calcular el volumen. Intente nuevamente.";
-      if (error.response?.data?.message) {
+
+      if (error.response?.data?.errors) {
+        // Mostrar errores de validación específicos
+        const errores = Object.values(error.response.data.errors).flat();
+        errorMessage = `Errores de validación: ${errores.join(', ')}`;
+        console.log("🔍 Errores de validación:", error.response.data.errors);
+      } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
       }
+
       mostrarModalAlerta("error", errorMessage);
-      return null;  // ✅ AGREGAR ESTO para que devuelva algo en caso de error
+
+      // Limpiar estado en caso de error
+      setCalculoPetroleo({
+        litrosMedidos: 0,
+        diferencia: 0,
+        calculoRealizado: false,
+      });
+
+      return null;
     } finally {
       setLoadingCalculo(false);
     }
   };
 
-  // Preparar datos de alturas
+
+  // ✅ FUNCIÓN PARA RESETEAR CÁLCULO CUANDO SEA NECESARIO
+  const resetearCalculo = () => {
+    setCalculoPetroleo({
+      litrosMedidos: 0,
+      diferencia: 0,
+      calculoRealizado: false,
+    });
+    console.log("🔄 Cálculo reseteado, se puede volver a calcular");
+  };
+
+  // ✅ ASEGURAR QUE prepararDatosAlturas DEVUELVE EL FORMATO CORRECTO:
   const prepararDatosAlturas = (tipoAltura) => {
     return Object.keys(alturasEstanques)
       .filter(estanqueId => {
@@ -543,11 +659,19 @@ const FormularioTrasvasije = () => {
       .map(estanqueId => {
         const altura = alturasEstanques[estanqueId]?.[tipoAltura];
         const alturaNum = altura !== "" ? parseFloat(altura) : null;
+
+        // ✅ VERIFICAR QUE NO SEA NULL O NaN
+        if (alturaNum === null || isNaN(alturaNum)) {
+          console.warn(`⚠️ Altura ${tipoAltura} inválida para estanque ${estanqueId}:`, altura);
+          return null;
+        }
+
         return {
           id_estanque: parseInt(estanqueId),
           altura: alturaNum,
         };
-      });
+      })
+      .filter(item => item !== null); // Filtrar elementos nulos
   };
 
   // Verificar alturas incompletas
@@ -615,6 +739,8 @@ const FormularioTrasvasije = () => {
   };
 
   // Validaciones actualizadas - SOLO UN ESTANQUE FIJO
+  // ✅ VALIDACIONES MEJORADAS PARA FORMULARIO TRASVASIJE
+
   const validarFormularioCompleto = () => {
     const newErrors = {};
 
@@ -625,16 +751,48 @@ const FormularioTrasvasije = () => {
       distribucion: distribucionLitros
     });
 
+    // Validar usuario
+    if (!user || !user.id) {
+      newErrors.usuario = "Error: Usuario no identificado";
+      console.log("❌ Usuario no identificado:", user);
+    }
+
+    // Validar faena
+    if (!formData.id_faena) {
+      newErrors.faena = "Error: Faena no identificada";
+      console.log("❌ Faena no identificada");
+    }
+
+    // ✅ 1. VALIDAR ESTANQUE MÓVIL
     if (!formData.id_estanque_movil) {
       console.log("❌ Falta estanque móvil");
       newErrors.estanque_movil = "Debe seleccionar un estanque móvil";
     }
 
-    if (!formData.litrosDocumentados || parseFloat(formData.litrosDocumentados) <= 0) {
+    // ✅ 2. VALIDAR LITROS DEL ESTANQUE MÓVIL (CORREGIDO)
+    if (!formData.litrosDocumentados || formData.litrosDocumentados.trim() === "") {
       console.log("❌ Falta litros documentados");
-      newErrors.litros_documentados = "Los litros deben ser mayor a 0";
+      newErrors.litros_documentados = "Debe ingresar los litros del estanque móvil a trasvasijar";
+    } else {
+      const litros = parseFloat(formData.litrosDocumentados);
+
+      if (isNaN(litros) || litros <= 0) {
+        console.log("❌ Litros inválidos");
+        newErrors.litros_documentados = "Los litros deben ser un número mayor a 0";
+      } else if (litros < 1) {
+        console.log("❌ Litros muy bajos");
+        newErrors.litros_documentados = "Debe trasvasijar al menos 1 litro";
+      } else {
+        // ✅ VALIDAR CONTRA STOCK DISPONIBLE EN EL ESTANQUE MÓVIL
+        const estanqueSeleccionado = estanquesMoviles.find(e => e.id_estanque == formData.id_estanque_movil);
+        if (estanqueSeleccionado && litros > estanqueSeleccionado.stock_actual) {
+          console.log("❌ Litros exceden stock disponible");
+          newErrors.litros_documentados = `El estanque móvil solo tiene ${estanqueSeleccionado.stock_actual.toLocaleString()} L disponibles`;
+        }
+      }
     }
 
+    // ✅ 3. VALIDAR DISTRIBUCIÓN
     const estanquesConDistribucion = Object.keys(distribucionLitros).filter(estanqueId => {
       const distribucion = parseFloat(distribucionLitros[estanqueId]) || 0;
       return distribucion > 0;
@@ -644,19 +802,21 @@ const FormularioTrasvasije = () => {
 
     if (estanquesConDistribucion.length === 0) {
       console.log("❌ No hay distribución");
-      newErrors.distribucion = "Debe seleccionar un estanque fijo y distribuir los litros";
+      newErrors.distribucion = "Debe seleccionar un estanque fijo destino y distribuir los litros";
     } else if (estanquesConDistribucion.length > 1) {
       console.log("❌ Múltiples estanques");
       newErrors.distribucion = "Solo puede trasvasijar a UN estanque fijo a la vez";
     } else {
+      // ✅ VALIDAR QUE LA DISTRIBUCIÓN COINCIDA
       const litrosDistribuidos = parseFloat(distribucionLitros[estanquesConDistribucion[0]]) || 0;
       const litrosDocumentados = parseFloat(formData.litrosDocumentados) || 0;
 
       if (Math.abs(litrosDistribuidos - litrosDocumentados) > 0.01) {
-        newErrors.distribucion = "Los litros distribuidos deben coincidir con los litros documentados del móvil";
+        newErrors.distribucion = `Los litros distribuidos (${litrosDistribuidos.toLocaleString()}) deben coincidir con los litros del móvil (${litrosDocumentados.toLocaleString()})`;
       }
     }
 
+    // ✅ 4. VALIDAR CAPACIDAD DEL ESTANQUE DESTINO
     if (estanquesConDistribucion.length === 1) {
       const idEstanque = estanquesConDistribucion[0];
       const litrosDistribuidos = parseFloat(distribucionLitros[idEstanque]) || 0;
@@ -665,15 +825,77 @@ const FormularioTrasvasije = () => {
       if (estanque) {
         const capacidadDisponible = estanque.capacidad - estanque.stock_actual;
         if (litrosDistribuidos > capacidadDisponible) {
-          newErrors.capacidad = `El estanque ${estanque.nombre} no tiene capacidad suficiente. Disponible: ${capacidadDisponible}L`;
+          newErrors.capacidad = `El estanque ${estanque.nombre} no tiene capacidad suficiente. Disponible: ${capacidadDisponible.toLocaleString()}L`;
         }
       }
     }
+
     console.log("🔍 Errores encontrados:", newErrors);
     console.log("🔍 Es válido:", Object.keys(newErrors).length === 0);
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  // ✅ VALIDACIÓN EN TIEMPO REAL PARA EL CAMPO DE LITROS
+  const handleLitrosChange = (value) => {
+    setFormData(prev => ({
+      ...prev,
+      litrosDocumentados: value
+    }));
+
+    // Validar en tiempo real
+    if (errors.litros_documentados) {
+      const litros = parseFloat(value);
+      if (!isNaN(litros) && litros > 0) {
+        const estanqueSeleccionado = estanquesMoviles.find(e => e.id_estanque == formData.id_estanque_movil);
+        if (!estanqueSeleccionado || litros <= estanqueSeleccionado.stock_actual) {
+          // Limpiar error si ahora es válido
+          setErrors(prev => ({
+            ...prev,
+            litros_documentados: null
+          }));
+        }
+      }
+    }
+
+    // Limpiar cálculo previo cuando cambian los litros
+    setCalculoPetroleo({
+      litrosMedidos: 0,
+      diferencia: 0,
+      calculoRealizado: false,
+    });
+  };
+
+  // ✅ VALIDAR CUANDO SE SELECCIONA UN ESTANQUE MÓVIL
+  const handleEstanqueMovilChange = (idEstanque) => {
+    const estanqueSeleccionado = estanquesMoviles.find(e => e.id_estanque == idEstanque);
+
+    setFormData(prev => ({
+      ...prev,
+      id_estanque_movil: idEstanque,
+      litrosDocumentados: estanqueSeleccionado ? estanqueSeleccionado.stock_actual.toString() : ''
+    }));
+
+    // Limpiar errores relacionados
+    setErrors(prev => ({
+      ...prev,
+      estanque_movil: null,
+      litros_documentados: null
+    }));
+
+    // Limpiar cálculo previo
+    setCalculoPetroleo({
+      litrosMedidos: 0,
+      diferencia: 0,
+      calculoRealizado: false,
+    });
+
+    // Limpiar distribución anterior
+    const nuevaDistribucion = {};
+    estanquesFijos.forEach(estanque => {
+      nuevaDistribucion[estanque.id_estanque] = "";
+    });
   };
 
   // Verificar alturas completas - SOLO PARA EL ESTANQUE SELECCIONADO
@@ -990,7 +1212,7 @@ const FormularioTrasvasije = () => {
                   placeholder="Litros disponibles en el estanque móvil"
                   value={formData.litrosDocumentados}
                   onChange={(e) => handleChange("litrosDocumentados", e.target.value)}
-                  disabled={true}  // ✅ CAMBIAR: Siempre deshabilitado
+                  disabled={false}  // ✅ CAMBIAR: Siempre deshabilitado
                   className={`${errors.litros_documentados ? 'border-red-500' : 'border-gray-300'} ${!formData.id_estanque_movil ? 'bg-gray-100' : 'bg-white'
                     }`}
                 />
