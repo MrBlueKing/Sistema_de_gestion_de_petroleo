@@ -11,6 +11,7 @@ use App\Models\Estanque;
 use App\Models\EstanqueStock;
 use App\Models\User;
 use App\Models\Faena;
+use App\Models\TrasvasijeMultiDetalle;
 use App\Models\Trasvasijes_multi_fijo_a_movil;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -220,6 +221,11 @@ class TrasvasijeController extends Controller
      */
     public function registrarFijoAMovil(Request $request)
     {
+
+        Log::info('🔹 Inicio de recepción de datos', [
+            'datos_recibidos' => $request->all()
+        ]);
+
         $validator = Validator::make($request->all(), [
             'id_usuario' => 'required|exists:users,id',
             'id_estanque_fijo' => 'required|exists:estanques,id_estanque',
@@ -230,7 +236,19 @@ class TrasvasijeController extends Controller
             'numeral_inicial' => 'required|numeric|min:0',
             'numeral_final' => 'required|numeric|min:0',
 
+            // 🆕 CAMPOS ADICIONALES PARA TRANSFERENCIAS MÚLTIPLES
+            'es_transferencia_multiple' => 'nullable|boolean',
+            'id_trasvasije_principal' => 'nullable|exists:trasvasijes_multi_fijo_a_movil,id_trasvasije',
+            'litros_desde_este_estanque' => 'nullable|numeric|min:0',
+            'litros_totales_operacion' => 'nullable|numeric|min:0', // 🆕 NUEVO CAMPO
+
             'observaciones' => 'nullable|string|max:255'
+
+        ]);
+
+        Log::info('✅ Validación ejecutada', [
+            'errores' => $validator->errors(),
+            'validacion_fallida' => $validator->fails()
         ]);
 
         if ($validator->fails()) {
@@ -271,14 +289,57 @@ class TrasvasijeController extends Controller
                 ], 400);
             }
 
-            // 🧮 CÁLCULOS AUTOMÁTICOS
-            $litrosBombeados = $request->numeral_final - $request->numeral_inicial;
+            // 🔍 DETERMINAR TIPO DE TRANSFERENCIA
+            $esTransferenciaMultiple = $request->filled('es_transferencia_multiple') && $request->es_transferencia_multiple;
+            $tieneIdPrincipal = $request->filled('id_trasvasije_principal');
+            $tieneLitrosEspecificos = $request->filled('litros_desde_este_estanque');
+            $tieneLitrosTotales = $request->filled('litros_totales_operacion');
+
+            // 🧮 CÁLCULO CORRECTO DE LITROS SEGÚN TIPO DE TRANSFERENCIA
+            $litrosBombeados = 0;
+            $litrosDesdeEsteEstanque = 0;
+
+            if ($esTransferenciaMultiple && !$tieneIdPrincipal) {
+                // 🎯 TRANSFERENCIA MÚLTIPLE - REGISTRO PRINCIPAL
+                $litrosBombeados = $tieneLitrosTotales
+                    ? $request->litros_totales_operacion
+                    : ($request->numeral_final - $request->numeral_inicial);
+                $litrosDesdeEsteEstanque = $request->litros_desde_este_estanque ?? $litrosBombeados;
+
+                Log::info('📊 Calculando litros - PRINCIPAL MÚLTIPLE', [
+                    'litros_totales_operacion' => $request->litros_totales_operacion,
+                    'numerales' => $request->numeral_final - $request->numeral_inicial,
+                    'litros_bombeados_final' => $litrosBombeados,
+                    'litros_desde_este_estanque' => $litrosDesdeEsteEstanque
+                ]);
+            } elseif ($tieneIdPrincipal) {
+                // 🎯 TRANSFERENCIA MÚLTIPLE - REGISTRO DETALLE
+                $litrosDesdeEsteEstanque = $request->litros_desde_este_estanque;
+                $litrosBombeados = $litrosDesdeEsteEstanque; // Para validaciones locales
+
+                Log::info('📊 Calculando litros - DETALLE MÚLTIPLE', [
+                    'litros_desde_este_estanque' => $litrosDesdeEsteEstanque,
+                    'numeral_inicial' => $request->numeral_inicial,
+                    'numeral_final' => $request->numeral_final,
+                    'litros_bombeados_local' => $litrosBombeados
+                ]);
+            } else {
+                // 🎯 TRANSFERENCIA SIMPLE
+                $litrosBombeados = $request->numeral_final - $request->numeral_inicial;
+                $litrosDesdeEsteEstanque = $litrosBombeados;
+
+                Log::info('📊 Calculando litros - SIMPLE', [
+                    'numeral_inicial' => $request->numeral_inicial,
+                    'numeral_final' => $request->numeral_final,
+                    'litros_bombeados' => $litrosBombeados
+                ]);
+            }
 
             // Validar que los litros bombeados sean positivos
             if ($litrosBombeados <= 0) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'El numeral final debe ser mayor que el inicial'
+                    'message' => 'Los litros a transferir deben ser mayores que cero'
                 ], 400);
             }
 
@@ -289,59 +350,127 @@ class TrasvasijeController extends Controller
             $stockInicialFijo = $stockFijo ? $stockFijo->stock_actual : 0;
             $stockInicialMovil = $stockMovil ? $stockMovil->stock_actual : 0;
 
-            // Validar stock suficiente en fijo
-            if ($stockInicialFijo < $litrosBombeados) {
-                return response()->json([
-                    'success' => false,
-                    'message' => "Stock insuficiente en estanque fijo. Stock actual: {$stockInicialFijo}L, requerido: {$litrosBombeados}L"
-                ], 400);
+            // 🔥 VALIDACIÓN DE STOCK ESPECÍFICA PARA CADA TIPO
+            if ($tieneIdPrincipal) {
+                // Para detalles: validar solo los litros específicos de este estanque
+                if ($stockInicialFijo < $litrosDesdeEsteEstanque) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Stock insuficiente en estanque fijo {$estanqueFijo->nombre}. Stock actual: {$stockInicialFijo}L, requerido: {$litrosDesdeEsteEstanque}L"
+                    ], 400);
+                }
+            } else {
+                // Para principal o simple: validar con litros bombeados totales
+                if ($stockInicialFijo < $litrosBombeados) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Stock insuficiente en estanque fijo. Stock actual: {$stockInicialFijo}L, requerido: {$litrosBombeados}L"
+                    ], 400);
+                }
             }
 
-            // Calcular stocks finales
-            $stockFinalFijo = $stockInicialFijo - $litrosBombeados;
-            $stockFinalMovil = $stockInicialMovil + $litrosBombeados;
+            // 🧮 CALCULAR STOCKS FINALES
+            if ($tieneIdPrincipal) {
+                // Para detalles: usar solo los litros específicos
+                $stockFinalFijo = $stockInicialFijo - $litrosDesdeEsteEstanque;
+                $stockFinalMovil = $stockInicialMovil; // No se modifica en detalles
+            } else {
+                // Para principal o simple: usar litros bombeados totales
+                $stockFinalFijo = $stockInicialFijo - $litrosBombeados;
+                $stockFinalMovil = $stockInicialMovil + $litrosBombeados;
 
-            // Validar capacidad del estanque móvil
-            if ($stockFinalMovil > $estanqueMovil->capacidad) {
-                return response()->json([
-                    'success' => false,
-                    'message' => "Capacidad insuficiente en estanque móvil. Capacidad: {$estanqueMovil->capacidad}L, stock resultante: {$stockFinalMovil}L"
-                ], 400);
+                // Validar capacidad del estanque móvil (solo para principal/simple)
+                if ($stockFinalMovil > $estanqueMovil->capacidad) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Capacidad insuficiente en estanque móvil. Capacidad: {$estanqueMovil->capacidad}L, stock resultante: {$stockFinalMovil}L"
+                    ], 400);
+                }
             }
 
-            // 📝 CREAR REGISTRO DE TRASVASIJE
-            $trasvasije = Trasvasijes_multi_fijo_a_movil::create([
-                'id_usuario' => $request->id_usuario,
+            // Variables para el manejo de transferencias múltiples
+            $trasvasijePrincipalId = null;
+
+            if ($tieneIdPrincipal) {
+                // Es parte de una transferencia múltiple existente
+                $trasvasijePrincipalId = $request->id_trasvasije_principal;
+            }
+
+            // 📝 CREAR REGISTRO DE TRASVASIJE PRINCIPAL (si no es parte de uno existente)
+            if (!$tieneIdPrincipal) {
+                $trasvasije = Trasvasijes_multi_fijo_a_movil::create([
+                    'id_usuario' => $request->id_usuario,
+                    'id_estanque_fijo' => $request->id_estanque_fijo,
+                    'id_estanque_movil' => $request->id_estanque_movil,
+                    'id_faena' => $request->id_faena,
+                    'fecha_trasvasije' => now(),
+
+                    // 🎯 NUMERALES ORIGINALES DE LA OPERACIÓN COMPLETA
+                    'numeral_inicial' => $request->numeral_inicial,
+                    'numeral_final' => $request->numeral_final,
+                    'litros_bombeados_total' => $litrosBombeados, // Total de la operación
+
+                    // Stocks finales después de toda la operación
+                    'stock_inicial_fijo' => $stockInicialFijo,
+                    'stock_final_fijo' => $stockFinalFijo,
+                    'stock_inicial_movil' => $stockInicialMovil,
+                    'stock_final_movil' => $stockFinalMovil,
+
+                    'observaciones' => $request->observaciones
+                ]);
+
+                $trasvasijePrincipalId = $trasvasije->id_trasvasije;
+
+                Log::info('✅ Trasvasije principal creado', [
+                    'id_trasvasije' => $trasvasije->id_trasvasije,
+                    'es_multiple' => $esTransferenciaMultiple,
+                    'litros_bombeados_total' => $litrosBombeados,
+                    'litros_desde_este_estanque' => $litrosDesdeEsteEstanque
+                ]);
+            } else {
+                // Si es parte de uno existente, obtener el trasvasije para la respuesta
+                $trasvasije = Trasvasijes_multi_fijo_a_movil::find($trasvasijePrincipalId);
+            }
+
+            // 🆕 SIEMPRE CREAR REGISTRO DE DETALLE (TANTO SIMPLE COMO MÚLTIPLE)
+            $detalle = TrasvasijeMultiDetalle::create([
+                'id_trasvasije_multi' => $trasvasijePrincipalId,
                 'id_estanque_fijo' => $request->id_estanque_fijo,
-                'id_estanque_movil' => $request->id_estanque_movil,
-                'id_faena' => $request->id_faena,
-                'fecha_trasvasije' => now(),
-
-                // Numerales de bomba
-                'numeral_inicial' => $request->numeral_inicial,
-                'numeral_final' => $request->numeral_final,
-                'litros_bombeados_total' => $litrosBombeados,
-
-                // Stocks
+                'litros_desde_estanque' => $litrosDesdeEsteEstanque, // ✅ CORRECTO: litros específicos
                 'stock_inicial_fijo' => $stockInicialFijo,
-                'stock_final_fijo' => $stockFinalFijo,
-                'stock_inicial_movil' => $stockInicialMovil,
-                'stock_final_movil' => $stockFinalMovil,
-
-                'observaciones' => $request->observaciones
+                'stock_final_fijo' => $stockFinalFijo
             ]);
 
-            // Actualizar stocks (aunque el trigger también lo hace)
-            $this->actualizarStockEstanque($request->id_estanque_fijo, $stockFinalFijo, null);
-            $this->actualizarStockEstanque($request->id_estanque_movil, $stockFinalMovil, null);
+            Log::info('✅ Detalle de transferencia creado', [
+                'id_detalle' => $detalle->id_detalle,
+                'id_trasvasije_principal' => $trasvasijePrincipalId,
+                'id_estanque_fijo' => $request->id_estanque_fijo,
+                'litros_desde_estanque' => $litrosDesdeEsteEstanque,
+                'tipo' => $esTransferenciaMultiple || $tieneIdPrincipal ? 'MÚLTIPLE' : 'SIMPLE'
+            ]);
+
+            // 🔄 ACTUALIZAR STOCKS
+            if (!$tieneIdPrincipal) {
+                // Principal o simple: actualizar ambos estanques
+                $this->actualizarStockEstanque($request->id_estanque_fijo, $stockFinalFijo, null);
+                $this->actualizarStockEstanque($request->id_estanque_movil, $stockFinalMovil, null);
+            } else {
+                // Detalle: solo actualizar el estanque fijo (el móvil ya se actualizó en el principal)
+                $this->actualizarStockEstanque($request->id_estanque_fijo, $stockFinalFijo, null);
+            }
 
             DB::commit();
 
             Log::info('✅ Trasvasije fijo→móvil registrado', [
-                'id_trasvasije' => $trasvasije->id_trasvasije,
+                'id_trasvasije' => $trasvasijePrincipalId,
+                'id_detalle' => $detalle->id_detalle,
                 'estanque_fijo' => $estanqueFijo->nombre,
                 'estanque_movil' => $estanqueMovil->nombre,
-                'litros_bombeados_total' => $litrosBombeados
+                'litros_bombeados_total' => $litrosBombeados,
+                'litros_desde_este_estanque' => $litrosDesdeEsteEstanque,
+                'es_multiple' => $esTransferenciaMultiple || $tieneIdPrincipal,
+                'es_parte_existente' => $tieneIdPrincipal,
+                'tipo_registro' => $tieneIdPrincipal ? 'DETALLE' : ($esTransferenciaMultiple ? 'PRINCIPAL_MÚLTIPLE' : 'SIMPLE')
             ]);
 
             return response()->json([
@@ -349,6 +478,7 @@ class TrasvasijeController extends Controller
                 'message' => 'Trasvasije registrado exitosamente',
                 'data' => [
                     'trasvasije' => $trasvasije,
+                    'detalle' => $detalle,
                     'estanques' => [
                         'fijo' => [
                             'nombre' => $estanqueFijo->nombre,
@@ -360,6 +490,14 @@ class TrasvasijeController extends Controller
                             'stock_anterior' => $stockInicialMovil,
                             'stock_actual' => $stockFinalMovil
                         ]
+                    ],
+                    'transferencia_info' => [
+                        'es_multiple' => $esTransferenciaMultiple || $tieneIdPrincipal,
+                        'es_parte_existente' => $tieneIdPrincipal,
+                        'trasvasije_principal_id' => $trasvasijePrincipalId,
+                        'litros_desde_este_estanque' => $litrosDesdeEsteEstanque,
+                        'litros_bombeados_total' => $litrosBombeados,
+                        'tipo_registro' => $tieneIdPrincipal ? 'DETALLE' : ($esTransferenciaMultiple ? 'PRINCIPAL_MÚLTIPLE' : 'SIMPLE')
                     ]
                 ]
             ], 201);
