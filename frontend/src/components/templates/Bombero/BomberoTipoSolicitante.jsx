@@ -8,7 +8,7 @@ import { FaHome } from "react-icons/fa";
 const TipoSolicitante = ({ onNext }) => {
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 pt-6">
-      
+
       <main className="flex-1 w-full p-2 sm:p-3 md:p-4 text-center">
         <div className="bg-gray-200 py-3 sm:py-4 md:py-6 px-2 sm:px-3 md:px-4 rounded-2xl sm:rounded-3xl flex flex-col items-center space-y-3 sm:space-y-4 md:space-y-6 max-w-4xl mx-auto">
           <div className="w-full">
@@ -66,37 +66,21 @@ const TipoSolicitante = ({ onNext }) => {
 
           {/* Controles inferiores */}
           <div className="flex items-center w-full px-1 sm:px-2 md:px-4 py-1 sm:py-2">
-            <Button
-              to="/Bombero"
-              icon={<FaHome size={30} />}
-              color="transparent" // No importa el valor, lo sobrescribiremos
-              textColor="orange-600"
-              className="!bg-transparent hover:!bg-transparent !shadow-none text-xl px-8 py-4 !text-orange-600" // Sobrescribe estilos
-              iconClassName="w-10 h-10" // Ícono más grande
-            />
-            <div className="flex-1"></div>
-            <div className="w-8 sm:w-10">{/* Espacio para alinear */}</div>
+            {/* Botón de inicio */}
+            <div className="flex-shrink-0">
+              <Button
+                to="/Bombero"
+                icon={<FaHome size={30} />}
+                color="transparent"
+                textColor="orange-600"
+                className="!bg-transparent hover:!bg-transparent !shadow-none text-xl px-8 py-4 !text-orange-600"
+                iconClassName="w-10 h-10"
+              />
+            </div>
+            {/* Espacio lateral para alinear (igual tamaño que el botón) */}
+            <div className="flex-shrink-0 w-[4rem] sm:w-[5rem]">{/* Placeholder vacío */}</div>
           </div>
 
-          {/* Ayuda */}
-          <div className="bg-blue-50 text-blue-800 rounded-lg sm:rounded-xl px-2 sm:px-3 md:px-4 py-1 sm:py-2 text-xs sm:text-sm w-full max-w-xs sm:max-w-sm">
-            <p className="flex items-center justify-center">
-              <svg
-                className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                  clipRule="evenodd"
-                ></path>
-              </svg>
-              <span className="inline-block">
-                Seleccione el tipo de solicitante para continuar
-              </span>
-            </p>
-          </div>
         </div>
       </main>
     </div>

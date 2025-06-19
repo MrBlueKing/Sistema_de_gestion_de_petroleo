@@ -12,15 +12,16 @@ import bomberoService from "../../context/bomberoService";
 import axios from "../../lib/axios";
 
 const BomberoNavigation = () => {
+  const DEBUG = false; // o true si estás depurando
   // Obtener contexto del usuario
   const { user } = useContext(UserContext);
-  
+
   // Estados para el flujo de navegación
   const [currentStep, setCurrentStep] = useState(1);
-  
+
   // 🆕 NUEVO: Estado para controlar el tipo de flujo
   const [tipoFlujo, setTipoFlujo] = useState('normal'); // 'normal' o 'estanque_movil'
-  
+
   // Estados para almacenar los datos ingresados en cada paso
   const [tipoSolicitante, setTipoSolicitante] = useState("");
   const [solicitante, setSolicitante] = useState(null);
@@ -52,7 +53,7 @@ const BomberoNavigation = () => {
     const preloadPersonalData = async () => {
       if (userInfo.faena && !preloadStatus.personal.loaded && !preloadStatus.personal.loading) {
         try {
-          console.log('🚀 PASO 1: Precargando personal interno y externo...');
+          DEBUG && console.log('🚀 PASO 1: Precargando personal interno y externo...');
           setPreloadStatus(prev => ({
             ...prev,
             personal: { loaded: false, loading: true }
@@ -67,10 +68,10 @@ const BomberoNavigation = () => {
             ...prev,
             personal: { loaded: true, loading: false }
           }));
-          
-          console.log('✅ PASO 1: Personal precargado exitosamente');
+
+          DEBUG && console.log('✅ PASO 1: Personal precargado exitosamente');
         } catch (error) {
-          console.warn('⚠️ Error precargando personal:', error);
+          DEBUG && console.warn('⚠️ Error precargando personal:', error);
           setPreloadStatus(prev => ({
             ...prev,
             personal: { loaded: false, loading: false }
@@ -87,7 +88,7 @@ const BomberoNavigation = () => {
     const preloadCategorias = async () => {
       if (tipoSolicitante && !preloadStatus.categorias.loaded && !preloadStatus.categorias.loading) {
         try {
-          console.log('🚀 PASO 2: Precargando categorías de maquinaria...');
+          DEBUG && console.log('🚀 PASO 2: Precargando categorías de maquinaria...');
           setPreloadStatus(prev => ({
             ...prev,
             categorias: { loaded: false, loading: true }
@@ -99,10 +100,10 @@ const BomberoNavigation = () => {
             ...prev,
             categorias: { loaded: true, loading: false }
           }));
-          
-          console.log('✅ PASO 2: Categorías precargadas exitosamente');
+
+          DEBUG && console.log('✅ PASO 2: Categorías precargadas exitosamente');
         } catch (error) {
-          console.warn('⚠️ Error precargando categorías:', error);
+          DEBUG && console.warn('⚠️ Error precargando categorías:', error);
           setPreloadStatus(prev => ({
             ...prev,
             categorias: { loaded: false, loading: false }
@@ -119,10 +120,10 @@ const BomberoNavigation = () => {
   // PASO 2.5: PRECARGA MASIVA DE TODAS LAS MÁQUINAS CUANDO SE SELECCIONA TIPO
   useEffect(() => {
     const preloadMasivoMaquinas = async () => {
-      if (tipoSolicitante && userInfo.faena && 
-          !preloadStatus.maquinasMasivas.loaded && !preloadStatus.maquinasMasivas.loading) {
+      if (tipoSolicitante && userInfo.faena &&
+        !preloadStatus.maquinasMasivas.loaded && !preloadStatus.maquinasMasivas.loading) {
         try {
-          console.log('🚀 🚀 PASO 2.5: INICIANDO PRECARGA MASIVA de todas las máquinas...');
+          DEBUG && console.log('🚀 🚀 PASO 2.5: INICIANDO PRECARGA MASIVA de todas las máquinas...');
           setPreloadStatus(prev => ({
             ...prev,
             maquinasMasivas: { loaded: false, loading: true }
@@ -135,10 +136,10 @@ const BomberoNavigation = () => {
             maquinasMasivas: { loaded: true, loading: false },
             estanques: { loaded: true, loading: false }
           }));
-          
-          console.log('🎉 🎉 PASO 2.5: PRECARGA MASIVA completada - Usuario tendrá navegación instantánea');
+
+          DEBUG && console.log('🎉 🎉 PASO 2.5: PRECARGA MASIVA completada - Usuario tendrá navegación instantánea');
         } catch (error) {
-          console.warn('⚠️ Error en precarga masiva:', error);
+          DEBUG && console.warn('⚠️ Error en precarga masiva:', error);
           setPreloadStatus(prev => ({
             ...prev,
             maquinasMasivas: { loaded: false, loading: false }
@@ -162,7 +163,7 @@ const BomberoNavigation = () => {
 
   // Función optimizada para reiniciar todo el flujo
   const resetFlow = useCallback(() => {
-    console.log('🔄 Reiniciando flujo de bombero');
+    DEBUG && console.log('🔄 Reiniciando flujo de bombero');
     setCurrentStep(1);
     setTipoSolicitante("");
     setSolicitante(null);
@@ -170,7 +171,7 @@ const BomberoNavigation = () => {
     setPatenteSeleccionada("");
     setTipoFlujo('normal'); // 🆕 NUEVO: Resetear tipo de flujo
     setShouldClearCache(true);
-    
+
     setPreloadStatus({
       personal: { loaded: false, loading: false },
       categorias: { loaded: false, loading: false },
@@ -178,7 +179,7 @@ const BomberoNavigation = () => {
       estanques: { loaded: false, loading: false },
       maquinasMasivas: { loaded: false, loading: false }
     });
-    
+
     setTimeout(() => {
       bomberoService.clearCache();
       setShouldClearCache(false);
@@ -187,14 +188,14 @@ const BomberoNavigation = () => {
 
   // 🆕 MANEJAR PASO SIGUIENTE CON DETECCIÓN DE BIFURCACIÓN
   const handleNext = useCallback((value) => {
-    console.log(`📍 Avanzando del paso ${currentStep} al ${currentStep + 1}`);
-    
+    DEBUG && console.log(`📍 Avanzando del paso ${currentStep} al ${currentStep + 1}`);
+
     if (currentStep === 1) {
       setTipoSolicitante(value);
-      console.log('✅ Tipo solicitante guardado:', value);
+      DEBUG && console.log('✅ Tipo solicitante guardado:', value);
     } else if (currentStep === 2) {
       setSolicitante(value);
-      console.log('✅ Solicitante guardado:', {
+      DEBUG && console.log('✅ Solicitante guardado:', {
         id: value?.id,
         rut: value?.rut,
         faena: value?.id_faena || userInfo.faena
@@ -204,43 +205,43 @@ const BomberoNavigation = () => {
       const nuevoTipoFlujo = detectarTipoFlujo(value);
       setTipoFlujo(nuevoTipoFlujo);
       setCategoriaSeleccionada(value);
-      
-      console.log('✅ Categoría guardada:', value);
-      console.log('🔀 Tipo de flujo detectado:', nuevoTipoFlujo);
-      
+
+      DEBUG && console.log('✅ Categoría guardada:', value);
+      DEBUG && console.log('🔀 Tipo de flujo detectado:', nuevoTipoFlujo);
+
       // 🆕 BIFURCACIÓN: Si es estanque móvil, saltar directamente al paso final
       if (nuevoTipoFlujo === 'estanque_movil') {
-        console.log('🚛 BIFURCACIÓN: Saltando a transferencia de estanque móvil');
+        DEBUG && console.log('🚛 BIFURCACIÓN: Saltando a transferencia de estanque móvil');
         setCurrentStep(5); // Saltar directamente al paso de transferencia
         return;
       }
     } else if (currentStep === 4) {
       setPatenteSeleccionada(value);
-      console.log('✅ Patente guardada:', value);
+      DEBUG && console.log('✅ Patente guardada:', value);
     }
-    
+
     setCurrentStep(prev => prev + 1);
   }, [currentStep, userInfo.faena, detectarTipoFlujo]);
 
   // Manejar paso anterior con consideración del tipo de flujo
   const handlePrevious = useCallback(() => {
-    console.log(`📍 Retrocediendo del paso ${currentStep} al ${currentStep - 1}`);
-    
+    DEBUG && console.log(`📍 Retrocediendo del paso ${currentStep} al ${currentStep - 1}`);
+
     // 🆕 NUEVO: Si estamos en transferencia de estanque móvil (paso 5) y venimos de bifurcación,
     // regresar al paso 3 (selección de categoría)
     if (currentStep === 5 && tipoFlujo === 'estanque_movil') {
-      console.log('🔙 Regresando de transferencia estanque móvil a selección de categoría');
+      DEBUG && console.log('🔙 Regresando de transferencia estanque móvil a selección de categoría');
       setCurrentStep(3);
       setTipoFlujo('normal'); // Resetear el tipo de flujo
       return;
     }
-    
+
     setCurrentStep(prev => prev - 1);
   }, [currentStep, tipoFlujo]);
 
   // Manejar finalización exitosa del flujo
   const handleFlowComplete = useCallback(() => {
-    console.log('🎉 Flujo completado exitosamente');
+    DEBUG && console.log('🎉 Flujo completado exitosamente');
     // Opcional: mostrar mensaje de éxito
     // Opcional: redirigir a otra página
     // resetFlow(); // Si quieres reiniciar automáticamente
@@ -295,13 +296,13 @@ const BomberoNavigation = () => {
     idFaena: userInfo.faena,
     preloadedEstanques: preloadStatus.estanques
   }), [
-    tipoSolicitante, 
-    solicitante, 
-    categoriaSeleccionada, 
-    patenteSeleccionada, 
-    handlePrevious, 
-    handleFlowComplete, 
-    resetFlow, 
+    tipoSolicitante,
+    solicitante,
+    categoriaSeleccionada,
+    patenteSeleccionada,
+    handlePrevious,
+    handleFlowComplete,
+    resetFlow,
     userInfo,
     preloadStatus.estanques
   ]);
@@ -334,7 +335,7 @@ const BomberoNavigation = () => {
     if (currentStep === 5 && tipoFlujo === 'estanque_movil') {
       return <TransferenciaEstanqueMovil {...transferenciaEstanqueMovilProps} />;
     }
-    
+
     // Flujo normal
     switch (currentStep) {
       case 1:
@@ -351,12 +352,12 @@ const BomberoNavigation = () => {
         return <TipoSolicitante {...tipoSolicitanteProps} />;
     }
   }, [
-    currentStep, 
+    currentStep,
     tipoFlujo,
-    tipoSolicitanteProps, 
-    solicitanteProps, 
-    maquinariaProps, 
-    patenteProps, 
+    tipoSolicitanteProps,
+    solicitanteProps,
+    maquinariaProps,
+    patenteProps,
     consumoProps,
     transferenciaEstanqueMovilProps
   ]);
@@ -366,20 +367,13 @@ const BomberoNavigation = () => {
     <div className="flex flex-col min-h-screen bg-gray-100">
       {/* Header centralizado */}
       <Header className="fixed top-0 left-0 right-0 z-10" />
-      
+
       {/* Container principal con padding-top para compensar el header fijo */}
       <div>
         {/* Contenido principal */}
         <div className="container mx-auto">
           {renderStep}
         </div>
-        
-        {/* 🆕 NUEVO: Indicador de tipo de flujo para debugging (solo en desarrollo) */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="fixed bottom-4 left-4 bg-black bg-opacity-75 text-white px-3 py-1 rounded text-xs">
-            Paso: {currentStep} | Flujo: {tipoFlujo}
-          </div>
-        )}
       </div>
     </div>
   );

@@ -21,6 +21,7 @@ const Consumo = ({
   resetFlow = null,
   preloadedEstanques = null
 }) => {
+  const DEBUG = false; // o true si estás depurando
   const { user, loading } = useContext(UserContext);
   const navigate = useNavigate();
 
@@ -49,7 +50,7 @@ const Consumo = ({
 
   // TODOS los useEffect juntos al inicio para mantener el orden
   useEffect(() => {
-    console.log('DEBUG CONSUMO - Props recibidas:', {
+    DEBUG && console.log('DEBUG CONSUMO - Props recibidas:', {
       onPrevious: typeof onPrevious,
       categoriaSeleccionada,
       patenteSeleccionada,
@@ -78,7 +79,7 @@ const Consumo = ({
         };
         
         setUserInfo(userInfoData);
-        console.log('DEBUG CONSUMO - UserInfo establecido:', userInfoData);
+        DEBUG && console.log('DEBUG CONSUMO - UserInfo establecido:', userInfoData);
       } else {
         setHasError(true);
         setErrorMessage("No se ha podido obtener la información del usuario. Por favor, vuelva a iniciar sesión.");
@@ -130,7 +131,7 @@ const Consumo = ({
   };
 
   const handleConsumoComplete = (response = null) => {
-    console.log('DEBUG CONSUMO - Consumo completado desde ConsumoFormMultiEstanque', response);
+    DEBUG && console.log('DEBUG CONSUMO - Consumo completado desde ConsumoFormMultiEstanque', response);
     
     setIsSaved(true);
     setIsSaving(false);
@@ -147,7 +148,7 @@ const Consumo = ({
     };
     
     setSuccessData(successInfo);
-    console.log('DEBUG CONSUMO - Datos de éxito establecidos:', successInfo);
+    DEBUG && console.log('DEBUG CONSUMO - Datos de éxito establecidos:', successInfo);
   };
 
   const validateForm = () => {
@@ -268,8 +269,8 @@ const Consumo = ({
       };
 
       const response = await axios.post('/api/consumos', apiData);
-      console.log("datiños: ", response.data);
-      console.log("datiños: ", response.data.data);
+      DEBUG && console.log("datiños: ", response.data);
+      DEBUG && console.log("datiños: ", response.data.data);
 
       if (response.data.success) {
         setIsSaved(true);
@@ -559,15 +560,6 @@ const Consumo = ({
                 icon={<FaArrowLeft className="text-black w-5 h-5 md:w-6 md:h-6" />}
                 textColor="orange-500"
               />
-
-              <div className="flex-1 flex justify-center">
-                <PageControl
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={setCurrentPage}
-                />
-              </div>
-
               <div className="w-5 h-5 md:w-6 md:h-6"></div>
             </div>
           )}

@@ -24,7 +24,7 @@ const OptionsFormBombero = ({
   // Estados para funcionalidad de scroll y tracking
   const [isScrollable, setIsScrollable] = useState(false);
   const listRef = useRef(null);
-  const [showScrollIndicator, setShowScrollIndicator] = useState(true);
+  // ✅ ELIMINADO: showScrollIndicator para evitar salto visual
   const [selectedItemId, setSelectedItemId] = useState(null);
 
   // Detectar si el contenedor necesita scroll
@@ -44,16 +44,7 @@ const OptionsFormBombero = ({
     return () => window.removeEventListener('resize', checkIfScrollable);
   }, [items]);
 
-  // Ocultar el indicador de scroll después de un tiempo
-  useEffect(() => {
-    if (isScrollable) {
-      const timer = setTimeout(() => {
-        setShowScrollIndicator(false);
-      }, 3000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [isScrollable]);
+  // ✅ ELIMINADO: Timer que causaba el salto visual
 
   // Función para formatear el nombre completo según sea necesario
   const formatearNombreCompleto = (item) => {
@@ -74,17 +65,20 @@ const OptionsFormBombero = ({
     }
 
     // 🆕 PRIORIDAD 2: Si es tipo maquinaria, usar iconos según el nombre
-    if (tipoElemento === "maquinaria" || tipoElemento === "tipo de camión") {
+    if (tipoElemento === "maquinaria" || tipoElemento === "tipo de operación" || tipoElemento === "tipo de camión") {
       const nombre = (item.nombre || '').toLowerCase();
       
-      if (nombre.includes('dumper')) {
+      if (nombre.includes('dumper') || nombre.includes('camión')) {
         return <FaTruck size={20} className="text-orange-500" />;
       }
       if (nombre.includes('camioneta')) {
         return <FaTruck size={20} className="text-blue-500" />;
       }
-      if (nombre.includes('n/a') || nombre === 'n/a') {
+      if (nombre.includes('n/a') || nombre === 'n/a' || nombre.includes('otros')) {
         return <FaIndustry size={20} className="text-slate-600" />;
+      }
+      if (nombre.includes('estanque')) {
+        return <FaIndustry size={20} className="text-green-600" />;
       }
     }
 
@@ -95,7 +89,9 @@ const OptionsFormBombero = ({
       case "personal":
         return <FaUser size={20} />;
       case "maquinaria":
+      case "tipo de operación":
       case "tipo de camión":
+      case "máquina":
         return <FaTruck size={20} />;
       case "patente":
       case "departamento":
@@ -112,13 +108,13 @@ const OptionsFormBombero = ({
   };
 
   return (
-    <div className="w-full flex flex-col items-center">
-      {/* Contenedor con altura fija */}
+    <div className="w-full flex flex-col">
+      {/* ✅ CONTENEDOR CON ALTURA FIJA - Sin espacio adicional */}
       <div className="w-full" style={{ height: maxHeight }}>
         {/* Contenedor de la lista con scroll */}
         <div 
           ref={listRef}
-          className={`w-full h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 ${buttonStyle ? 'grid grid-cols-1 gap-2' : 'divide-y divide-gray-200'}`}
+          className={`w-full h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 ${buttonStyle ? 'grid grid-cols-1 gap-2 p-1' : 'divide-y divide-gray-200'}`}
         >
           {items.length > 0 ? (
             items.map((item) => {
@@ -176,7 +172,7 @@ const OptionsFormBombero = ({
                       )}
                       
                       {/* 🆕 MEJORADO: Mostrar descripción para cualquier tipo que la tenga */}
-                      {(tipoElemento === "maquinaria" || tipoElemento === "tipo de camión" || tipoElemento === "patente") && item.descripcion && (
+                      {(tipoElemento === "maquinaria" || tipoElemento === "tipo de operación" || tipoElemento === "tipo de camión" || tipoElemento === "patente" || tipoElemento === "máquina") && item.descripcion && (
                         <p className="text-xs text-gray-500 mt-1 truncate">{item.descripcion}</p>
                       )}
                     </div>
@@ -215,29 +211,21 @@ const OptionsFormBombero = ({
         </div>
       </div>
 
-      {/* Indicador de scroll (solo visible si hay scroll y está activo) */}
-      {isScrollable && showScrollIndicator && items.length > 0 && (
-        <div className="text-center text-gray-500 text-xs animate-pulse mt-2">
-          <svg 
-            className="w-5 h-5 mx-auto mb-1" 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-          >
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth="2" 
-              d="M19 9l-7 7-7-7" 
-            />
-          </svg>
-          Desliza para ver más
+      {/* ✅ INDICADOR DE SCROLL FIJO (opcional y sin salto) */}
+      {isScrollable && items.length > 5 && (
+        <div className="text-center text-gray-400 text-xs mt-1 h-4">
+          <div className="flex items-center justify-center gap-1">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+            </svg>
+            <span>Scroll para ver más</span>
+          </div>
         </div>
       )}
       
-      {/* Contador de elementos (opcional) */}
+      {/* ✅ CONTADOR DE ELEMENTOS FIJO (sin salto) */}
       {items.length > 0 && (
-        <div className="text-gray-500 text-xs mt-2 self-end">
+        <div className="text-gray-400 text-xs mt-1 text-right h-4">
           {items.length} {tipoElemento === "personal" ? "usuarios" : "elementos"}
         </div>
       )}

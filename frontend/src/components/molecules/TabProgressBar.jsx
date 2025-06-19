@@ -10,128 +10,193 @@ import {
 } from "react-icons/fa";
 
 const TabProgressBar = ({ activeTab }) => {
-  // Definimos los tabs en orden con iconos más contextualizados
+  // Definimos los tabs en orden con iconos más contextualizados y textos mejorados
   const tabs = [
-    { id: "tipoSolicitante", name: "Tipo", icon: <FaHardHat /> },
-    { id: "solicitante", name: "Solicitante", icon: <FaUsers /> },
-    { id: "maquinaria", name: "Maquinaria", icon: <FaTruck /> },
-    { id: "patente", name: "Patente", icon: <FaIdCard /> },
-    { id: "consumo", name: "Consumo", icon: <FaGasPump /> },
+    { 
+      id: "tipoSolicitante", 
+      name: "Tipo", 
+      fullName: "Tipo de Solicitante",
+      icon: <FaHardHat />,
+      description: "Seleccione si es personal interno o externo"
+    },
+    { 
+      id: "solicitante", 
+      name: "Personal", 
+      fullName: "Seleccionar Personal",
+      icon: <FaUsers />,
+      description: "Elija a la persona que solicita el combustible"
+    },
+    { 
+      id: "maquinaria", 
+      name: "Operación", 
+      fullName: "Tipo de Operación",
+      icon: <FaTruck />,
+      description: "Seleccione el tipo de maquinaria"
+    },
+    { 
+      id: "patente", 
+      name: "Máquina", 
+      fullName: "Seleccionar Máquina",
+      icon: <FaIdCard />,
+      description: "Elija la máquina que realizará la operación"
+    },
+    { 
+      id: "consumo", 
+      name: "Consumo", 
+      fullName: "Registrar Consumo",
+      icon: <FaGasPump />,
+      description: "Complete los detalles del combustible"
+    },
   ];
 
   // Encontrar el índice del tab activo
   const activeIndex = tabs.findIndex((tab) => tab.id === activeTab);
+  const progressPercentage = activeIndex === 0 ? 0 : ((activeIndex) / (tabs.length - 1)) * 100;
 
   return (
-    <div className="w-full relative z-0"> {/* z-index 0 para que esté por debajo del header */}
-      {/* Barra de progreso principal */}
-      <div className="relative flex items-center justify-between mb-8 xs:mb-10 sm:mb-12">
-        {/* Línea de conexión base - ajustada para dar espacio a los nombres */}
-        <div className="absolute h-1 bg-white/40 rounded-full w-full top-5 xs:top-6 sm:top-8 md:top-9 z-0"></div>
-
-        {/* Línea de progreso actual */}
+    <div className="w-full relative z-0 px-2">
+      {/* Contenedor principal del progreso */}
+      <div className="relative flex items-start justify-between mb-6 sm:mb-8">
+        
+        {/* ✅ LÍNEA DE PROGRESO MEJORADA PARA FONDO NARANJA */}
+        <div className="absolute h-2 bg-white/20 rounded-full w-full top-6 sm:top-8 z-0 shadow-inner"></div>
+        
+        {/* Línea de progreso activa optimizada para fondo naranja */}
         <div 
-          className="absolute h-1 bg-white rounded-full w-full top-5 xs:top-6 sm:top-8 md:top-9 transition-all duration-500 ease-in-out z-0"
-          style={{
-            width: `${activeIndex === 0 ? 0 : ((activeIndex) / (tabs.length - 1)) * 100}%`,
-          }}
+          className="absolute h-2 bg-white rounded-full top-6 sm:top-8 transition-all duration-700 ease-out z-0 shadow-lg"
+          style={{ width: `${progressPercentage}%` }}
         ></div>
 
-        {/* Puntos de paso con íconos */}
-        {tabs.map((tab, index) => (
-          <div 
-            key={tab.id}
-            className="flex flex-col items-center relative z-0 transition-all duration-300" /* z-index 0 */
-            style={{ 
-              // Asegurar que cada elemento ocupe la misma cantidad de espacio
-              width: `${100 / tabs.length}%`,
-              maxWidth: "100px" 
-            }}
-          >
-            {/* Círculo de fondo con ícono */}
+        {/* ✅ PASOS MEJORADOS */}
+        {tabs.map((tab, index) => {
+          const isCompleted = index < activeIndex;
+          const isActive = index === activeIndex;
+          const isPending = index > activeIndex;
+
+          return (
             <div 
-              className={`
-                w-10 h-10 xs:w-12 xs:h-12 sm:w-16 sm:h-16 md:w-[70px] md:h-[70px] rounded-full 
-                flex items-center justify-center
-                transition-all duration-300 ease-out 
-                border-2 relative
-                ${index < activeIndex 
-                  ? "bg-white border-white text-orange-500" 
-                  : index === activeIndex
-                    ? "bg-white border-white text-orange-500 scale-110 shadow-md" 
-                    : "bg-white/20 border-white/40 text-white"
-                }
-              `}
+              key={tab.id}
+              className="flex flex-col items-center relative z-10 transition-all duration-500"
+              style={{ width: `${100 / tabs.length}%` }}
             >
-              {/* Estado completado (check) o icono normal */}
-              {index < activeIndex ? (
-                <div className="text-orange-500 text-base xs:text-lg sm:text-xl md:text-2xl transition-all font-bold">
-                  <FaCheck />
+              {/* ✅ CÍRCULO PRINCIPAL CON ESTADOS MEJORADOS */}
+              <div className="relative group">
+                <div 
+                  className={`
+                    w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-full 
+                    flex items-center justify-center
+                    transition-all duration-500 ease-out 
+                    border-3 relative transform
+                    ${isCompleted 
+                      ? "bg-white border-white text-green-600 scale-100 shadow-xl" 
+                      : isActive
+                        ? "bg-white border-white text-orange-600 scale-110 shadow-2xl ring-4 ring-white/30" 
+                        : "bg-orange-400/30 border-white/60 text-white scale-90 hover:scale-95 hover:bg-orange-400/40"
+                    }
+                  `}
+                >
+                  {/* ✅ ICONOS CON ANIMACIONES */}
+                  {isCompleted ? (
+                    <div className="text-green-600 text-lg sm:text-xl md:text-2xl transition-all duration-300 animate-bounce-once">
+                      <FaCheck />
+                    </div>
+                  ) : (
+                    <div className={`
+                      text-lg sm:text-xl md:text-2xl transition-all duration-300
+                      ${isActive ? "animate-pulse-slow" : ""}
+                    `}>
+                      {tab.icon}
+                    </div>
+                  )}
+                  
+                  {/* ✅ NÚMERO DE PASO OPTIMIZADO PARA FONDO NARANJA */}
+                  <div 
+                    className={`
+                      absolute -top-1 -right-1 w-6 h-6 sm:w-7 sm:h-7 rounded-full 
+                      flex items-center justify-center 
+                      text-xs sm:text-sm font-bold
+                      border-2 border-white transition-all duration-300
+                      ${isCompleted
+                        ? "bg-green-500 text-white shadow-lg" 
+                        : isActive
+                          ? "bg-orange-600 text-white shadow-xl scale-110 ring-2 ring-white/50" 
+                          : "bg-orange-400/60 text-white border-white/80"
+                      }
+                    `}
+                  >
+                    {index + 1}
+                  </div>
+
+                  {/* ✅ EFECTO DE RESPLANDOR SUTIL PARA FONDO NARANJA */}
+                  {isActive && (
+                    <div className="absolute inset-0 rounded-full bg-white/30 animate-ping opacity-75"></div>
+                  )}
                 </div>
-              ) : (
-                <div className={`text-lg xs:text-xl sm:text-2xl md:text-3xl ${index === activeIndex ? "scale-105" : "opacity-70"} transition-all`}>
-                  {tab.icon}
+
+                {/* ✅ TOOLTIP MEJORADO PARA FONDO NARANJA */}
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900/95 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap hidden md:block z-20 shadow-xl border border-white/20">
+                  {tab.fullName}
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900/95"></div>
                 </div>
-              )}
+              </div>
               
-              {/* Número de paso encima del círculo */}
-              <div 
-                className={`
-                  absolute -top-2 -right-2 w-5 h-5 xs:w-6 xs:h-6 rounded-full 
-                  flex items-center justify-center 
-                  text-xs xs:text-sm font-bold
-                  border border-white/80
-                  ${index <= activeIndex 
-                    ? "bg-orange-500 text-white" 
-                    : "bg-white/30 text-white"
-                  }
-                `}
-              >
-                {index + 1}
+              {/* ✅ NOMBRE DEL PASO CON MEJOR RESPONSIVE */}
+              <div className="mt-3 w-full flex flex-col items-center">
+                <span 
+                  className={`
+                    text-xs sm:text-sm md:text-base 
+                    transition-all duration-300 drop-shadow-sm 
+                    font-semibold text-center leading-tight
+                    px-1 max-w-full
+                    ${isCompleted
+                      ? "text-white" 
+                      : isActive
+                        ? "text-white text-shadow-lg" 
+                        : "text-white/60"
+                    }
+                  `}
+                >
+                  {tab.name}
+                </span>
+                
+                {/* ✅ INDICADOR ACTIVO OPTIMIZADO */}
+                {isActive && (
+                  <div className="w-8 h-1 bg-white rounded-full mt-2 shadow-lg animate-fade-in"></div>
+                )}
+
+                {/* ✅ ESTADO COMPLETADO VISIBLE */}
+                {isCompleted && (
+                  <div className="w-2 h-2 bg-white rounded-full mt-1 animate-fade-in shadow-sm"></div>
+                )}
               </div>
             </div>
-            
-            {/* Nombre del paso debajo del círculo */}
-            <div className="mt-2 w-full flex flex-col items-center">
-              <span 
-                className={`
-                   text-sm sm:text-base md:text-lg 
-                  transition-all duration-300 drop-shadow-sm 
-                  font-medium text-center leading-tight
-                  mx-auto px-1
-                  ${index <= activeIndex 
-                    ? "text-white" 
-                    : "text-white/70"
-                  }
-                `}
-              >
-                {tab.name}
-              </span>
-              
-              {/* Indicador para el paso activo */}
-              {index === activeIndex && (
-                <div className="w-4 h-1 bg-white rounded-full mt-1 hidden xs:block"></div>
-              )}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Información contextual del paso - ajustada más abajo */}
-      <div className="flex justify-center -mt-6 xs:-mt-5 sm:-mt-4">
+      {/* ✅ INFORMACIÓN CONTEXTUAL OPTIMIZADA PARA FONDO NARANJA */}
+      <div className="flex justify-center mt-2">
         <div 
           className={`
-            text-white text-xs xs:text-sm md:text-base 
-            font-medium drop-shadow-sm py-1 px-3 
-            rounded-full transition-all duration-300
-            ${activeIndex <= tabs.length / 2 ? 'bg-orange-600/40' : 'bg-orange-700/40'}
+            text-white text-xs sm:text-sm md:text-base 
+            font-semibold drop-shadow-lg py-2 px-4 
+            rounded-full transition-all duration-500
+            backdrop-blur-sm border border-white/30
+            bg-orange-700/60 shadow-lg
+            hover:scale-105 transform hover:bg-orange-700/70
           `}
         >
-          {activeIndex === 0 && "Seleccione tipo de solicitante"}
-          {activeIndex === 1 && "Seleccione usuario de la lista"}
-          {activeIndex === 2 && "Elija el tipo de maquinaria"}
-          {activeIndex === 3 && "Seleccione la patente del vehículo"}
-          {activeIndex === 4 && "Complete los detalles del consumo"}
+          <span className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+            {tabs[activeIndex]?.description || "Paso no definido"}
+          </span>
+        </div>
+      </div>
+
+      {/* ✅ INDICADOR DE PROGRESO NUMÉRICO MEJORADO */}
+      <div className="flex justify-center mt-3">
+        <div className="text-white/90 text-xs sm:text-sm font-semibold bg-white/10 px-3 py-1 rounded-full backdrop-blur-sm">
+          {activeIndex + 1} de {tabs.length} pasos
         </div>
       </div>
     </div>

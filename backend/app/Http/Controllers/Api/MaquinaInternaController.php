@@ -58,7 +58,7 @@ class MaquinaInternaController extends Controller
 
         // Validamos los datos incluyendo la faena
         $validator = Validator::make($request->all(), [
-            'patente' => 'required|string|max:20',
+            'patente' => 'required|string|max:40',
             'categoria' => 'required|integer|exists:categorias_maquinas,id_categoria',
             'nombre_maquina' => 'required|string|max:100',
             'tipo_maquina' => 'required|string|max:50',
@@ -90,7 +90,7 @@ class MaquinaInternaController extends Controller
                 'id_categoria' => $request->categoria,
                 'nombre_maquina' => $request->nombre_maquina,
                 'tipo_maquina' => $request->tipo_maquina,
-                'estado' => 'Activa',
+                'estado' => 'operativo',
                 'patente' => $request->patente,
             ]);
 

@@ -27,21 +27,52 @@ const Patente = ({
   tipoSolicitante,
   userFaena,
 }) => {
+  const DEBUG = false; // o true si estás depurando
   const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(3);
+  const [currentPage, setCurrentPage] = useState(1); // ✅ Cambio: iniciar en página 1
   const [seleccion, setSeleccion] = useState(null);
   const [maquinas, setMaquinas] = useState([]);
   const [maquinasOriginales, setMaquinasOriginales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const totalPages = 4;
+
+  // ✅ NUEVO: Estados para paginación funcional
+  const [displayPerPage, setDisplayPerPage] = useState(8);
+  const [paginatedMaquinas, setPaginatedMaquinas] = useState([]);
+  const [totalPages, setTotalPages] = useState(1);
+
   const { user } = useContext(UserContext);
+
+  // ✅ RESPONSIVE: Ajustar elementos por página dinámicamente
+  useEffect(() => {
+    const calcularElementosPorPagina = () => {
+      const width = window.innerWidth;
+
+      if (width < 640) {
+        // Móvil pequeño
+        setDisplayPerPage(6);
+      } else if (width < 768) {
+        // Móvil grande
+        setDisplayPerPage(8);
+      } else if (width < 1024) {
+        // Tablet
+        setDisplayPerPage(12);
+      } else {
+        // Desktop - mostrar más elementos
+        setDisplayPerPage(16);
+      }
+    };
+
+    calcularElementosPorPagina();
+    window.addEventListener("resize", calcularElementosPorPagina);
+    return () =>
+      window.removeEventListener("resize", calcularElementosPorPagina);
+  }, []);
 
   // ✅ CREAR CLAVE DE CACHE ÚNICA
   const cacheKey = useMemo(
     () =>
-      `maquinas-${tipoSolicitante}-${categoriaSeleccionada?.id}-${
-        userFaena || user?.id_faena
+      `maquinas-${tipoSolicitante}-${categoriaSeleccionada?.id}-${userFaena || user?.id_faena
       }`,
     [tipoSolicitante, categoriaSeleccionada?.id, userFaena, user?.id_faena]
   );
@@ -56,71 +87,63 @@ const Patente = ({
         id: categoriaSeleccionada.id,
         nombre: categoriaSeleccionada.nombre,
         tipo_medicion: categoriaSeleccionada.tipo_medicion,
-        descripcion: categoriaSeleccionada.descripcion,
       };
     }
 
-    // Si es un string o número, crear estructura básica
+    // Si es un string o número, crear objeto básico
     return {
       id: categoriaSeleccionada,
-      nombre: categoriaSeleccionada.toString(),
-      tipo_medicion: "Kilometraje",
-      descripcion: "Categoría básica",
+      nombre: "Categoría seleccionada",
+      tipo_medicion: "Por definir",
     };
   }, [categoriaSeleccionada]);
 
-  // ✅ CARGA ULTRA-OPTIMIZADA - CACHE GLOBAL PERSISTENTE
+  // ✅ FUNCIÓN PARA CARGAR MÁQUINAS
   const cargarMaquinas = useCallback(async () => {
-    if (!tipoSolicitante || !categoriaInfo) {
-      return;
-    }
-
-    // ✅ VERIFICAR CACHE GLOBAL PRIMERO
-    if (maquinasCache.has(cacheKey)) {
-      console.log("📦 CACHE GLOBAL HIT para máquinas:", cacheKey);
-      const cached = maquinasCache.get(cacheKey);
-      setMaquinas(cached.maquinas);
-      setMaquinasOriginales(cached.maquinas);
+    if (!tipoSolicitante || !categoriaInfo?.id) {
+      DEBUG && console.log("⏸️ No se puede cargar: faltan datos necesarios");
       setLoading(false);
       return;
     }
 
+    // ✅ VERIFICAR CACHE PRIMERO
+    if (maquinasCache.has(cacheKey)) {
+      DEBUG && console.log("💾 Cargando máquinas desde cache:", cacheKey);
+      const cachedData = maquinasCache.get(cacheKey);
+      setMaquinasOriginales(cachedData);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
     try {
-      setLoading(true);
-      setError(null);
-
-      // Usar userFaena si está disponible, si no usar del contexto
-      const idFaena = userFaena || user?.id_faena;
-
-      if (!idFaena) {
-        throw new Error("No se pudo determinar la faena del usuario");
-      }
-
-      console.log(
-        `🎯 REQUEST ÚNICO: máquinas ${tipoSolicitante} desde cache o API`
-      );
-
-      // 🚀 USAR EL MÉTODO DEL SERVICIO QUE YA TIENE CACHE
-      const maquinasFiltradas = await bomberoService.getMaquinas(
+      DEBUG && console.log("🔄 Cargando máquinas desde API:", {
         tipoSolicitante,
-        categoriaInfo.id,
-        idFaena
-      );
-
-      // ✅ GUARDAR EN CACHE GLOBAL PERSISTENTE
-      maquinasCache.set(cacheKey, {
-        maquinas: maquinasFiltradas,
-        timestamp: Date.now(),
+        categoriaId: categoriaInfo.id,
+        userFaena: userFaena || user?.id_faena,
       });
 
-      setMaquinas(maquinasFiltradas);
-      setMaquinasOriginales(maquinasFiltradas);
-
-      console.log(
-        `✅ CACHE GLOBAL: ${maquinasFiltradas.length} máquinas cacheadas para ${tipoSolicitante}`
+      // ✅ USAR EL MÉTODO CORRECTO DEL SERVICIO
+      const maquinasData = await bomberoService.getMaquinas(
+        tipoSolicitante,
+        categoriaInfo.id,
+        userFaena || user?.id_faena
       );
+
+      if (Array.isArray(maquinasData)) {
+        DEBUG && console.log("✅ Máquinas cargadas:", maquinasData.length);
+
+        // ✅ GUARDAR EN CACHE
+        maquinasCache.set(cacheKey, maquinasData);
+        setMaquinasOriginales(maquinasData);
+      } else {
+        DEBUG && console.warn("⚠️ Respuesta vacía o inválida");
+        setMaquinasOriginales([]);
+      }
     } catch (err) {
-      console.error("❌ Error al cargar máquinas:", err);
+      DEBUG && console.error("❌ Error al cargar máquinas:", err);
 
       let errorMessage = "Error al conectar con el servidor";
 
@@ -173,13 +196,50 @@ const Patente = ({
     });
   }, [maquinasOriginales, searchTerm, tipoSolicitante]);
 
-  // ✅ ACTUALIZAR maquinas CUANDO CAMBIEN LOS FILTRADOS
+  // ✅ PAGINACIÓN: Calcular páginas totales y datos paginados
   useEffect(() => {
-    setMaquinas(maquinasFiltradas);
-  }, [maquinasFiltradas]);
+    const totalItems = maquinasFiltradas.length;
+    const pages = Math.ceil(totalItems / displayPerPage) || 1;
+    setTotalPages(pages);
+
+    // Si la página actual es mayor que el total de páginas, resetear
+    if (currentPage > pages) {
+      setCurrentPage(1);
+    }
+  }, [maquinasFiltradas.length, displayPerPage, currentPage]);
+
+  // ✅ CALCULAR DATOS DE LA PÁGINA ACTUAL
+  useEffect(() => {
+    const startIndex = (currentPage - 1) * displayPerPage;
+    const endIndex = startIndex + displayPerPage;
+    const paginatedData = maquinasFiltradas.slice(startIndex, endIndex);
+
+    // ✅ DEBUG: Log para identificar problemas de datos
+    DEBUG && console.log("🔍 Debug Paginación:", {
+      maquinasFiltradas: maquinasFiltradas.length,
+      currentPage,
+      displayPerPage,
+      startIndex,
+      endIndex,
+      paginatedData: paginatedData.length,
+      isArray: Array.isArray(paginatedData)
+    });
+
+    setPaginatedMaquinas(paginatedData);
+  }, [maquinasFiltradas, currentPage, displayPerPage]);
+
+  // ✅ ACTUALIZAR maquinas CUANDO CAMBIEN LOS PAGINADOS
+  useEffect(() => {
+    setMaquinas(paginatedMaquinas);
+  }, [paginatedMaquinas]);
 
   // Formatear las máquinas para el componente List
   const formatearMaquinas = useMemo(() => {
+    // ✅ VALIDACIÓN: Asegurar que maquinas sea un array válido
+    if (!Array.isArray(maquinas) || maquinas.length === 0) {
+      return [];
+    }
+
     return maquinas.map((maquina) => {
       if (tipoSolicitante === "interno") {
         // Formato para máquinas internas
@@ -228,7 +288,7 @@ const Patente = ({
         };
       }
 
-      console.log("🚗 Máquina seleccionada:", maquinaFormateada);
+      DEBUG && console.log("🚗 Máquina seleccionada:", maquinaFormateada);
 
       // ✅ AVANZAR DIRECTAMENTE - Los estanques se cargan en el componente Consumo
       onNext(maquinaFormateada);
@@ -238,10 +298,17 @@ const Patente = ({
 
   const handleClearSearch = useCallback(() => {
     setSearchTerm("");
+    setCurrentPage(1); // ✅ Resetear a la primera página al limpiar búsqueda
   }, []);
 
   const handleSearchChange = useCallback((value) => {
     setSearchTerm(value);
+    setCurrentPage(1); // ✅ Resetear a la primera página al buscar
+  }, []);
+
+  // ✅ HANDLER PARA CAMBIO DE PÁGINA
+  const handlePageChange = useCallback((page) => {
+    setCurrentPage(page);
   }, []);
 
   // Función para obtener el texto del tipo de solicitante con color
@@ -294,65 +361,43 @@ const Patente = ({
               ) : error ? (
                 <div className="py-4 text-red-500 flex-grow flex items-center justify-center">
                   <div className="text-center">
-                    <svg
-                      className="w-10 h-10 mx-auto mb-2 text-red-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      ></path>
-                    </svg>
                     <p className="mb-2">{error}</p>
                     <button
-                      onClick={() => {
-                        // Limpiar cache global y recargar
-                        maquinasCache.delete(cacheKey);
-                        cargarMaquinas();
-                      }}
+                      onClick={cargarMaquinas}
                       className="text-orange-500 hover:text-orange-700 font-medium"
                     >
                       Reintentar
                     </button>
                   </div>
                 </div>
-              ) : formatearMaquinas.length > 0 ? (
-                <>
-                  <List
-                    items={formatearMaquinas}
-                    onItemSelect={handleSelectPatente}
-                    buttonStyle={true}
-                    tipoElemento="patente"
-                  />
-
-                  {/* Información de resultados */}
-                  <div className="mt-2 text-center text-gray-500 text-xs">
-                    {formatearMaquinas.length} máquina
-                    {formatearMaquinas.length !== 1 ? "s" : ""} disponible
-                    {formatearMaquinas.length !== 1 ? "s" : ""}
-                    {searchTerm && ` para "${searchTerm}"`}
+              ) : Array.isArray(formatearMaquinas) && formatearMaquinas.length > 0 ? (
+                <div className="flex flex-col h-full">
+                  {/* ✅ LISTA DE MÁQUINAS */}
+                  <div className="flex-grow">
+                    <List
+                      items={formatearMaquinas}
+                      onItemSelect={handleSelectPatente}
+                      seleccionActual={seleccion}
+                      loading={loading}
+                      buttonStyle={true}
+                      tipoElemento="máquina"
+                    />
                   </div>
-                </>
+
+                  {/* ✅ PAGECONTROL - Solo mostrar si hay más de 1 página */}
+                  {totalPages > 1 && (
+                    <div className="flex justify-center mt-4">
+                      <PageControl
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        onPageChange={handlePageChange}
+                      />
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="py-4 text-gray-500 flex-grow flex items-center justify-center">
                   <div className="text-center">
-                    <svg
-                      className="w-10 h-10 mx-auto mb-2 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      ></path>
-                    </svg>
                     <p className="mb-2">
                       {maquinasOriginales.length === 0
                         ? `No hay máquinas ${tipoSolicitante}s disponibles para esta categoría`
@@ -370,48 +415,26 @@ const Patente = ({
                 </div>
               )}
             </div>
+
+            {/* ✅ INFORMACIÓN DE PAGINACIÓN */}
+            {totalPages > 1 && (
+              <div className="text-center text-white/80 text-xs">
+                Mostrando {((currentPage - 1) * displayPerPage) + 1} - {Math.min(currentPage * displayPerPage, maquinasFiltradas.length)} de {maquinasFiltradas.length} máquinas
+              </div>
+            )}
           </div>
 
-          {/* Controles inferiores */}
-          <div className="flex items-center w-full px-1 sm:px-2 md:px-4 py-1 sm:py-2">
+          {/* ✅ CONTROLES INFERIORES - Similar al componente Solicitante */}
+          <div className="flex items-center justify-between w-full px-4 py-2">
             <Button
               onClick={onPrevious}
-              className="bg-transparent hover:bg-transparent p-0 m-0 shadow-none flex items-center justify-center"
+              className="bg-transparent hover:bg-transparent p-2 shadow-none flex items-center justify-center group"
               icon={
-                <FaArrowLeft className="text-black w-5 h-5 md:w-6 md:h-6" />
+                <FaArrowLeft className="w-6 h-6 group-hover:scale-110 transition-transform duration-200" />
               }
               textColor="orange-500"
             />
-
-            <div className="flex-1 flex justify-center">
-              <PageControl
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-              />
-            </div>
-
-            <div className="w-5 h-5 md:w-6 md:h-6"></div>
-          </div>
-
-          {/* Ayuda mejorada */}
-          <div className="bg-blue-50 text-blue-800 rounded-lg sm:rounded-xl px-2 sm:px-3 md:px-4 py-1 sm:py-2 text-xs sm:text-sm w-full max-w-xs sm:max-w-sm">
-            <p className="flex items-center justify-center">
-              <svg
-                className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                  clipRule="evenodd"
-                ></path>
-              </svg>
-              <span className="inline-block">
-                Seleccione una máquina {tipoSolicitante} para continuar
-              </span>
-            </p>
+            <div className="w-10 h-10"></div> {/* Spacer para centrar */}
           </div>
         </div>
       </main>

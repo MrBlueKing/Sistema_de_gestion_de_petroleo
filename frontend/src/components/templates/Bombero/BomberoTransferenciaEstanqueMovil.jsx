@@ -39,6 +39,7 @@ const BomberoTransferenciaEstanqueMovil = ({
   idFaena,
   preloadedEstanques,
 }) => {
+  const DEBUG = false; // o true si estás depurando
   // Estados para los numerales y cálculo automático
   const [numeralInicial, setNumeralInicial] = useState("");
   const [numeralFinal, setNumeralFinal] = useState("");
@@ -238,8 +239,7 @@ const BomberoTransferenciaEstanqueMovil = ({
         userInfo: userInfo,
       };
 
-      console.log(
-        "📋 Datos de transferencia preparados para servicio:",
+      DEBUG && console.log(        "📋 Datos de transferencia preparados para servicio:",
         transferData
       );
 

@@ -7,13 +7,12 @@ import React, {
 } from "react";
 import { UserContext } from "../../../context/userContext";
 import SearchBar from "../../molecules/SearchBar";
-
 import TabProgressBar from "../../molecules/TabProgressBar";
 import List from "../../molecules/OptionsFormBombero";
 import PageControl from "../../molecules/PageControl";
 import Button from "../../atoms/Button/Button";
 import StepHeader from "../../molecules/StepHeader";
-import { FaArrowLeft, FaMapMarkerAlt, FaSpinner } from "react-icons/fa";
+import { FaArrowLeft, FaMapMarkerAlt, FaSpinner, FaUsers } from "react-icons/fa";
 import bomberoService from "../../../context/bomberoService";
 import axios from "../../../lib/axios";
 
@@ -25,6 +24,7 @@ const Solicitante = ({
   isPreloaded,
 }) => {
   const { user } = useContext(UserContext);
+  const DEBUG = false; // o true si estás depurando
 
   // Estados principales
   const [currentPage, setCurrentPage] = useState(1);
@@ -40,19 +40,28 @@ const Solicitante = ({
   const [isSearching, setIsSearching] = useState(false);
   const [displayPerPage, setDisplayPerPage] = useState(8);
 
-  // ✅ OPTIMIZACIÓN: Cache para evitar re-cargas
+  // ✅ CACHE optimizado
   const [datosCache, setDatosCache] = useState({});
   const cacheKey = `${tipoSolicitante}-${userFaena}`;
 
-  // Ajustar elementos por página
+  // ✅ RESPONSIVE: Ajustar elementos por página dinámicamente
   useEffect(() => {
     const calcularElementosPorPagina = () => {
-      if (window.innerWidth < 640) {
-        setDisplayPerPage(4);
-      } else if (window.innerWidth < 768) {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+
+      if (width < 640) {
+        // Móvil pequeño
         setDisplayPerPage(6);
+      } else if (width < 768) {
+        // Móvil grande
+        setDisplayPerPage(20);
+      } else if (width < 1024) {
+        // Tablet
+        setDisplayPerPage(20);
       } else {
-        setDisplayPerPage(8);
+        // Desktop - mostrar más elementos
+        setDisplayPerPage(20);
       }
     };
 
@@ -62,23 +71,20 @@ const Solicitante = ({
       window.removeEventListener("resize", calcularElementosPorPagina);
   }, []);
 
-  // ✅ CARGA ULTRA-OPTIMIZADA - SOLO CACHE, CERO REQUESTS ADICIONALES
+  // ✅ CARGA OPTIMIZADA con mejor manejo de errores
   useEffect(() => {
     let isActive = true;
 
     const cargarDatos = async () => {
-      // Verificar condiciones necesarias
       if (!userFaena || !tipoSolicitante) {
-        console.log(
-          "⏸️ No se puede cargar: faltan userFaena o tipoSolicitante"
-        );
+        DEBUG && console.log("⏸️ No se puede cargar: faltan userFaena o tipoSolicitante");
         setLoading(false);
         return;
       }
 
-      // ✅ VERIFICAR CACHE LOCAL PRIMERO
+      // ✅ VERIFICAR CACHE
       if (datosCache[cacheKey]) {
-        console.log("📦 CACHE LOCAL HIT para:", cacheKey);
+        DEBUG && console.log("📦 CACHE LOCAL HIT para:", cacheKey);
         const cached = datosCache[cacheKey];
         setUsuarios(cached.usuarios);
         setUsuariosOriginales(cached.usuarios);
@@ -92,24 +98,21 @@ const Solicitante = ({
         setLoading(true);
         setError(null);
 
-        console.log(
-          `🎯 SOLO CACHE: Obteniendo ${tipoSolicitante} para faena ${userFaena}`
-        );
+        DEBUG && console.log(`🎯 Cargando ${tipoSolicitante} para faena ${userFaena}`);
 
-        // ✅ SOLO USAR EL CACHE DEL SERVICIO - SIN REQUESTS ADICIONALES
-        const personalData =
-          await bomberoService.getPersonalOptimizadoPorTipoYFaena(
-            tipoSolicitante,
-            userFaena
-          );
+        const personalData = await bomberoService.getPersonalOptimizadoPorTipoYFaena(
+          tipoSolicitante,
+          userFaena
+        );
 
         if (!isActive) return;
 
-        // ✅ DATOS MÍNIMOS SIN REQUESTS ADICIONALES
+        DEBUG && console.log(`📊 Total usuarios cargados: ${personalData.length}`);
+
         const datosParaCache = {
           usuarios: personalData,
-          solicitantes: [], // Array vacío, no necesario para funcionalidad básica
-          ubicacionFaena: "Faena", // Valor por defecto
+          solicitantes: [],
+          ubicacionFaena: "Faena",
         };
 
         setDatosCache((prev) => ({
@@ -117,19 +120,16 @@ const Solicitante = ({
           [cacheKey]: datosParaCache,
         }));
 
-        // Actualizar estados
         setUsuarios(personalData);
         setUsuariosOriginales(personalData);
         setSolicitantes([]);
         setUbicacionFaena("Faena");
 
-        console.log(
-          `✅ SOLO CACHE: ${personalData.length} registros cargados sin requests adicionales`
-        );
+        DEBUG && console.log(`✅ ${personalData.length} registros cargados exitosamente`);
       } catch (err) {
         if (isActive) {
-          console.error("❌ Error al cargar desde cache:", err);
-          setError("No se pudieron cargar los datos desde cache.");
+          DEBUG && console.error("❌ Error al cargar desde cache:", err);
+          setError("No se pudieron cargar los datos. Intente nuevamente.");
         }
       } finally {
         if (isActive) {
@@ -143,58 +143,53 @@ const Solicitante = ({
     return () => {
       isActive = false;
     };
-  }, [userFaena, tipoSolicitante]); // ✅ Solo dependencias esenciales
+  }, [userFaena, tipoSolicitante]);
 
-  // ✅ FILTRAR USUARIOS CON useMemo (MANTENIENDO TU LÓGICA EXACTA)
+  // ✅ FILTRO OPTIMIZADO con useMemo
   const usuariosFiltrados = useMemo(() => {
     if (!searchTerm.trim()) return usuariosOriginales;
+
+    const searchLower = searchTerm.toLowerCase();
 
     return usuariosOriginales.filter((usuario) => {
       const personalData = usuario.personal_interno || usuario.personal_externo;
       if (!personalData) return false;
 
-      const nombre = `${personalData.nombre || ""} ${
-        personalData.apellido || ""
-      }`.toLowerCase();
-      const rut = (personalData.rut || "").toLowerCase();
-      const cargo = (personalData.cargo || "").toLowerCase();
-      const ubicacion = (personalData.ubicacion || "").toLowerCase();
+      const campos = [
+        personalData.nombre || "",
+        personalData.apellido || "",
+        personalData.rut || "",
+        personalData.cargo || "",
+        personalData.ubicacion || ""
+      ].join(" ").toLowerCase();
 
-      const searchLower = searchTerm.toLowerCase();
-
-      return (
-        nombre.includes(searchLower) ||
-        rut.includes(searchLower) ||
-        cargo.includes(searchLower) ||
-        ubicacion.includes(searchLower)
-      );
+      return campos.includes(searchLower);
     });
   }, [usuariosOriginales, searchTerm]);
 
-  // ✅ ACTUALIZAR usuarios CUANDO CAMBIEN LOS FILTRADOS (TU LÓGICA EXACTA)
+  // ✅ ACTUALIZAR usuarios cuando cambien los filtrados
   useEffect(() => {
     setUsuarios(usuariosFiltrados);
-    setCurrentPage(1); // Reiniciar a la primera página
+    setCurrentPage(1); // Reset a primera página
   }, [usuariosFiltrados]);
 
-  // ✅ LIMPIAR BÚSQUEDA (TU FUNCIÓN EXACTA)
-  const handleClearSearch = useCallback(() => {
-    console.log("🧹 Limpiando búsqueda");
-    setSearchTerm("");
-  }, []);
-
-  // ✅ MANEJAR CAMBIO EN SEARCHTERM (TU FUNCIÓN EXACTA)
+  // ✅ MANEJAR BÚSQUEDA
   const handleSearchChange = useCallback((value) => {
-    console.log("📝 Cambio en búsqueda:", value);
     setSearchTerm(value);
+    setIsSearching(value.length > 0);
   }, []);
 
-  // ✅ FUNCIÓN SIMPLIFICADA - SIN DEPENDENCIA DE SOLICITANTES
+  const handleClearSearch = useCallback(() => {
+    setSearchTerm("");
+    setIsSearching(false);
+  }, []);
+
+  // ✅ FORMATEAR USUARIO para siguiente paso
   const formatearUsuarioParaSiguiente = useCallback(
     (usuario) => {
       const personalData = usuario.personal_interno || usuario.personal_externo;
       if (!personalData) {
-        console.error("No se encontraron datos del personal", usuario);
+        DEBUG && console.error("No se encontraron datos del personal", usuario);
         return {
           id: null,
           nombre: "",
@@ -209,12 +204,8 @@ const Solicitante = ({
         };
       }
 
-      // ✅ SIMPLIFICADO: Usar directamente el RUT como ID
       return {
-        id:
-          personalData.rut ||
-          personalData.id_personal_interno ||
-          personalData.id_personal_externo,
+        id: personalData.rut || personalData.id_personal_interno || personalData.id_personal_externo,
         nombre: personalData.nombre || "",
         apellido: personalData.apellido || "",
         rut: personalData.rut || "",
@@ -227,26 +218,24 @@ const Solicitante = ({
       };
     },
     [userFaena, tipoSolicitante]
-  ); // ✅ Sin dependencia de solicitantes
+  );
 
   const handleSelectUser = useCallback(
     (usuario) => {
       if (!usuario || !usuario._original) {
-        console.error("Usuario inválido seleccionado", usuario);
+        DEBUG && console.error("Usuario inválido seleccionado", usuario);
         return;
       }
 
       setSelectedUser(usuario);
       setShowUserDetails(true);
-      const usuarioFormateado = formatearUsuarioParaSiguiente(
-        usuario._original
-      );
+      const usuarioFormateado = formatearUsuarioParaSiguiente(usuario._original);
       onNext(usuarioFormateado);
     },
     [formatearUsuarioParaSiguiente, onNext]
   );
 
-  // ✅ TU LÓGICA EXACTA PARA FORMATEAR ITEMS
+  // ✅ FORMATEAR ITEMS con paginación mejorada
   const formattedItems = useMemo(() => {
     if (!Array.isArray(usuarios)) return [];
 
@@ -260,13 +249,9 @@ const Solicitante = ({
         if (!personalData) return null;
 
         return {
-          id:
-            personalData.id_personal_interno ||
-            personalData.id_personal_externo,
-          nombre: `${personalData.nombre || ""} ${personalData.apellido || ""}`,
-          descripcion: `${personalData.cargo || ""} - ${
-            personalData.rut || ""
-          }`,
+          id: personalData.id_personal_interno || personalData.id_personal_externo,
+          nombre: `${personalData.nombre || ""} ${personalData.apellido || ""}`.trim(),
+          descripcion: `${personalData.cargo || ""} - ${personalData.rut || ""}`,
           ubicacion: personalData.ubicacion || "",
           rut: personalData.rut || "",
           cargo: personalData.cargo || "",
@@ -276,47 +261,60 @@ const Solicitante = ({
       .filter(Boolean);
   }, [usuarios, currentPage, displayPerPage]);
 
+  // ✅ CÁLCULOS de paginación
   const totalPages = Math.max(1, Math.ceil(usuarios.length / displayPerPage));
+  const totalUsuarios = usuariosOriginales.length;
+  const usuariosMostrados = usuarios.length;
+  const rangoInicio = Math.min((currentPage - 1) * displayPerPage + 1, usuariosMostrados);
+  const rangoFin = Math.min(currentPage * displayPerPage, usuariosMostrados);
+
+  // ✅ FUNCIÓN para reintentar carga
+  const handleReintentar = useCallback(() => {
+    setDatosCache((prev) => {
+      const newCache = { ...prev };
+      delete newCache[cacheKey];
+      return newCache;
+    });
+    setError(null);
+    setLoading(true);
+    // Trigger reload
+    window.location.reload();
+  }, [cacheKey]);
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 pt-6">
       <main className="flex-1 w-full p-2 sm:p-3 md:p-4 text-center relative z-0">
         <div className="bg-gray-200 py-3 sm:py-4 md:py-6 px-2 sm:px-3 md:px-4 rounded-2xl sm:rounded-3xl flex flex-col items-center space-y-3 sm:space-y-4 md:space-y-6 max-w-4xl mx-auto">
+
           <div className="w-full">
             <StepHeader text="Cargar Combustible" />
           </div>
 
-          {/* Título - TU DISEÑO EXACTO */}
+          {/* ✅ TÍTULO con contador mejorado */}
           <div className="w-full flex justify-center items-center">
             <h2 className="text-gray-700 font-medium text-sm sm:text-base md:text-lg flex items-center">
               Seleccione Personal:{" "}
-              <span
-                className={`${
-                  tipoSolicitante === "interno"
-                    ? "bg-blue-100 text-blue-800"
-                    : "bg-green-100 text-green-800"
-                } rounded-full px-2 py-1 text-xs uppercase ml-1`}
-              >
+              <span className={`${tipoSolicitante === "interno"
+                  ? "bg-blue-100 text-blue-800"
+                  : "bg-green-100 text-green-800"
+                } rounded-full px-2 py-1 text-xs uppercase ml-1`}>
                 {tipoSolicitante}
               </span>
+              {!loading && (
+                <span className="ml-2 bg-gray-100 text-gray-600 rounded-full px-2 py-1 text-xs flex items-center">
+                  <FaUsers className="mr-1" />
+                  {totalUsuarios}
+                </span>
+              )}
             </h2>
           </div>
 
-          {/* Indicadores - TU DISEÑO EXACTO */}
-          <div className="flex flex-col sm:flex-row gap-2 items-center">
-            {ubicacionFaena && (
-              <div className="bg-blue-100 text-blue-800 text-xs rounded-lg px-3 flex items-center">
-                <FaMapMarkerAlt className="mr-1" />
-                {ubicacionFaena}
-              </div>
-            )}
-          </div>
-
-          {/* Contenedor principal - TU DISEÑO EXACTO */}
+          {/* ✅ CONTENEDOR principal */}
           <div className="bg-orange-500 w-full rounded-2xl sm:rounded-3xl md:rounded-[40px] py-3 sm:py-4 md:py-6 px-2 sm:px-3 md:px-4 space-y-2 sm:space-y-3 md:space-y-4 min-h-[400px] md:min-h-[450px] flex flex-col relative z-0">
+
             <TabProgressBar activeTab="solicitante" />
 
-            {/* Barra de búsqueda - TU DISEÑO EXACTO */}
+            {/* ✅ BARRA de búsqueda */}
             <div className="flex items-center space-x-2">
               <div className="flex-grow relative">
                 <SearchBar
@@ -326,59 +324,35 @@ const Solicitante = ({
                   onClear={handleClearSearch}
                 />
               </div>
+              {isSearching && (
+                <div className="text-white text-xs bg-white bg-opacity-20 rounded px-2 py-1">
+                  {usuariosMostrados} resultados
+                </div>
+              )}
             </div>
 
             <div className="bg-white rounded-xl sm:rounded-2xl md:rounded-3xl p-2 sm:p-3 md:p-4 flex-grow flex flex-col">
+
               {loading ? (
                 <div className="h-full flex items-center justify-center">
                   <div className="text-center">
-                    <svg
-                      className="animate-spin h-10 w-10 text-orange-500 mx-auto mb-4"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
+                    <svg className="animate-spin h-10 w-10 text-orange-500 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                     <p className="text-gray-500">Cargando personal...</p>
+                    <p className="text-gray-400 text-sm mt-1">Tipo: {tipoSolicitante}</p>
                   </div>
                 </div>
               ) : error ? (
                 <div className="h-full flex items-center justify-center">
                   <div className="text-center">
-                    <svg
-                      className="w-10 h-10 text-red-500 mx-auto mb-4"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                        clipRule="evenodd"
-                      ></path>
+                    <svg className="w-10 h-10 text-red-500 mx-auto mb-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"></path>
                     </svg>
                     <p className="text-red-500 mb-4">{error}</p>
                     <button
-                      onClick={() => {
-                        setDatosCache((prev) => {
-                          const newCache = { ...prev };
-                          delete newCache[cacheKey];
-                          return newCache;
-                        });
-                        window.location.reload();
-                      }}
+                      onClick={handleReintentar}
                       className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
                     >
                       Reintentar
@@ -388,18 +362,8 @@ const Solicitante = ({
               ) : usuarios.length === 0 ? (
                 <div className="h-full flex items-center justify-center">
                   <div className="text-center">
-                    <svg
-                      className="w-10 h-10 mx-auto mb-4 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      ></path>
+                    <svg className="w-10 h-10 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
                     <p className="text-gray-500 mb-2">
                       {usuariosOriginales.length === 0
@@ -427,42 +391,48 @@ const Solicitante = ({
               )}
             </div>
 
-            {/* Información de resultados - TU DISEÑO EXACTO */}
+            {/* ✅ PAGINACIÓN INTEGRADA CON INFORMACIÓN */}
             {!loading && !error && usuarios.length > 0 && (
-              <div className="text-center text-white text-xs">
-                Mostrando {usuarios.length} de {usuariosOriginales.length}{" "}
-                personal
-                {searchTerm && ` para "${searchTerm}"`}
-              </div>
-            )}
-          </div>
+              <div className="space-y-3">
+                {/* Información de resultados */}
+                <div className="text-center text-white text-xs space-y-1">
+                  <div>
+                    Mostrando {rangoInicio}-{rangoFin} de {usuariosMostrados} personal
+                    {searchTerm && ` para "${searchTerm}"`}
+                  </div>
+                  {usuariosMostrados < totalUsuarios && (
+                    <div className="text-orange-200">
+                      ({totalUsuarios - usuariosMostrados} filtrados)
+                    </div>
+                  )}
+                </div>
 
-          {/* Controles inferiores - TU DISEÑO EXACTO */}
-          <div className="flex items-center w-full px-1 sm:px-2 md:px-4 py-1 sm:py-2">
-            <Button
-              onClick={onPrevious}
-              className="bg-transparent hover:bg-transparent p-0 m-0 shadow-none flex items-center justify-center"
-              icon={<FaArrowLeft className="w-5 h-5 md:w-6 md:h-6" />}
-              textColor="orange-500"
-            />
-            <div className="flex-1 flex justify-center">
-              {!loading &&
-                !error &&
-                formattedItems.length > 0 &&
-                totalPages > 1 && (
+                {/* PageControl integrado */}
+                {totalPages > 1 && (
                   <PageControl
                     currentPage={currentPage}
                     totalPages={totalPages}
                     onPageChange={setCurrentPage}
                   />
                 )}
-            </div>
-            <div className="w-5 h-5 md:w-6 md:h-6"></div>
+              </div>
+            )}
+
+          </div>
+          {/* ✅ CONTROLES DE FLUJO - FUERA DEL CONTENEDOR NARANJA */}
+          <div className="flex items-center justify-between w-full px-4 py-2">
+            <Button
+              onClick={onPrevious}
+              className="bg-transparent hover:bg-transparent p-2 shadow-none flex items-center justify-center group"
+              icon={<FaArrowLeft className="w-6 h-6 group-hover:scale-110 transition-transform duration-200" />}
+              textColor="orange-500"
+            />
+            <div className="w-20 h-10"></div> {/* Spacer para centrar */}
           </div>
         </div>
       </main>
 
-      {/* Modal de detalles - TU DISEÑO EXACTO */}
+      {/* ✅ MODAL de detalles mejorado */}
       {showUserDetails && selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-4 max-w-md w-full mx-4">
@@ -472,16 +442,8 @@ const Solicitante = ({
 
             <div className="bg-gray-100 rounded-lg p-3 mb-4">
               <div className="flex items-center mb-2">
-                <svg
-                  className="w-6 h-6 text-blue-600 mr-2"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                    clipRule="evenodd"
-                  ></path>
+                <svg className="w-6 h-6 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"></path>
                 </svg>
                 <span className="font-medium text-gray-700">
                   {selectedUser.nombre}
@@ -490,24 +452,16 @@ const Solicitante = ({
 
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div className="text-gray-600">RUT:</div>
-                <div className="text-gray-800 font-medium">
-                  {selectedUser.rut}
-                </div>
+                <div className="text-gray-800 font-medium">{selectedUser.rut}</div>
 
                 <div className="text-gray-600">Cargo:</div>
-                <div className="text-gray-800 font-medium">
-                  {selectedUser.cargo}
-                </div>
+                <div className="text-gray-800 font-medium">{selectedUser.cargo}</div>
 
                 <div className="text-gray-600">Ubicación:</div>
-                <div className="text-gray-800 font-medium">
-                  {selectedUser.ubicacion}
-                </div>
+                <div className="text-gray-800 font-medium">{selectedUser.ubicacion}</div>
 
                 <div className="text-gray-600">Tipo:</div>
-                <div className="text-gray-800 font-medium capitalize">
-                  {tipoSolicitante}
-                </div>
+                <div className="text-gray-800 font-medium capitalize">{tipoSolicitante}</div>
               </div>
             </div>
 

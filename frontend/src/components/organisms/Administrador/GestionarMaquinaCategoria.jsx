@@ -11,15 +11,23 @@ const GestionarMaquinaCategoria = () => {
   const [patente, setPatente] = useState("");
   const [selectedFaenaId, setSelectedFaenaId] = useState("");
   const [selectedFaenaLabel, setSelectedFaenaLabel] = useState("");
-  
+
   // Estados para los datos cargados
   const [categorias, setCategorias] = useState([]);
   const [faenas, setFaenas] = useState([]);
   const [maquinasOptions, setMaquinasOptions] = useState([]);
-  
+
   // Estados para las fuentes de datos originales
   const [maquinasInternas, setMaquinasInternas] = useState([]);
   const [maquinasBodega, setMaquinasBodega] = useState([]);
+
+  // 🆕 Estado para información de normalización
+  const [infoNormalizacion, setInfoNormalizacion] = useState({
+    mostrar: false,
+    patenteOriginal: "",
+    patenteNormalizada: "",
+    mensaje: ""
+  });
 
   // Estados para carga y mensajes
   const [loading, setLoading] = useState({
@@ -41,50 +49,49 @@ const GestionarMaquinaCategoria = () => {
 
   // Función para mostrar mensajes temporales
   const showMessage = (type, message, duration = 5000) => {
-    // Limpiar cualquier timer existente
     if (messageTimeout) {
       clearTimeout(messageTimeout);
     }
-    
-    // Mostrar el nuevo mensaje
+
     setStatus({
       type,
       message,
       visible: true
     });
-    
-    // Configurar timer para ocultar el mensaje
+
     const timer = setTimeout(() => {
       setStatus(prev => ({ ...prev, visible: false }));
     }, duration);
-    
+
     setMessageTimeout(timer);
   };
 
-  // Función principal para filtrar y actualizar las opciones disponibles
+  // ✅ FUNCIÓN ACTUALIZADA: Mostrar todas las máquinas disponibles
   const actualizarMaquinasDisponibles = () => {
-    if (maquinasBodega.length === 0 || !Array.isArray(maquinasInternas)) {
-      return; // Si no tenemos datos, no hacemos nada
+    if (maquinasBodega.length === 0) {
+      return;
     }
 
-    // Extraemos las patentes de las máquinas ya registradas
-    const patentesRegistradas = maquinasInternas.map(maquina => maquina.patente);
-    
-    // Filtramos las máquinas de bodega, excluyendo las que tienen patentes ya registradas
-    const maquinasNoRegistradas = maquinasBodega.filter(
-      maquina => !patentesRegistradas.includes(maquina.Rut)
-    );
-    
-    // Convertimos a formato para el dropdown
-    const options = maquinasNoRegistradas.map(maquina => ({
+    // ✅ Los datos ya vienen procesados del backend
+    const options = maquinasBodega.map(maquina => ({
       label: maquina.Nombre,
       value: maquina.Nombre,
-      patente: maquina.Rut
+      patente: maquina.Rut,
+      patente_que_se_usara: maquina.patente_que_se_usara,
+      id_bodega: maquina.Id_Personal,
+      es_normalizada: maquina.es_patente_normalizada,
+      info_display: maquina.info_display,
+      maquinas_con_misma_patente: maquina.maquinas_con_misma_patente
     }));
-    
+
     setMaquinasOptions(options);
 
-    console.log('Máquinas disponibles actualizadas:', options.length);
+    console.log(`✅ Máquinas disponibles: ${options.length}`);
+    console.log('📊 Info:', {
+      total: options.length,
+      normalizadas: options.filter(o => o.es_normalizada).length,
+      patentes_duplicadas: options.filter(o => o.maquinas_con_misma_patente > 1).length
+    });
   };
 
   // 1. Cargar máquinas internas (ya registradas)
@@ -93,7 +100,6 @@ const GestionarMaquinaCategoria = () => {
       try {
         setLoading(prev => ({ ...prev, maquinasInternas: true }));
         const response = await axios.get("/api/maquinas-internas-registradas");
-        console.log("Datoaaaaaaaaaaaaaas:", response.data);
         
         if (response.data && response.data.success) {
           console.log('Máquinas internas cargadas:', response.data.data.length);
@@ -112,13 +118,16 @@ const GestionarMaquinaCategoria = () => {
     fetchMaquinasInternas();
   }, []);
 
-  // 2. Cargar máquinas de bodega
+  // 2. ✅ CAMBIO: Usar la nueva ruta que muestra todas las máquinas
   useEffect(() => {
     const fetchMaquinasBodega = async () => {
       try {
         setLoading(prev => ({ ...prev, maquinasBodega: true }));
-        const response = await axios.get("/api/maquinarias");
-        
+        // ✅ NUEVA RUTA: Muestra todas las máquinas con información de normalización
+        const response = await axios.get("/api/maquinarias-con-vista-previa");
+
+        console.log("Máquinas de bodega con vista previa:", response.data);
+
         if (response.data && response.data.success) {
           console.log('Máquinas bodega cargadas:', response.data.data.length);
           setMaquinasBodega(response.data.data);
@@ -138,13 +147,12 @@ const GestionarMaquinaCategoria = () => {
 
   // 3. Actualizar las opciones disponibles cuando cambien las fuentes de datos
   useEffect(() => {
-    // Solo procesamos cuando ambas fuentes de datos están cargadas
-    if (!loading.maquinasInternas && !loading.maquinasBodega) {
+    if (!loading.maquinasBodega) {
       setLoading(prev => ({ ...prev, maquinasOptions: true }));
       actualizarMaquinasDisponibles();
       setLoading(prev => ({ ...prev, maquinasOptions: false }));
     }
-  }, [maquinasInternas, maquinasBodega]);
+  }, [maquinasBodega]);
 
   // Cargar categorías al iniciar
   useEffect(() => {
@@ -196,8 +204,7 @@ const GestionarMaquinaCategoria = () => {
     };
 
     fetchFaenas();
-    
-    // Limpieza al desmontar
+
     return () => {
       if (messageTimeout) {
         clearTimeout(messageTimeout);
@@ -218,16 +225,29 @@ const GestionarMaquinaCategoria = () => {
     setStatus({ type: "", message: "", visible: false });
   };
 
-  // Manejar selección de máquina
+  // ✅ ACTUALIZADO: Manejar selección de máquina con información de normalización
   const handleMaquinaSelect = (selectedValue) => {
     const maquinaSeleccionada = maquinasOptions.find(maquina => maquina.label === selectedValue);
 
     if (maquinaSeleccionada) {
-      setNombreMaquina(maquinaSeleccionada.label);
-      setPatente(maquinaSeleccionada.patente || "");
+      setNombreMaquina(maquinaSeleccionada.value);
+      setPatente(maquinaSeleccionada.patente_que_se_usara);
+      
+      // ✅ Mostrar información de normalización si aplica
+      if (maquinaSeleccionada.es_normalizada) {
+        setInfoNormalizacion({
+          mostrar: true,
+          patenteOriginal: maquinaSeleccionada.patente,
+          patenteNormalizada: maquinaSeleccionada.patente_que_se_usara,
+          mensaje: `La patente original "${maquinaSeleccionada.patente}" ya está en uso. Se asignará automáticamente "${maquinaSeleccionada.patente_que_se_usara}".`
+        });
+      } else {
+        setInfoNormalizacion({ mostrar: false, patenteOriginal: "", patenteNormalizada: "", mensaje: "" });
+      }
     } else {
       setNombreMaquina(selectedValue || "");
       setPatente("");
+      setInfoNormalizacion({ mostrar: false, patenteOriginal: "", patenteNormalizada: "", mensaje: "" });
     }
 
     setStatus({ type: "", message: "", visible: false });
@@ -264,7 +284,7 @@ const GestionarMaquinaCategoria = () => {
       showMessage("error", "Por favor selecciona una faena.");
       return false;
     }
-    
+
     return true;
   };
 
@@ -273,37 +293,42 @@ const GestionarMaquinaCategoria = () => {
     if (!validateForm()) {
       return;
     }
-  
+
     setLoading(prev => ({ ...prev, submit: true }));
-  
+
     try {
-      // Preparar los datos para la API de máquinas-internas
       const data = {
-        patente: patente.trim(),
+        patente: patente.trim(), // Esta es la patente normalizada
         categoria: selectedCategoriaId,
         nombre_maquina: nombreMaquina.trim(),
         tipo_maquina: "Interno",
-        id_faena: selectedFaenaId // Añadimos el id_faena para el permiso
+        id_faena: selectedFaenaId
       };
-  
-      // Llamada a la API de máquinas internas
+
       const response = await axios.post("/api/maquinas-internas", data);
-  
-      // Verificar la respuesta
+
       if (response.status === 201 && response.data?.maquina_interna) {
-        showMessage("success", "Máquina interna registrada exitosamente");
+        let mensaje = "Máquina registrada exitosamente";
         
-        // Actualizar la lista de máquinas registradas para que se actualice el filtro
-        const nuevaMaquina = {
-          patente: patente.trim(),
-          nombre_maquina: nombreMaquina.trim()
+        if (infoNormalizacion.mostrar) {
+          mensaje += `\n✨ Patente asignada: ${patente}`;
+        }
+        
+        showMessage("success", mensaje);
+
+        // Actualizar la lista y recargar opciones
+        const fetchMaquinasBodega = async () => {
+          try {
+            const response = await axios.get("/api/maquinarias-con-vista-previa");
+            if (response.data && response.data.success) {
+              setMaquinasBodega(response.data.data);
+            }
+          } catch (error) {
+            console.error("Error al recargar máquinas:", error);
+          }
         };
-        
-        setMaquinasInternas(prev => [...prev, nuevaMaquina]);
-        
-        // Volver a filtrar las opciones disponibles
-        actualizarMaquinasDisponibles();
-        
+
+        await fetchMaquinasBodega();
         resetForm();
       } else {
         const errorMsg = response.data?.error || response.data?.message || "Error al registrar la máquina";
@@ -312,31 +337,10 @@ const GestionarMaquinaCategoria = () => {
     } catch (error) {
       console.error("Error al guardar:", error);
       
-      // Manejar errores
       if (error.response?.status === 422 && error.response?.data?.errors) {
         const firstError = Object.values(error.response.data.errors)[0];
         showMessage("error", Array.isArray(firstError) ? firstError[0] : "Error de validación");
-      } 
-      else if (error.response?.data?.error && error.response.data.error.includes("Duplicate entry") && 
-               error.response.data.error.includes("maquinas_internas_patente_unique")) {
-        showMessage("error", "La patente ingresada ya está registrada en el sistema. Por favor, utilice otra.");
-        
-        // Si hay un duplicado, actualizamos la lista de máquinas internas y volvemos a filtrar
-        const fetchMaquinasInternas = async () => {
-          try {
-            const response = await axios.get("/api/maquinas-internas-registradas");
-            if (response.data && response.data.success) {
-              setMaquinasInternas(response.data.data);
-              actualizarMaquinasDisponibles();
-            }
-          } catch (error) {
-            console.error("Error al actualizar máquinas registradas:", error);
-          }
-        };
-        
-        fetchMaquinasInternas();
-      } 
-      else {
+      } else {
         let errorMsg = "Ocurrió un error al guardar. Intente nuevamente.";
         
         if (error.response?.data?.error) {
@@ -353,7 +357,7 @@ const GestionarMaquinaCategoria = () => {
       setLoading(prev => ({ ...prev, submit: false }));
     }
   };
-  
+
   // Resetear el formulario
   const resetForm = () => {
     setSelectedCategoriaId("");
@@ -362,6 +366,33 @@ const GestionarMaquinaCategoria = () => {
     setPatente("");
     setSelectedFaenaId("");
     setSelectedFaenaLabel("");
+    setInfoNormalizacion({ mostrar: false, patenteOriginal: "", patenteNormalizada: "", mensaje: "" });
+  };
+
+  // ✅ Componente para mostrar información de normalización
+  const InfoNormalizacion = () => {
+    if (!infoNormalizacion.mostrar) return null;
+
+    return (
+      <div className="mt-3 p-3 bg-blue-50 border-l-4 border-blue-400 rounded">
+        <div className="flex items-start">
+          <svg className="h-5 w-5 text-blue-400 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+          </svg>
+          <div className="flex-1">
+            <h4 className="text-sm font-medium text-blue-800">
+              Patente Normalizada Automáticamente
+            </h4>
+            <p className="mt-1 text-sm text-blue-700">
+              {infoNormalizacion.mensaje}
+            </p>
+            <p className="mt-2 text-xs text-blue-600">
+              ℹ️ Esta normalización automática permite mantener la integridad de los datos mientras registras todas las máquinas necesarias.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -407,7 +438,7 @@ const GestionarMaquinaCategoria = () => {
                       clipRule="evenodd"
                     />
                   </svg>
-                  <span className="text-green-700 font-medium">{status.message}</span>
+                  <span className="text-green-700 font-medium" style={{whiteSpace: 'pre-line'}}>{status.message}</span>
                 </div>
               </div>
             )}
@@ -435,13 +466,13 @@ const GestionarMaquinaCategoria = () => {
                   selected={nombreMaquina}
                   onSelect={handleMaquinaSelect}
                   placeholder={
-                    loading.maquinasOptions || loading.maquinasInternas || loading.maquinasBodega
+                    loading.maquinasOptions || loading.maquinasBodega
                       ? "Cargando máquinas disponibles..."
                       : "Selecciona nombre de máquina"
                   }
-                  disabled={loading.maquinasOptions || loading.maquinasInternas || loading.maquinasBodega}
+                  disabled={loading.maquinasOptions || loading.maquinasBodega}
                 />
-                {!loading.maquinasOptions && !loading.maquinasInternas && !loading.maquinasBodega && maquinasOptions.length === 0 && (
+                {!loading.maquinasOptions && !loading.maquinasBodega && maquinasOptions.length === 0 && (
                   <p className="mt-1 text-xs text-amber-600">
                     No hay máquinas disponibles para registrar. Todas las máquinas ya han sido registradas.
                   </p>
@@ -462,6 +493,9 @@ const GestionarMaquinaCategoria = () => {
                 <p className="mt-1 text-xs text-gray-500">
                   La patente se obtiene automáticamente al seleccionar una máquina
                 </p>
+                
+                {/* ✅ Componente de información de normalización */}
+                <InfoNormalizacion />
               </div>
 
               <div>

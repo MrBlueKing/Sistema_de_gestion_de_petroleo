@@ -33,6 +33,7 @@ const FormConsumo = ({
   onComplete,
   resetFlow,
 }) => {
+  const DEBUG = false; // o true si estás depurando
   const showHorometro = tipoMedicion === "Horometro";
   const showKilometraje = tipoMedicion === "Kilometraje";
 
@@ -287,8 +288,7 @@ const FormConsumo = ({
 
       // 🆕 Log para verificar tipos de estanque
       estanques.forEach((estanque) => {
-        console.log(
-          `🏷️ Estanque: ${estanque.nombre} - Tipo: ${estanque.tipo_estanque || "no definido"
+        DEBUG && console.log(          `🏷️ Estanque: ${estanque.nombre} - Tipo: ${estanque.tipo_estanque || "no definido"
           }`
         );
       });

@@ -1,6 +1,7 @@
 // bomberoService.js - Sistema de Cache Inteligente con Precarga Masiva
 
 import axios from '../lib/axios';
+const DEBUG = false; // o true si estás depurando
 
 class BomberoService {
   constructor() {
@@ -16,7 +17,7 @@ class BomberoService {
     // 🚀 QUEUE DE PRECARGAS PARA EVITAR DUPLICADOS
     this.preloadQueue = new Set();
     
-    console.log('🎯 BomberoService inicializado con cache inteligente');
+    DEBUG && console.log('🎯 BomberoService inicializado con cache inteligente');
   }
 
   // ✅ MÉTODO PARA VERIFICAR SI EL CACHE ES VÁLIDO
@@ -33,17 +34,17 @@ class BomberoService {
   setCache(key, data) {
     this.cache.set(key, data);
     this.cacheTimestamps.set(key, Date.now());
-    console.log(`📦 Cache guardado: ${key} (${Array.isArray(data) ? data.length : 'object'} items)`);
+    DEBUG && console.log(`📦 Cache guardado: ${key} (${Array.isArray(data) ? data.length : 'object'} items)`);
   }
 
   // ✅ MÉTODO PARA OBTENER DEL CACHE
   getCache(key) {
     if (this.isCacheValid(key)) {
-      console.log(`🎯 Cache HIT: ${key}`);
+      DEBUG && console.log(`🎯 Cache HIT: ${key}`);
       return this.cache.get(key);
     }
     
-    console.log(`❌ Cache MISS: ${key}`);
+    DEBUG && console.log(`❌ Cache MISS: ${key}`);
     this.cache.delete(key);
     this.cacheTimestamps.delete(key);
     return null;
@@ -54,19 +55,19 @@ class BomberoService {
     const preloadKey = `preload-personal-${tipos.join('-')}-${idFaena}`;
     
     if (this.preloadQueue.has(preloadKey)) {
-      console.log(`⏸️ Precarga ya en progreso: ${preloadKey}`);
+      DEBUG && console.log(`⏸️ Precarga ya en progreso: ${preloadKey}`);
       return;
     }
 
     try {
       this.preloadQueue.add(preloadKey);
-      console.log(`🚀 INICIANDO PRECARGA: Personal ${tipos.join(' y ')} para faena ${idFaena}`);
+      DEBUG && console.log(`🚀 INICIANDO PRECARGA: Personal ${tipos.join(' y ')} para faena ${idFaena}`);
 
       const promesas = tipos.map(async (tipo) => {
         const cacheKey = `personal-${tipo}-${idFaena}`;
         
         if (this.isCacheValid(cacheKey)) {
-          console.log(`✅ Personal ${tipo} ya en cache válido`);
+          DEBUG && console.log(`✅ Personal ${tipo} ya en cache válido`);
           return;
         }
 
@@ -91,20 +92,20 @@ class BomberoService {
             
             const dataArray = Array.isArray(data) ? data : [];
             this.setCache(cacheKey, dataArray);
-            console.log(`📦 Personal ${tipo} precargado: ${dataArray.length} registros`);
+            DEBUG && console.log(`📦 Personal ${tipo} precargado: ${dataArray.length} registros`);
           }
         } catch (error) {
-          console.warn(`⚠️ Error precargando personal ${tipo}:`, error.message);
+          DEBUG && console.warn(`⚠️ Error precargando personal ${tipo}:`, error.message);
         }
       });
 
       await Promise.all(promesas);
       
       this.preloadStatus.set(preloadKey, { completed: true, timestamp: Date.now() });
-      console.log(`✅ PRECARGA COMPLETADA: ${preloadKey}`);
+      DEBUG && console.log(`✅ PRECARGA COMPLETADA: ${preloadKey}`);
 
     } catch (error) {
-      console.error(`❌ Error en precarga ${preloadKey}:`, error);
+      DEBUG && console.error(`❌ Error en precarga ${preloadKey}:`, error);
     } finally {
       this.preloadQueue.delete(preloadKey);
     }
@@ -116,18 +117,18 @@ class BomberoService {
     const preloadKey = 'preload-categorias';
     
     if (this.preloadQueue.has(preloadKey)) {
-      console.log(`⏸️ Precarga categorías ya en progreso`);
+      DEBUG && console.log(`⏸️ Precarga categorías ya en progreso`);
       return;
     }
 
     if (this.isCacheValid(cacheKey)) {
-      console.log(`✅ Categorías ya en cache válido`);
+      DEBUG && console.log(`✅ Categorías ya en cache válido`);
       return;
     }
 
     try {
       this.preloadQueue.add(preloadKey);
-      console.log(`🚀 INICIANDO PRECARGA: Categorías de maquinaria`);
+      DEBUG && console.log(`🚀 INICIANDO PRECARGA: Categorías de maquinaria`);
 
       const response = await axios.get('/api/categorias');
       
@@ -135,18 +136,18 @@ class BomberoService {
         const data = response.data.data;
         const dataArray = Array.isArray(data) ? data : [];
         this.setCache(cacheKey, dataArray);
-        console.log(`📦 Categorías precargadas: ${dataArray.length} registros`);
+        DEBUG && console.log(`📦 Categorías precargadas: ${dataArray.length} registros`);
         
         // 🆕 RETORNAR LAS CATEGORÍAS PARA USAR EN PRECARGA MASIVA
         return dataArray;
       }
 
       this.preloadStatus.set(preloadKey, { completed: true, timestamp: Date.now() });
-      console.log(`✅ PRECARGA COMPLETADA: categorías`);
+      DEBUG && console.log(`✅ PRECARGA COMPLETADA: categorías`);
       return [];
 
     } catch (error) {
-      console.error(`❌ Error precargando categorías:`, error);
+      DEBUG && console.error(`❌ Error precargando categorías:`, error);
       return [];
     } finally {
       this.preloadQueue.delete(preloadKey);
@@ -159,31 +160,31 @@ class BomberoService {
     const preloadKey = `preload-estanques-${idFaena}`;
     
     if (this.preloadQueue.has(preloadKey)) {
-      console.log(`⏸️ Precarga estanques ya en progreso: ${preloadKey}`);
+      DEBUG && console.log(`⏸️ Precarga estanques ya en progreso: ${preloadKey}`);
       return;
     }
 
     if (this.isCacheValid(cacheKey)) {
-      console.log(`✅ Estanques ya en cache válido para faena ${idFaena}`);
+      DEBUG && console.log(`✅ Estanques ya en cache válido para faena ${idFaena}`);
       return;
     }
 
     try {
       this.preloadQueue.add(preloadKey);
-      console.log(`🚀 INICIANDO PRECARGA: Estanques para faena ${idFaena}`);
+      DEBUG && console.log(`🚀 INICIANDO PRECARGA: Estanques para faena ${idFaena}`);
 
       const response = await axios.get(`/api/estanques/${idFaena}`);
       
       if (response.data && response.data.success && Array.isArray(response.data.data)) {
         this.setCache(cacheKey, response.data.data);
-        console.log(`📦 Estanques precargados: ${response.data.data.length} registros`);
+        DEBUG && console.log(`📦 Estanques precargados: ${response.data.data.length} registros`);
       }
 
       this.preloadStatus.set(preloadKey, { completed: true, timestamp: Date.now() });
-      console.log(`✅ PRECARGA COMPLETADA: estanques faena ${idFaena}`);
+      DEBUG && console.log(`✅ PRECARGA COMPLETADA: estanques faena ${idFaena}`);
 
     } catch (error) {
-      console.error(`❌ Error precargando estanques faena ${idFaena}:`, error);
+      DEBUG && console.error(`❌ Error precargando estanques faena ${idFaena}:`, error);
     } finally {
       this.preloadQueue.delete(preloadKey);
     }
@@ -194,13 +195,13 @@ class BomberoService {
     const preloadKey = `preload-maquinas-${tipoSolicitante}-${categoriaId}-${idFaena}`;
     
     if (this.preloadQueue.has(preloadKey)) {
-      console.log(`⏸️ Precarga máquinas ya en progreso: ${preloadKey}`);
+      DEBUG && console.log(`⏸️ Precarga máquinas ya en progreso: ${preloadKey}`);
       return;
     }
 
     try {
       this.preloadQueue.add(preloadKey);
-      console.log(`🚀 INICIANDO PRECARGA: Máquinas ${tipoSolicitante} categoría ${categoriaId}`);
+      DEBUG && console.log(`🚀 INICIANDO PRECARGA: Máquinas ${tipoSolicitante} categoría ${categoriaId}`);
 
       let endpoint, params = {};
       
@@ -231,14 +232,14 @@ class BomberoService {
         const cacheKey = `maquinas-${tipoSolicitante}-${categoriaId}-${idFaena}`;
         this.setCache(cacheKey, maquinasFiltradas);
         
-        console.log(`📦 Máquinas precargadas: ${maquinasFiltradas.length} registros`);
+        DEBUG && console.log(`📦 Máquinas precargadas: ${maquinasFiltradas.length} registros`);
       }
 
       this.preloadStatus.set(preloadKey, { completed: true, timestamp: Date.now() });
-      console.log(`✅ PRECARGA COMPLETADA: máquinas categoría ${categoriaId}`);
+      DEBUG && console.log(`✅ PRECARGA COMPLETADA: máquinas categoría ${categoriaId}`);
 
     } catch (error) {
-      console.error(`❌ Error precargando máquinas categoría ${categoriaId}:`, error);
+      DEBUG && console.error(`❌ Error precargando máquinas categoría ${categoriaId}:`, error);
     } finally {
       this.preloadQueue.delete(preloadKey);
     }
@@ -249,19 +250,19 @@ class BomberoService {
     const preloadKey = `preload-todas-maquinas-${tipoSolicitante}-${idFaena}`;
     
     if (this.preloadQueue.has(preloadKey)) {
-      console.log(`⏸️ Precarga masiva ya en progreso: ${preloadKey}`);
+      DEBUG && console.log(`⏸️ Precarga masiva ya en progreso: ${preloadKey}`);
       return;
     }
 
     try {
       this.preloadQueue.add(preloadKey);
-      console.log(`🚀 🚀 INICIANDO PRECARGA MASIVA: Todas las máquinas ${tipoSolicitante} para faena ${idFaena}`);
+      DEBUG && console.log(`🚀 🚀 INICIANDO PRECARGA MASIVA: Todas las máquinas ${tipoSolicitante} para faena ${idFaena}`);
 
       // 1. Obtener categorías primero
       const categorias = await this.getCategoriasMaquinaria();
       
       if (!categorias || categorias.length === 0) {
-        console.warn('⚠️ No hay categorías disponibles para precarga masiva');
+        DEBUG && console.warn('⚠️ No hay categorías disponibles para precarga masiva');
         return;
       }
 
@@ -276,7 +277,7 @@ class BomberoService {
         params = { id_faena: idFaena };
       }
 
-      console.log(`📡 Obteniendo TODAS las máquinas ${tipoSolicitante} de una vez...`);
+      DEBUG && console.log(`📡 Obteniendo TODAS las máquinas ${tipoSolicitante} de una vez...`);
       
       const [maquinasResponse] = await Promise.all([
         axios.get(endpoint, { params }),
@@ -285,7 +286,7 @@ class BomberoService {
       
       if (maquinasResponse.data && maquinasResponse.data.success && Array.isArray(maquinasResponse.data.data)) {
         const todasLasMaquinas = maquinasResponse.data.data;
-        console.log(`📦 Obtenidas ${todasLasMaquinas.length} máquinas totales`);
+        DEBUG && console.log(`📦 Obtenidas ${todasLasMaquinas.length} máquinas totales`);
 
         // 3. Separar y cachear por categoría
         let maquinasGuardadas = 0;
@@ -308,16 +309,16 @@ class BomberoService {
           this.setCache(cacheKey, maquinasPorCategoria);
           maquinasGuardadas += maquinasPorCategoria.length;
           
-          console.log(`📦 Categoría ${categoria.nombre_categoria}: ${maquinasPorCategoria.length} máquinas cacheadas`);
+          DEBUG && console.log(`📦 Categoría ${categoria.nombre_categoria}: ${maquinasPorCategoria.length} máquinas cacheadas`);
         });
 
-        console.log(`🎉 PRECARGA MASIVA COMPLETADA: ${maquinasGuardadas} máquinas distribuidas en ${categorias.length} categorías`);
+        DEBUG && console.log(`🎉 PRECARGA MASIVA COMPLETADA: ${maquinasGuardadas} máquinas distribuidas en ${categorias.length} categorías`);
       }
 
       this.preloadStatus.set(preloadKey, { completed: true, timestamp: Date.now() });
 
     } catch (error) {
-      console.error(`❌ Error en precarga masiva:`, error);
+      DEBUG && console.error(`❌ Error en precarga masiva:`, error);
     } finally {
       this.preloadQueue.delete(preloadKey);
     }
@@ -335,7 +336,7 @@ class BomberoService {
     }
 
     try {
-      console.log(`🔄 Cargando personal ${tipo} para faena ${idFaena} desde API`);
+      DEBUG && console.log(`🔄 Cargando personal ${tipo} para faena ${idFaena} desde API`);
       
       const endpoint = tipo === 'interno' ? '/api/personal-interno' : '/api/personal-externo';
       const response = await axios.get(endpoint, {
@@ -359,7 +360,7 @@ class BomberoService {
 
       return [];
     } catch (error) {
-      console.error(`❌ Error obteniendo personal ${tipo}:`, error);
+      DEBUG && console.error(`❌ Error obteniendo personal ${tipo}:`, error);
       return [];
     }
   }
@@ -374,7 +375,7 @@ class BomberoService {
     }
 
     try {
-      console.log(`🔄 Cargando categorías desde API`);
+      DEBUG && console.log(`🔄 Cargando categorías desde API`);
       
       const response = await axios.get('/api/categorias');
 
@@ -387,7 +388,7 @@ class BomberoService {
 
       return [];
     } catch (error) {
-      console.error(`❌ Error obteniendo categorías:`, error);
+      DEBUG && console.error(`❌ Error obteniendo categorías:`, error);
       return [];
     }
   }
@@ -402,7 +403,7 @@ class BomberoService {
     }
 
     try {
-      console.log(`🔄 Cargando máquinas ${tipoSolicitante} desde API`);
+      DEBUG && console.log(`🔄 Cargando máquinas ${tipoSolicitante} desde API`);
       
       let endpoint, params = {};
       
@@ -432,7 +433,7 @@ class BomberoService {
 
       return [];
     } catch (error) {
-      console.error(`❌ Error obteniendo máquinas:`, error);
+      DEBUG && console.error(`❌ Error obteniendo máquinas:`, error);
       return [];
     }
   }
@@ -442,13 +443,13 @@ class BomberoService {
     const cacheKey = `estanques-${idFaena}`;
     
     if (cacheOnly) {
-      console.log(`🎯 SOLO CACHE: Obteniendo estanques para faena ${idFaena}`);
+      DEBUG && console.log(`🎯 SOLO CACHE: Obteniendo estanques para faena ${idFaena}`);
       const cached = this.getCache(cacheKey);
       if (cached) {
-        console.log(`✅ CACHE GLOBAL: ${cached.length} estanques cacheados para faena ${idFaena}`);
+        DEBUG && console.log(`✅ CACHE GLOBAL: ${cached.length} estanques cacheados para faena ${idFaena}`);
         return cached;
       }
-      console.log(`❌ Cache MISS: ${cacheKey} - No hay datos en cache`);
+      DEBUG && console.log(`❌ Cache MISS: ${cacheKey} - No hay datos en cache`);
       return [];
     }
     
@@ -458,7 +459,7 @@ class BomberoService {
     }
 
     try {
-      console.log(`🔄 Cargando estanques faena ${idFaena} desde API`);
+      DEBUG && console.log(`🔄 Cargando estanques faena ${idFaena} desde API`);
       
       const response = await axios.get(`/api/estanques/${idFaena}`);
       
@@ -469,7 +470,7 @@ class BomberoService {
 
       return [];
     } catch (error) {
-      console.error(`❌ Error obteniendo estanques faena ${idFaena}:`, error);
+      DEBUG && console.error(`❌ Error obteniendo estanques faena ${idFaena}:`, error);
       return [];
     }
   }
@@ -484,13 +485,13 @@ class BomberoService {
     this.preloadStatus.clear();
     this.preloadQueue.clear();
     
-    console.log(`🧹 Cache limpiado: ${totalEntries} entradas eliminadas`);
+    DEBUG && console.log(`🧹 Cache limpiado: ${totalEntries} entradas eliminadas`);
   }
 
   clearCacheKey(key) {
     this.cache.delete(key);
     this.cacheTimestamps.delete(key);
-    console.log(`🧹 Cache key eliminado: ${key}`);
+    DEBUG && console.log(`🧹 Cache key eliminado: ${key}`);
   }
 
   clearExpiredCache() {
@@ -505,7 +506,7 @@ class BomberoService {
     }
     
     if (removedCount > 0) {
-      console.log(`🧹 Cache expirado limpiado: ${removedCount} entradas`);
+      DEBUG && console.log(`🧹 Cache expirado limpiado: ${removedCount} entradas`);
     }
   }
 
@@ -534,11 +535,11 @@ class BomberoService {
   // 🚀 MÉTODO DE INICIALIZACIÓN AUTOMÁTICA - MEJORADO
   async initializeForUser(userFaena) {
     if (!userFaena) {
-      console.warn('⚠️ No se puede inicializar sin userFaena');
+      DEBUG && console.warn('⚠️ No se puede inicializar sin userFaena');
       return;
     }
 
-    console.log(`🚀 Inicializando cache completo para faena ${userFaena}`);
+    DEBUG && console.log(`🚀 Inicializando cache completo para faena ${userFaena}`);
     
     try {
       // Iniciar precargas básicas en paralelo
@@ -547,20 +548,20 @@ class BomberoService {
         this.preloadCategoriasMaquinaria()
       ]);
       
-      console.log('✅ Inicialización completa');
+      DEBUG && console.log('✅ Inicialización completa');
     } catch (error) {
-      console.warn('⚠️ Error en inicialización:', error);
+      DEBUG && console.warn('⚠️ Error en inicialización:', error);
     }
   }
 
   // 🆕 MÉTODO PARA WARMING UP MASIVO
   async warmupMasivoMaquinas(tipoSolicitante, userFaena) {
     if (!tipoSolicitante || !userFaena) {
-      console.warn('⚠️ No se puede hacer warmup masivo sin tipoSolicitante y userFaena');
+      DEBUG && console.warn('⚠️ No se puede hacer warmup masivo sin tipoSolicitante y userFaena');
       return;
     }
 
-    console.log(`🚀 🚀 INICIANDO WARMUP MASIVO para ${tipoSolicitante} en faena ${userFaena}`);
+    DEBUG && console.log(`🚀 🚀 INICIANDO WARMUP MASIVO para ${tipoSolicitante} en faena ${userFaena}`);
     
     try {
       // Precargar TODAS las máquinas en paralelo con categorías
@@ -570,9 +571,9 @@ class BomberoService {
         this.preloadEstanques(userFaena)
       ]);
       
-      console.log('🎉 🎉 WARMUP MASIVO COMPLETADO - Usuario tendrá experiencia instantánea');
+      DEBUG && console.log('🎉 🎉 WARMUP MASIVO COMPLETADO - Usuario tendrá experiencia instantánea');
     } catch (error) {
-      console.warn('⚠️ Error en warmup masivo:', error);
+      DEBUG && console.warn('⚠️ Error en warmup masivo:', error);
     }
   }
 

@@ -514,6 +514,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/personal-bodega', [BodegaController::class, 'index']);
     Route::get('/personal-bodega-invalidos', [BodegaController::class, 'rutInvalidos']);
     Route::get('/maquinarias', [BodegaController::class, 'getMaquinarias']);
+    Route::get('/maquinarias-con-vista-previa', [BodegaController::class, 'getMaquinariasConVistaPrevia']);
     Route::get('/solicitantes', [PersonalInternoController::class, 'listarSolicitantes']);
     Route::post('/registrarUsuarioInterno', [PersonalInternoController::class, 'register']);
     Route::get('/personal-internos', [PersonalInternoController::class, 'index']);
@@ -574,6 +575,17 @@ Route::middleware('auth:sanctum')->group(function () {
     | 📂 CATEGORÍAS (MANTENIMIENTO)
     |--------------------------------------------------------------------------
     */
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | 📈 Vuelos 
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('vuelos')->group(function () {
+        Route::get('/{id}/images', [ChecklistController::class, 'getEvaluationImages']);
+        Route::get('/evaluations', [ChecklistController::class, 'getEvaluations']); // Lista de evaluaciones
+    });
 });
 
 // Rutas para consumos
