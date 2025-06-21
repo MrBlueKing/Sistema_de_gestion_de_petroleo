@@ -196,7 +196,20 @@ const StockEstanquesFAB = () => {
   useEffect(() => {
     if (isOpen) {
       fetchEstanques();
+      // Prevenir scroll del body cuando el modal está abierto
+      document.body.style.overflow = 'hidden';
+      // Fix para navegadores móviles - establecer altura fija
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    } else {
+      // Restaurar scroll del body cuando el modal se cierra
+      document.body.style.overflow = 'unset';
     }
+
+    // Cleanup al desmontar el componente
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
   }, [isOpen, user?.id_faena]);
 
   // Funciones de utilidad
@@ -262,7 +275,7 @@ const StockEstanquesFAB = () => {
       {/* Modal/Overlay */}
       {isOpen && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-hidden"
           onClick={() => setIsOpen(false)}
         >
           <div 
