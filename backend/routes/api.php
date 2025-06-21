@@ -582,10 +582,10 @@ Route::middleware('auth:sanctum')->group(function () {
     | 📈 Vuelos 
     |--------------------------------------------------------------------------
     */
-    Route::prefix('vuelos')->group(function () {
-        Route::get('/{id}/images', [ChecklistController::class, 'getEvaluationImages']);
-        Route::get('/evaluations', [ChecklistController::class, 'getEvaluations']); // Lista de evaluaciones
-    });
+    // Route::prefix('vuelos')->group(function () {
+    //     Route::get('/{id}/images', [ChecklistController::class, 'getEvaluationImages']);
+    //     Route::get('/evaluations', [ChecklistController::class, 'getEvaluations']); // Lista de evaluaciones
+    // });
 });
 
 // Rutas para consumos

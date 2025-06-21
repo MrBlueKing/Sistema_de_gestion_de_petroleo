@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useContext } from "react";
-import { 
-  FaGasPump, 
-  FaArrowCircleDown, 
-  FaChartLine, 
+import {
+  FaGasPump,
+  FaArrowCircleDown,
+  FaChartLine,
   FaHistory,
   FaSpinner,
   FaExclamationTriangle,
@@ -17,21 +17,22 @@ import {
   FaTruck
 } from "react-icons/fa";
 import axios from "../../../lib/axios";
+import StockEstanquesFAB from "../../molecules/StockEstanquesFAB";
 import { UserContext } from "../../../context/userContext";
 
 // Componente Button - Más sobrio con paleta de colores
-const Button = ({ 
-  to, 
-  color, 
-  icon, 
-  text, 
-  className = "", 
-  size = "normal", 
+const Button = ({
+  to,
+  color,
+  icon,
+  text,
+  className = "",
+  size = "normal",
   disabled = false,
-  onClick 
+  onClick
 }) => {
   const baseClasses = "flex items-center justify-center gap-2 sm:gap-3 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2";
-  
+
   const sizeClasses = {
     small: "px-3 sm:px-4 py-2 text-xs sm:text-sm",
     normal: "px-4 sm:px-6 py-3 sm:py-3 text-sm sm:text-base",
@@ -61,7 +62,7 @@ const Button = ({
   };
 
   return (
-    <button 
+    <button
       onClick={handleClick}
       className={`${baseClasses} ${sizeClasses[size]} ${disabled ? colorClasses.gray : colorClasses[color]} ${className}`}
       disabled={disabled}
@@ -125,7 +126,7 @@ const ConsumoRecenteCard = ({ consumo, formatearFecha }) => {
             {consumo.solicitante_nombre || "N/A"}
           </div>
         </div>
-        
+
         <div>
           <div className="flex items-center gap-1 mb-1">
             <FaTruck className="text-green-600 text-xs" />
@@ -152,7 +153,7 @@ const ConsumoRecenteCard = ({ consumo, formatearFecha }) => {
 
 const Main = () => {
   const { user, loading } = useContext(UserContext);
-  
+
   const [consumosRecientes, setConsumosRecientes] = useState([]);
   const [loadingConsumos, setLoadingConsumos] = useState(false);
   const [error, setError] = useState(null);
@@ -169,7 +170,7 @@ const Main = () => {
 
     try {
       const token = JSON.parse(localStorage.getItem("authToken"))?.token;
-      
+
       if (!token) {
         throw new Error('No se encontró token de autenticación');
       }
@@ -181,13 +182,13 @@ const Main = () => {
           Authorization: `Bearer ${token}`,
         },
       });
-      
+
       console.log('Consumos recibidos:', response.data);
       setConsumosRecientes(response.data.data || []);
 
     } catch (error) {
       console.error('Error al cargar consumos recientes:', error);
-      
+
       let errorMessage = 'Error al cargar consumos recientes';
       if (error.response?.status === 401) {
         errorMessage = 'Sesión expirada. Por favor, inicie sesión nuevamente.';
@@ -198,7 +199,7 @@ const Main = () => {
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       setError(errorMessage);
 
     } finally {
@@ -265,216 +266,218 @@ const Main = () => {
       {/* Contenido unificado con fondo blanco */}
       <div className="max-w-7xl mx-auto bg-white shadow-lg min-h-screen">
         <div className="px-2 sm:px-4 py-6 sm:py-8">
-        
-        {/* Header integrado */}
-        <div className="text-center mb-6 sm:mb-8">
-          <h3 className="text-2xl sm:text-2xl font-bold bg-gradient-to-r from-gray-800 via-gray-900 to-gray-800 bg-clip-text text-transparent mb-2 sm:mb-4">
-            Sistema de Gestión de Combustible
-          </h3>
-          
-        </div>
 
-        {/* Cards de acciones principales - Responsive */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
-          
-          {/* Card de Registros */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 shadow-sm">
-            <div className="flex items-center gap-3 mb-4 sm:mb-6">
-              <div className="bg-[#F67029] p-2 sm:p-3 rounded-lg shadow-md">
-                <FaPlus className="text-white text-base sm:text-lg" />
-              </div>
-              <div>
-                <h3 className="text-lg sm:text-xl font-bold text-gray-800">Registrar Movimientos</h3>
-                <p className="text-gray-600 text-xs sm:text-sm">Ingresa nuevos datos al sistema</p>
-              </div>
-            </div>
+          {/* Header integrado */}
+          <div className="text-center mb-6 sm:mb-8">
+            <h3 className="text-2xl sm:text-2xl font-bold bg-gradient-to-r from-gray-800 via-gray-900 to-gray-800 bg-clip-text text-transparent mb-2 sm:mb-4">
+              Sistema de Gestión de Combustible
+            </h3>
 
-            <div className="space-y-3 sm:space-y-4">
-              <Button
-                to="/BomberoRecepcion"
-                color="orange"
-                icon={<FaArrowCircleDown />}
-                text="Registrar Recepción"
-                className="w-full"
-                disabled={!user?.id_faena}
-              />
-              
-              <Button
-                to="/BomberoNavigation"
-                color="orange"
-                icon={<FaGasPump />}
-                text="Registrar Consumo"
-                className="w-full"
-                disabled={!user?.id_faena}
-              />
-            </div>
           </div>
 
-          {/* Card de Consultas */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 shadow-sm">
-            <div className="flex items-center gap-3 mb-4 sm:mb-6">
-              <div className="bg-green-600 p-2 sm:p-3 rounded-lg shadow-md">
-                <FaEye className="text-white text-base sm:text-lg" />
-              </div>
-              <div>
-                <h3 className="text-lg sm:text-xl font-bold text-gray-800">Consultar Históricos</h3>
-                <p className="text-gray-600 text-xs sm:text-sm">Revisa los registros anteriores</p>
-              </div>
-            </div>
+          {/* Cards de acciones principales - Responsive */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
 
-            <div className="space-y-3 sm:space-y-4">
-              <Button
-                to="/bombero/recepciones"
-                color="green"
-                icon={<FaHistory />}
-                text="Historial Recepciones"
-                className="w-full"
-              />
-              
-              <Button
-                to="/bombero/consumos"
-                color="green"
-                icon={<FaChartLine />}
-                text="Historial Consumos"
-                className="w-full"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Error display optimizado */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
-            <div className="flex items-center gap-3">
-              <FaExclamationTriangle className="text-red-600 text-lg sm:text-xl flex-shrink-0" />
-              <div>
-                <h4 className="font-semibold text-red-800 text-sm sm:text-base">⚠️ Error de Conexión</h4>
-                <p className="text-xs sm:text-sm text-red-700">{error}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Tabla de Consumos Recientes - Optimizada */}
-        <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 shadow-sm">
-          <div className="flex items-center gap-3 mb-4 sm:mb-6">
-            <div className="bg-purple-600 p-2 sm:p-3 rounded-lg shadow-md">
-              <FaHistory className="text-white text-base sm:text-lg" />
-            </div>
-            <div>
-              <h3 className="text-lg sm:text-xl font-bold text-gray-800">Consumos Recientes</h3>
-              <p className="text-gray-600 text-xs sm:text-sm">Últimas 5 cargas de combustible registradas</p>
-            </div>
-          </div>
-          
-          {loadingConsumos ? (
-            <LoadingSpinner message="Cargando consumos recientes..." />
-          ) : (
-            <>
-              {/* Vista móvil - Cards */}
-              <div className="block lg:hidden">
-                <div className="space-y-4">
-                  {consumosRecientes.length > 0 ? (
-                    consumosRecientes.map((consumo, index) => (
-                      <ConsumoRecenteCard 
-                        key={index} 
-                        consumo={consumo} 
-                        formatearFecha={formatearFecha}
-                      />
-                    ))
-                  ) : (
-                    <div className="text-center py-8">
-                      <FaInfoCircle className="mx-auto text-3xl mb-2 text-gray-400" />
-                      <p className="font-medium text-gray-600">No hay consumos recientes</p>
-                      <p className="text-sm text-gray-500">Los datos aparecerán cuando se registren nuevos consumos</p>
-                    </div>
-                  )}
+            {/* Card de Registros */}
+            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-4 sm:mb-6">
+                <div className="bg-[#F67029] p-2 sm:p-3 rounded-lg shadow-md">
+                  <FaPlus className="text-white text-base sm:text-lg" />
+                </div>
+                <div>
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-800">Registrar Movimientos</h3>
+                  <p className="text-gray-600 text-xs sm:text-sm">Ingresa nuevos datos al sistema</p>
                 </div>
               </div>
 
-              {/* Vista escritorio - Tabla */}
-              <div className="hidden lg:block">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 px-4 font-semibold text-gray-700">📅 Fecha</th>
-                        <th className="text-left py-3 px-4 font-semibold text-gray-700">👤 Solicitante</th>
-                        <th className="text-left py-3 px-4 font-semibold text-gray-700">🚛 Equipo</th>
-                        <th className="text-left py-3 px-4 font-semibold text-gray-700">⛽ Litros</th>
-                        <th className="text-left py-3 px-4 font-semibold text-gray-700">🛢️ Estanque</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {consumosRecientes.length > 0 ? (
-                        consumosRecientes.map((consumo, index) => {
-                          const { fecha, hora } = formatearFecha(consumo.fecha_consumo);
-                          return (
-                            <tr 
-                              key={index} 
-                              className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
-                            >
-                              <td className="py-3 px-4">
-                                <div className="text-sm">
-                                  <div className="font-medium text-gray-900">{fecha}</div>
-                                  <div className="text-gray-500">{hora}</div>
-                                </div>
-                              </td>
-                              <td className="py-3 px-4 text-sm text-gray-900">
-                                {consumo.solicitante_nombre || 'N/A'}
-                              </td>
-                              <td className="py-3 px-4 text-sm text-gray-900">
-                                {consumo.nombre_maquina || 'N/A'}
-                              </td>
-                              <td className="py-3 px-4">
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                                  {parseFloat(consumo.litros_consumidos).toFixed(2)} L
-                                </span>
-                              </td>
-                              <td className="py-3 px-4 text-sm text-gray-600">
-                                {consumo.estanque || 'N/A'}
-                              </td>
-                            </tr>
-                          );
-                        })
-                      ) : (
-                        <tr>
-                          <td colSpan="5" className="py-8 text-center">
-                            <div className="text-gray-500">
-                              <FaInfoCircle className="mx-auto text-3xl mb-2" />
-                              <p className="font-medium">No hay consumos recientes</p>
-                              <p className="text-sm">Los datos aparecerán cuando se registren nuevos consumos</p>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+              <div className="space-y-3 sm:space-y-4">
+                <Button
+                  to="/BomberoRecepcion"
+                  color="orange"
+                  icon={<FaArrowCircleDown />}
+                  text="Registrar Recepción"
+                  className="w-full"
+                  disabled={!user?.id_faena}
+                />
+
+                <Button
+                  to="/BomberoNavigation"
+                  color="orange"
+                  icon={<FaGasPump />}
+                  text="Registrar Consumo"
+                  className="w-full"
+                  disabled={!user?.id_faena}
+                />
+              </div>
+            </div>
+
+            {/* Card de Consultas */}
+            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-4 sm:mb-6">
+                <div className="bg-green-600 p-2 sm:p-3 rounded-lg shadow-md">
+                  <FaEye className="text-white text-base sm:text-lg" />
+                </div>
+                <div>
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-800">Consultar Históricos</h3>
+                  <p className="text-gray-600 text-xs sm:text-sm">Revisa los registros anteriores</p>
                 </div>
               </div>
-            </>
+
+              <div className="space-y-3 sm:space-y-4">
+                <Button
+                  to="/bombero/recepciones"
+                  color="green"
+                  icon={<FaHistory />}
+                  text="Historial Recepciones"
+                  className="w-full"
+                />
+
+                <Button
+                  to="/bombero/consumos"
+                  color="green"
+                  icon={<FaChartLine />}
+                  text="Historial Consumos"
+                  className="w-full"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Error display optimizado */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+              <div className="flex items-center gap-3">
+                <FaExclamationTriangle className="text-red-600 text-lg sm:text-xl flex-shrink-0" />
+                <div>
+                  <h4 className="font-semibold text-red-800 text-sm sm:text-base">⚠️ Error de Conexión</h4>
+                  <p className="text-xs sm:text-sm text-red-700">{error}</p>
+                </div>
+              </div>
+            </div>
           )}
 
-          {/* Botón de actualizar */}
-          <div className="flex justify-end mt-4">
-            <Button
-              color="purple"
-              text="🔄 Actualizar Lista"
-              onClick={fetchConsumosRecientes}
-              disabled={loadingConsumos || !user?.id_faena}
-              size="small"
-            />
+          {/* Tabla de Consumos Recientes - Optimizada */}
+          <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 shadow-sm">
+            <div className="flex items-center gap-3 mb-4 sm:mb-6">
+              <div className="bg-purple-600 p-2 sm:p-3 rounded-lg shadow-md">
+                <FaHistory className="text-white text-base sm:text-lg" />
+              </div>
+              <div>
+                <h3 className="text-lg sm:text-xl font-bold text-gray-800">Consumos Recientes</h3>
+                <p className="text-gray-600 text-xs sm:text-sm">Últimas 5 cargas de combustible registradas</p>
+              </div>
+            </div>
+
+            {loadingConsumos ? (
+              <LoadingSpinner message="Cargando consumos recientes..." />
+            ) : (
+              <>
+                {/* Vista móvil - Cards */}
+                <div className="block lg:hidden">
+                  <div className="space-y-4">
+                    {consumosRecientes.length > 0 ? (
+                      consumosRecientes.map((consumo, index) => (
+                        <ConsumoRecenteCard
+                          key={index}
+                          consumo={consumo}
+                          formatearFecha={formatearFecha}
+                        />
+                      ))
+                    ) : (
+                      <div className="text-center py-8">
+                        <FaInfoCircle className="mx-auto text-3xl mb-2 text-gray-400" />
+                        <p className="font-medium text-gray-600">No hay consumos recientes</p>
+                        <p className="text-sm text-gray-500">Los datos aparecerán cuando se registren nuevos consumos</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Vista escritorio - Tabla */}
+                <div className="hidden lg:block">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700">📅 Fecha</th>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700">👤 Solicitante</th>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700">🚛 Equipo</th>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700">⛽ Litros</th>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700">🛢️ Estanque</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {consumosRecientes.length > 0 ? (
+                          consumosRecientes.map((consumo, index) => {
+                            const { fecha, hora } = formatearFecha(consumo.fecha_consumo);
+                            return (
+                              <tr
+                                key={index}
+                                className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                              >
+                                <td className="py-3 px-4">
+                                  <div className="text-sm">
+                                    <div className="font-medium text-gray-900">{fecha}</div>
+                                    <div className="text-gray-500">{hora}</div>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4 text-sm text-gray-900">
+                                  {consumo.solicitante_nombre || 'N/A'}
+                                </td>
+                                <td className="py-3 px-4 text-sm text-gray-900">
+                                  {consumo.nombre_maquina || 'N/A'}
+                                </td>
+                                <td className="py-3 px-4">
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                    {parseFloat(consumo.litros_consumidos).toFixed(2)} L
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 text-sm text-gray-600">
+                                  {consumo.estanque || 'N/A'}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        ) : (
+                          <tr>
+                            <td colSpan="5" className="py-8 text-center">
+                              <div className="text-gray-500">
+                                <FaInfoCircle className="mx-auto text-3xl mb-2" />
+                                <p className="font-medium">No hay consumos recientes</p>
+                                <p className="text-sm">Los datos aparecerán cuando se registren nuevos consumos</p>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Botón de actualizar */}
+            <div className="flex justify-end mt-4">
+              <Button
+                color="purple"
+                text="🔄 Actualizar Lista"
+                onClick={fetchConsumosRecientes}
+                disabled={loadingConsumos || !user?.id_faena}
+                size="small"
+              />
+            </div>
+          </div>
+
+          {/* Footer integrado */}
+          <div className="text-center pt-4 sm:pt-6 border-t border-gray-200">
+            <p className="text-gray-600 text-xs sm:text-sm">
+              Sistema de Gestión de Combustible v2.0 | Usuario: {user?.nombre} {user?.apellido}
+            </p>
           </div>
         </div>
-
-        {/* Footer integrado */}
-        <div className="text-center pt-4 sm:pt-6 border-t border-gray-200">
-          <p className="text-gray-600 text-xs sm:text-sm">
-            Sistema de Gestión de Combustible v2.0 | Usuario: {user?.nombre} {user?.apellido}
-          </p>
-        </div>
-        </div>
       </div>
+      {/* Componente FAB para Stock de Estanques */}
+      <StockEstanquesFAB />
     </div>
   );
 };

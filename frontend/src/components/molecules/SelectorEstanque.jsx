@@ -223,7 +223,7 @@ const EstanqueTarjeta = ({
                 min="0"
                 max={maxLitros || estanque.stock_actual || 0}
                 step="0.1"
-                value={litrosAsignados}
+                value={litrosAsignados === 0 ? '' : litrosAsignados}
                 onChange={handleLitrosChange}
                 disabled={disabled}
                 className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -360,32 +360,29 @@ const SelectorEstanque = ({
   }, [idFaena, tipoEstanque, selectorId]);
 
   // AGRUPAR ESTANQUES POR TIPO
+  // AGRUPAR ESTANQUES POR TIPO
   const estanquesAgrupados = useMemo(() => {
     // Separar por tipo
     const fijos = estanques.filter(e => e.tipo_estanque === 'fijo' || !e.tipo_estanque);
     const moviles = estanques.filter(e => e.tipo_estanque === 'movil');
 
-    // Ordenar cada grupo por stock disponible (mayor primero) para origen
-    // Para destino (móviles), ordenar por capacidad disponible
+    // ✅ NUEVA FUNCIÓN DE ORDENAMIENTO
+    const ordenarPorId = (a, b) => {
+      return a.id_estanque - b.id_estanque; // Orden ascendente por ID
+    };
+
+    // ❌ COMENTAR O ELIMINAR LAS FUNCIONES ANTIGUAS
+    /*
     const ordenarPorStock = (a, b) => {
       if (a.stock_actual > 0 && b.stock_actual === 0) return -1;
       if (a.stock_actual === 0 && b.stock_actual > 0) return 1;
       return b.stock_actual - a.stock_actual;
     };
+    */
 
-    const ordenarPorCapacidadDisponible = (a, b) => {
-      const capacidadA = (a.capacidad || 0) - (a.stock_actual || 0);
-      const capacidadB = (b.capacidad || 0) - (b.stock_actual || 0);
-      return capacidadB - capacidadA;
-    };
-
-    fijos.sort(ordenarPorStock);
-    // Para móviles, ordenar por capacidad disponible si es para destino
-    if (tipoEstanque === 'movil') {
-      moviles.sort(ordenarPorCapacidadDisponible);
-    } else {
-      moviles.sort(ordenarPorStock);
-    }
+    // ✅ APLICAR EL NUEVO ORDENAMIENTO
+    fijos.sort(ordenarPorId);
+    moviles.sort(ordenarPorId);
 
     return { fijos, moviles };
   }, [estanques, tipoEstanque]);
