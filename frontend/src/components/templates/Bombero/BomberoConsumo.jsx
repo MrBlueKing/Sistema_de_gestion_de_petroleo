@@ -21,7 +21,7 @@ const Consumo = ({
   resetFlow = null,
   preloadedEstanques = null
 }) => {
-  const DEBUG = false; // o true si estás depurando
+  const DEBUG = true; // o true si estás depurando
   const { user, loading } = useContext(UserContext);
   const navigate = useNavigate();
 

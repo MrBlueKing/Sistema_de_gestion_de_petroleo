@@ -539,7 +539,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/calcular-litros-petroleo', [EstanqueController::class, 'calcularLitrosPetroleo']);
     Route::get('/capacidad-disponible/{id_faena}', [EstanqueController::class, 'capacidadDisponible']);
-    Route::post('/consumos', [ConsumoController::class, 'store']);
+    
     Route::apiResource('/kpi-valores-entrada', KpiValoresEntradaController::class);
     Route::post('/calcular-kpis', [KpiCalculoController::class, 'calcular']);
     Route::get('/datos-mes-anterior', [InformeKpiController::class, 'obtenerValoresMesAnterior']);

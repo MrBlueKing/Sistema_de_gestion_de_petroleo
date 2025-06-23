@@ -226,7 +226,7 @@ const FormConsumo = ({
       console.log("🚛 Tipo de operación determinado:", tipoOperacion);
 
       // Realizar petición POST al backend
-      const response = await axios.post("/api/consumos/multi", consumoData);
+      const response = await axios.post("/api/consumos", consumoData);
 
       if (response.data.success) {
         console.log("✅ Consumo creado exitosamente:", response.data.data);
