@@ -10,19 +10,21 @@ import {
   FaCheckCircle,
   FaTimesCircle,
   FaLayerGroup,
-  FaWarehouse
+  FaWarehouse,
+  FaTachometerAlt
 } from 'react-icons/fa';
 import { RiOilFill } from 'react-icons/ri';
 import { UserContext } from '../../context/userContext';
 import axios from '../../lib/axios';
 
 // Componente para separador de sección (como en SelectorEstanque)
-const SeparadorSeccion = ({ icono, titulo, cantidad, color = "blue" }) => {
+const SeparadorSeccion = ({ icono, titulo, cantidad, color = "blue", stockTotal = null }) => {
   const colorClasses = {
     blue: "bg-blue-50 text-blue-700 border-blue-200",
     amber: "bg-amber-50 text-amber-700 border-amber-200",
     green: "bg-green-50 text-green-700 border-green-200",
     red: "bg-red-50 text-red-700 border-red-200",
+    purple: "bg-purple-50 text-purple-700 border-purple-200",
   };
 
   return (
@@ -32,9 +34,16 @@ const SeparadorSeccion = ({ icono, titulo, cantidad, color = "blue" }) => {
           {icono}
           <span>{titulo}</span>
         </div>
-        <span className="text-xs">
-          {cantidad} estanque{cantidad !== 1 ? 's' : ''}
-        </span>
+        <div className="text-right">
+          <span className="text-xs">
+            {cantidad} estanque{cantidad !== 1 ? 's' : ''}
+          </span>
+          {stockTotal !== null && (
+            <div className="text-xs font-semibold mt-1">
+              Total: {stockTotal.toLocaleString()} L
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -84,67 +93,54 @@ const EstanqueTarjeta = ({ estanque }) => {
 
           {/* Información del estanque */}
           <div className="flex-1 min-w-0">
-            <h4 className="font-medium text-gray-900 text-sm truncate">
-              {estanque.nombre}
-            </h4>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-medium text-gray-900 truncate">
+                {estanque.nombre || `Estanque ${estanque.id_estanque}`}
+              </h4>
+              <div className="flex items-center space-x-2">
+                {/* Estado del stock */}
+                <div className={`flex items-center space-x-1 text-xs px-2 py-1 rounded-full ${estadoStock.bgColor}`}>
+                  <IconoEstado size={10} className={estadoStock.color} />
+                  <span className={`font-medium ${estadoStock.color}`}>
+                    {estadoStock.label}
+                  </span>
+                </div>
+              </div>
+            </div>
 
-            {/* Barra de progreso */}
-            <div className="mt-2 mb-3">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs text-gray-500">Stock</span>
-                <span className={`text-xs font-medium ${getColorTexto(porcentaje)}`}>
+            {/* Información de capacidad y stock */}
+            <div className="space-y-1 text-xs text-gray-600">
+              <div className="flex justify-between">
+                <span>Stock actual:</span>
+                <span className="font-medium">{parseFloat(estanque.stock_actual).toLocaleString()} L</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Capacidad total:</span>
+                <span className="font-medium">{parseFloat(estanque.capacidad).toLocaleString()} L</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Nivel:</span>
+                <span className={`font-medium ${getColorTexto(porcentaje)}`}>
                   {porcentaje}%
                 </span>
               </div>
+            </div>
+
+            {/* Barra de progreso */}
+            <div className="mt-2">
               <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
+                <div
                   className={`h-2 rounded-full transition-all duration-300 ${getColorBarra(porcentaje)}`}
-                  style={{ width: `${porcentaje}%` }}
-                />
+                  style={{ width: `${Math.max(porcentaje, 2)}%` }}
+                ></div>
               </div>
-            </div>
-
-            {/* Información detallada */}
-            <div className="text-xs text-gray-500 space-y-1">
-              <div className="flex justify-between">
-                <span>Stock actual:</span>
-                <span className={`font-medium ${getColorTexto(porcentaje)}`}>
-                  {parseFloat(estanque.stock_actual).toLocaleString('es-CL')} L
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>Capacidad:</span>
-                <span className="font-medium text-gray-900">
-                  {parseFloat(estanque.capacidad).toLocaleString('es-CL')} L
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>Disponible:</span>
-                <span className="font-medium text-gray-900">
-                  {(parseFloat(estanque.capacidad) - parseFloat(estanque.stock_actual)).toLocaleString('es-CL')} L
-                </span>
-              </div>
-              {estanque.altura_actual && (
-                <div className="flex justify-between">
-                  <span>Altura:</span>
-                  <span className="font-medium text-gray-900">
-                    {parseFloat(estanque.altura_actual).toFixed(2)} cm
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Badge de estado del stock */}
-            <div className={`mt-2 inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${estadoStock.bgColor} ${estadoStock.color}`}>
-              <IconoEstado size={12} />
-              <span>{estadoStock.label}</span>
             </div>
           </div>
         </div>
 
-        {/* Tipo de estanque badge */}
+        {/* Badge de tipo */}
         <div className="flex-shrink-0 ml-2">
-          <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
             esMovil ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
           }`}>
             {esMovil ? 'Móvil' : 'Fijo'}
@@ -218,23 +214,76 @@ const StockEstanquesFAB = () => {
     return Math.min(100, (parseFloat(stock) / parseFloat(capacidad)) * 100);
   };
 
-  // Separar estanques por tipo usando el campo 'tipo' de la API
+  // 🆕 FUNCIÓN PARA ORDENAR POR NOMBRE (1, 2, 3, 4, etc.)
+  const ordenarPorNombre = (a, b) => {
+    // Extraer números del nombre si existen
+    const extraerNumero = (nombre) => {
+      if (!nombre) return 0;
+      const match = nombre.match(/(\d+)/);
+      return match ? parseInt(match[1]) : 0;
+    };
+
+    const numeroA = extraerNumero(a.nombre);
+    const numeroB = extraerNumero(b.nombre);
+
+    // Si ambos tienen números, ordenar por número
+    if (numeroA > 0 && numeroB > 0) {
+      return numeroA - numeroB;
+    }
+
+    // Si solo uno tiene número, el que tiene número va primero
+    if (numeroA > 0 && numeroB === 0) return -1;
+    if (numeroA === 0 && numeroB > 0) return 1;
+
+    // Si ninguno tiene número, ordenar alfabéticamente
+    return (a.nombre || '').localeCompare(b.nombre || '');
+  };
+
+  // Separar estanques por tipo y ordenar por nombre
   const estanquesAgrupados = React.useMemo(() => {
     const fijos = estanques.filter(e => e.tipo === 'fijo');
     const moviles = estanques.filter(e => e.tipo === 'movil');
 
-    // Ordenar por porcentaje de stock (menor primero para identificar críticos)
-    const ordenarPorStock = (a, b) => {
-      const porcentajeA = calcularPorcentaje(a.stock_actual, a.capacidad);
-      const porcentajeB = calcularPorcentaje(b.stock_actual, b.capacidad);
-      return porcentajeA - porcentajeB;
-    };
-
-    fijos.sort(ordenarPorStock);
-    moviles.sort(ordenarPorStock);
+    // 🆕 ORDENAR POR NOMBRE en lugar de por stock
+    fijos.sort(ordenarPorNombre);
+    moviles.sort(ordenarPorNombre);
 
     return { fijos, moviles };
   }, [estanques]);
+
+  // 🆕 CALCULAR SUMATORIAS
+  const calcularSumatorias = React.useMemo(() => {
+    const stockTotalFijos = estanquesAgrupados.fijos.reduce((total, estanque) => 
+      total + parseFloat(estanque.stock_actual || 0), 0
+    );
+    
+    const stockTotalMoviles = estanquesAgrupados.moviles.reduce((total, estanque) => 
+      total + parseFloat(estanque.stock_actual || 0), 0
+    );
+    
+    const stockTotalGeneral = stockTotalFijos + stockTotalMoviles;
+
+    const capacidadTotalFijos = estanquesAgrupados.fijos.reduce((total, estanque) => 
+      total + parseFloat(estanque.capacidad || 0), 0
+    );
+    
+    const capacidadTotalMoviles = estanquesAgrupados.moviles.reduce((total, estanque) => 
+      total + parseFloat(estanque.capacidad || 0), 0
+    );
+    
+    const capacidadTotalGeneral = capacidadTotalFijos + capacidadTotalMoviles;
+
+    return {
+      stockTotalFijos,
+      stockTotalMoviles,
+      stockTotalGeneral,
+      capacidadTotalFijos,
+      capacidadTotalMoviles,
+      capacidadTotalGeneral,
+      porcentajeTotalGeneral: capacidadTotalGeneral > 0 ? 
+        Math.round((stockTotalGeneral / capacidadTotalGeneral) * 100) : 0
+    };
+  }, [estanquesAgrupados]);
 
   // Calcular estadísticas globales
   const totalStockCritico = estanques.filter(e => calcularPorcentaje(e.stock_actual, e.capacidad) < 20).length;
@@ -259,82 +308,80 @@ const StockEstanquesFAB = () => {
         onClick={() => setIsOpen(true)}
         className={`fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full shadow-lg hover:shadow-xl transform hover:scale-110 transition-all duration-300 flex items-center justify-center ${
           hayAlertas 
-            ? 'bg-red-500 hover:bg-red-600 animate-pulse' 
+            ? 'bg-red-600 hover:bg-red-700' 
             : 'bg-orange-600 hover:bg-orange-700'
         } text-white`}
-        aria-label="Ver stock de estanques"
       >
-        <FaGasPump className="text-xl" />
-        {hayAlertas && (
-          <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center">
-            <span className="text-xs font-bold text-white">{totalStockCritico}</span>
-          </div>
-        )}
+        <FaGasPump size={24} />
       </button>
 
-      {/* Modal/Overlay */}
+      {/* Modal */}
       {isOpen && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-hidden"
-          onClick={() => setIsOpen(false)}
-        >
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          {/* Overlay */}
           <div 
-            className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            
+            className="absolute inset-0 bg-transparent bg-opacity-50 transition-opacity backdrop-blur-sm"
+            onClick={() => setIsOpen(false)}
+          ></div>
+
+          {/* Modal Content */}
+          <div className="relative bg-white rounded-t-xl sm:rounded-xl shadow-xl w-full sm:max-w-2xl max-h-[85vh] sm:max-h-[90vh] flex flex-col">
             {/* Header */}
-            <div className="bg-gradient-to-r from-orange-600 to-orange-700 text-white p-3 sm:p-4">
+            <div className="bg-orange-600 text-white p-4 rounded-t-xl sm:rounded-t-xl flex-shrink-0">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <FaChartBar className="text-lg sm:text-2xl" />
+                <div className="flex items-center space-x-3">
+                  <RiOilFill size={24} />
                   <div>
-                    <h2 className="text-lg sm:text-xl font-bold">Stock de Estanques</h2>
-                    <p className="text-orange-100 text-xs sm:text-sm">{getNombreFaena()}</p>
+                    <h2 className="text-lg font-bold">Stock de Estanques</h2>
+                    <p className="text-sm text-orange-100">{getNombreFaena()}</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="p-2 hover:bg-orange-800 rounded-lg transition-colors"
+                  className="p-2 hover:bg-orange-700 rounded-lg transition-colors"
                 >
-                  <FaTimes className="text-lg" />
+                  <FaTimes size={18} />
                 </button>
               </div>
 
-              {/* Estadísticas rápidas */}
-              {estanques.length > 0 && (
-                <div className="mt-3 grid grid-cols-4 gap-1 sm:gap-3">
-                  <div className="text-center">
-                    <div className="text-sm sm:text-xl font-bold">{estanques.length}</div>
-                    <div className="text-xs text-orange-100">Total</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm sm:text-xl font-bold text-green-300">
-                      {totalStockOptimo}
+              {/* 🆕 RESUMEN GENERAL CON SUMATORIA */}
+              <div className="mt-4 bg-orange-700 rounded-lg p-3">
+                <div className="grid  gap-4 text-center">
+                  <div>
+                    <div className="text-2xl font-bold">
+                      {calcularSumatorias.stockTotalGeneral.toLocaleString()}
                     </div>
-                    <div className="text-xs text-orange-100">Óptimo</div>
+                    <div className="text-xs text-orange-200">Litros Totales</div>
                   </div>
-                  <div className="text-center">
-                    <div className="text-sm sm:text-xl font-bold text-yellow-300">
-                      {totalStockMedio}
-                    </div>
-                    <div className="text-xs text-orange-100">Medio</div>
-                  </div>
-                  <div className="text-center">
-                    <div className={`text-sm sm:text-xl font-bold ${totalStockCritico > 0 ? 'text-red-300' : 'text-green-300'}`}>
-                      {totalStockCritico}
-                    </div>
-                    <div className="text-xs text-orange-100">Crítico</div>
+                  
+                </div>
+                
+                {/* Barra de progreso general */}
+                <div className="mt-2">
+                  <div className="w-full bg-orange-800 rounded-full h-2">
+                    <div
+                      className="h-2 rounded-full bg-white transition-all duration-300"
+                      style={{ width: `${Math.max(calcularSumatorias.porcentajeTotalGeneral, 2)}%` }}
+                    ></div>
                   </div>
                 </div>
-              )}
+
+                {/* Estadísticas por estado */}
+                {estanques.length > 0 && (
+                  <div className="mt-3 flex justify-between text-xs text-orange-100">
+                    <span>✅ Óptimo: {totalStockOptimo}</span>
+                    <span>⚠️ Medio: {totalStockMedio}</span>
+                    <span>🔴 Crítico: {totalStockCritico}</span>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Contenido */}
+            {/* Body - Scrollable Content */}
             <div className="flex-1 overflow-y-auto">
               {loading ? (
-                <div className="text-center py-12">
-                  <FaSpinner className="text-4xl text-orange-500 mx-auto mb-4 animate-spin" />
+                <div className="flex flex-col items-center justify-center py-12">
+                  <FaSpinner className="text-4xl text-orange-600 animate-spin mb-4" />
                   <p className="text-gray-600">Cargando información de estanques...</p>
                 </div>
               ) : error ? (
@@ -363,6 +410,7 @@ const StockEstanquesFAB = () => {
                         titulo="Estanques Fijos"
                         cantidad={estanquesAgrupados.fijos.length}
                         color="blue"
+                        stockTotal={calcularSumatorias.stockTotalFijos}
                       />
                       <div className="p-2 sm:p-3 grid gap-2 sm:gap-3 grid-cols-1">
                         {estanquesAgrupados.fijos.map((estanque) => (
@@ -380,6 +428,7 @@ const StockEstanquesFAB = () => {
                         titulo="Estanques Móviles"
                         cantidad={estanquesAgrupados.moviles.length}
                         color="amber"
+                        stockTotal={calcularSumatorias.stockTotalMoviles}
                       />
                       <div className="p-2 sm:p-3 grid gap-2 sm:gap-3 grid-cols-1">
                         {estanquesAgrupados.moviles.map((estanque) => (
@@ -403,7 +452,7 @@ const StockEstanquesFAB = () => {
                   disabled={loading}
                   className="px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors flex items-center space-x-2 text-sm"
                 >
-                  <FaSpinner className={loading ? 'animate-spin' : ''} />
+                  <FaSpinner className={loading ? 'animate-spin' : ''} size={14} />
                   <span>Actualizar</span>
                 </button>
               </div>
