@@ -271,8 +271,7 @@ const Patente = ({
 
       if (tipoSolicitante === "interno") {
         maquinaFormateada = {
-          id_maquina:
-            maquina.original.id_maquina_interna || maquina.original.id_maquina,
+          id_maquina: maquina.original.id_maquina,
           patente: maquina.original.patente,
           nombre: maquina.original.nombre,
           categoria: maquina.original.categoria,

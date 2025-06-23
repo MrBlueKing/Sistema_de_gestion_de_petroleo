@@ -52,7 +52,7 @@ const Solicitante = ({
 
       if (width < 640) {
         // Móvil pequeño
-        setDisplayPerPage(6);
+        setDisplayPerPage(20);
       } else if (width < 768) {
         // Móvil grande
         setDisplayPerPage(20);

@@ -200,7 +200,7 @@ const FormConsumo = ({
         // Datos de la bomba
         numeral_inicial: parseFloat(datosConsumo.numeralInicial) || 0,
         numeral_final: parseFloat(datosConsumo.numeralFinal) || 0,
-        precio_litro: parseFloat(datosConsumo.precio_litro) || 1500,
+        precio_litro: parseFloat(datosConsumo.precio_litro),
         observacion: datosConsumo.observacion || null,
 
         // Datos específicos según el modo
