@@ -590,10 +590,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // Rutas para consumos
 Route::get('/consumos/recientes', [ConsumoController::class, 'getConsumosRecientes']);
+Route::get('/consumosFecha', [ConsumoController::class, 'getConsumos']);
 
 // Rutas para dashboard
 Route::get('/dashboard/stats', [IngresoPetroleoController::class, 'getStats']);
 
 // En tu routes/api.php
 Route::get('/recepcionesFecha', [IngresoPetroleoController::class, 'getRecepciones']);
-Route::get('/consumosFecha', [ConsumoController::class, 'getConsumos']);
+
