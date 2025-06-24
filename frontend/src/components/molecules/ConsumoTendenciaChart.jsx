@@ -35,6 +35,22 @@ const ConsumoTendenciaChart = ({ data = [], faenaSeleccionada = 'todas' }) => {
     7: 'Jul', 8: 'Ago', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dic'
   };
 
+  // 🔧 FUNCIÓN AUXILIAR: Formatear números para evitar decimales largos
+  const formatearNumero = (numero) => {
+    if (numero >= 1000000) {
+      return `${(numero / 1000000).toFixed(1)}M`;
+    }
+    if (numero >= 1000) {
+      return `${(numero / 1000).toFixed(1)}k`;
+    }
+    return Math.round(numero).toLocaleString('es-CL');
+  };
+
+  // 🔧 FUNCIÓN: Redondear números para evitar decimales largos
+  const redondearNumero = (numero) => {
+    return Math.round(numero * 100) / 100; // Redondear a 2 decimales máximo
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -45,7 +61,7 @@ const ConsumoTendenciaChart = ({ data = [], faenaSeleccionada = 'todas' }) => {
           const month = nombresMeses[parseInt(item.month)] || item.month;
           return {
             month: month || 'Sin mes',
-            consumo: item.consumo || item.valor || 0
+            consumo: redondearNumero(item.consumo || item.valor || 0) // 🆕 Redondear aquí
           };
         });
         setConsumoMensual(formatted.length > 0 ? formatted : generarDemoData());
@@ -70,14 +86,21 @@ const ConsumoTendenciaChart = ({ data = [], faenaSeleccionada = 'todas' }) => {
     { month: 'Nov', consumo: 15900 }
   ]);
 
+  // 🔧 MEJORADO: Cálculo de min/max con redondeo apropiado
   const { minValue, maxValue } = useMemo(() => {
     if (!consumoMensual.length) return { minValue: 0, maxValue: 100 };
+    
     const consumos = consumoMensual.map(d => d.consumo);
     const min = Math.min(...consumos);
     const max = Math.max(...consumos);
+    
+    // 🆕 Redondear los valores para evitar decimales largos
+    const minCalculado = Math.max(0, Math.floor(min * 0.9));
+    const maxCalculado = Math.ceil(max * 1.1);
+    
     return {
-      minValue: Math.max(0, min * 0.9),
-      maxValue: max * 1.1
+      minValue: minCalculado,
+      maxValue: maxCalculado
     };
   }, [consumoMensual]);
 
@@ -86,13 +109,16 @@ const ConsumoTendenciaChart = ({ data = [], faenaSeleccionada = 'todas' }) => {
     return [...consumoMensual].sort((a, b) => (orden[a.month] || 0) - (orden[b.month] || 0));
   }, [consumoMensual]);
 
+  // 🔧 TOOLTIP MEJORADO con formateo consistente
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const { month, consumo } = payload[0].payload;
       return (
-        <div className="bg-white p-3 border border-gray-200 shadow-md rounded-md">
-          <p className="font-medium">{month}</p>
-          <p className="text-sm text-gray-600">Consumo: {consumo.toLocaleString('es-CL')} litros</p>
+        <div className="bg-white p-3 border border-gray-200 shadow-lg rounded">
+          <p className="font-bold text-gray-800">{month}</p>
+          <p className="text-orange-500">
+            Consumo: {formatearNumero(consumo)} litros
+          </p>
         </div>
       );
     }
@@ -109,19 +135,42 @@ const ConsumoTendenciaChart = ({ data = [], faenaSeleccionada = 'todas' }) => {
     <Card className="mb-4">
       <Title icon={FiTrendingUp}>{chartTitle}</Title>
       {loading ? (
-        <div className="h-64 flex items-center justify-center">
+        <div className="h-80 flex items-center justify-center">
           <div className="animate-pulse text-gray-400">Cargando datos...</div>
         </div>
       ) : error ? (
-        <div className="h-64 flex items-center justify-center">
+        <div className="h-80 flex items-center justify-center">
           <div className="text-red-500 font-semibold">{error}</div>
         </div>
       ) : (
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={sortedData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="month" />
-            <YAxis domain={[minValue, maxValue]} />
+        <ResponsiveContainer width="100%" height={320}>
+          <LineChart 
+            data={sortedData}
+            margin={{ top: 20, right: 30, left: 30, bottom: 20 }} // 🆕 Mejores márgenes
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <XAxis 
+              dataKey="month" 
+              tick={{ fill: '#666', fontSize: 12 }}
+              axisLine={{ stroke: '#ddd' }}
+            />
+            {/* 🔧 EJE Y CORREGIDO - Sin decimales largos */}
+            <YAxis 
+              domain={[minValue, maxValue]}
+              tick={{ fill: '#666', fontSize: 12 }}
+              axisLine={{ stroke: '#ddd' }}
+              tickFormatter={(value) => {
+                // 🆕 Formatear el eje Y para evitar decimales largos
+                if (value >= 1000000) {
+                  return `${(value / 1000000).toFixed(1)}M`;
+                }
+                if (value >= 1000) {
+                  return `${(value / 1000).toFixed(1)}k`;
+                }
+                return Math.round(value).toLocaleString('es-CL');
+              }}
+              width={80} // 🆕 Más ancho para números grandes
+            />
             <Tooltip content={<CustomTooltip />} />
             <Legend />
             <Line
@@ -129,7 +178,8 @@ const ConsumoTendenciaChart = ({ data = [], faenaSeleccionada = 'todas' }) => {
               dataKey="consumo"
               stroke="#ff7b00"
               strokeWidth={3}
-              activeDot={{ r: 6 }}
+              activeDot={{ r: 6, fill: "#ff7b00", strokeWidth: 2, stroke: "#fff" }} // 🆕 Activedot mejorado
+              dot={{ fill: "#ff7b00", r: 4 }} // 🆕 Puntos visibles en la línea
             />
           </LineChart>
         </ResponsiveContainer>

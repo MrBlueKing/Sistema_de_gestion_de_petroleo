@@ -502,7 +502,7 @@ class ConsumoCategoriasController extends Controller
     {
         try {
             // Verificar si es categoría 4 y excluir
-            if ($categoria->id_categoria == 4) {
+            if ($categoria->id_categoria == 3) {
                 return null;
             }
 
@@ -2485,7 +2485,7 @@ class ConsumoCategoriasController extends Controller
     {
         $query = DB::table('categorias_maquinas')
             // ===== NUEVO: EXCLUIR CATEGORÍA 4 =====
-            ->where('id_categoria', '!=', 4);
+            ->where('id_categoria', '!=', 3);
 
         if ($idCategoria) {
             $query->where('id_categoria', $idCategoria);
@@ -2500,7 +2500,7 @@ class ConsumoCategoriasController extends Controller
             ->where('tipo_maquina', 'Interno')
             ->where('estado', 'operativo')
             // ===== NUEVO: EXCLUIR CATEGORÍA 4 =====
-            ->where('id_categoria', '!=', 4);
+            ->where('id_categoria', '!=', 3);
 
         if ($idFaena) {
             $query->join('permisos_maquinas_faenas', 'maquinas.id_maquina', '=', 'permisos_maquinas_faenas.id_maquina')

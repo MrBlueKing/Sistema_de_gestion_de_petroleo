@@ -13,7 +13,7 @@ use Carbon\Carbon;
 class InformeKpiController extends Controller
 {
     /**
-     * Método para diagnóstico
+     * Método para diagnóstico - CORREGIDO
      */
     public function test()
     {
@@ -26,15 +26,17 @@ class InformeKpiController extends Controller
             // Intentar obtener la estructura de las tablas
             $consumosColumns = DB::getSchemaBuilder()->getColumnListing('consumos');
 
-            // Intentar cargar datos reales en un formato simplificado
-            $equipos = DB::table('consumos')
-                ->join('maquinas_internas', 'consumos.id_equipo', '=', 'maquinas_internas.id_maquina_interna')
+            // ✅ CORREGIDO: Usar la estructura correcta de relaciones
+            $equipos = DB::table('consumos as c')
+                ->join('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
+                ->join('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
                 ->select(
-                    'maquinas_internas.id_maquina_interna as id',
-                    'maquinas_internas.nombre',
-                    DB::raw('SUM(consumos.litros_consumidos) as consumo')
+                    'm.id_maquina as id',
+                    'mi.nombre',
+                    'mi.patente',
+                    DB::raw('SUM(c.litros_consumidos) as consumo')
                 )
-                ->groupBy('maquinas_internas.id_maquina_interna', 'maquinas_internas.nombre')
+                ->groupBy('m.id_maquina', 'mi.nombre', 'mi.patente')
                 ->orderBy('consumo', 'desc')
                 ->limit(5)
                 ->get();
@@ -103,7 +105,7 @@ class InformeKpiController extends Controller
     }
 
     /**
-     * Obtiene los equipos con mayor consumo de diésel
+     * Obtiene los equipos con mayor consumo de diésel - CORREGIDO
      */
     private function getConsumoEquipos($faena, $fechaInicio = null, $fechaFin = null)
     {
@@ -118,47 +120,49 @@ class InformeKpiController extends Controller
                 $fechaFin = Carbon::now()->endOfDay();
             }
 
-            // Subconsulta: último ID de consumo por equipo
+            // ✅ CORREGIDO: Subconsulta con relaciones correctas
             $subqueryUltimoConsumo = DB::table('consumos as c1')
                 ->select(DB::raw('MAX(c1.id_consumo)'))
-                ->join('maquinas_internas as m1', 'c1.id_equipo', '=', 'm1.id_maquina_interna')
+                ->join('maquinas as m1', 'c1.id_equipo', '=', 'm1.id_maquina')
                 ->groupBy('c1.id_equipo');
 
-            // 1. Obtener el consumo TOTAL por equipo
-            $consumoTotalQuery = DB::table('consumos')
-                ->join('maquinas_internas', 'consumos.id_equipo', '=', 'maquinas_internas.id_maquina_interna')
+            // ✅ CORREGIDO: 1. Obtener el consumo TOTAL por equipo
+            $consumoTotalQuery = DB::table('consumos as c')
+                ->join('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
+                ->join('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
                 ->select(
-                    'maquinas_internas.id_maquina_interna as id',
-                    'maquinas_internas.nombre',
-                    'maquinas_internas.patente',
-                    DB::raw('SUM(consumos.litros_consumidos) as consumo'),
-                    DB::raw('MAX(consumos.fecha_consumo) as ultimo_consumo')
+                    'm.id_maquina as id',
+                    'mi.nombre',
+                    'mi.patente',
+                    DB::raw('SUM(c.litros_consumidos) as consumo'),
+                    DB::raw('MAX(c.fecha_consumo) as ultimo_consumo')
                 )
-                ->whereBetween('consumos.fecha_consumo', [$fechaInicio, $fechaFin])
-                ->groupBy('maquinas_internas.id_maquina_interna', 'maquinas_internas.nombre', 'maquinas_internas.patente');
+                ->whereBetween('c.fecha_consumo', [$fechaInicio, $fechaFin])
+                ->groupBy('m.id_maquina', 'mi.nombre', 'mi.patente');
 
             if ($faena !== 'todas') {
-                $consumoTotalQuery->where('consumos.id_faena', $faena);
+                $consumoTotalQuery->where('c.id_faena', $faena);
             }
 
             $consumoTotal = $consumoTotalQuery->get()->keyBy('id');
 
-            // 2. Obtener consumo excluyendo el último
-            $queryFiltrado = DB::table('consumos')
-                ->join('maquinas_internas', 'consumos.id_equipo', '=', 'maquinas_internas.id_maquina_interna')
-                ->whereNotIn('consumos.id_consumo', $subqueryUltimoConsumo)
+            // ✅ CORREGIDO: 2. Obtener consumo excluyendo el último
+            $queryFiltrado = DB::table('consumos as c')
+                ->join('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
+                ->join('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
+                ->whereNotIn('c.id_consumo', $subqueryUltimoConsumo)
                 ->select(
-                    'maquinas_internas.id_maquina_interna as id',
-                    'maquinas_internas.nombre',
-                    'maquinas_internas.patente',
-                    DB::raw('SUM(consumos.litros_consumidos) as consumo_filtrado'),
-                    DB::raw('MIN(consumos.fecha_consumo) as primer_consumo')
+                    'm.id_maquina as id',
+                    'mi.nombre',
+                    'mi.patente',
+                    DB::raw('SUM(c.litros_consumidos) as consumo_filtrado'),
+                    DB::raw('MIN(c.fecha_consumo) as primer_consumo')
                 )
-                ->whereBetween('consumos.fecha_consumo', [$fechaInicio, $fechaFin])
-                ->groupBy('maquinas_internas.id_maquina_interna', 'maquinas_internas.nombre', 'maquinas_internas.patente');
+                ->whereBetween('c.fecha_consumo', [$fechaInicio, $fechaFin])
+                ->groupBy('m.id_maquina', 'mi.nombre', 'mi.patente');
 
             if ($faena !== 'todas') {
-                $queryFiltrado->where('consumos.id_faena', $faena);
+                $queryFiltrado->where('c.id_faena', $faena);
             }
 
             $consumos = $queryFiltrado->get();
@@ -218,9 +222,6 @@ class InformeKpiController extends Controller
             ]);
         }
     }
-
-    // También corregir getConsumoFaenas, getConsumoMensual y getKpisConsumo
-    // con los nombres correctos de columnas
 
     /**
      * Obtiene el consumo por faenas
@@ -284,7 +285,6 @@ class InformeKpiController extends Controller
             ]);
         }
     }
-
 
     /**
      * Obtiene el consumo mensual con opción de filtrado por fechas
@@ -456,18 +456,10 @@ class InformeKpiController extends Controller
             ]);
         }
     }
-    /**
-     * Obtiene las horas de trabajo y mantenimiento de las máquinas
-     * con opción de filtrado por faena
-     * 
-     * @param string $faena ID de la faena o 'todas'
-     * @return \Illuminate\Http\JsonResponse
-     */
-    /**
-     * Obtiene las horas de trabajo con filtrado por fechas
-     */
+
     /**
      * Obtiene las horas de trabajo y mantenimiento - VERSIÓN CORREGIDA
+     * (Este método ya estaba correcto en el original)
      */
     private function getHorasTrabajo($faena = 'todas', $fechaInicio = null, $fechaFin = null)
     {
@@ -482,18 +474,18 @@ class InformeKpiController extends Controller
                 $fechaFin = Carbon::now()->endOfDay();
             }
 
-            // CONSULTA CORREGIDA - usando la estructura real de tu BD
+            // ✅ Esta consulta ya estaba CORRECTA en el original
             $query = DB::table('maquinas_internas as mi')
                 ->join('maquinas as m', 'mi.id_maquina', '=', 'm.id_maquina')
                 ->join('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria')
                 ->leftJoin('permisos_maquinas_faenas as pmf', 'm.id_maquina', '=', 'pmf.id_maquina')
                 ->select(
                     'm.id_maquina',
-                    'mi.nombre as equipo',           // ✅ Frontend espera 'equipo'
-                    'mi.patente',                    // ✅ Frontend espera 'patente'
+                    'mi.nombre as equipo',
+                    'mi.patente',
                     'cm.nombre_categoria as categoria',
-                    'cm.tipo_medicion',              // ✅ Frontend espera 'tipo_medicion'
-                    'cm.horas_mantencion as horasProgramadas' // ✅ Frontend espera 'horasProgramadas'
+                    'cm.tipo_medicion',
+                    'cm.horas_mantencion as horasProgramadas'
                 )
                 ->where('m.estado', '=', 'operativo');
 
@@ -509,14 +501,14 @@ class InformeKpiController extends Controller
 
             // Procesar cada máquina
             foreach ($maquinas as $maquina) {
-                // ✅ Obtener horas actuales de la tabla consumos
+                // Obtener horas actuales de la tabla consumos
                 $ultimoConsumo = DB::table('consumos')
                     ->where('id_equipo', $maquina->id_maquina)
                     ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
                     ->orderBy('fecha_consumo', 'desc')
                     ->first();
 
-                // ✅ Asignar valores que el frontend espera
+                // Asignar valores que el frontend espera
                 if ($ultimoConsumo) {
                     $maquina->horasActuales = $ultimoConsumo->numeral_final ?? $ultimoConsumo->medicion ?? 0;
                 } else {
@@ -529,10 +521,10 @@ class InformeKpiController extends Controller
                     $maquina->horasActuales = $ultimoConsumoGeneral->numeral_final ?? $ultimoConsumoGeneral->medicion ?? 0;
                 }
 
-                // ✅ Calcular diferencia (horas restantes hasta mantenimiento)
+                // Calcular diferencia (horas restantes hasta mantenimiento)
                 $maquina->diferencia = max(0, $maquina->horasProgramadas - $maquina->horasActuales);
 
-                // ✅ Determinar estado según el frontend
+                // Determinar estado según el frontend
                 if ($maquina->diferencia <= 0) {
                     $maquina->estado = 'crítico';
                 } elseif ($maquina->diferencia <= ($maquina->horasProgramadas * 0.1)) {
@@ -541,7 +533,7 @@ class InformeKpiController extends Controller
                     $maquina->estado = 'normal';
                 }
 
-                // ✅ Campos adicionales que el frontend puede usar
+                // Campos adicionales que el frontend puede usar
                 $maquina->proximaMantencion = $maquina->diferencia > 0
                     ? "{$maquina->diferencia} " . ($maquina->tipo_medicion === 'Horometro' ? 'h' : 'km') . " restantes"
                     : "Mantenimiento requerido";
@@ -557,7 +549,7 @@ class InformeKpiController extends Controller
                 $maquina->lastMaintenance = $fechaUltimaMantencion->format('d/m/Y');
             }
 
-            // ✅ Ordenar por estado (crítico primero)
+            // Ordenar por estado (crítico primero)
             $maquinas = $maquinas->sortBy(function ($maquina) {
                 $estadoOrden = ['crítico' => 0, 'advertencia' => 1, 'normal' => 2];
                 return ($estadoOrden[$maquina->estado] * 10000) + $maquina->diferencia;
@@ -581,7 +573,7 @@ class InformeKpiController extends Controller
                 'faena' => $faena
             ]);
 
-            // ✅ Si hay error, devolver datos de ejemplo para que funcione el frontend
+            // Si hay error, devolver datos de ejemplo para que funcione el frontend
             $datosEjemplo = [
                 [
                     'id_maquina' => 1,

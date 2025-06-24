@@ -9,7 +9,7 @@ import {
   FiMapPin,
   FiDollarSign,
   FiTool,
-    FiActivity,
+  FiActivity,
   FiShield,
   FiClock
 } from "react-icons/fi";
@@ -33,8 +33,8 @@ const Main = () => {
       path: "/gerente/produccion",
       color: "bg-blue-50 hover:bg-blue-100 border-blue-200"
     },
- 
-    
+
+
     // ÁREA OPERACIONAL RECEPCION PETROLEO
     {
       title: "Gestión de Ingresos",

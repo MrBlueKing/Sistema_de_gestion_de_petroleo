@@ -51,6 +51,17 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
     };
   }, []);
   
+  // 🔧 FUNCIÓN AUXILIAR: Formatear números grandes de manera elegante
+  const formatearNumero = (numero) => {
+    if (numero >= 1000000) {
+      return `${(numero / 1000000).toFixed(1)}M`;
+    }
+    if (numero >= 1000) {
+      return `${(numero / 1000).toFixed(1)}k`;
+    }
+    return numero.toLocaleString('es-CL', { maximumFractionDigits: 1 });
+  };
+  
   // Función para cargar los datos
   const loadData = async () => {
     if (!isMounted.current) return;
@@ -84,16 +95,20 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
       
       // Verificar si hay datos
       if (data && data.length > 0) {
-        const formattedData = data.map(item => ({
-          name: item.nombre || (item.name || 'Sin nombre'),
-          patente: item.patente || 'S/P',
-          consumo: item.consumo || (item.litros_consumidos || 0),
-          horas: item.horas || (item.horas_trabajadas || 0),
-          eficiencia: (item.horas && item.consumo) 
-            ? parseFloat((item.consumo / item.horas).toFixed(2)) 
-            : null,
-          id: item.id || `EQ-${Math.floor(Math.random() * 1000)}`
-        }));
+        // 🆕 MEJORA: Formateo de datos con validación, redondeo y ORDENAMIENTO DE MAYOR A MENOR
+        const formattedData = data
+          .map(item => ({
+            name: item.nombre || (item.name || 'Sin nombre'),
+            patente: item.patente || 'S/P',
+            consumo: Math.round((item.consumo || item.litros_consumidos || 0) * 100) / 100,
+            horas: Math.round((item.horas || item.horas_trabajadas || 0) * 100) / 100,
+            eficiencia: (item.horas && item.consumo) 
+              ? parseFloat((item.consumo / item.horas).toFixed(2)) 
+              : null,
+            id: item.id || `EQ-${Math.floor(Math.random() * 1000)}`
+          }))
+          // 🆕 ORDENAMIENTO: De mayor a menor consumo
+          .sort((a, b) => b.consumo - a.consumo);
 
         const total = formattedData.reduce((sum, item) => sum + item.consumo, 0);
         setTotalConsumo(total);
@@ -125,20 +140,21 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
     }
   }, [faenaSeleccionada, fechaDesde, fechaHasta, refreshKey]);
 
-  // Tooltip personalizado mejorado
+  // 🔧 TOOLTIP MEJORADO con formateo consistente para números grandes
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
+      
       return (
         <div className="bg-white p-3 border border-gray-200 shadow-lg rounded">
           <p className="font-bold text-gray-800">{data.name}</p>
           <p className="text-sm text-gray-600">Patente: {data.patente}</p>
           <p className="text-orange-500">
-            Consumo: {data.consumo.toLocaleString()} litros
+            Consumo: {formatearNumero(data.consumo)} litros
           </p>
           {payload.length > 1 && data.horas > 0 && (
             <p className="text-blue-500">
-              Horas: {data.horas.toLocaleString()} hrs
+              Horas: {formatearNumero(data.horas)} hrs
             </p>
           )}
           {data.eficiencia && (
@@ -165,7 +181,7 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
           <FiTruck className="mr-2" size={20} />
           Equipos con Mayor Consumo de Diésel
         </div>
-        <div className="h-64 flex items-center justify-center">
+        <div className="h-80 flex items-center justify-center">
           <div className="flex flex-col items-center">
             <div className="animate-spin text-orange-500 mb-3">
               <FiRefreshCw size={30} />
@@ -223,27 +239,53 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
       ) : (
         <>
           <div className="bg-white rounded-lg">
-            <ResponsiveContainer width="100%" height={280}>
+            {/* 🆕 GRÁFICO MEJORADO: Barras más grandes, altura aumentada, mejor espaciado */}
+            <ResponsiveContainer width="100%" height={350}>
               <BarChart 
                 data={equiposData}
-                margin={{ top: 10, right: 10, left: 0, bottom: 20 }}
-                barGap={0}
-                barCategoryGap={20}
+                margin={{ top: 20, right: 20, left: 30, bottom: 60 }}
+                barGap={6} // 🆕 Poco más de espacio entre barras
+                barCategoryGap="20%" // 🆕 Mejor espaciado entre categorías
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                 <XAxis 
                   dataKey="name" 
-                  tick={{ fill: '#666', fontSize: 12 }}
+                  tick={{ fill: '#666', fontSize: 11 }}
                   axisLine={{ stroke: '#ddd' }}
+                  interval={0}
+                  angle={-45}
+                  textAnchor="end"
+                  height={80} // 🆕 Más altura para labels inclinados
                 />
+                {/* 🆕 EJE Y MEJORADO con formateo para números grandes */}
                 <YAxis 
                   tick={{ fill: '#666', fontSize: 12 }}
                   axisLine={{ stroke: '#ddd' }}
+                  tickFormatter={(value) => {
+                    if (value >= 1000000) {
+                      return `${(value / 1000000).toFixed(1)}M`;
+                    }
+                    if (value >= 1000) {
+                      return `${(value / 1000).toFixed(1)}k`;
+                    }
+                    return value.toLocaleString('es-CL');
+                  }}
+                  width={80} // 🆕 Más ancho para números grandes
+                  domain={[0, 'dataMax + 50']}
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend verticalAlign="top" height={36} />
-                <Bar dataKey="consumo" fill={NARANJA_PRINCIPAL} />
-                <Bar dataKey="horas" fill={AZUL_SECUNDARIO} />
+                {/* 🆕 BARRAS MÁS GRANDES */}
+                <Bar 
+                  dataKey="consumo" 
+                  fill={NARANJA_PRINCIPAL}
+                  maxBarSize={50} // 🆕 Barras más anchas (antes era automático)
+                />
+                <Bar 
+                  dataKey="horas" 
+                  fill={AZUL_SECUNDARIO}
+                  maxBarSize={50} // 🆕 Barras más anchas (antes era automático)
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
