@@ -123,6 +123,8 @@ const FormConsumo = ({
   // ===================================
   // FUNCIÓN PARA ENVIAR CONSUMO AL BACKEND (manteniendo tu lógica original)
   // ===================================
+  // REEMPLAZA LA FUNCIÓN enviarConsumoAlBackend EN FormConsumo.jsx CON ESTA VERSIÓN CORREGIDA:
+
   const enviarConsumoAlBackend = async (datosConsumo, modoMultiEstanque) => {
     try {
       console.log("📤 Enviando consumo al backend...", datosConsumo);
@@ -177,25 +179,30 @@ const FormConsumo = ({
         id_faena,
       });
 
-      // 🆕 DETERMINAR TIPO DE OPERACIÓN AUTOMÁTICAMENTE
-      const tipoOperacion = determinarTipoOperacion(
-        modoMultiEstanque,
-        datosConsumo.estanques_multiples
-      );
+      // 🔧 DETERMINAR TIPO DE OPERACIÓN AUTOMÁTICAMENTE
+      const tipoOperacion = determinarTipoOperacion(modoMultiEstanque);
 
-      // Preparar datos base del consumo
+      // 📋 PREPARAR DATOS PARA ENVÍO
       const consumoData = {
-        // Datos del solicitante y equipo - YA VALIDADOS
+        // Datos principales
         id_dotacion,
         id_equipo,
         id_usuario,
         id_faena,
-
-        // Datos del consumo
-        fecha_consumo: datosConsumo.fechaHora,
+        fecha_consumo: datosConsumo.fecha_consumo || new Date().toISOString(),
         litros_consumidos: parseFloat(datosConsumo.litros) || 0,
         tipo_consumo: modoMultiEstanque ? "multiple" : "simple",
-        tipo_operacion: tipoOperacion, // 🆕 AUTO-DETERMINADO
+        tipo_operacion: tipoOperacion,
+
+        // ✅ SIEMPRE INCLUIR LA MEDICIÓN (TANTO SIMPLE COMO MÚLTIPLE)
+        medicion: parseFloat(
+          datosConsumo.medicion ||
+          datosConsumo.horometro ||
+          datosConsumo.kilometraje ||
+          0
+        ),
+        horometro: parseFloat(datosConsumo.horometro || 0),
+        kilometraje: parseFloat(datosConsumo.kilometraje || 0),
 
         // Datos de la bomba
         numeral_inicial: parseFloat(datosConsumo.numeralInicial) || 0,
@@ -225,8 +232,15 @@ const FormConsumo = ({
       console.log("📦 Datos preparados para envío:", consumoData);
       console.log("🚛 Tipo de operación determinado:", tipoOperacion);
 
-      // Realizar petición POST al backend
-      const response = await axios.post("/api/consumos", consumoData);
+      // ✅ SIEMPRE USAR /api/consumos/multi PARA AMBOS CASOS
+      const endpoint = "/api/consumos/multi";
+
+      console.log("🎯 Enviando SIEMPRE a endpoint:", endpoint);
+      console.log("📡 Modo múltiple estanque:", modoMultiEstanque);
+      console.log("🔍 Tipo de consumo:", modoMultiEstanque ? "multiple" : "simple");
+
+      // Realizar petición POST al backend - SIEMPRE a /multi
+      const response = await axios.post(endpoint, consumoData);
 
       if (response.data.success) {
         console.log("✅ Consumo creado exitosamente:", response.data.data);
@@ -251,14 +265,13 @@ const FormConsumo = ({
         // Error del servidor
         errorMessage = error.response.data.message;
       } else if (error.message) {
-        // Error de red o cliente
+        // Error lanzado manualmente
         errorMessage = error.message;
       }
 
       return {
         success: false,
         message: errorMessage,
-        errors: error.response?.data?.errors || null,
       };
     }
   };
@@ -288,7 +301,7 @@ const FormConsumo = ({
 
       // 🆕 Log para verificar tipos de estanque
       estanques.forEach((estanque) => {
-        DEBUG && console.log(          `🏷️ Estanque: ${estanque.nombre} - Tipo: ${estanque.tipo_estanque || "no definido"
+        DEBUG && console.log(`🏷️ Estanque: ${estanque.nombre} - Tipo: ${estanque.tipo_estanque || "no definido"
           }`
         );
       });
@@ -474,6 +487,8 @@ const FormConsumo = ({
             nombre_estanque: estanque.nombre,
           }));
 
+        console.log("📊 Estanques con medición incluida:", estanquesConLitros);
+
         datosParaEnvio = {
           ...formData,
           // ✅ ASEGURAR QUE LOS DATOS CRÍTICOS ESTÉN PRESENTES
@@ -483,6 +498,15 @@ const FormConsumo = ({
           id_faena: faenaId,
           es_consumo_multiple: true,
           estanques_multiples: estanquesConLitros,
+          // ✅ TAMBIÉN INCLUIR LOS CAMPOS ESPERADOS POR EL BACKEND
+          medicion: parseFloat(
+            formData.horometro ||
+            formData.kilometraje ||
+            formData.medicion ||
+            0
+          ),
+          horometro: parseFloat(formData.horometro || 0),
+          kilometraje: parseFloat(formData.kilometraje || 0),
         };
       } else {
         // PREPARAR DATOS PARA CONSUMO SIMPLE

@@ -4,8 +4,8 @@ import { clearSession, getAuthToken, isSessionValid } from "../utils/session";
 
 const instance = axios.create({
   //  baseURL: "https://api.m3h.cl/", produccion
-  //  baseURL: "http://192.168.18.108:8000/", // loca prueba en red local 
-  baseURL: "http://127.0.0.1:8000/", //local solo pc
+  //  baseURL: "https://api.m3h.cl/", // loca prueba en red local 
+  baseURL: "http://localhost:8000/", //local solo pc
   headers: {
     "Content-Type": "application/json",
     "Accept": "application/json",

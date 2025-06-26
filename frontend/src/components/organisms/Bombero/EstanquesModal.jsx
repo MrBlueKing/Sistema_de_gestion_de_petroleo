@@ -376,12 +376,12 @@ const EstanquesModal = ({
         };
       }
 
-      if (Math.abs(totalDistribuido - litrosRecibidos) > 0.01) {
-        return {
-          valido: false,
-          mensaje: `La distribución (${totalDistribuido.toLocaleString('es-CL')} L) debe coincidir con los litros documentados (${litrosRecibidos.toLocaleString('es-CL')} L)`
-        };
-      }
+      // if (Math.abs(totalDistribuido - litrosRecibidos) > 0.01) {
+      //   return {
+      //     valido: false,
+      //     mensaje: `La distribución (${totalDistribuido.toLocaleString('es-CL')} L) debe coincidir con los litros documentados (${litrosRecibidos.toLocaleString('es-CL')} L)`
+      //   };
+      // }
 
       return { valido: true, mensaje: "" };
     }
@@ -586,28 +586,28 @@ const EstanquesModal = ({
     }
 
     // PASO 2: Validar que la distribución coincida con los litros de la guía
-    const diferencia = Math.abs(totalDistribuido - litrosRecibidos);
-    if (diferencia > 0.01) {
-      const esMayor = totalDistribuido > litrosRecibidos;
-      const mensaje = esMayor
-        ? `La distribución total (${formatNumber(totalDistribuido)} L) supera los litros de la guía (${formatNumber(litrosRecibidos)} L). Debe ajustar la distribución para que coincida exactamente.`
-        : `La distribución total (${formatNumber(totalDistribuido)} L) es menor a los litros de la guía (${formatNumber(litrosRecibidos)} L). Debe distribuir todos los litros recibidos.`;
+    // const diferencia = Math.abs(totalDistribuido - litrosRecibidos);
+    // if (diferencia > 0.01) {
+    //   const esMayor = totalDistribuido > litrosRecibidos;
+    //   const mensaje = esMayor
+    //     ? `La distribución total (${formatNumber(totalDistribuido)} L) supera los litros de la guía (${formatNumber(litrosRecibidos)} L). Debe ajustar la distribución para que coincida exactamente.`
+    //     : `La distribución total (${formatNumber(totalDistribuido)} L) es menor a los litros de la guía (${formatNumber(litrosRecibidos)} L). Debe distribuir todos los litros recibidos.`;
 
-      setErrorValidacion({
-        show: true,
-        message: mensaje,
-        type: "error"
-      });
+    //   setErrorValidacion({
+    //     show: true,
+    //     message: mensaje,
+    //     type: "error"
+    //   });
 
-      // Hacer scroll hacia arriba para mostrar el error
-      if (modalRef.current) {
-        modalRef.current.scrollTo({
-          top: 0,
-          behavior: 'smooth'
-        });
-      }
-      return false;
-    }
+    //   // Hacer scroll hacia arriba para mostrar el error
+    //   if (modalRef.current) {
+    //     modalRef.current.scrollTo({
+    //       top: 0,
+    //       behavior: 'smooth'
+    //     });
+    //   }
+    //   return false;
+    // }
 
     // PASO 3: Validar niveles iniciales (después de que la distribución esté correcta)
     if (!nivelesCompletos) {

@@ -372,13 +372,13 @@ const FormRecepcion = () => {
     // Si no hay distribución, permitir continuar
     if (totalDistribuido === 0) return { valido: true, mensaje: "" };
 
-    // Si hay distribución, debe coincidir exactamente con litros guía
-    if (Math.abs(totalDistribuido - litrosGuia) > 0.01) {
-      return {
-        valido: false,
-        mensaje: `La distribución (${formatNumberWithSeparators(totalDistribuido)} L) debe coincidir exactamente con los litros Guía (${formatNumberWithSeparators(litrosGuia)} L).`
-      };
-    }
+    // // Si hay distribución, debe coincidir exactamente con litros guía
+    // if (Math.abs(totalDistribuido - litrosGuia) > 0.01) {
+    //   return {
+    //     valido: false,
+    //     mensaje: `La distribución (${formatNumberWithSeparators(totalDistribuido)} L) debe coincidir exactamente con los litros Guía (${formatNumberWithSeparators(litrosGuia)} L).`
+    //   };
+    // }
 
     return { valido: true, mensaje: "" };
   };
