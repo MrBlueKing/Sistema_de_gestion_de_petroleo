@@ -78,7 +78,7 @@ const AppRoutes = () => {
         }
       />
 
-         <Route
+      <Route
         path="//gerente/VerificacionIngresos"
         element={
           <PrivateRoute requiredRole="gerente">
@@ -287,7 +287,7 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
-     
+
       {/* Mantener ruta antigua */}
       <Route
         path="/BomberoNavigation"
@@ -317,23 +317,23 @@ const AppRoutes = () => {
         }
       />
 
- <Route
-    path="/bombero/recepciones"
-    element={
-      <PrivateRoute requiredRole="bombero">
-        <BomberoRecepciones />
-      </PrivateRoute>
-    }
-  />
-  
-  <Route
-    path="/bombero/consumos"
-    element={
-      <PrivateRoute requiredRole="bombero">
-        <BomberoConsumoPage />
-      </PrivateRoute>
-    }
-  />
+      <Route
+        path="/bombero/recepciones"
+        element={
+          <PrivateRoute requiredRole="bombero">
+            <BomberoRecepciones />
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/bombero/consumos"
+        element={
+          <PrivateRoute requiredRole="bombero">
+            <BomberoConsumoPage />
+          </PrivateRoute>
+        }
+      />
 
 
       {/* 

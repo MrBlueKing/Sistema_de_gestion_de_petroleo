@@ -21,12 +21,12 @@ import Header from "../Bombero/Header";
 const ITEMS_PER_PAGE = 10;
 
 // Componente de paginación
-const Pagination = ({ 
-  currentPage, 
-  totalPages, 
-  totalItems, 
-  onPageChange, 
-  itemsPerPage = ITEMS_PER_PAGE 
+const Pagination = ({
+  currentPage,
+  totalPages,
+  totalItems,
+  onPageChange,
+  itemsPerPage = ITEMS_PER_PAGE
 }) => {
   const startItem = (currentPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(currentPage * itemsPerPage, totalItems);
@@ -36,9 +36,9 @@ const Pagination = ({
     const range = [];
     const rangeWithDots = [];
 
-    for (let i = Math.max(2, currentPage - delta); 
-         i <= Math.min(totalPages - 1, currentPage + delta); 
-         i++) {
+    for (let i = Math.max(2, currentPage - delta);
+      i <= Math.min(totalPages - 1, currentPage + delta);
+      i++) {
       range.push(i);
     }
 
@@ -76,11 +76,10 @@ const Pagination = ({
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-            currentPage === 1
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
-          }`}
+          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === 1
+            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+            : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
+            }`}
         >
           <FaChevronLeft className="w-3 h-3" />
         </button>
@@ -91,13 +90,12 @@ const Pagination = ({
             key={index}
             onClick={() => typeof page === 'number' && onPageChange(page)}
             disabled={page === '...'}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              page === currentPage
-                ? "bg-blue-600 text-white"
-                : page === '...'
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${page === currentPage
+              ? "bg-blue-600 text-white"
+              : page === '...'
                 ? "text-gray-400 cursor-default"
                 : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
-            }`}
+              }`}
           >
             {page}
           </button>
@@ -107,11 +105,10 @@ const Pagination = ({
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-            currentPage === totalPages
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
-          }`}
+          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === totalPages
+            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+            : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
+            }`}
         >
           <FaChevronRight className="w-3 h-3" />
         </button>
@@ -159,8 +156,8 @@ const DateFilter = ({
 
   const notifyChange = (newDateFrom, newDateTo, newEquipoFilter) => {
     if (onFilterChange) {
-      onFilterChange({ 
-        dateFrom: newDateFrom, 
+      onFilterChange({
+        dateFrom: newDateFrom,
         dateTo: newDateTo,
         equipoFilter: newEquipoFilter
       });
@@ -416,9 +413,8 @@ const Button = ({
   return (
     <button
       onClick={handleClick}
-      className={`${baseClasses} ${sizeClasses[size]} ${
-        disabled ? colorClasses.gray : colorClasses[color]
-      } ${className}`}
+      className={`${baseClasses} ${sizeClasses[size]} ${disabled ? colorClasses.gray : colorClasses[color]
+        } ${className}`}
       disabled={disabled}
     >
       {!disabled && (
@@ -427,17 +423,15 @@ const Button = ({
 
       {icon && (
         <span
-          className={`text-lg sm:text-xl transition-transform duration-300 z-10 ${
-            !disabled ? "group-hover:rotate-6" : ""
-          }`}
+          className={`text-lg sm:text-xl transition-transform duration-300 z-10 ${!disabled ? "group-hover:rotate-6" : ""
+            }`}
         >
           {icon}
         </span>
       )}
       <span
-        className={`font-medium z-10 transition-all duration-300 ${
-          !disabled ? "group-hover:tracking-wide" : ""
-        }`}
+        className={`font-medium z-10 transition-all duration-300 ${!disabled ? "group-hover:tracking-wide" : ""
+          }`}
       >
         {text}
       </span>
@@ -505,7 +499,7 @@ const ConsumoCard = ({ consumo, formatearFecha, formatNumber }) => {
             {consumo.id_dotacion || "N/A"}
           </div>
         </div>
-        
+
         <div>
           <div className="flex items-center gap-1 mb-1">
             <FaGasPump className="text-blue-600 text-xs" />
@@ -538,16 +532,16 @@ const ConsumosView = () => {
   const [consumos, setConsumos] = useState([]);
   const [loadingConsumos, setLoadingConsumos] = useState(false);
   const [error, setError] = useState(null);
-  const [filters, setFilters] = useState({ 
-    dateFrom: "", 
+  const [filters, setFilters] = useState({
+    dateFrom: "",
     dateTo: "",
     equipoFilter: ""
   });
-  
+
   // Estados de paginación
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  
+
   // 🆕 NUEVO: Estados para estadísticas de la API
   const [stats, setStats] = useState({
     total_consumos: 0,
@@ -588,7 +582,7 @@ const ConsumosView = () => {
       if (filterParams.dateFrom) {
         params.append('dateFrom', filterParams.dateFrom);
       }
-      
+
       if (filterParams.dateTo) {
         params.append('dateTo', filterParams.dateTo);
       }
@@ -619,31 +613,119 @@ const ConsumosView = () => {
       if (response.data.success) {
         const consumosData = response.data.data || [];
         setConsumos(consumosData);
-        
+
         // 🆕 MANEJAR ESTADÍSTICAS de la API
         if (response.data.stats) {
           setStats(response.data.stats);
         }
-        
-        // 🔧 CAMBIAR POR ESTO (priorizar pagination.total):
-const total = response.data.pagination?.total || 
-             response.data.stats?.total_consumos || 
-             0;
 
-setTotalItems(total);
+        // ====== 🔍 CONSOLE.LOG COMPLETO PARA ANÁLISIS ======
 
-console.log("🔍 DEBUG - Valores exactos:", {
-  "response.data.pagination": response.data.pagination,
-  "response.data.stats": response.data.stats,
-  "total_calculado": total,
-  "consumos_en_pagina": consumosData.length
-});
+        console.log("=".repeat(80));
+        console.log("🔍 ANÁLISIS COMPLETO DE DATOS PARA PDF");
+        console.log("=".repeat(80));
 
-// 🆕 AGREGAR ESTOS LOGS ADICIONALES:
-console.log("🔍 PAGINATION COMPLETA:", JSON.stringify(response.data.pagination, null, 2));
-console.log("🔍 STATS COMPLETAS:", JSON.stringify(response.data.stats, null, 2));
-console.log("🔍 RESPUESTA COMPLETA:", JSON.stringify(response.data, null, 2));
+        // 1. INFORMACIÓN GENERAL
+        console.log("📊 INFORMACIÓN GENERAL:");
+        console.log("- Total de consumos en página:", consumosData.length);
+        console.log("- Total general:", response.data.pagination?.total || 0);
+        console.log("- Página actual:", page);
+        console.log("- Filtros aplicados:", filterParams);
 
+        // 2. ESTRUCTURA COMPLETA DE UN CONSUMO
+        if (consumosData.length > 0) {
+          console.log("\n📋 ESTRUCTURA DE UN CONSUMO (primer elemento):");
+          console.log("Consumo completo:", JSON.stringify(consumosData[0], null, 2));
+
+          console.log("\n🏷️ CAMPOS DISPONIBLES:");
+          const campos = Object.keys(consumosData[0]);
+          campos.forEach((campo, index) => {
+            const valor = consumosData[0][campo];
+            console.log(`${index + 1}. ${campo}: ${typeof valor} = "${valor}"`);
+          });
+        }
+
+        // 3. TODOS LOS EQUIPOS ÚNICOS
+        const equiposUnicos = [...new Set(consumosData.map(c => c.nombre_maquina).filter(Boolean))];
+        console.log("\n🚛 EQUIPOS ÚNICOS EN ESTA PÁGINA:");
+        equiposUnicos.forEach((equipo, index) => {
+          console.log(`${index + 1}. ${equipo}`);
+        });
+
+        // 4. TODOS LOS OPERADORES ÚNICOS  
+        const operadoresUnicos = [...new Set(consumosData.map(c => c.solicitante_nombre).filter(Boolean))];
+        console.log("\n👨‍💼 OPERADORES ÚNICOS EN ESTA PÁGINA:");
+        operadoresUnicos.forEach((operador, index) => {
+          console.log(`${index + 1}. ${operador}`);
+        });
+
+        // 5. RESUMEN DE LITROS
+        const totalLitros = consumosData.reduce((sum, c) => sum + parseFloat(c.litros_consumidos || 0), 0);
+        const promedioLitros = totalLitros / consumosData.length;
+        const maxLitros = Math.max(...consumosData.map(c => parseFloat(c.litros_consumidos || 0)));
+        const minLitros = Math.min(...consumosData.map(c => parseFloat(c.litros_consumidos || 0)));
+
+        console.log("\n⛽ RESUMEN DE LITROS (página actual):");
+        console.log(`- Total litros: ${totalLitros.toFixed(2)} L`);
+        console.log(`- Promedio: ${promedioLitros.toFixed(2)} L`);
+        console.log(`- Máximo: ${maxLitros} L`);
+        console.log(`- Mínimo: ${minLitros} L`);
+
+        // 6. FECHAS DISPONIBLES
+        const fechas = consumosData.map(c => c.fecha_consumo).filter(Boolean);
+        const fechaMin = new Date(Math.min(...fechas.map(f => new Date(f))));
+        const fechaMax = new Date(Math.max(...fechas.map(f => new Date(f))));
+
+        console.log("\n📅 RANGO DE FECHAS (página actual):");
+        console.log(`- Fecha más antigua: ${fechaMin.toLocaleDateString('es-CL')}`);
+        console.log(`- Fecha más reciente: ${fechaMax.toLocaleDateString('es-CL')}`);
+
+        // 7. ESTADÍSTICAS COMPLETAS
+        console.log("\n📊 ESTADÍSTICAS DEL SERVIDOR:");
+        console.log("Stats completas:", JSON.stringify(response.data.stats, null, 2));
+
+        // 8. PAGINACIÓN COMPLETA
+        console.log("\n📄 INFORMACIÓN DE PAGINACIÓN:");
+        console.log("Pagination completa:", JSON.stringify(response.data.pagination, null, 2));
+
+        // 9. ANÁLISIS PARA PDF
+        console.log("\n🎯 DATOS PERFECTOS PARA PDF:");
+        const datosParaPDF = {
+          titulo: "Reporte de Consumos de Combustible",
+          faena: user?.nombre_faena || "N/A",  // Asumiendo que existe
+          periodo: filterParams.dateFrom && filterParams.dateTo
+            ? `${filterParams.dateFrom} a ${filterParams.dateTo}`
+            : "Todos los registros",
+          filtros: {
+            fechaDesde: filterParams.dateFrom || null,
+            fechaHasta: filterParams.dateTo || null,
+            equipo: filterParams.equipoFilter || null
+          },
+          resumen: {
+            totalConsumos: response.data.pagination?.total || consumosData.length,
+            totalLitros: totalLitros,
+            promedioConsumo: promedioLitros,
+            equiposUnicos: equiposUnicos.length,
+            operadoresUnicos: operadoresUnicos.length
+          },
+          consumos: consumosData.map(consumo => ({
+            fecha: consumo.fecha_consumo,
+            equipo: consumo.nombre_maquina || "N/A",
+            patente: consumo.patente || "N/A",
+            operador: consumo.solicitante_nombre || "N/A",
+            rut: consumo.id_dotacion || "N/A",
+            litros: parseFloat(consumo.litros_consumidos || 0),
+            estanque: consumo.estanque || "N/A",
+            medicion: consumo.medicion || null,
+            tipoMedicion: consumo.tipo_medicion || null
+          }))
+        };
+
+        console.log("🎨 ESTRUCTURA FINAL PARA PDF:", JSON.stringify(datosParaPDF, null, 2));
+
+        console.log("=".repeat(80));
+        console.log("🎯 ¡DATOS LISTOS PARA CREAR EL PDF!");
+        console.log("=".repeat(80));
       } else {
         throw new Error(response.data.message || 'Error en la respuesta del servidor');
       }
@@ -669,7 +751,7 @@ console.log("🔍 RESPUESTA COMPLETA:", JSON.stringify(response.data, null, 2));
   };
 
   // Resto del código permanece igual...
-  
+
   // Manejar cambios en filtros
   const handleFilterChange = (newFilters) => {
     console.log("Aplicando filtros:", newFilters);
@@ -767,7 +849,7 @@ console.log("🔍 RESPUESTA COMPLETA:", JSON.stringify(response.data, null, 2));
           initialDateTo={filters.dateTo}
           initialEquipoFilter={filters.equipoFilter}
         />
-      
+
 
         {/* Contenedor de Consumos */}
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-2xl border border-gray-200/50 p-4 sm:p-8 mb-6 sm:mb-8 overflow-hidden">
@@ -785,7 +867,7 @@ console.log("🔍 RESPUESTA COMPLETA:", JSON.stringify(response.data, null, 2));
                   {(filters.dateFrom || filters.dateTo || filters.equipoFilter) &&
                     " con filtros aplicados"}
                 </p>
-                
+
                 {/* 🆕 INFORMACIÓN ADICIONAL DE TIPOS DE CONSUMO */}
                 {stats.consumos_multiples > 0 && (
                   <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
@@ -806,22 +888,20 @@ console.log("🔍 RESPUESTA COMPLETA:", JSON.stringify(response.data, null, 2));
                     <button
                       onClick={() => handlePageChange(currentPage - 1)}
                       disabled={currentPage === 1}
-                      className={`p-1 rounded ${
-                        currentPage === 1
-                          ? "text-gray-300 cursor-not-allowed"
-                          : "text-blue-600 hover:bg-blue-50"
-                      }`}
+                      className={`p-1 rounded ${currentPage === 1
+                        ? "text-gray-300 cursor-not-allowed"
+                        : "text-blue-600 hover:bg-blue-50"
+                        }`}
                     >
                       <FaChevronLeft className="w-3 h-3" />
                     </button>
                     <button
                       onClick={() => handlePageChange(currentPage + 1)}
                       disabled={currentPage === totalPages}
-                      className={`p-1 rounded ${
-                        currentPage === totalPages
-                          ? "text-gray-300 cursor-not-allowed"
-                          : "text-blue-600 hover:bg-blue-50"
-                      }`}
+                      className={`p-1 rounded ${currentPage === totalPages
+                        ? "text-gray-300 cursor-not-allowed"
+                        : "text-blue-600 hover:bg-blue-50"
+                        }`}
                     >
                       <FaChevronRight className="w-3 h-3" />
                     </button>
@@ -863,9 +943,9 @@ console.log("🔍 RESPUESTA COMPLETA:", JSON.stringify(response.data, null, 2));
                 <div className="space-y-4">
                   {consumos.length > 0 ? (
                     consumos.map((consumo, index) => (
-                      <ConsumoCard 
-                        key={consumo.id_consumo || index} 
-                        consumo={consumo} 
+                      <ConsumoCard
+                        key={consumo.id_consumo || index}
+                        consumo={consumo}
                         formatearFecha={formatearFecha}
                         formatNumber={formatNumber}
                       />
@@ -910,7 +990,7 @@ console.log("🔍 RESPUESTA COMPLETA:", JSON.stringify(response.data, null, 2));
                         <th className="text-left py-4 sm:py-5 px-4 sm:px-6 font-bold text-gray-700 text-sm sm:text-base">
                           📊 Medición
                         </th>
-                        
+
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -989,7 +1069,7 @@ console.log("🔍 RESPUESTA COMPLETA:", JSON.stringify(response.data, null, 2));
                                   <span className="text-gray-400">N/A</span>
                                 )}
                               </td>
-                             
+
                             </tr>
                           );
                         })

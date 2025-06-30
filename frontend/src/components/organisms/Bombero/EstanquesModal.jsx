@@ -199,6 +199,75 @@ const EstanquesModal = ({
   // Estado para controlar si se muestran los consejos de medición en móvil
   const [mostrarConsejos, setMostrarConsejos] = useState(false);
 
+
+  // NUEVOS ESTADOS PARA NUMERALES(Cambio de contexto)
+  const modoNumerales = true; // Siempre usar numerales
+  const [numeralesEstanques, setNumeralesEstanques] = useState({});
+  const [litrosCalculados, setLitrosCalculados] = useState({});
+
+  const calcularLitrosDesdeNumerales = () => {
+    const estanquesConNumerales = Object.entries(numeralesEstanques)
+      .filter(([estanqueId, numeral]) => numeral && parseFloat(numeral) > 0)
+      .map(([estanqueId, numeral]) => ({
+        id_estanque: parseInt(estanqueId),
+        numeral: parseFloat(numeral)
+      }));
+
+    if (estanquesConNumerales.length === 0) return {};
+
+    // Ordenar por numeral de menor a mayor
+    estanquesConNumerales.sort((a, b) => a.numeral - b.numeral);
+
+    // Calcular litros por diferencias
+    const nuevosLitrosCalculados = {};
+    let numeralAnterior = 0;
+
+    estanquesConNumerales.forEach((item) => {
+      nuevosLitrosCalculados[item.id_estanque] = item.numeral - numeralAnterior;
+      numeralAnterior = item.numeral;
+    });
+
+    return nuevosLitrosCalculados;
+  };
+
+  const handleNumeralChange = (estanqueId, valor) => {
+    // Actualizar numerales
+    const nuevosNumerales = {
+      ...numeralesEstanques,
+      [estanqueId]: valor
+    };
+    setNumeralesEstanques(nuevosNumerales);
+
+    // USAR LOS NUEVOS NUMERALES INMEDIATAMENTE PARA EL CÁLCULO
+    const estanquesConNumerales = Object.entries(nuevosNumerales)
+      .filter(([_, numeral]) => numeral && parseFloat(numeral) > 0)
+      .map(([id, numeral]) => ({
+        id_estanque: parseInt(id),
+        numeral: parseFloat(numeral)
+      }))
+      .sort((a, b) => a.numeral - b.numeral);
+
+    const nuevosLitros = {};
+    let numeralAnterior = 0;
+
+    estanquesConNumerales.forEach(item => {
+      nuevosLitros[item.id_estanque] = item.numeral - numeralAnterior;
+      numeralAnterior = item.numeral;
+    });
+
+    setLitrosCalculados(nuevosLitros);
+
+    // Actualizar distribución inmediatamente
+    if (onDistribucionChange) {
+      const distribucionParaBackend = {};
+      estanques.forEach(estanque => {
+        distribucionParaBackend[estanque.id_estanque] =
+          nuevosLitros[estanque.id_estanque] || 0;
+      });
+      onDistribucionChange(distribucionParaBackend);
+    }
+  };
+
   // Función para manejar selección automática de estanque en trasvasijes
   // CORRECCIÓN EN EstanquesModal.jsx
   // Modificar la función de selección automática:
@@ -474,15 +543,23 @@ const EstanquesModal = ({
 
   // Función para obtener solo los estanques que tienen distribución de combustible
   const getEstanquesConDistribucion = () => {
-    const distribucion = getDistribucionActual();
-    return estanques.filter(estanque => {
-      const litrosAsignados = parseFloat(distribucion[estanque.id_estanque]) || 0;
-      return litrosAsignados > 0;
-    });
+    if (modoNumerales) {
+      return estanques.filter(estanque => {
+        return litrosCalculados[estanque.id_estanque] > 0;
+      });
+    } else {
+      // Mantener lógica original
+      const distribucion = getDistribucionActual();
+      return estanques.filter(estanque => {
+        const litrosAsignados = parseFloat(distribucion[estanque.id_estanque]) || 0;
+        return litrosAsignados > 0;
+      });
+    }
   };
 
   // Función para actualizar la distribución
   const actualizarDistribucion = (estanqueId, valor) => {
+    if (modoNumerales) return; // No permitir cambios manuales en modo numerales
     let nuevaDistribucion;
 
     if (esTrasvasije) {
@@ -529,12 +606,17 @@ const EstanquesModal = ({
 
   // Función para calcular el total distribuido
   const getTotalDistribuido = () => {
-    const distribucion = getDistribucionActual();
-    return Object.values(distribucion).reduce((total, valor) => {
-      // Si el valor está vacío o es "0.00", tratarlo como 0
-      const num = parseFloat(valor) || 0;
-      return total + num;
-    }, 0);
+    if (modoNumerales) {
+      return Object.values(litrosCalculados).reduce((total, valor) => {
+        return total + (parseFloat(valor) || 0);
+      }, 0);
+    } else {
+      // Mantener lógica original
+      const distribucion = getDistribucionActual();
+      return Object.values(distribucion).reduce((total, valor) => {
+        return total + (parseFloat(valor) || 0);
+      }, 0);
+    }
   };
 
   // Verificar si se han ingresado todos los niveles iniciales
@@ -561,6 +643,37 @@ const EstanquesModal = ({
 
   // Función para validar y mostrar errores específicos con orden lógico
   const validarYAvanzar = () => {
+
+    // AGREGAR ESTA VALIDACIÓN AL INICIO:
+    if (modoNumerales) {
+      // Validar numerales antes de continuar
+      const estanquesConNumerales = Object.entries(numeralesEstanques)
+        .filter(([_, numeral]) => numeral && parseFloat(numeral) > 0);
+
+      if (estanquesConNumerales.length === 0) {
+        setErrorValidacion({
+          show: true,
+          message: "Debe ingresar al menos un numeral de bomba para continuar.",
+          type: "error"
+        });
+        return false;
+      }
+
+      // Verificar numerales únicos y crecientes
+      const numerales = estanquesConNumerales.map(([_, numeral]) => parseFloat(numeral));
+      const numeralesOrdenados = [...numerales].sort((a, b) => a - b);
+
+      for (let i = 1; i < numeralesOrdenados.length; i++) {
+        if (numeralesOrdenados[i] <= numeralesOrdenados[i - 1]) {
+          setErrorValidacion({
+            show: true,
+            message: "Los numerales de bomba deben ser estrictamente crecientes y únicos.",
+            type: "error"
+          });
+          return false;
+        }
+      }
+    }
     const totalDistribuido = getTotalDistribuido();
     const nivelesCompletos = nivelesInicialesCompletos();
 
@@ -585,29 +698,28 @@ const EstanquesModal = ({
       return false;
     }
 
-    // PASO 2: Validar que la distribución coincida con los litros de la guía
-    // const diferencia = Math.abs(totalDistribuido - litrosRecibidos);
-    // if (diferencia > 0.01) {
-    //   const esMayor = totalDistribuido > litrosRecibidos;
-    //   const mensaje = esMayor
-    //     ? `La distribución total (${formatNumber(totalDistribuido)} L) supera los litros de la guía (${formatNumber(litrosRecibidos)} L). Debe ajustar la distribución para que coincida exactamente.`
-    //     : `La distribución total (${formatNumber(totalDistribuido)} L) es menor a los litros de la guía (${formatNumber(litrosRecibidos)} L). Debe distribuir todos los litros recibidos.`;
+    // PASO 2: Validar que la distribución desde numerales coincida con los litros de la guía
+    const diferencia = Math.abs(totalDistribuido - litrosRecibidos);
+    if (diferencia > 0.01) {
+      const esMayor = totalDistribuido > litrosRecibidos;
+      const mensaje = esMayor
+        ? `Los litros calculados desde numerales (${formatNumber(totalDistribuido)} L) superan los litros de la guía (${formatNumber(litrosRecibidos)} L). Verifique los numerales ingresados.`
+        : `Los litros calculados desde numerales (${formatNumber(totalDistribuido)} L) son menores a los litros de la guía (${formatNumber(litrosRecibidos)} L). Verifique que todos los numerales estén correctos.`;
 
-    //   setErrorValidacion({
-    //     show: true,
-    //     message: mensaje,
-    //     type: "error"
-    //   });
+      setErrorValidacion({
+        show: true,
+        message: mensaje,
+        type: "error"
+      });
 
-    //   // Hacer scroll hacia arriba para mostrar el error
-    //   if (modalRef.current) {
-    //     modalRef.current.scrollTo({
-    //       top: 0,
-    //       behavior: 'smooth'
-    //     });
-    //   }
-    //   return false;
-    // }
+      if (modalRef.current) {
+        modalRef.current.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+      }
+      return false;
+    }
 
     // PASO 3: Validar niveles iniciales (después de que la distribución esté correcta)
     if (!nivelesCompletos) {
@@ -710,16 +822,25 @@ const EstanquesModal = ({
     });
   };
 
-  // Calcular el stock total del sistema
-  const stockTotalSistema = Array.isArray(estanques)
-    ? estanques.reduce((total, estanque) => {
-      const stockActual =
-        estanque.stock_actual !== undefined && estanque.stock_actual !== null
+  // Calcular el stock solo de los estanques involucrados en la recepción
+  const stockTotalSistema = (() => {
+    const estanquesConNumerales = Object.entries(numeralesEstanques)
+      .filter(([_, numeral]) => numeral && parseFloat(numeral) > 0)
+      .map(([estanqueId]) => parseInt(estanqueId));
+
+    if (estanquesConNumerales.length === 0) {
+      return 0;
+    }
+
+    return estanques
+      .filter(estanque => estanquesConNumerales.includes(estanque.id_estanque))
+      .reduce((total, estanque) => {
+        const stockActual = estanque.stock_actual !== undefined && estanque.stock_actual !== null
           ? parseFloat(estanque.stock_actual)
           : 0;
-      return total + stockActual;
-    }, 0)
-    : 0;
+        return total + stockActual;
+      }, 0);
+  })();
 
   // Calcular el porcentaje de capacidad utilizada
   const getCapacidadPorcentaje = (estanque) => {
@@ -926,18 +1047,18 @@ const EstanquesModal = ({
                   <div className="xl:col-span-3 space-y-4">
                     {/* Fila superior - Métricas clave */}
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                      {/* Stock Sistema */}
+                      {/* Stock Estanques Involucrados */}
                       <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-3 md:p-4 text-white shadow-lg">
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="text-blue-100 text-xs font-medium uppercase tracking-wide">
-                              Stock Sistema
+                              Stock Estanques Seleccionados
                             </p>
                             <p className="text-lg md:text-2xl font-bold mt-1">
                               {formatNumber(stockTotalSistema)}
                             </p>
                             <p className="text-blue-200 text-xs">
-                              Litros totales
+                              {Object.entries(numeralesEstanques).filter(([_, num]) => num && parseFloat(num) > 0).length} estanque(s) involucrado(s)
                             </p>
                           </div>
                           <FaGasPump className="text-blue-200 text-xl md:text-2xl opacity-80" />
@@ -1658,20 +1779,35 @@ const EstanquesModal = ({
                                         )}
                                       </div>
                                     ) : (
-                                      // MODO RECEPCIÓN - Input manual (mantener original)
-                                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                                        <InputLitros
-                                          value={litrosAsignados}
-                                          onChange={(e) =>
-                                            actualizarDistribucion(
-                                              estanque.id_estanque,
-                                              e.target.value
-                                            )
-                                          }
-                                          placeholder="0.00"
-                                          disabled={loading}
-                                          error={errorDistribucion}
-                                        />
+                                      // MODO RECEPCIÓN - Input manual con opción de numerales
+                                      // MODO RECEPCIÓN - Solo numerales
+                                      <div>
+                                        <div className="flex items-center mb-3">
+                                          <h4 className="text-sm font-medium text-gray-700">
+                                            Numeral Final de Bomba
+                                          </h4>
+                                        </div>
+
+                                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                          <input
+                                            type="number"
+                                            value={numeralesEstanques[estanque.id_estanque] || ""}
+                                            onChange={(e) => handleNumeralChange(estanque.id_estanque, e.target.value)}
+                                            placeholder="Ej: 15420.50"
+                                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                            step="0.01"
+                                            min="0"
+                                            disabled={loading}
+                                          />
+
+                                          {/* Mostrar litros calculados */}
+                                          {litrosCalculados[estanque.id_estanque] > 0 && (
+                                            <div className="mt-2 text-sm text-green-700 bg-green-50 p-2 rounded">
+                                              <span className="font-medium">Litros calculados: </span>
+                                              {formatNumber(litrosCalculados[estanque.id_estanque])} L
+                                            </div>
+                                          )}
+                                        </div>
                                       </div>
                                     )}
                                   </div>

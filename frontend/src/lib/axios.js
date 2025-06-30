@@ -11,7 +11,6 @@ const instance = axios.create({
     "Accept": "application/json",
     "X-Requested-With": "XMLHttpRequest"
   },
-  
 });
 
 // Interceptor para requests - agregar token automáticamente

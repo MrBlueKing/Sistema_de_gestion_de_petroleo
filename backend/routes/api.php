@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Facades\Log;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
@@ -34,6 +36,7 @@ use App\Http\Controllers\Api\MaquinasExternasController;
 use App\Http\Controllers\Api\SolicitantesOptimizadoController;
 use App\Http\Controllers\Api\ConsumoCategoriasController;
 use App\Http\Controllers\Api\TrasvasijeController;
+use App\Http\Controllers\ApiPdf\ConsumosPdfController;
 
 /*
 |--------------------------------------------------------------------------
@@ -539,7 +542,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/calcular-litros-petroleo', [EstanqueController::class, 'calcularLitrosPetroleo']);
     Route::get('/capacidad-disponible/{id_faena}', [EstanqueController::class, 'capacidadDisponible']);
-    
+
     Route::apiResource('/kpi-valores-entrada', KpiValoresEntradaController::class);
     Route::post('/calcular-kpis', [KpiCalculoController::class, 'calcular']);
     Route::get('/datos-mes-anterior', [InformeKpiController::class, 'obtenerValoresMesAnterior']);
@@ -586,6 +589,23 @@ Route::middleware('auth:sanctum')->group(function () {
     //     Route::get('/{id}/images', [ChecklistController::class, 'getEvaluationImages']);
     //     Route::get('/evaluations', [ChecklistController::class, 'getEvaluations']); // Lista de evaluaciones
     // });
+
+
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | 📈 PDFS FASTAPI
+    |--------------------------------------------------------------------------
+    */
+    // Rutas para PDFs con FastAPI
+    Route::prefix('pdf')->group(function () {
+        Route::post('/consumos', [ConsumosPdfController::class, 'generarPdfConsumos']);
+        Route::get('/test-conexion', function () {
+            Log::info('Accediendo a test-conexion');
+            return app(ConsumosPdfController::class)->testConexion();
+        });
+    });
 });
 
 // Rutas para consumos
@@ -597,4 +617,3 @@ Route::get('/dashboard/stats', [IngresoPetroleoController::class, 'getStats']);
 
 // En tu routes/api.php
 Route::get('/recepcionesFecha', [IngresoPetroleoController::class, 'getRecepciones']);
-

@@ -356,6 +356,10 @@ const FormRecepcion = () => {
 
   const [stockInicial, setStockInicial] = useState(0);
 
+  // NUEVOS ESTADOS PARA NUMERALES(Cambio de contexto)
+  const [modoNumerales, setModoNumerales] = useState(false);
+  const [numeralesIngresados, setNumeralesIngresados] = useState({});
+
   // Función para manejar cambios en la distribución
   const handleDistribucionChange = (nuevaDistribucion) => {
     setDistribucionLitros(nuevaDistribucion);
@@ -364,23 +368,56 @@ const FormRecepcion = () => {
 
   // Función para validar distribución
   const validarDistribucion = () => {
-    const litrosGuia = parseFloat(formData.litrosDocumentados) || 0;
-    const totalDistribuido = Object.values(distribucionLitros).reduce((total, valor) => {
-      return total + (parseFloat(valor) || 0);
-    }, 0);
+    if (modoNumerales) {
+      // Validación específica para numerales
+      const estanquesConNumerales = Object.entries(numeralesIngresados)
+        .filter(([_, numeral]) => numeral && parseFloat(numeral) > 0);
 
-    // Si no hay distribución, permitir continuar
-    if (totalDistribuido === 0) return { valido: true, mensaje: "" };
+      if (estanquesConNumerales.length === 0) {
+        return {
+          valido: false,
+          mensaje: "Debe ingresar al menos un numeral de bomba para continuar."
+        };
+      }
 
-    // // Si hay distribución, debe coincidir exactamente con litros guía
-    // if (Math.abs(totalDistribuido - litrosGuia) > 0.01) {
-    //   return {
-    //     valido: false,
-    //     mensaje: `La distribución (${formatNumberWithSeparators(totalDistribuido)} L) debe coincidir exactamente con los litros Guía (${formatNumberWithSeparators(litrosGuia)} L).`
-    //   };
-    // }
+      // Verificar numerales únicos y crecientes
+      const numerales = estanquesConNumerales.map(([_, numeral]) => parseFloat(numeral));
+      const numeralesOrdenados = [...numerales].sort((a, b) => a - b);
 
-    return { valido: true, mensaje: "" };
+      for (let i = 1; i < numeralesOrdenados.length; i++) {
+        if (numeralesOrdenados[i] <= numeralesOrdenados[i - 1]) {
+          return {
+            valido: false,
+            mensaje: "Los numerales de bomba deben ser estrictamente crecientes y únicos."
+          };
+        }
+      }
+
+      return { valido: true };
+    } else {
+      // Validación original para litros directos
+      const totalDistribuido = Object.values(distribucionLitros).reduce((total, valor) => {
+        const num = parseFloat(valor) || 0;
+        return total + num;
+      }, 0);
+
+      if (totalDistribuido === 0) {
+        return {
+          valido: false,
+          mensaje: "Debe distribuir combustible en al menos un estanque."
+        };
+      }
+
+      // // Si hay distribución, debe coincidir exactamente con litros guía
+      // if (Math.abs(totalDistribuido - litrosGuia) > 0.01) {
+      //   return {
+      //     valido: false,
+      //     mensaje: `La distribución (${formatNumberWithSeparators(totalDistribuido)} L) debe coincidir exactamente con los litros Guía (${formatNumberWithSeparators(litrosGuia)} L).`
+      //   };
+      // }
+
+      return { valido: true, mensaje: "" };
+    }
   };
 
   // ✅ CORREGIDO: Función para manejar cambios en litros documentados
@@ -963,6 +1000,44 @@ const FormRecepcion = () => {
     window.location.href = "/bombero";
   };
 
+
+  // Función para calcular litros desde numerales
+  const calcularLitrosDesdeNumeralesFormRecepcion = (numerales = numeralesIngresados) => {
+    const estanquesConNumerales = Object.entries(numerales)
+      .filter(([_, numeral]) => numeral && parseFloat(numeral) > 0)
+      .map(([estanqueId, numeral]) => ({
+        id_estanque: parseInt(estanqueId),
+        numeral: parseFloat(numeral)
+      }))
+      .sort((a, b) => a.numeral - b.numeral);
+
+    const litrosCalculados = {};
+    let numeralAnterior = 0;
+
+    estanquesConNumerales.forEach(item => {
+      litrosCalculados[item.id_estanque] = item.numeral - numeralAnterior;
+      numeralAnterior = item.numeral;
+    });
+
+    return litrosCalculados;
+  };
+
+  // Función para manejar cambio de numerales desde el modal
+  const handleNumeralesChange = (numerales) => {
+    setNumeralesIngresados(numerales);
+
+    // Calcular automáticamente la distribución de litros
+    const litrosCalculados = calcularLitrosDesdeNumeralesFormRecepcion(numerales);
+
+    // Convertir a formato de distribución compatible
+    const nuevaDistribucion = {};
+    estanques.forEach(estanque => {
+      nuevaDistribucion[estanque.id_estanque] = litrosCalculados[estanque.id_estanque] || 0;
+    });
+
+    setDistribucionLitros(nuevaDistribucion);
+  };
+
   // ✅ CORREGIDO: Manejar el envío del formulario
   const handleSubmit = async () => {
     setTouched({
@@ -1038,7 +1113,12 @@ const FormRecepcion = () => {
         id_faena: formData.id_faena,
         diferencia: diferencia,
         stock_inicial: stockInicial,
-        distribucion_litros: distribucionLitros,
+        distribucion_litros: modoNumerales
+          ? calcularLitrosDesdeNumeralesFormRecepcion()
+          : distribucionLitros,
+        // OPCIONAL: Guardar información adicional sobre el método usado
+        metodo_medicion: modoNumerales ? "numerales_bomba" : "litros_directos",
+        numerales_originales: modoNumerales ? numeralesIngresados : null,
         alturas_estanques: prepararDatosAlturasConTipo(),
       };
 
@@ -1158,13 +1238,12 @@ const FormRecepcion = () => {
         {/* Mostrar alertas */}
         {alert.show && (
           <div
-            className={`flex items-center p-3 rounded-lg ${
-              alert.type === "success"
-                ? "bg-green-100 text-green-800 border-l-4 border-green-500"
-                : alert.type === "info"
+            className={`flex items-center p-3 rounded-lg ${alert.type === "success"
+              ? "bg-green-100 text-green-800 border-l-4 border-green-500"
+              : alert.type === "info"
                 ? "bg-blue-100 text-blue-800 border-l-4 border-blue-500"
                 : "bg-red-100 text-red-800 border-l-4 border-red-500"
-            }`}
+              }`}
           >
             {alert.type === "error" && (
               <FaExclamationTriangle className="mr-2" />
@@ -1200,9 +1279,8 @@ const FormRecepcion = () => {
                 </div>
               </div>
               <div className="flex items-center text-blue-600">
-                <div className={`w-3 h-3 rounded-full mr-2 ${
-                  validarDistribucion().valido ? 'bg-green-500' : 'bg-amber-500'
-                }`}></div>
+                <div className={`w-3 h-3 rounded-full mr-2 ${validarDistribucion().valido ? 'bg-green-500' : 'bg-amber-500'
+                  }`}></div>
                 <span className="text-sm font-medium">
                   {validarDistribucion().valido ? 'Válida' : 'Requiere ajuste'}
                 </span>
@@ -1229,9 +1307,8 @@ const FormRecepcion = () => {
                 value={formData.numeroGuia}
                 onChange={(e) => handleChange("numeroGuia", e.target.value)}
                 onBlur={() => handleBlur("numeroGuia")}
-                className={`bg-white rounded-md text-gray-800 ${
-                  errors.numeroGuia ? "border-red-500" : "border-gray-300"
-                }`}
+                className={`bg-white rounded-md text-gray-800 ${errors.numeroGuia ? "border-red-500" : "border-gray-300"
+                  }`}
               />
               {errors.numeroGuia && (
                 <span className="text-red-500 text-xs mt-1">
@@ -1251,9 +1328,8 @@ const FormRecepcion = () => {
                 value={formData.precio}
                 onChange={(e) => handleChange("precio", e.target.value)}
                 onBlur={() => handleBlur("precio")}
-                className={`bg-white rounded-md text-gray-800 ${
-                  errors.precio ? "border-red-500" : "border-gray-300"
-                }`}
+                className={`bg-white rounded-md text-gray-800 ${errors.precio ? "border-red-500" : "border-gray-300"
+                  }`}
               />
               {errors.precio && (
                 <span className="text-red-500 text-xs mt-1">
@@ -1274,9 +1350,8 @@ const FormRecepcion = () => {
                   value={formData.litrosDocumentados}
                   onChange={(e) => handleLitrosDocumentadosChange(e.target.value)}
                   onBlur={(e) => handleLitrosDocumentadosBlur(e.target.value)}
-                  className={`bg-white rounded-md text-gray-800 ${
-                    errors.litrosDocumentados ? "border-red-500" : "border-gray-300"
-                  }`}
+                  className={`bg-white rounded-md text-gray-800 ${errors.litrosDocumentados ? "border-red-500" : "border-gray-300"
+                    }`}
                 />
               </div>
               {errors.litrosDocumentados && (
@@ -1297,7 +1372,7 @@ const FormRecepcion = () => {
 
           <div className="pl-4 space-y-4">
             <p className="text-sm text-gray-600">
-              Ingrese las alturas de los estanques antes y después del vaciado del camión, 
+              Ingrese las alturas de los estanques antes y después del vaciado del camión,
               y configure cómo se distribuirán los litros entre los estanques fijos:
             </p>
 
@@ -1325,13 +1400,12 @@ const FormRecepcion = () => {
                   </div>
                   <div>
                     <span className="text-green-600 font-medium">Diferencia:</span>
-                    <p className={`font-bold ${
-                      calculoPetroleo.diferencia === 0
-                        ? "text-gray-600"
-                        : calculoPetroleo.diferencia > 0
+                    <p className={`font-bold ${calculoPetroleo.diferencia === 0
+                      ? "text-gray-600"
+                      : calculoPetroleo.diferencia > 0
                         ? "text-green-600"
                         : "text-red-600"
-                    }`}>
+                      }`}>
                       {formatNumberWithSeparators(Math.abs(calculoPetroleo.diferencia))} L
                       <span className="text-sm ml-1">
                         ({calculoPetroleo.diferencia > 0 ? "de más" : calculoPetroleo.diferencia < 0 ? "de menos" : "exacto"})
@@ -1426,10 +1500,9 @@ const FormRecepcion = () => {
                   </div>
                   <div>
                     <span className="text-orange-600 font-medium">Diferencia:</span>
-                    <p className={`font-bold ${
-                      calculoPetroleo.diferencia === 0 ? "text-gray-600" :
+                    <p className={`font-bold ${calculoPetroleo.diferencia === 0 ? "text-gray-600" :
                       calculoPetroleo.diferencia > 0 ? "text-green-600" : "text-red-600"
-                    }`}>
+                      }`}>
                       {calculoPetroleo.diferencia > 0 ? "+" : ""}{formatNumberWithSeparators(calculoPetroleo.diferencia)} L
                     </p>
                   </div>
@@ -1453,9 +1526,8 @@ const FormRecepcion = () => {
             color="orange"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className={`bg-orange-600 hover:bg-orange-700 text-white text-sm px-6 py-3 sm:py-2 rounded-md w-full sm:w-auto sm:ml-auto ${
-              isSubmitting ? "opacity-70 cursor-wait" : ""
-            }`}
+            className={`bg-orange-600 hover:bg-orange-700 text-white text-sm px-6 py-3 sm:py-2 rounded-md w-full sm:w-auto sm:ml-auto ${isSubmitting ? "opacity-70 cursor-wait" : ""
+              }`}
           />
         </div>
 
@@ -1481,6 +1553,11 @@ const FormRecepcion = () => {
           litrosRecibidos={parseFloat(formData.litrosDocumentados) || 0}
           distribucionLitros={distribucionLitros}
           onDistribucionChange={handleDistribucionChange}
+          // NUEVAS PROPS PARA NUMERALES:
+          modoNumerales={modoNumerales}
+          onModoNumeralesChange={setModoNumerales}
+          numeralesIngresados={numeralesIngresados}
+          onNumeralesChange={handleNumeralesChange}
         />
       </div>
 
