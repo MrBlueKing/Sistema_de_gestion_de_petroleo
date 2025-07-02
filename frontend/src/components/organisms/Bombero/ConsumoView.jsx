@@ -767,7 +767,49 @@ console.log("🔍 RESPUESTA COMPLETA:", JSON.stringify(response.data, null, 2));
           initialDateTo={filters.dateTo}
           initialEquipoFilter={filters.equipoFilter}
         />
-      
+
+        {/* 🆕 TARJETAS DE ESTADÍSTICAS */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 rounded-xl text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-blue-100 text-sm">Total Consumos</p>
+                <p className="text-2xl font-bold">{stats.total_consumos.toLocaleString()}</p>
+              </div>
+              <FaGasPump className="text-3xl text-blue-200" />
+            </div>
+          </div>
+          
+          <div className="bg-gradient-to-r from-green-500 to-green-600 p-4 rounded-xl text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-100 text-sm">Total Litros</p>
+                <p className="text-2xl font-bold">{formatNumber(stats.total_litros)} L</p>
+              </div>
+              <FaChartLine className="text-3xl text-green-200" />
+            </div>
+          </div>
+          
+          <div className="bg-gradient-to-r from-purple-500 to-purple-600 p-4 rounded-xl text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-100 text-sm">Promedio Consumo</p>
+                <p className="text-2xl font-bold">{formatNumber(stats.promedio_consumo)} L</p>
+              </div>
+              <FaTruck className="text-3xl text-purple-200" />
+            </div>
+          </div>
+          
+          <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-4 rounded-xl text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-orange-100 text-sm">Equipo + Usado</p>
+                <p className="text-lg font-bold truncate">{stats.equipo_mas_usado || "N/A"}</p>
+              </div>
+              <FaUser className="text-3xl text-orange-200" />
+            </div>
+          </div>
+        </div>
 
         {/* Contenedor de Consumos */}
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-2xl border border-gray-200/50 p-4 sm:p-8 mb-6 sm:mb-8 overflow-hidden">
