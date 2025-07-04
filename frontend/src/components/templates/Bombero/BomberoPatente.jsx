@@ -132,7 +132,7 @@ const Patente = ({
       const width = window.innerWidth;
 
       if (width < 640) {
-        setDisplayPerPage(5); // Menos que Solicitante porque son máquinas
+        setDisplayPerPage(20); // Menos que Solicitante porque son máquinas
       } else if (width < 768) {
         setDisplayPerPage(10);
       } else if (width < 1024) {

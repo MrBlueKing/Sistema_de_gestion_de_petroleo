@@ -17,16 +17,19 @@ import axios from "../../../lib/axios";
 import { UserContext } from "../../../context/userContext";
 import Header from "../Bombero/Header";
 
+// Importar componente desde pdf/components
+import PDFGenerator from '../../../pdf/components/PDFGenerator';
+
 // Configuración de paginación
 const ITEMS_PER_PAGE = 10;
 
 // Componente de paginación
-const Pagination = ({ 
-  currentPage, 
-  totalPages, 
-  totalItems, 
-  onPageChange, 
-  itemsPerPage = ITEMS_PER_PAGE 
+const Pagination = ({
+  currentPage,
+  totalPages,
+  totalItems,
+  onPageChange,
+  itemsPerPage = ITEMS_PER_PAGE
 }) => {
   const startItem = (currentPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(currentPage * itemsPerPage, totalItems);
@@ -36,9 +39,9 @@ const Pagination = ({
     const range = [];
     const rangeWithDots = [];
 
-    for (let i = Math.max(2, currentPage - delta); 
-         i <= Math.min(totalPages - 1, currentPage + delta); 
-         i++) {
+    for (let i = Math.max(2, currentPage - delta);
+      i <= Math.min(totalPages - 1, currentPage + delta);
+      i++) {
       range.push(i);
     }
 
@@ -76,11 +79,10 @@ const Pagination = ({
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-            currentPage === 1
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
-          }`}
+          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === 1
+            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+            : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
+            }`}
         >
           <FaChevronLeft className="w-3 h-3" />
         </button>
@@ -91,13 +93,12 @@ const Pagination = ({
             key={index}
             onClick={() => typeof page === 'number' && onPageChange(page)}
             disabled={page === '...'}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              page === currentPage
-                ? "bg-blue-600 text-white"
-                : page === '...'
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${page === currentPage
+              ? "bg-blue-600 text-white"
+              : page === '...'
                 ? "text-gray-400 cursor-default"
                 : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
-            }`}
+              }`}
           >
             {page}
           </button>
@@ -107,11 +108,10 @@ const Pagination = ({
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-            currentPage === totalPages
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
-          }`}
+          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === totalPages
+            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+            : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
+            }`}
         >
           <FaChevronRight className="w-3 h-3" />
         </button>
@@ -159,8 +159,8 @@ const DateFilter = ({
 
   const notifyChange = (newDateFrom, newDateTo, newEquipoFilter) => {
     if (onFilterChange) {
-      onFilterChange({ 
-        dateFrom: newDateFrom, 
+      onFilterChange({
+        dateFrom: newDateFrom,
         dateTo: newDateTo,
         equipoFilter: newEquipoFilter
       });
@@ -416,9 +416,8 @@ const Button = ({
   return (
     <button
       onClick={handleClick}
-      className={`${baseClasses} ${sizeClasses[size]} ${
-        disabled ? colorClasses.gray : colorClasses[color]
-      } ${className}`}
+      className={`${baseClasses} ${sizeClasses[size]} ${disabled ? colorClasses.gray : colorClasses[color]
+        } ${className}`}
       disabled={disabled}
     >
       {!disabled && (
@@ -427,17 +426,15 @@ const Button = ({
 
       {icon && (
         <span
-          className={`text-lg sm:text-xl transition-transform duration-300 z-10 ${
-            !disabled ? "group-hover:rotate-6" : ""
-          }`}
+          className={`text-lg sm:text-xl transition-transform duration-300 z-10 ${!disabled ? "group-hover:rotate-6" : ""
+            }`}
         >
           {icon}
         </span>
       )}
       <span
-        className={`font-medium z-10 transition-all duration-300 ${
-          !disabled ? "group-hover:tracking-wide" : ""
-        }`}
+        className={`font-medium z-10 transition-all duration-300 ${!disabled ? "group-hover:tracking-wide" : ""
+          }`}
       >
         {text}
       </span>
@@ -505,7 +502,7 @@ const ConsumoCard = ({ consumo, formatearFecha, formatNumber }) => {
             {consumo.id_dotacion || "N/A"}
           </div>
         </div>
-        
+
         <div>
           <div className="flex items-center gap-1 mb-1">
             <FaGasPump className="text-blue-600 text-xs" />
@@ -538,16 +535,16 @@ const ConsumosView = () => {
   const [consumos, setConsumos] = useState([]);
   const [loadingConsumos, setLoadingConsumos] = useState(false);
   const [error, setError] = useState(null);
-  const [filters, setFilters] = useState({ 
-    dateFrom: "", 
+  const [filters, setFilters] = useState({
+    dateFrom: "",
     dateTo: "",
     equipoFilter: ""
   });
-  
+
   // Estados de paginación
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  
+
   // 🆕 NUEVO: Estados para estadísticas de la API
   const [stats, setStats] = useState({
     total_consumos: 0,
@@ -588,7 +585,7 @@ const ConsumosView = () => {
       if (filterParams.dateFrom) {
         params.append('dateFrom', filterParams.dateFrom);
       }
-      
+
       if (filterParams.dateTo) {
         params.append('dateTo', filterParams.dateTo);
       }
@@ -619,30 +616,30 @@ const ConsumosView = () => {
       if (response.data.success) {
         const consumosData = response.data.data || [];
         setConsumos(consumosData);
-        
+
         // 🆕 MANEJAR ESTADÍSTICAS de la API
         if (response.data.stats) {
           setStats(response.data.stats);
         }
-        
+
         // 🔧 CAMBIAR POR ESTO (priorizar pagination.total):
-const total = response.data.pagination?.total || 
-             response.data.stats?.total_consumos || 
-             0;
+        const total = response.data.pagination?.total ||
+          response.data.stats?.total_consumos ||
+          0;
 
-setTotalItems(total);
+        setTotalItems(total);
 
-console.log("🔍 DEBUG - Valores exactos:", {
-  "response.data.pagination": response.data.pagination,
-  "response.data.stats": response.data.stats,
-  "total_calculado": total,
-  "consumos_en_pagina": consumosData.length
-});
+        console.log("🔍 DEBUG - Valores exactos:", {
+          "response.data.pagination": response.data.pagination,
+          "response.data.stats": response.data.stats,
+          "total_calculado": total,
+          "consumos_en_pagina": consumosData.length
+        });
 
-// 🆕 AGREGAR ESTOS LOGS ADICIONALES:
-console.log("🔍 PAGINATION COMPLETA:", JSON.stringify(response.data.pagination, null, 2));
-console.log("🔍 STATS COMPLETAS:", JSON.stringify(response.data.stats, null, 2));
-console.log("🔍 RESPUESTA COMPLETA:", JSON.stringify(response.data, null, 2));
+        // 🆕 AGREGAR ESTOS LOGS ADICIONALES:
+        console.log("🔍 PAGINATION COMPLETA:", JSON.stringify(response.data.pagination, null, 2));
+        console.log("🔍 STATS COMPLETAS:", JSON.stringify(response.data.stats, null, 2));
+        console.log("🔍 RESPUESTA COMPLETA:", JSON.stringify(response.data, null, 2));
 
       } else {
         throw new Error(response.data.message || 'Error en la respuesta del servidor');
@@ -669,7 +666,7 @@ console.log("🔍 RESPUESTA COMPLETA:", JSON.stringify(response.data, null, 2));
   };
 
   // Resto del código permanece igual...
-  
+
   // Manejar cambios en filtros
   const handleFilterChange = (newFilters) => {
     console.log("Aplicando filtros:", newFilters);
@@ -779,7 +776,7 @@ console.log("🔍 RESPUESTA COMPLETA:", JSON.stringify(response.data, null, 2));
               <FaGasPump className="text-3xl text-blue-200" />
             </div>
           </div>
-          
+
           <div className="bg-gradient-to-r from-green-500 to-green-600 p-4 rounded-xl text-white">
             <div className="flex items-center justify-between">
               <div>
@@ -789,7 +786,7 @@ console.log("🔍 RESPUESTA COMPLETA:", JSON.stringify(response.data, null, 2));
               <FaChartLine className="text-3xl text-green-200" />
             </div>
           </div>
-          
+
           <div className="bg-gradient-to-r from-purple-500 to-purple-600 p-4 rounded-xl text-white">
             <div className="flex items-center justify-between">
               <div>
@@ -799,7 +796,7 @@ console.log("🔍 RESPUESTA COMPLETA:", JSON.stringify(response.data, null, 2));
               <FaTruck className="text-3xl text-purple-200" />
             </div>
           </div>
-          
+
           <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-4 rounded-xl text-white">
             <div className="flex items-center justify-between">
               <div>
@@ -820,14 +817,14 @@ console.log("🔍 RESPUESTA COMPLETA:", JSON.stringify(response.data, null, 2));
               </div>
               <div>
                 <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-1">
-                  ⛽ Consumos de Combustible
+                  Consumos de Combustible
                 </h3>
                 <p className="text-gray-600 font-medium text-sm sm:text-base">
                   {totalItems} registros encontrados
                   {(filters.dateFrom || filters.dateTo || filters.equipoFilter) &&
                     " con filtros aplicados"}
                 </p>
-                
+
                 {/* 🆕 INFORMACIÓN ADICIONAL DE TIPOS DE CONSUMO */}
                 {stats.consumos_multiples > 0 && (
                   <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
@@ -840,37 +837,17 @@ console.log("🔍 RESPUESTA COMPLETA:", JSON.stringify(response.data, null, 2));
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-              {/* Paginación Compacta en el Header */}
-              {totalPages > 1 && (
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <span>Página {currentPage} de {totalPages}</span>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className={`p-1 rounded ${
-                        currentPage === 1
-                          ? "text-gray-300 cursor-not-allowed"
-                          : "text-blue-600 hover:bg-blue-50"
-                      }`}
-                    >
-                      <FaChevronLeft className="w-3 h-3" />
-                    </button>
-                    <button
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      className={`p-1 rounded ${
-                        currentPage === totalPages
-                          ? "text-gray-300 cursor-not-allowed"
-                          : "text-blue-600 hover:bg-blue-50"
-                      }`}
-                    >
-                      <FaChevronRight className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-              )}
-
+             
+              <PDFGenerator
+                consumos={consumos}
+                stats={stats}
+                filters={filters}
+                totalItems={totalItems}
+                currentPage={currentPage}
+                user={user}  // 👈 AGREGAR ESTA LÍNEA
+                size="small"
+                disabled={loadingConsumos}
+              />
               <Button
                 color="blue"
                 text="🔄 Actualizar"
@@ -905,9 +882,9 @@ console.log("🔍 RESPUESTA COMPLETA:", JSON.stringify(response.data, null, 2));
                 <div className="space-y-4">
                   {consumos.length > 0 ? (
                     consumos.map((consumo, index) => (
-                      <ConsumoCard 
-                        key={consumo.id_consumo || index} 
-                        consumo={consumo} 
+                      <ConsumoCard
+                        key={consumo.id_consumo || index}
+                        consumo={consumo}
                         formatearFecha={formatearFecha}
                         formatNumber={formatNumber}
                       />
@@ -952,7 +929,7 @@ console.log("🔍 RESPUESTA COMPLETA:", JSON.stringify(response.data, null, 2));
                         <th className="text-left py-4 sm:py-5 px-4 sm:px-6 font-bold text-gray-700 text-sm sm:text-base">
                           📊 Medición
                         </th>
-                        
+
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -1031,7 +1008,7 @@ console.log("🔍 RESPUESTA COMPLETA:", JSON.stringify(response.data, null, 2));
                                   <span className="text-gray-400">N/A</span>
                                 )}
                               </td>
-                             
+
                             </tr>
                           );
                         })
