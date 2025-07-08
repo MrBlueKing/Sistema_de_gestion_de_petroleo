@@ -13,6 +13,7 @@ import {
   FiShield,
   FiClock
 } from "react-icons/fi";
+import { BsClockHistory } from "react-icons/bs";
 
 import { FaGasPump } from "react-icons/fa";
 const Main = () => {
@@ -42,6 +43,14 @@ const Main = () => {
       icon: <FaGasPump className="w-10 h-10 text-red-500" />,
       path: "/gerente/VerificacionIngresos",
       color: "bg-green-50 hover:bg-green-100 border-green-200"
+    },
+
+    {
+      title: "Gestión de Consumo",
+      description: "Histórico de consumo por máquina",
+      icon: <BsClockHistory className="w-10 h-10 text-green-500" />,
+      path: "/gerente/consumo-historial",
+      color: "bg-orange-50 hover:bg-orange-100 border-orange-200"
     },
 
   ];

@@ -11,6 +11,7 @@ import MainMantenimiento from "../components/organisms/Gerente/MainMantenimiento
 import MainSimulacion from "../components/organisms/Gerente/MainSimulacion";
 import GestionProduccion from "../components/organisms/Gerente/GestionProduccion";
 import VerificacionIngresos from "../components/organisms/Gerente/VerificacionIngresos";
+import ConsumoView from "../components/organisms/Bombero/ConsumoView";
 
 // 🛠️ Importaciones Administrador
 import AdministradorPage from "../pages/Administrador/AdministradorPage";
@@ -101,6 +102,15 @@ const AppRoutes = () => {
         element={
           <PrivateRoute requiredRole="gerente">
             <GestionProduccion />
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/gerente/consumo-historial"
+        element={
+          <PrivateRoute requiredRole="gerente">
+            <ConsumoView />
           </PrivateRoute>
         }
       />

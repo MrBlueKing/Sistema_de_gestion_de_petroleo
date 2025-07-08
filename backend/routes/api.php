@@ -573,39 +573,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/tonelajes/{id}/historial', [TonelajeController::class, 'getHistorial']);
     Route::get('/tonelajes/{id}/puede-editar', [TonelajeController::class, 'puedeEditar']);
     Route::get('/reporte/pdf', [ReporteController::class, 'generarPDF']);
-    /*
-    |--------------------------------------------------------------------------
-    | 📂 CATEGORÍAS (MANTENIMIENTO)
-    |--------------------------------------------------------------------------
-    */
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | 📈 Vuelos 
-    |--------------------------------------------------------------------------
-    */
-    // Route::prefix('vuelos')->group(function () {
-    //     Route::get('/{id}/images', [ChecklistController::class, 'getEvaluationImages']);
-    //     Route::get('/evaluations', [ChecklistController::class, 'getEvaluations']); // Lista de evaluaciones
-    // });
-
-
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | 📈 PDFS FASTAPI
-    |--------------------------------------------------------------------------
-    */
-    // Rutas para PDFs con FastAPI
-    Route::prefix('pdf')->group(function () {
-        Route::post('/consumos', [ConsumosPdfController::class, 'generarPdfConsumos']);
-        Route::get('/test-conexion', function () {
-            Log::info('Accediendo a test-conexion');
-            return app(ConsumosPdfController::class)->testConexion();
-        });
-    });
 });
 
 // Rutas para consumos
