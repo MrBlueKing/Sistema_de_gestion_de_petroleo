@@ -11,7 +11,7 @@ import MainMantenimiento from "../components/organisms/Gerente/MainMantenimiento
 import MainSimulacion from "../components/organisms/Gerente/MainSimulacion";
 import GestionProduccion from "../components/organisms/Gerente/GestionProduccion";
 import VerificacionIngresos from "../components/organisms/Gerente/VerificacionIngresos";
-import ConsumoView from "../components/organisms/Bombero/ConsumoView";
+import ConsumoView from "../components/organisms/Gerente/ConsumoView";
 
 // 🛠️ Importaciones Administrador
 import AdministradorPage from "../pages/Administrador/AdministradorPage";

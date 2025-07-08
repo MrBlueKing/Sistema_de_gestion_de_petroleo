@@ -599,7 +599,7 @@ class ConsumoCategoriasController extends Controller
     }
 
     /**
-     * NUEVO: Calcular estadísticas detalladas para mostrar en tabla resumen
+     * ✅ MÉTODO ACTUALIZADO: Actualizar el método que llama al cálculo de rendimiento
      */
     private function calcularEstadisticasDetalladasMaquina($maquina, $analisisMaquina, $categoria, $fechaInicio, $fechaFin, $incluirSabados = true, $incluirDomingos = false, $idFaena = null)
     {
@@ -616,8 +616,14 @@ class ConsumoCategoriasController extends Controller
         $precioPromedio = $this->obtenerPrecioPromedioMaquina($maquina->id_maquina, $fechaInicio, $fechaFin, $idFaena);
         $valorTotal = $litrosTotales * $precioPromedio;
 
-        // Calcular rendimiento según tipo de medición
-        $rendimiento = $this->calcularRendimientoMaquina($litrosTotales, $medicionTotal, $categoria->tipo_medicion);
+        // ✅ CORRECCIÓN: Pasar todos los parámetros necesarios
+        $rendimiento = $this->calcularRendimientoMaquina(
+            $litrosTotales,
+            $litrosConfirmados,
+            $medicionTotal,
+            $categoria,
+            $categoria->tipo_medicion
+        );
 
         return [
             'resumen' => [
@@ -634,7 +640,8 @@ class ConsumoCategoriasController extends Controller
                 'rendimiento_valor' => $rendimiento['valor'],
                 'rendimiento_unidad' => $rendimiento['unidad'],
                 'rendimiento_formateado' => $rendimiento['formateado'],
-                'interpretacion' => $rendimiento['interpretacion']
+                'interpretacion' => $rendimiento['interpretacion'],
+                'detalle_calculo' => $rendimiento['detalle_calculo'] ?? null
             ],
             'costos' => [
                 'precio_promedio_litro' => round($precioPromedio, 0),
@@ -845,20 +852,40 @@ class ConsumoCategoriasController extends Controller
     /**
      * NUEVO: Calcular rendimiento según tipo de medición
      */
-    private function calcularRendimientoMaquina($litrosTotales, $medicionData, $tipoMedicion)
+    /**
+     * ✅ MÉTODO CORREGIDO: Calcular rendimiento con tiempo real + proyección
+     */
+    private function calcularRendimientoMaquina($litrosTotales, $litrosConfirmados, $medicionData, $categoria, $tipoMedicion)
     {
         $medicionValor = $medicionData['valor'] ?? 0;
+        $litrosSimulados = $litrosTotales - $litrosConfirmados;
 
         if ($medicionValor <= 0 || $litrosTotales <= 0) {
             return [
                 'valor' => 0,
                 'unidad' => $tipoMedicion === 'Kilometraje' ? 'lts/km' : 'lts/h',
                 'formateado' => '0.00 ' . ($tipoMedicion === 'Kilometraje' ? 'lts/km' : 'lts/h'),
-                'interpretacion' => 'Sin datos suficientes para calcular rendimiento'
+                'interpretacion' => 'Sin datos suficientes para calcular rendimiento',
+                'detalle_calculo' => [
+                    'error' => 'Datos insuficientes',
+                    'medicion_valor' => $medicionValor,
+                    'litros_totales' => $litrosTotales
+                ]
             ];
         }
 
-        $rendimiento = $litrosTotales / $medicionValor;
+        // ✅ NUEVA LÓGICA: Tiempo real + tiempo proyectado
+        $tiempoReal = $medicionValor; // Diferencia de mediciones (horas o km reales)
+        $tiempoProyectado = 0;
+
+        // Si hay litros simulados, calcular tiempo proyectado
+        if ($litrosSimulados > 0) {
+            $chc = (float) ($categoria->chc ?? 10.0); // Consumo por hora cronológica
+            $tiempoProyectado = $litrosSimulados / $chc;
+        }
+
+        $tiempoTotal = $tiempoReal + $tiempoProyectado;
+        $rendimiento = $litrosTotales / $tiempoTotal;
         $unidad = $tipoMedicion === 'Kilometraje' ? 'lts/km' : 'lts/h';
 
         // Interpretación según el tipo
@@ -869,15 +896,20 @@ class ConsumoCategoriasController extends Controller
             'unidad' => $unidad,
             'formateado' => round($rendimiento, 2) . ' ' . $unidad,
             'interpretacion' => $interpretacion,
-            'calculo_base' => [
+            'detalle_calculo' => [
                 'litros_totales' => $litrosTotales,
-                'medicion_total' => $medicionValor,
-                'tipo_medicion' => $tipoMedicion
+                'litros_confirmados' => $litrosConfirmados,
+                'litros_simulados' => $litrosSimulados,
+                'tiempo_real' => $tiempoReal,
+                'tiempo_proyectado' => $tiempoProyectado,
+                'tiempo_total' => $tiempoTotal,
+                'chc_utilizado' => $categoria->chc ?? 10.0,
+                'metodo' => 'tiempo_real_mas_proyeccion'
             ]
         ];
     }
     /**
-     * NUEVO: Interpretar rendimiento según valores típicos
+     * ✅ MÉTODO MEJORADO: Interpretación más precisa del rendimiento
      */
     private function interpretarRendimiento($rendimiento, $tipoMedicion)
     {
@@ -896,8 +928,10 @@ class ConsumoCategoriasController extends Controller
                 return 'Consumo alto - revisar condiciones operativas';
             } elseif ($rendimiento > 8) {
                 return 'Consumo moderado - rango operativo normal';
-            } else {
+            } elseif ($rendimiento > 3) {
                 return 'Consumo bajo - operación eficiente';
+            } else {
+                return 'Consumo muy bajo - verificar mediciones';
             }
         }
     }
@@ -926,50 +960,45 @@ class ConsumoCategoriasController extends Controller
     /**
      * NUEVO: Calcular medición total según tipo de máquina
      */
+    /**
+     * ✅ MÉTODO CORREGIDO: Calcular la diferencia real entre mediciones
+     */
     private function calcularMedicionTotal($idMaquina, $fechaInicio, $fechaFin, $idFaena = null)
     {
-        // ✅ CONSTRUIR LA QUERY COMPLETA ANTES DE EJECUTAR
         $query = DB::table('consumos')
             ->where('id_equipo', $idMaquina)
             ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
             ->whereNotNull('medicion')
             ->where('medicion', '>', 0);
 
-        // ✅ FILTRAR POR FAENA ANTES DE EJECUTAR
         if ($idFaena) {
             $query->where('id_faena', $idFaena);
         }
 
-        // ✅ AHORA SÍ EJECUTAR
-        $mediciones = $query->get();
+        $mediciones = $query->orderBy('fecha_consumo', 'asc')->get();
 
         if ($mediciones->isEmpty()) {
             return [
                 'valor' => 0,
-                'metodo' => 'sin_datos',
-                'descripcion' => 'No hay datos de medición disponibles'
+                'primera_medicion' => null,
+                'ultima_medicion' => null,
+                'total_registros' => 0
             ];
         }
 
-        // CORREGIR: Calcular diferencia entre primera y última medición
-        $medicionInicial = $mediciones->min('medicion'); // 595.50
-        $medicionFinal = $mediciones->max('medicion');   // 607.30
-        $diferencia = $medicionFinal - $medicionInicial; // 11.8h
+        $primeraMedicion = $mediciones->first();
+        $ultimaMedicion = $mediciones->last();
 
-        // ✅ CORREGIR: Actualizar el Log para mostrar la diferencia
-        Log::info("Diferencia de mediciones para máquina {$idMaquina} entre {$fechaInicio->format('Y-m-d')} y {$fechaFin->format('Y-m-d')}: {$diferencia}h (de {$medicionInicial}h a {$medicionFinal}h)");
+        // ✅ CORRECCIÓN: Calcular diferencia, no suma
+        $diferencia = $ultimaMedicion->medicion - $primeraMedicion->medicion;
 
         return [
-            'valor' => round($diferencia, 2), // ✅ ACTUALIZADO
-            'metodo' => 'diferencia_mediciones', // ✅ ACTUALIZADO
-            'descripcion' => 'Diferencia entre medición final e inicial del período', // ✅ ACTUALIZADO
-            'registros_usados' => count($mediciones),
-            // ✅ AGREGAR: Info adicional para debug
-            'detalle_calculo' => [
-                'medicion_inicial' => $medicionInicial,
-                'medicion_final' => $medicionFinal,
-                'diferencia' => $diferencia
-            ]
+            'valor' => max(0, $diferencia), // Asegurar que no sea negativo
+            'primera_medicion' => $primeraMedicion->medicion,
+            'ultima_medicion' => $ultimaMedicion->medicion,
+            'total_registros' => $mediciones->count(),
+            'fecha_inicial' => $primeraMedicion->fecha_consumo,
+            'fecha_final' => $ultimaMedicion->fecha_consumo
         ];
     }
 
