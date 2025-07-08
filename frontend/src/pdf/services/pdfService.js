@@ -26,6 +26,16 @@ class PDFService {
       success: [34, 197, 94],
       blue: [59, 130, 246] // Para acentos
     };
+
+    // 🆕 SISTEMA DE PAGINACIÓN MEJORADO
+    this.paginationTracker = {
+      totalItems: 0,
+      currentPage: 1,
+      itemsPerPage: 0,
+      pageStartIndex: 0,
+      pageEndIndex: 0,
+      recordsOnCurrentPage: 0
+    };
   }
 
   // Función principal para generar PDF
@@ -36,6 +46,9 @@ class PDFService {
       const doc = new jsPDF(this.defaultConfig);
       let yPosition = 15;
 
+      // 🆕 INICIALIZAR TRACKER DE PAGINACIÓN
+      this.initializePaginationTracker(totalItems, currentPage, consumos);
+
       // === HEADER MEJORADO ===
       yPosition = this.addProfessionalHeader(doc, yPosition);
 
@@ -45,11 +58,8 @@ class PDFService {
       // === ESTADÍSTICAS REDISEÑADAS ===
       yPosition = this.addEnhancedStatistics(doc, stats, yPosition);
 
-      // === INFO DE PAGINACIÓN ===
-      yPosition = this.addPaginationInfo(doc, totalItems, currentPage, yPosition);
-
-      // === TABLA COMPLETAMENTE REDISEÑADA ===
-      this.addProfessionalTable(doc, consumos, yPosition);
+      // === TABLA COMPLETAMENTE REDISEÑADA CON PAGINACIÓN MEJORADA ===
+      this.addProfessionalTableWithPagination(doc, consumos, yPosition);
 
       // === FOOTER MEJORADO ===
       this.addProfessionalFooter(doc);
@@ -63,6 +73,17 @@ class PDFService {
       console.error('Error generando PDF:', error);
       throw new Error(`Error al generar PDF: ${error.message}`);
     }
+  }
+
+  // 🆕 INICIALIZAR TRACKER DE PAGINACIÓN
+  initializePaginationTracker(totalItems, currentPage, consumos) {
+    this.paginationTracker = {
+      totalItems: totalItems || 0,
+      currentPage: currentPage || 1,
+      totalRecords: consumos?.length || 0,
+      recordsPerPageTracker: [], // Para rastrear registros por página
+      currentPageNumber: 1
+    };
   }
 
   // 🔧 HEADER CON ESPACIADO CORREGIDO
@@ -195,18 +216,17 @@ class PDFService {
     return yPosition;
   }
 
-  // 🆕 ESTADÍSTICAS CON DISEÑO PROFESIONAL
   // 🆕 ESTADÍSTICAS CON DISEÑO PROFESIONAL CORREGIDO
   addEnhancedStatistics(doc, stats, yPosition) {
     // 🔧 CALCULAR ALTURA DINÁMICA según contenido
-    let boxHeight = 30; // Altura base
+    let boxHeight = 15; // Altura base
     if (stats.equipo_mas_usado && stats.equipo_mas_usado !== 'N/A') {
       boxHeight += 8; // Espacio adicional para equipo más usado
     }
 
     // Fondo gris claro profesional
     doc.setFillColor(248, 250, 252);
-    doc.rect(15, yPosition - 3, 280, boxHeight, 'F');
+    doc.rect(15, yPosition - 3, 267, boxHeight, 'F');
 
     // Borde sutil
     doc.setDrawColor(...this.colors.mediumGray);
@@ -232,16 +252,6 @@ class PDFService {
         icon: '',
         label: 'Total Litros',
         value: `${this.formatNumber(stats.total_litros || 0)} L`
-      },
-      {
-        icon: '',
-        label: 'Promedio por Consumo',
-        value: `${this.formatNumber(stats.promedio_consumo || 0)} L`
-      },
-      {
-        icon: '',
-        label: 'Costo Total',
-        value: stats.costo_total ? `$${this.formatNumber(stats.costo_total)}` : 'N/A'
       }
     ];
 
@@ -266,44 +276,13 @@ class PDFService {
       doc.text(stat.value, x + 45, y);
     });
 
-    yPosition += 18;
+    yPosition += 15;
 
-    // 🔧 EQUIPO MÁS USADO DENTRO DEL RECTÁNGULO
-    if (stats.equipo_mas_usado && stats.equipo_mas_usado !== 'N/A') {
-      // Línea separadora sutil
-      doc.setDrawColor(...this.colors.mediumGray);
-      doc.setLineWidth(0.3);
-      doc.line(20, yPosition - 2, 277, yPosition - 2);
-
-      doc.setTextColor(0, 0, 0); // Negro
-      doc.setFontSize(8);
-      doc.setFont(undefined, 'normal');
-      doc.text('Equipo más utilizado:', 25, yPosition + 2);
-
-      doc.setFont(undefined, 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(51, 65, 85); // Gris oscuro
-      doc.text(stats.equipo_mas_usado, 75, yPosition + 2);
-    }
-
-    return yPosition + 12;
+    return yPosition;
   }
 
-  // Info de paginación mejorada
-  addPaginationInfo(doc, totalItems, currentPage, yPosition) {
-    doc.setFillColor(...this.colors.mediumGray);
-    doc.rect(15, yPosition - 1, 267, 6, 'F');
-
-    doc.setFontSize(8);
-    doc.setTextColor(...this.colors.gray);
-    doc.setFont(undefined, 'normal');
-    doc.text(`Página ${currentPage} • Total de registros: ${totalItems?.toLocaleString() || '0'}`, 20, yPosition + 2);
-
-    return yPosition + 12;
-  }
-
-  // 🆕 TABLA COMPLETAMENTE REDISEÑADA
-  addProfessionalTable(doc, consumos, startY) {
+  // 🆕 TABLA CON PAGINACIÓN MEJORADA
+  addProfessionalTableWithPagination(doc, consumos, startY) {
     if (!consumos || consumos.length === 0) {
       // Estado vacío elegante
       doc.setFillColor(...this.colors.lightGray);
@@ -317,10 +296,15 @@ class PDFService {
       doc.setFontSize(10);
       doc.setFont(undefined, 'normal');
       doc.text('Intenta ajustar los filtros de búsqueda', 125, startY + 22);
+      
+      // 🆕 PAGINACIÓN PARA ESTADO VACÍO
+      this.addPagePaginationInfo(doc, 0, 0, 180);
       return;
     }
 
     let yPosition = startY + 2;
+    let recordsOnCurrentPage = 0;
+    let pageStartRecord = 1;
 
     // 🔧 NUEVA DISTRIBUCIÓN DE COLUMNAS MÁS ESPACIOSA
     const cols = {
@@ -346,8 +330,19 @@ class PDFService {
     consumos.forEach((consumo, index) => {
       // Control de página mejorado
       if (yPosition > 160) {
+        // 🆕 AGREGAR PAGINACIÓN AL FINAL DE CADA PÁGINA
+        const pageEndRecord = pageStartRecord + recordsOnCurrentPage - 1;
+        this.addPagePaginationInfo(doc, pageStartRecord, pageEndRecord, 175);
+
+        // Nueva página
         doc.addPage();
+        this.paginationTracker.currentPageNumber++;
+        
+        // Reiniciar contadores para nueva página
+        pageStartRecord = pageStartRecord + recordsOnCurrentPage;
+        recordsOnCurrentPage = 0;
         yPosition = 25;
+        
         this.addProfessionalTableHeader(doc, cols, yPosition);
         yPosition += 12;
 
@@ -355,6 +350,9 @@ class PDFService {
         doc.setTextColor(...this.colors.darkGray);
         doc.setFontSize(8);
       }
+
+      // Contar registros en página actual
+      recordsOnCurrentPage++;
 
       // Determinar altura de fila
       const isMultipleStanques = consumo.cantidad_estanques > 1;
@@ -432,6 +430,55 @@ class PDFService {
 
       yPosition += rowHeight;
     });
+
+    // 🆕 AGREGAR PAGINACIÓN AL FINAL DE LA ÚLTIMA PÁGINA
+    const pageEndRecord = pageStartRecord + recordsOnCurrentPage - 1;
+    this.addPagePaginationInfo(doc, pageStartRecord, pageEndRecord, yPosition + 10);
+  }
+
+  // 🆕 NUEVA FUNCIÓN: INFORMACIÓN DE PAGINACIÓN POR PÁGINA
+  addPagePaginationInfo(doc, startRecord, endRecord, yPosition) {
+    // Fondo elegante
+    doc.setFillColor(...this.colors.mediumGray);
+    doc.rect(15, yPosition - 1, 267, 8, 'F');
+
+    // Borde sutil
+    doc.setDrawColor(...this.colors.primary);
+    doc.setLineWidth(0.3);
+    doc.rect(15, yPosition - 1, 267, 8);
+
+    // Texto de paginación mejorado
+    doc.setFontSize(8);
+    doc.setTextColor(...this.colors.darkGray);
+    doc.setFont(undefined, 'normal');
+
+    let paginationText = '';
+    
+    if (startRecord === 0 && endRecord === 0) {
+      // Caso especial: sin registros
+      paginationText = `📄 Página ${this.paginationTracker.currentPageNumber} • 📊 Sin registros • 📈 Total general: ${this.paginationTracker.totalItems?.toLocaleString() || '0'}`;
+    } else {
+      // Con registros
+      paginationText = `📄 Página ${this.paginationTracker.currentPageNumber} • 📊 Registros ${startRecord}-${endRecord} • 📈 Total general: ${this.paginationTracker.totalItems?.toLocaleString() || '0'}`;
+    }
+
+    // Centrar el texto
+    const textWidth = doc.getTextWidth(paginationText);
+    const centerX = (297 - textWidth) / 2;
+    doc.text(paginationText, centerX, yPosition + 4);
+
+    // 🆕 INFORMACIÓN ADICIONAL EN LOS EXTREMOS
+    doc.setFontSize(7);
+    doc.setTextColor(...this.colors.gray);
+    
+    // Lado izquierdo: Timestamp
+    doc.text(`⏰ ${new Date().toLocaleTimeString('es-CL')}`, 20, yPosition + 4);
+    
+    // Lado derecho: Estado
+    if (startRecord > 0) {
+      const recordsOnPage = endRecord - startRecord + 1;
+      doc.text(`${recordsOnPage} reg. en página`, 235, yPosition + 4);
+    }
   }
 
   // 🆕 HEADER DE TABLA PROFESIONAL
