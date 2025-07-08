@@ -951,16 +951,25 @@ class ConsumoCategoriasController extends Controller
             ];
         }
 
-        // Sumar todas las mediciones del período
-        $total = $mediciones->sum('medicion');
+        // CORREGIR: Calcular diferencia entre primera y última medición
+        $medicionInicial = $mediciones->min('medicion'); // 595.50
+        $medicionFinal = $mediciones->max('medicion');   // 607.30
+        $diferencia = $medicionFinal - $medicionInicial; // 11.8h
 
-        Log::info("Total de mediciones para máquina {$idMaquina} entre {$fechaInicio->format('Y-m-d')} y {$fechaFin->format('Y-m-d')}: {$total}");
+        // ✅ CORREGIR: Actualizar el Log para mostrar la diferencia
+        Log::info("Diferencia de mediciones para máquina {$idMaquina} entre {$fechaInicio->format('Y-m-d')} y {$fechaFin->format('Y-m-d')}: {$diferencia}h (de {$medicionInicial}h a {$medicionFinal}h)");
 
         return [
-            'valor' => round($total, 2),
-            'metodo' => 'suma_mediciones',
-            'descripcion' => 'Suma de mediciones registradas en el período',
-            'registros_usados' => count($mediciones)
+            'valor' => round($diferencia, 2), // ✅ ACTUALIZADO
+            'metodo' => 'diferencia_mediciones', // ✅ ACTUALIZADO
+            'descripcion' => 'Diferencia entre medición final e inicial del período', // ✅ ACTUALIZADO
+            'registros_usados' => count($mediciones),
+            // ✅ AGREGAR: Info adicional para debug
+            'detalle_calculo' => [
+                'medicion_inicial' => $medicionInicial,
+                'medicion_final' => $medicionFinal,
+                'diferencia' => $diferencia
+            ]
         ];
     }
 
