@@ -3093,31 +3093,4 @@ class ConsumoCategoriasController extends Controller
             ], 500);
         }
     }
-
-    /**
-     * ✅ NUEVO MÉTODO: Obtener CHC de máquina individual con fallback inteligente
-     */
-    private function obtenerChcMaquina($maquina, $categoria)
-    {
-        // 1. Verificar si tiene CHC individual válido
-        if (isset($maquina->chc_maquina) && $maquina->chc_maquina && $maquina->chc_maquina > 0) {
-            return [
-                'valor' => (float) $maquina->chc_maquina,
-                'origen' => 'individual',
-                'precision' => 'alta',
-                'metodo' => 'calculado_por_maquina',
-                'diferencia_categoria' => $categoria->chc ?
-                    round((($maquina->chc_maquina - $categoria->chc) / $categoria->chc) * 100, 1) : null
-            ];
-        }
-
-        // 2. Fallback a CHC de categoría
-        return [
-            'valor' => (float) ($categoria->chc ?? 10.0),
-            'origen' => 'categoria',
-            'precision' => 'media',
-            'metodo' => 'promedio_ponderado_categoria',
-            'nota' => 'CHC individual no disponible - usando promedio categoría'
-        ];
-    }
 }
