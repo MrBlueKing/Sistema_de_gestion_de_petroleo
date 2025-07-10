@@ -850,89 +850,198 @@ class ConsumoCategoriasController extends Controller
     }
 
     /**
-     * NUEVO: Calcular rendimiento según tipo de medición
-     */
-    /**
-     * ✅ MÉTODO CORREGIDO: Calcular rendimiento con tiempo real + proyección
+     * ✅ CORRECCIÓN: Siempre usar CHC de la base de datos - sin valores por defecto
      */
     private function calcularRendimientoMaquina($litrosTotales, $litrosConfirmados, $medicionData, $categoria, $tipoMedicion)
     {
         $medicionValor = $medicionData['valor'] ?? 0;
         $litrosSimulados = $litrosTotales - $litrosConfirmados;
+        $tipoMedicionReal = $medicionData['tipo_medicion'] ?? $tipoMedicion;
 
         if ($medicionValor <= 0 || $litrosTotales <= 0) {
             return [
                 'valor' => 0,
-                'unidad' => $tipoMedicion === 'Kilometraje' ? 'lts/km' : 'lts/h',
-                'formateado' => '0.00 ' . ($tipoMedicion === 'Kilometraje' ? 'lts/km' : 'lts/h'),
+                'unidad' => $tipoMedicionReal === 'Kilometraje' ? 'lts/km' : 'lts/h',
+                'formateado' => '0.00 ' . ($tipoMedicionReal === 'Kilometraje' ? 'lts/km' : 'lts/h'),
                 'interpretacion' => 'Sin datos suficientes para calcular rendimiento',
                 'detalle_calculo' => [
                     'error' => 'Datos insuficientes',
                     'medicion_valor' => $medicionValor,
-                    'litros_totales' => $litrosTotales
+                    'litros_totales' => $litrosTotales,
+                    'tipo_medicion' => $tipoMedicionReal
                 ]
             ];
         }
 
-        // ✅ NUEVA LÓGICA: Tiempo real + tiempo proyectado
-        $tiempoReal = $medicionValor; // Diferencia de mediciones (horas o km reales)
-        $tiempoProyectado = 0;
+        // ✅ SIEMPRE USAR CHC DE LA CATEGORÍA - SIN VALORES POR DEFECTO
+        $consumoPorUnidad = (float) $categoria->chc;
 
-        // Si hay litros simulados, calcular tiempo proyectado
-        if ($litrosSimulados > 0) {
-            $chc = (float) ($categoria->chc ?? 10.0); // Consumo por hora cronológica
-            $tiempoProyectado = $litrosSimulados / $chc;
+        // Verificar que CHC existe y es válido
+        if (!$consumoPorUnidad || $consumoPorUnidad <= 0) {
+            return [
+                'valor' => 0,
+                'unidad' => $tipoMedicionReal === 'Kilometraje' ? 'lts/km' : 'lts/h',
+                'formateado' => '0.00 ' . ($tipoMedicionReal === 'Kilometraje' ? 'lts/km' : 'lts/h'),
+                'interpretacion' => 'CHC no configurado para esta categoría',
+                'detalle_calculo' => [
+                    'error' => 'CHC no válido',
+                    'chc_valor' => $categoria->chc ?? 'null',
+                    'categoria' => $categoria->nombre ?? 'Sin categoría'
+                ]
+            ];
         }
 
-        $tiempoTotal = $tiempoReal + $tiempoProyectado;
-        $rendimiento = $litrosTotales / $tiempoTotal;
-        $unidad = $tipoMedicion === 'Kilometraje' ? 'lts/km' : 'lts/h';
+        // ✅ ALGORITMO UNIFICADO - MISMO CÁLCULO PARA TODOS
+        $unidadesReales = $medicionValor; // Diferencia real (km o horas)
+        $unidadesProyectadas = 0;
+
+        // Calcular unidades proyectadas si hay litros simulados
+        if ($litrosSimulados > 0) {
+            $unidadesProyectadas = $litrosSimulados / $consumoPorUnidad;
+        }
+
+        $unidadesTotales = $unidadesReales + $unidadesProyectadas;
+        $rendimiento = $unidadesTotales > 0 ? $litrosTotales / $unidadesTotales : 0;
+
+        // Determinar unidad y tipo según medición
+        if ($tipoMedicionReal === 'Kilometraje') {
+            $unidad = 'lts/km';
+            $tipoUnidad = 'km';
+        } else {
+            $unidad = 'lts/h';
+            $tipoUnidad = 'horas';
+        }
+
+        $detalleCalculo = [
+            'tipo_medicion' => $tipoMedicionReal,
+            'litros_totales' => $litrosTotales,
+            'litros_confirmados' => $litrosConfirmados,
+            'litros_simulados' => $litrosSimulados,
+            $tipoUnidad . '_reales' => $unidadesReales,
+            $tipoUnidad . '_proyectadas' => round($unidadesProyectadas, 2),
+            $tipoUnidad . '_totales' => round($unidadesTotales, 2),
+            'chc_utilizado' => $consumoPorUnidad,
+            'categoria' => $categoria->nombre ?? 'Sin categoría',
+            'metodo' => 'medicion_real_mas_proyeccion'
+        ];
 
         // Interpretación según el tipo
-        $interpretacion = $this->interpretarRendimiento($rendimiento, $tipoMedicion);
+        $interpretacion = $this->interpretarRendimiento($rendimiento, $tipoMedicionReal);
 
         return [
             'valor' => round($rendimiento, 2),
             'unidad' => $unidad,
             'formateado' => round($rendimiento, 2) . ' ' . $unidad,
             'interpretacion' => $interpretacion,
-            'detalle_calculo' => [
-                'litros_totales' => $litrosTotales,
-                'litros_confirmados' => $litrosConfirmados,
-                'litros_simulados' => $litrosSimulados,
-                'tiempo_real' => $tiempoReal,
-                'tiempo_proyectado' => $tiempoProyectado,
-                'tiempo_total' => $tiempoTotal,
-                'chc_utilizado' => $categoria->chc ?? 10.0,
-                'metodo' => 'tiempo_real_mas_proyeccion'
-            ]
+            'detalle_calculo' => $detalleCalculo
         ];
     }
     /**
-     * ✅ MÉTODO MEJORADO: Interpretación más precisa del rendimiento
+     * ✅ MÉTODO MEJORADO: Interpretar rendimiento para ambos tipos de medición
      */
     private function interpretarRendimiento($rendimiento, $tipoMedicion)
     {
         if ($tipoMedicion === 'Kilometraje') {
-            // Para camiones - litros por kilómetro
-            if ($rendimiento > 0.5) {
+            // 🚛 Para camiones - litros por kilómetro
+            if ($rendimiento > 0.8) {
+                return 'Consumo muy alto - revisar urgente';
+            } elseif ($rendimiento > 0.5) {
                 return 'Consumo alto - revisar eficiencia';
             } elseif ($rendimiento > 0.3) {
                 return 'Consumo moderado - dentro del rango normal';
-            } else {
+            } elseif ($rendimiento > 0.1) {
                 return 'Consumo eficiente';
+            } else {
+                return 'Consumo muy bajo - verificar mediciones';
             }
         } else {
-            // Para maquinaria - litros por hora
-            if ($rendimiento > 15) {
+            // 🏗️ Para maquinaria - litros por hora
+            if ($rendimiento > 20) {
+                return 'Consumo muy alto - revisar urgente';
+            } elseif ($rendimiento > 15) {
                 return 'Consumo alto - revisar condiciones operativas';
             } elseif ($rendimiento > 8) {
                 return 'Consumo moderado - rango operativo normal';
             } elseif ($rendimiento > 3) {
                 return 'Consumo bajo - operación eficiente';
-            } else {
+            } elseif ($rendimiento > 0.5) {
                 return 'Consumo muy bajo - verificar mediciones';
+            } else {
+                return 'Consumo extremadamente bajo - revisar datos';
             }
+        }
+    }
+
+    /**
+     * ✅ CORRECCIÓN: Simulación específica para camionetas usando CKC y KDC
+     */
+    private function simularConsumoSegunTipo($ultimaCarga, $fechaFin, $categoria, $incluirSabados, $incluirDomingos, $momentoConsulta)
+    {
+        $tipoMedicion = $categoria->tipo_medicion;
+        $fechaUltimaCarga = Carbon::parse($ultimaCarga->fecha_consumo);
+        $diasLaborales = $this->calcularDiasLaboralesCorrectos($fechaUltimaCarga, $fechaFin, $incluirSabados, $incluirDomingos);
+
+        if ($tipoMedicion === 'Kilometraje') {
+            // 🚛 SIMULACIÓN CORREGIDA PARA CAMIONETAS
+
+            // Opción 1: Usar CKC y KDC si están configurados
+            if (isset($categoria->ckc) && isset($categoria->kdc) && $categoria->ckc > 0 && $categoria->kdc > 0) {
+                $ckc = (float) $categoria->ckc; // L/km
+                $kdc = (float) $categoria->kdc; // km/día
+
+                $kmSimulados = $diasLaborales * $kdc;
+                $litrosSimulados = $kmSimulados * $ckc;
+
+                return [
+                    'tipo_simulacion' => 'camioneta_ckc_kdc',
+                    'km_simulados' => round($kmSimulados, 2),
+                    'litros_simulados' => round($litrosSimulados, 2),
+                    'dias_laborales' => $diasLaborales,
+                    'km_por_dia' => $kdc,
+                    'consumo_por_km' => $ckc,
+                    'metodo' => 'parametros_categoria',
+                    'limitado_por_stock' => false
+                ];
+            }
+
+            // Opción 2: Usar valores típicos como fallback
+            else {
+                $ckc = 0.35; // L/km (valor típico para camionetas)
+                $kdc = 30.0; // km/día (valor típico para faenas)
+
+                $kmSimulados = $diasLaborales * $kdc;
+                $litrosSimulados = $kmSimulados * $ckc;
+
+                return [
+                    'tipo_simulacion' => 'camioneta_valores_tipicos',
+                    'km_simulados' => round($kmSimulados, 2),
+                    'litros_simulados' => round($litrosSimulados, 2),
+                    'dias_laborales' => $diasLaborales,
+                    'km_por_dia' => $kdc,
+                    'consumo_por_km' => $ckc,
+                    'metodo' => 'valores_fallback',
+                    'limitado_por_stock' => false,
+                    'nota' => 'Usando valores típicos - se recomienda configurar CKC/KDC en la categoría'
+                ];
+            }
+        } else {
+            // 🏗️ SIMULACIÓN PARA MAQUINARIA (sin cambios)
+            $chc = (float) ($categoria->chc ?? 10.0);
+            $hrc = (float) ($categoria->hrc ?? 8.0);
+
+            $horasSimuladas = $diasLaborales * $hrc;
+            $litrosSimulados = $horasSimuladas * $chc;
+
+            return [
+                'tipo_simulacion' => 'maquinaria_chc_hrc',
+                'horas_simuladas' => round($horasSimuladas, 2),
+                'litros_simulados' => round($litrosSimulados, 2),
+                'dias_laborales' => $diasLaborales,
+                'horas_por_dia' => $hrc,
+                'consumo_por_hora' => $chc,
+                'metodo' => 'parametros_categoria',
+                'limitado_por_stock' => false
+            ];
         }
     }
 
@@ -958,13 +1067,16 @@ class ConsumoCategoriasController extends Controller
     }
 
     /**
-     * NUEVO: Calcular medición total según tipo de máquina
-     */
-    /**
-     * ✅ MÉTODO CORREGIDO: Calcular la diferencia real entre mediciones
+     * ✅ MÉTODO CORREGIDO: Calcular la diferencia real entre mediciones según tipo
      */
     private function calcularMedicionTotal($idMaquina, $fechaInicio, $fechaFin, $idFaena = null)
     {
+        // Primero obtener el tipo de medición de la categoría
+        $tipoMedicion = DB::table('maquinas')
+            ->join('categorias_maquinas', 'maquinas.id_categoria', '=', 'categorias_maquinas.id_categoria')
+            ->where('maquinas.id_maquina', $idMaquina)
+            ->value('categorias_maquinas.tipo_medicion');
+
         $query = DB::table('consumos')
             ->where('id_equipo', $idMaquina)
             ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
@@ -982,7 +1094,8 @@ class ConsumoCategoriasController extends Controller
                 'valor' => 0,
                 'primera_medicion' => null,
                 'ultima_medicion' => null,
-                'total_registros' => 0
+                'total_registros' => 0,
+                'tipo_medicion' => $tipoMedicion
             ];
         }
 
@@ -998,7 +1111,9 @@ class ConsumoCategoriasController extends Controller
             'ultima_medicion' => $ultimaMedicion->medicion,
             'total_registros' => $mediciones->count(),
             'fecha_inicial' => $primeraMedicion->fecha_consumo,
-            'fecha_final' => $ultimaMedicion->fecha_consumo
+            'fecha_final' => $ultimaMedicion->fecha_consumo,
+            'tipo_medicion' => $tipoMedicion,
+            'unidad' => $tipoMedicion === 'Kilometraje' ? 'km' : 'h'
         ];
     }
 
@@ -2977,5 +3092,32 @@ class ConsumoCategoriasController extends Controller
                 'timestamp' => now()->format('Y-m-d H:i:s')
             ], 500);
         }
+    }
+
+    /**
+     * ✅ NUEVO MÉTODO: Obtener CHC de máquina individual con fallback inteligente
+     */
+    private function obtenerChcMaquina($maquina, $categoria)
+    {
+        // 1. Verificar si tiene CHC individual válido
+        if (isset($maquina->chc_maquina) && $maquina->chc_maquina && $maquina->chc_maquina > 0) {
+            return [
+                'valor' => (float) $maquina->chc_maquina,
+                'origen' => 'individual',
+                'precision' => 'alta',
+                'metodo' => 'calculado_por_maquina',
+                'diferencia_categoria' => $categoria->chc ?
+                    round((($maquina->chc_maquina - $categoria->chc) / $categoria->chc) * 100, 1) : null
+            ];
+        }
+
+        // 2. Fallback a CHC de categoría
+        return [
+            'valor' => (float) ($categoria->chc ?? 10.0),
+            'origen' => 'categoria',
+            'precision' => 'media',
+            'metodo' => 'promedio_ponderado_categoria',
+            'nota' => 'CHC individual no disponible - usando promedio categoría'
+        ];
     }
 }

@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Models\CategoriaMaquina;
-use App\Models\permisos_maquinas_faenas;
+use App\Models\PermisosMaquinasFaenas;
 use App\Models\MaquinaExterna;
 
 class Maquinas extends Model
@@ -19,6 +19,7 @@ class Maquinas extends Model
         'tipo_maquina',
         'patente',
         'estado',
+        'chc_maquina',
     ];
 
     // Relación con la tabla Categorias
@@ -30,7 +31,7 @@ class Maquinas extends Model
     // La relación inversa para los permisos de máquina
     public function permisos()
     {
-        return $this->hasMany(permisos_maquinas_faenas::class, 'id_maquina');
+        return $this->hasMany(PermisosMaquinasFaenas::class, 'id_maquina');
     }
 
     // Relación con máquinas externas
