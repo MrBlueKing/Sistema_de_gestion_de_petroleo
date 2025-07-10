@@ -17,6 +17,7 @@ import IngresosPorFaenaTable from "../../molecules/IngresosPorFaenaTable";
 import TopEquiposChart from "../../molecules/TopEquiposChart";
 import FaenasChart from "../../molecules/FaenasChart";
 import ConsumoTendenciaChart from "../../molecules/ConsumoTendenciaChart";
+// 🆕 IMPORTAR EL NUEVO ConsumptionPieChart conectado al backend
 import ConsumptionPieChart from "../../molecules/ConsumptionPieChart";
 
 const Graficos = ({ children }) => {
@@ -28,7 +29,7 @@ const Graficos = ({ children }) => {
     const [mensajeExito, setMensajeExito] = useState(null);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [faenas, setFaenas] = useState([]);
-
+    
     // ✅ CORRECCIÓN: Estados para las horas
     const [horaDesde, setHoraDesde] = useState("08:00");
     const [horaHasta, setHoraHasta] = useState("18:00");
@@ -282,13 +283,38 @@ const Graficos = ({ children }) => {
                                         </div>
                                     </div>
 
-                                    {/* 🆕 TOP EQUIPOS CHART - ANCHO COMPLETO */}
-                                    <div className="mb-6">
+                                    {/* 🆕 OTROS GRÁFICOS EN GRID 2x1 */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                                         <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
                                             <h4 className="text-sm font-medium text-gray-700 mb-3">
-                                                Top Equipos por Consumo
+                                                Consumo por Faena
                                             </h4>
-                                            <ConsumptionPieChart />
+                                            {(fechaDesde && fechaHasta) && (
+                                                <FaenasChart
+                                                    faenaSeleccionada={faenaSeleccionada}
+                                                    setFaenaSeleccionada={setFaenaSeleccionada}
+                                                    fechaDesde={fechaDesde}
+                                                    fechaHasta={fechaHasta}
+                                                    horaDesde={horaDesde}
+                                                    horaHasta={horaHasta}
+                                                    refreshKey={refreshTrigger}
+                                                />
+                                            )}
+                                        </div>
+
+                                        {/* 🆕 CONSUMO POR CATEGORÍAS - REEMPLAZA EL PLACEHOLDER */}
+                                        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                                            <h4 className="text-sm font-medium text-gray-700 mb-3">
+                                                Consumo por Categorías
+                                            </h4>
+                                            {(fechaDesde && fechaHasta) && (
+                                                <ConsumptionPieChart
+                                                    faenaSeleccionada={faenaSeleccionada}
+                                                    fechaDesde={fechaDesde}
+                                                    fechaHasta={fechaHasta}
+                                                    refreshKey={refreshTrigger}
+                                                />
+                                            )}
                                         </div>
                                     </div>
 

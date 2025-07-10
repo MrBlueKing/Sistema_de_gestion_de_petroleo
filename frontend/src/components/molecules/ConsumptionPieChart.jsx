@@ -1,150 +1,266 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { FiAlertTriangle, FiRefreshCw, FiPieChart, FiArrowLeft, FiActivity, FiBarChart2 } from "react-icons/fi";
+import axios from '../../lib/axios';
 
-const ConsumptionPieChart = () => {
+const ConsumptionPieChart = ({ 
+  faenaSeleccionada = 'todas',
+  fechaDesde, 
+  fechaHasta, 
+  refreshKey = 0 
+}) => {
   const [categorias, setCategorias] = useState([]);
   const [maquinas, setMaquinas] = useState([]);
   const [selectedCategoria, setSelectedCategoria] = useState(null);
   const [viewMode, setViewMode] = useState('categorias'); // 'categorias' o 'maquinas'
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Datos de ejemplo basados en tu estructura de BD
-  const datosEjemplo = {
-    categorias: [
-      { id: 1, nombre: 'Dumper', consumo_total: 1250.5, maquinas_count: 3 },
-      { id: 2, nombre: 'Camion', consumo_total: 2100.8, maquinas_count: 5 },
-      { id: 3, nombre: 'Excavadora', consumo_total: 1800.2, maquinas_count: 4 },
-      { id: 4, nombre: 'Cargador Frontal', consumo_total: 950.3, maquinas_count: 2 },
-      { id: 8, nombre: 'Pala', consumo_total: 1400.7, maquinas_count: 4 }
-    ],
-    maquinasPorCategoria: {
-      1: [
-        { id: 1, nombre: 'DUMPER 1', patente: 'ABC123', consumo: 450.2 },
-        { id: 2, nombre: 'DUMPER 2', patente: 'DEF456', consumo: 380.1 },
-        { id: 3, nombre: 'DUMPER 3', patente: 'GHI789', consumo: 420.2 }
-      ],
-      2: [
-        { id: 4, nombre: 'CAMION 1', patente: 'JKL012', consumo: 520.3 },
-        { id: 5, nombre: 'CAMION 2', patente: 'MNO345', consumo: 480.8 },
-        { id: 6, nombre: 'CAMION 3', patente: 'PQR678', consumo: 410.5 },
-        { id: 7, nombre: 'CAMION 4', patente: 'STU901', consumo: 390.2 },
-        { id: 8, nombre: 'CAMION 5', patente: 'VWX234', consumo: 299.0 }
-      ],
-      3: [
-        { id: 9, nombre: 'EXCAVADORA 1', patente: 'YZA567', consumo: 480.1 },
-        { id: 10, nombre: 'EXCAVADORA 2', patente: 'BCD890', consumo: 450.3 },
-        { id: 11, nombre: 'EXCAVADORA 3', patente: 'EFG123', consumo: 420.8 },
-        { id: 12, nombre: 'EXCAVADORA 4', patente: 'HIJ456', consumo: 449.0 }
-      ],
-      4: [
-        { id: 13, nombre: 'CARGADOR 1', patente: 'KLM789', consumo: 480.1 },
-        { id: 14, nombre: 'CARGADOR 2', patente: 'NOP012', consumo: 470.2 }
-      ],
-      8: [
-        { id: 15, nombre: 'CARGADOR 5', patente: 'XCMG LW200KV', consumo: 350.2 },
-        { id: 22, nombre: 'CARGADOR 7', patente: 'XCMG LW200KV_7', consumo: 360.1 },
-        { id: 23, nombre: 'CARGADOR 8', patente: 'XCMG LW200KV_8', consumo: 340.4 },
-        { id: 35, nombre: 'SCOOP 6', patente: 'SANDVICK EJC145D', consumo: 350.0 }
-      ]
-    }
-  };
+  // Usar useRef para evitar llamadas innecesarias a la API
+  const isMounted = useRef(true);
+  const initialLoadDone = useRef(false);
+  const prevFilters = useRef({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey });
 
-  // Colores para el piechart
+  // Colores para el piechart (usando la paleta de tu app)
   const COLORS = [
-    '#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8',
-    '#82CA9D', '#FFC658', '#FF7C7C', '#8DD1E1', '#D084D0'
+    '#f97316', // Orange-500 (principal)
+    '#3b82f6', // Blue-500
+    '#10b981', // Emerald-500
+    '#f59e0b', // Amber-500
+    '#8b5cf6', // Violet-500
+    '#ef4444', // Red-500
+    '#06b6d4', // Cyan-500
+    '#84cc16', // Lime-500
+    '#f43f5e', // Rose-500
+    '#6366f1'  // Indigo-500
   ];
 
+  // Función para verificar si los filtros han cambiado realmente
+  const filtersChanged = () => {
+    const prevF = prevFilters.current;
+    const changed = prevF.faenaSeleccionada !== faenaSeleccionada || 
+                   prevF.fechaDesde !== fechaDesde ||
+                   prevF.fechaHasta !== fechaHasta ||
+                   prevF.refreshKey !== refreshKey ||
+                   !initialLoadDone.current;
+    
+    // Actualizar los filtros previos
+    prevFilters.current = { faenaSeleccionada, fechaDesde, fechaHasta, refreshKey };
+    return changed;
+  };
+
   useEffect(() => {
-    // Simular carga de datos
-    setTimeout(() => {
-      setCategorias(datosEjemplo.categorias);
-      setLoading(false);
-    }, 1000);
+    // Establecer el ref a true cuando se monta el componente
+    isMounted.current = true;
+    
+    // Limpiar cuando se desmonta
+    return () => {
+      isMounted.current = false;
+    };
   }, []);
 
-  // Función para cargar datos reales desde tu API
-  const cargarDatosReales = async (fechaInicio, fechaFin) => {
+  // Función para cargar datos de categorías desde tu API
+  const cargarDatosCategorias = async () => {
+    if (!isMounted.current) return;
+    
     try {
       setLoading(true);
-      // Aquí harías la llamada a tu endpoint
-      const response = await fetch('/api/consumo-categorias/analizar-general', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fecha_inicio: fechaInicio,
-          fecha_fin: fechaFin,
-          incluir_simulacion: true,
-          incluir_sabados: true,
-          incluir_domingos: false
-        })
+      setError(null);
+      
+      // Verificar que las fechas estén presentes
+      if (!fechaDesde || !fechaHasta) {
+        setError("Por favor, seleccione un rango de fechas válido.");
+        setCategorias([]);
+        setLoading(false);
+        return;
+      }
+
+      // Asegúrate de que la fecha 'Hasta' no sea anterior a 'Desde'
+      if (new Date(fechaDesde) > new Date(fechaHasta)) {
+        setError("La fecha 'Hasta' no puede ser anterior a la fecha 'Desde'.");
+        setCategorias([]);
+        setLoading(false);
+        return;
+      }
+
+      console.log("ConsumptionPieChart: Cargando categorías con filtros:", { 
+        faenaSeleccionada, 
+        fechaDesde, 
+        fechaHasta 
       });
       
-      const data = await response.json();
+      // Llamada a tu API usando el endpoint de informes KPI
+      const response = await axios.get('/api/informes-kpi', {
+        params: {
+          tipo: 'consumo_equipos',
+          faena: faenaSeleccionada,
+          desde: fechaDesde,
+          hasta: fechaHasta
+        }
+      });
       
-      // Procesar datos de la respuesta
-      const categoriasData = data.categorias.map(cat => ({
-        id: cat.categoria.id,
-        nombre: cat.categoria.nombre,
-        consumo_total: cat.resumen_categoria.consumo_total_litros,
-        maquinas_count: cat.resumen_categoria.maquinas_procesadas
-      }));
+      // Solo actualizar el estado si el componente sigue montado
+      if (!isMounted.current) return;
       
-      setCategorias(categoriasData);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error cargando datos:', error);
-      setLoading(false);
+      // Verificar si hay datos en la respuesta
+      if (response.data && response.data.data && response.data.data.rendimiento_por_tipo) {
+        const categoriasData = response.data.data.rendimiento_por_tipo.map(categoria => ({
+          id: categoria.tipo.toLowerCase().replace(/\s+/g, '_'), // Crear ID único
+          nombre: categoria.tipo,
+          consumo_total: parseFloat(categoria.litros_consumidos || 0),
+          maquinas_count: Math.round(categoria.total_unidades || 0),
+          valor_consumo: parseFloat(categoria.valor_consumo || 0),
+          litros_por_unidad: parseFloat(categoria.litros_por_unidad || 0),
+          tipo_medicion: categoria.tipo_medicion,
+          unidad: categoria.unidad,
+          name: categoria.tipo,
+          value: parseFloat(categoria.litros_consumidos || 0)
+        }));
+
+        setCategorias(categoriasData);
+        setError(null);
+      } else {
+        setCategorias([]);
+        setError("No hay datos de categorías disponibles para mostrar");
+      }
+    } catch (err) {
+      console.error("Error al cargar datos de categorías:", err);
+      if (isMounted.current) {
+        setCategorias([]);
+        setError("No se pudieron cargar los datos de categorías. Por favor verifica la conexión con el servidor.");
+      }
+    } finally {
+      if (isMounted.current) {
+        setLoading(false);
+        initialLoadDone.current = true;
+      }
     }
   };
 
-  const handleCategoriaClick = (data) => {
-    setSelectedCategoria(data);
-    setMaquinas(datosEjemplo.maquinasPorCategoria[data.id] || []);
-    setViewMode('maquinas');
+  // Función para cargar máquinas de una categoría específica
+  const cargarMaquinasPorCategoria = async (categoria) => {
+    if (!isMounted.current) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log("ConsumptionPieChart: Cargando máquinas para categoría:", categoria.nombre);
+      
+      // Obtener máquinas desde el endpoint de consumo por máquina
+      const response = await axios.get('/api/informes-kpi', {
+        params: {
+          tipo: 'consumo_equipos',
+          faena: faenaSeleccionada,
+          desde: fechaDesde,
+          hasta: fechaHasta
+        }
+      });
+      
+      if (!isMounted.current) return;
+      
+      if (response.data && response.data.data && response.data.data.consumo_por_maquina) {
+        // Filtrar máquinas que pertenezcan a la categoría seleccionada
+        // Nota: Como no tenemos el id_categoria en la respuesta, filtraremos por nombre aproximado
+        const todasLasMaquinas = response.data.data.consumo_por_maquina;
+        
+        // Filtrar máquinas que contengan palabras de la categoría seleccionada
+        const palabrasCategoria = categoria.nombre.toLowerCase().split(' ');
+        const maquinasFiltradas = todasLasMaquinas.filter(maquina => {
+          const nombreMaquina = (maquina.nombre_maquina || '').toLowerCase();
+          return palabrasCategoria.some(palabra => nombreMaquina.includes(palabra));
+        });
+
+        const maquinasData = maquinasFiltradas.map(maquina => ({
+          id: maquina.id_maquina,
+          nombre: maquina.nombre_maquina || 'Sin nombre',
+          patente: maquina.patente || 'S/P',
+          consumo: parseFloat(maquina.litros_consumidos || 0),
+          valor_consumo: parseFloat(maquina.valor_consumo || 0),
+          precio_promedio: parseFloat(maquina.precio_promedio || 0),
+          name: maquina.nombre_maquina || 'Sin nombre',
+          value: parseFloat(maquina.litros_consumidos || 0)
+        }));
+
+        setMaquinas(maquinasData);
+        setError(null);
+      } else {
+        setMaquinas([]);
+        setError("No hay máquinas disponibles para esta categoría");
+      }
+    } catch (err) {
+      console.error("Error al cargar datos de máquinas:", err);
+      if (isMounted.current) {
+        setMaquinas([]);
+        setError("No se pudieron cargar los datos de máquinas.");
+      }
+    } finally {
+      if (isMounted.current) {
+        setLoading(false);
+      }
+    }
   };
 
+  // Effect para cargar datos cuando cambian los filtros
+  useEffect(() => {
+    if (filtersChanged()) {
+      cargarDatosCategorias();
+      // Reset al modo de categorías cuando cambian los filtros
+      setViewMode('categorias');
+      setSelectedCategoria(null);
+      setMaquinas([]);
+    }
+  }, [faenaSeleccionada, fechaDesde, fechaHasta, refreshKey]);
+
+  // Función para manejar click en categoría
+  const handleCategoriaClick = async (data) => {
+    setSelectedCategoria(data);
+    setViewMode('maquinas');
+    await cargarMaquinasPorCategoria(data);
+  };
+
+  // Función para volver a las categorías
   const handleBackToCategories = () => {
     setSelectedCategoria(null);
     setMaquinas([]);
     setViewMode('categorias');
   };
 
-  const formatearTooltip = (value, name, props) => {
+  // Función para reintentar la carga
+  const handleRetry = () => {
+    setError(null);
     if (viewMode === 'categorias') {
-      return [
-        `${value.toFixed(1)} L`,
-        `${name} (${props.payload.maquinas_count} máquinas)`
-      ];
-    } else {
-      return [
-        `${value.toFixed(1)} L`,
-        `${name} - ${props.payload.patente}`
-      ];
+      cargarDatosCategorias();
+    } else if (selectedCategoria) {
+      cargarMaquinasPorCategoria(selectedCategoria);
     }
   };
 
+  // Tooltip personalizado
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
-      const data = payload[0];
+      const data = payload[0].payload;
       return (
-        <div className="bg-white p-3 border border-gray-300 rounded shadow-lg">
+        <div className="bg-white p-3 border border-gray-300 rounded-lg shadow-lg">
           <p className="font-semibold text-gray-800">
-            {viewMode === 'categorias' ? data.payload.nombre : data.payload.nombre}
+            {viewMode === 'categorias' ? data.nombre : data.nombre}
           </p>
-          <p className="text-blue-600">
-            Consumo: {data.value.toFixed(1)} L
+          <p className="text-orange-600 font-medium">
+            Consumo: {data.value.toLocaleString('es-CL')} L
           </p>
-          {viewMode === 'categorias' && (
-            <p className="text-gray-600">
-              Máquinas: {data.payload.maquinas_count}
+          {viewMode === 'categorias' && data.maquinas_count && (
+            <p className="text-gray-600 text-sm">
+              Máquinas activas: {data.maquinas_count}
             </p>
           )}
-          {viewMode === 'maquinas' && (
-            <p className="text-gray-600">
-              Patente: {data.payload.patente}
+          {viewMode === 'maquinas' && data.patente && (
+            <p className="text-gray-600 text-sm">
+              Patente: {data.patente}
+            </p>
+          )}
+          {data.valor_consumo && (
+            <p className="text-green-600 text-sm">
+              Valor: ${data.valor_consumo.toLocaleString('es-CL')}
             </p>
           )}
         </div>
@@ -153,31 +269,49 @@ const ConsumptionPieChart = () => {
     return null;
   };
 
+  // Datos actuales según el modo de vista
+  const currentData = viewMode === 'categorias' ? categorias : maquinas;
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
+      <div className="h-96 flex items-center justify-center bg-gray-50 rounded-lg">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando datos de consumo...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando datos de consumo...</p>
         </div>
       </div>
     );
   }
 
-  const currentData = viewMode === 'categorias' 
-    ? categorias.map(cat => ({
-        ...cat,
-        name: cat.nombre,
-        value: cat.consumo_total
-      }))
-    : maquinas.map(maq => ({
-        ...maq,
-        name: maq.nombre,
-        value: maq.consumo
-      }));
+  if (error) {
+    return (
+      <div className="h-96 flex flex-col items-center justify-center text-center bg-red-50 rounded-lg border border-red-200">
+        <FiAlertTriangle size={40} className="text-red-500 mb-4" />
+        <div className="text-red-700 mb-4">{error}</div>
+        <button
+          onClick={handleRetry}
+          className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors flex items-center"
+        >
+          <FiRefreshCw className="mr-2" /> Reintentar
+        </button>
+      </div>
+    );
+  }
+
+  if (currentData.length === 0) {
+    return (
+      <div className="h-96 flex items-center justify-center bg-gray-50 rounded-lg border border-gray-200">
+        <div className="text-center">
+          <FiPieChart size={40} className="text-gray-400 mb-4 mx-auto" />
+          <p className="text-gray-500">No hay datos disponibles para el período seleccionado</p>
+          <p className="text-sm text-gray-400 mt-2">Intente modificar los filtros de fecha o faena</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full  p-6 bg-white rounded-lg shadow-lg">
+    <div className="w-full p-6 bg-white rounded-lg shadow-lg">
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-bold text-gray-800">
@@ -191,37 +325,52 @@ const ConsumptionPieChart = () => {
               onClick={handleBackToCategories}
               className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors flex items-center gap-2"
             >
-              ← Volver a Categorías
+              <FiArrowLeft /> Volver a Categorías
             </button>
           )}
         </div>
 
         {/* Información del conjunto de datos */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-blue-50 p-4 rounded">
-            <h3 className="font-semibold text-blue-800">Total Consumo</h3>
-            <p className="text-2xl font-bold text-blue-600">
-              {currentData.reduce((sum, item) => sum + item.value, 0).toFixed(1)} L
-            </p>
+          <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+            <div className="flex items-center">
+              <FiActivity className="text-orange-600 mr-3" size={24} />
+              <div>
+                <h3 className="font-semibold text-orange-800">Total Consumo</h3>
+                <p className="text-2xl font-bold text-orange-600">
+                  {currentData.reduce((sum, item) => sum + item.value, 0).toLocaleString('es-CL')} L
+                </p>
+              </div>
+            </div>
           </div>
           
-          <div className="bg-green-50 p-4 rounded">
-            <h3 className="font-semibold text-green-800">
-              {viewMode === 'categorias' ? 'Categorías' : 'Máquinas'}
-            </h3>
-            <p className="text-2xl font-bold text-green-600">
-              {currentData.length}
-            </p>
+          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+            <div className="flex items-center">
+              <FiBarChart2 className="text-blue-600 mr-3" size={24} />
+              <div>
+                <h3 className="font-semibold text-blue-800">
+                  {viewMode === 'categorias' ? 'Categorías' : 'Máquinas'}
+                </h3>
+                <p className="text-2xl font-bold text-blue-600">
+                  {currentData.length}
+                </p>
+              </div>
+            </div>
           </div>
           
-          <div className="bg-purple-50 p-4 rounded">
-            <h3 className="font-semibold text-purple-800">Promedio</h3>
-            <p className="text-2xl font-bold text-purple-600">
-              {currentData.length > 0 
-                ? (currentData.reduce((sum, item) => sum + item.value, 0) / currentData.length).toFixed(1)
-                : 0
-              } L
-            </p>
+          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+            <div className="flex items-center">
+              <FiPieChart className="text-green-600 mr-3" size={24} />
+              <div>
+                <h3 className="font-semibold text-green-800">Promedio</h3>
+                <p className="text-2xl font-bold text-green-600">
+                  {currentData.length > 0 
+                    ? (currentData.reduce((sum, item) => sum + item.value, 0) / currentData.length).toLocaleString('es-CL')
+                    : 0
+                  } L
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -236,7 +385,9 @@ const ConsumptionPieChart = () => {
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
+                label={({name, percent}) => 
+                  percent > 5 ? `${name} ${(percent * 100).toFixed(0)}%` : ''
+                }
                 outerRadius={120}
                 fill="#8884d8"
                 dataKey="value"
@@ -289,7 +440,7 @@ const ConsumptionPieChart = () => {
                             style={{ backgroundColor: COLORS[index % COLORS.length] }}
                           ></div>
                           <span className="font-medium">{item.name}</span>
-                          {viewMode === 'maquinas' && (
+                          {viewMode === 'maquinas' && item.patente && (
                             <span className="text-gray-500 text-xs">
                               ({item.patente})
                             </span>
@@ -297,7 +448,7 @@ const ConsumptionPieChart = () => {
                         </div>
                       </td>
                       <td className="p-2 text-right font-mono">
-                        {item.value.toFixed(1)}
+                        {item.value.toLocaleString('es-CL')}
                       </td>
                       <td className="p-2 text-right font-mono">
                         {percentage.toFixed(1)}%
@@ -311,10 +462,26 @@ const ConsumptionPieChart = () => {
         </div>
       </div>
 
+      {/* Información del período */}
+      <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-600">
+            Período: {new Date(fechaDesde).toLocaleDateString('es-CL')} - {new Date(fechaHasta).toLocaleDateString('es-CL')}
+          </span>
+          <span className="text-gray-600">
+            Faena: {faenaSeleccionada === 'todas' ? 'Todas las faenas' : 
+                   faenaSeleccionada === '1' ? 'Cabildo' :
+                   faenaSeleccionada === '2' ? 'Catemu' :
+                   faenaSeleccionada === '3' ? 'Chincolco' :
+                   faenaSeleccionada === '4' ? 'Tiltil' : faenaSeleccionada}
+          </span>
+        </div>
+      </div>
+
       {/* Instrucciones */}
       {viewMode === 'categorias' && (
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-          <p className="text-blue-800">
+        <div className="mt-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
+          <p className="text-orange-800">
             💡 <strong>Tip:</strong> Haz clic en cualquier categoría del gráfico o la tabla para ver el detalle de las máquinas que la componen.
           </p>
         </div>
