@@ -1,3 +1,5 @@
+// TopEquiposChart.jsx - Mejorado para ancho completo
+
 import React, { useState, useEffect, useRef } from "react";
 import {
   BarChart,
@@ -8,8 +10,10 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  LabelList,
+  Cell,
 } from "recharts";
-import { FiTruck, FiAlertTriangle, FiRefreshCw } from "react-icons/fi";
+import { FiTruck, FiAlertTriangle, FiRefreshCw, FiBarChart2, FiActivity } from "react-icons/fi";
 import { consumoService } from "../../context/apiService";
 
 const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey }) => {
@@ -17,6 +21,7 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
   const [equiposData, setEquiposData] = useState([]);
   const [error, setError] = useState(null);
   const [totalConsumo, setTotalConsumo] = useState(0);
+  const [totalHoras, setTotalHoras] = useState(0);
   const [fechaActualizacion, setFechaActualizacion] = useState(null);
   
   // Usar useRef para evitar llamadas innecesarias a la API
@@ -25,7 +30,7 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
   const prevFilters = useRef({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey });
   
   const NARANJA_PRINCIPAL = "#f97316"; // Orange-500
-  const AZUL_SECUNDARIO = "#60a5fa"; // Blue-400
+  const AZUL_SECUNDARIO = "#3b82f6"; // Blue-500 - cambiado para mejor contraste
   
   // Función para verificar si los filtros han cambiado realmente
   const filtersChanged = () => {
@@ -51,6 +56,29 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
     };
   }, []);
   
+  // 🆕 Función para renderizar etiquetas personalizadas
+  const renderCustomLabel = (props, tipo) => {
+    const { x, y, width, height, value } = props;
+    
+    if (!value || value === 0) return null;
+    
+    const labelX = x + width / 2;
+    const labelY = y - 5; // Posición sobre la barra
+    
+    return (
+      <text
+        x={labelX}
+        y={labelY}
+        textAnchor="middle"
+        dominantBaseline="bottom"
+        fill={tipo === 'consumo' ? '#dc2626' : '#1e40af'}
+        fontSize="11"
+        fontWeight="600"
+      >
+        {value.toLocaleString('es-CL')}{tipo === 'consumo' ? 'L' : 'h'}
+      </text>
+    );
+  };
   // 🔧 FUNCIÓN AUXILIAR: Formatear números grandes de manera elegante
   const formatearNumero = (numero) => {
     if (numero >= 1000000) {
@@ -108,10 +136,15 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
             id: item.id || `EQ-${Math.floor(Math.random() * 1000)}`
           }))
           // 🆕 ORDENAMIENTO: De mayor a menor consumo
-          .sort((a, b) => b.consumo - a.consumo);
+          .sort((a, b) => b.consumo - a.consumo)
+          // 🆕 LIMITAR A TOP 15 PARA MEJOR VISUALIZACIÓN
+          .slice(0, 15);
 
         const total = formattedData.reduce((sum, item) => sum + item.consumo, 0);
+        const totalH = formattedData.reduce((sum, item) => sum + item.horas, 0);
+        
         setTotalConsumo(total);
+        setTotalHoras(totalH);
         setFechaActualizacion(new Date());
         setEquiposData(formattedData);
         setError(null);
@@ -132,135 +165,130 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
       }
     }
   };
-  
+
+  // Effect para cargar datos cuando cambian los filtros
   useEffect(() => {
-    // Siempre cargar datos en la primera renderización o cuando los filtros cambien
     if (filtersChanged()) {
       loadData();
     }
   }, [faenaSeleccionada, fechaDesde, fechaHasta, refreshKey]);
 
-  // 🔧 TOOLTIP MEJORADO con formateo consistente para números grandes
+  // Función para reintentar la carga
+  const handleRetry = () => {
+    setError(null);
+    loadData();
+  };
+
+  // 🆕 Tooltip personalizado mejorado
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
-      
       return (
-        <div className="bg-white p-3 border border-gray-200 shadow-lg rounded">
-          <p className="font-bold text-gray-800">{data.name}</p>
-          <p className="text-sm text-gray-600">Patente: {data.patente}</p>
-          <p className="text-orange-500">
-            Consumo: {formatearNumero(data.consumo)} litros
-          </p>
-          {payload.length > 1 && data.horas > 0 && (
-            <p className="text-blue-500">
-              Horas: {formatearNumero(data.horas)} hrs
-            </p>
-          )}
-          {data.eficiencia && (
-            <p className="text-green-600 text-sm mt-1">
-              Eficiencia: {data.eficiencia} L/hr
-            </p>
-          )}
+        <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-lg">
+          <p className="font-semibold text-gray-800 mb-2">{label}</p>
+          <p className="text-sm text-gray-600 mb-1">Patente: {data.patente}</p>
+          <div className="space-y-1">
+            {payload.map((entry, index) => (
+              <div key={index} className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <div 
+                    className="w-3 h-3 rounded-full mr-2"
+                    style={{ backgroundColor: entry.color }}
+                  ></div>
+                  <span className="text-sm text-gray-700">{entry.dataKey === 'consumo' ? 'Consumo' : 'Horas'}:</span>
+                </div>
+                <span className="font-medium ml-2">
+                  {entry.dataKey === 'consumo' 
+                    ? `${entry.value.toLocaleString()} L` 
+                    : `${entry.value.toLocaleString()} hrs`
+                  }
+                </span>
+              </div>
+            ))}
+            {data.eficiencia && (
+              <div className="pt-2 border-t border-gray-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">Eficiencia:</span>
+                  <span className="font-medium text-orange-600">{data.eficiencia} L/hr</span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       );
     }
     return null;
   };
 
-  const handleRetry = () => {
-    setLoading(true);
-    setError(null);
-    loadData();
-  };
-
-  if (loading) {
-    return (
-      <div className="bg-white rounded-lg shadow-md p-4 mb-4">
-        <div className="text-xl font-bold mb-4 text-gray-800 flex items-center">
-          <FiTruck className="mr-2" size={20} />
-          Equipos con Mayor Consumo de Diésel
-        </div>
-        <div className="h-80 flex items-center justify-center">
-          <div className="flex flex-col items-center">
-            <div className="animate-spin text-orange-500 mb-3">
-              <FiRefreshCw size={30} />
-            </div>
-            <div className="text-gray-500">Cargando datos...</div>
-          </div>
+  // 🆕 Estadísticas resumidas en la parte superior
+  const StatCard = ({ icon: Icon, title, value, color = "text-gray-700", bgColor = "bg-gray-50" }) => (
+    <div className={`${bgColor} rounded-lg p-4 border border-gray-200`}>
+      <div className="flex items-center">
+        <Icon className={`${color} mr-3`} size={20} />
+        <div>
+          <p className="text-sm text-gray-600">{title}</p>
+          <p className={`text-lg font-semibold ${color}`}>{value}</p>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-4 mb-4">
-      <div className="flex justify-between items-center mb-4">
-        <div className="text-xl font-bold text-gray-800 flex items-center">
-          <FiTruck className="mr-2" size={20} />
-          Equipos con Mayor Consumo de Diésel
-          {faenaSeleccionada !== 'todas' && (
-            <span className="ml-2 text-sm font-normal text-gray-500">
-              (Faena: {
-                faenaSeleccionada === '1' ? 'Cabildo' :
-                faenaSeleccionada === '2' ? 'Catemu' :
-                faenaSeleccionada === '3' ? 'Chincolco' :
-                faenaSeleccionada === '4' ? 'Tiltil' : faenaSeleccionada
-              })
-            </span>
-          )}
-        </div>
-        {!error && equiposData.length > 0 && (
-          <div className="flex items-center space-x-2">
-            <span className="inline-block w-3 h-3 bg-orange-500 rounded-full"></span>
-            <span className="text-xs text-gray-600">Consumo (litros)</span>
-            
-            <span className="inline-block w-3 h-3 bg-blue-400 rounded-full ml-2"></span>
-            <span className="text-xs text-gray-600">Horas operadas</span>
-          </div>
-        )}
-      </div>
+    <div className="w-full">
       
-      {error ? (
-        <div className="h-64 flex flex-col items-center justify-center text-center">
-          <FiAlertTriangle size={40} className="text-orange-500 mb-4" />
-          <div className="text-gray-600">{error}</div>
+      {loading ? (
+        <div className="h-96 flex items-center justify-center bg-gray-50 rounded-lg">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+            <p className="text-gray-600">Cargando datos de equipos...</p>
+          </div>
+        </div>
+      ) : error ? (
+        <div className="h-96 flex flex-col items-center justify-center text-center bg-red-50 rounded-lg border border-red-200">
+          <FiAlertTriangle size={40} className="text-red-500 mb-4" />
+          <div className="text-red-700 mb-4">{error}</div>
           <button
             onClick={handleRetry}
-            className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors flex items-center"
+            className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors flex items-center"
           >
             <FiRefreshCw className="mr-2" /> Reintentar
           </button>
         </div>
       ) : equiposData.length === 0 ? (
-        <div className="h-64 flex items-center justify-center">
-          <div className="text-gray-500">No hay datos disponibles</div>
+        <div className="h-96 flex items-center justify-center bg-gray-50 rounded-lg border border-gray-200">
+          <div className="text-center">
+            <FiTruck size={40} className="text-gray-400 mb-4 mx-auto" />
+            <p className="text-gray-500">No hay datos disponibles para el período seleccionado</p>
+            <p className="text-sm text-gray-400 mt-2">Intente modificar los filtros de fecha o faena</p>
+          </div>
         </div>
       ) : (
         <>
-          <div className="bg-white rounded-lg">
-            {/* 🆕 GRÁFICO MEJORADO: Barras más grandes, altura aumentada, mejor espaciado */}
-            <ResponsiveContainer width="100%" height={350}>
+          <div className="bg-white rounded-lg border border-gray-200">
+            {/* 🆕 GRÁFICO MEJORADO: Valores más claros y etiquetas sobre barras */}
+            <ResponsiveContainer width="100%" height={450}>
               <BarChart 
                 data={equiposData}
-                margin={{ top: 20, right: 20, left: 30, bottom: 60 }}
-                barGap={6} // 🆕 Poco más de espacio entre barras
-                barCategoryGap="20%" // 🆕 Mejor espaciado entre categorías
+                margin={{ top: 40, right: 30, left: 20, bottom: 100 }}
+                barGap={10}
+                barCategoryGap="20%"
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                <CartesianGrid strokeDasharray="2 2" stroke="#e5e7eb" vertical={false} />
                 <XAxis 
                   dataKey="name" 
-                  tick={{ fill: '#666', fontSize: 11 }}
-                  axisLine={{ stroke: '#ddd' }}
+                  tick={{ fill: '#374151', fontSize: 11, fontWeight: 500 }}
+                  axisLine={{ stroke: '#d1d5db', strokeWidth: 1 }}
+                  tickLine={{ stroke: '#d1d5db' }}
                   interval={0}
                   angle={-45}
                   textAnchor="end"
-                  height={80} // 🆕 Más altura para labels inclinados
+                  height={100}
                 />
-                {/* 🆕 EJE Y MEJORADO con formateo para números grandes */}
+                {/* 🆕 EJE Y MÁS CLARO con mejor contraste */}
                 <YAxis 
-                  tick={{ fill: '#666', fontSize: 12 }}
-                  axisLine={{ stroke: '#ddd' }}
+                  tick={{ fill: '#374151', fontSize: 12, fontWeight: 500 }}
+                  axisLine={{ stroke: '#d1d5db', strokeWidth: 1 }}
+                  tickLine={{ stroke: '#d1d5db' }}
                   tickFormatter={(value) => {
                     if (value >= 1000000) {
                       return `${(value / 1000000).toFixed(1)}M`;
@@ -270,24 +298,61 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
                     }
                     return value.toLocaleString('es-CL');
                   }}
-                  width={80} // 🆕 Más ancho para números grandes
-                  domain={[0, 'dataMax + 50']}
+                  width={80}
+                  domain={[0, 'dataMax + 200']}
                 />
                 <Tooltip content={<CustomTooltip />} />
-                <Legend verticalAlign="top" height={36} />
-                {/* 🆕 BARRAS MÁS GRANDES */}
+                <Legend 
+                  verticalAlign="top" 
+                  height={36}
+                  iconType="rect"
+                  wrapperStyle={{
+                    paddingBottom: '20px',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                />
+                {/* 🆕 BARRAS CON ETIQUETAS DE VALORES USANDO LABELLIST */}
                 <Bar 
                   dataKey="consumo" 
                   fill={NARANJA_PRINCIPAL}
-                  maxBarSize={50} // 🆕 Barras más anchas (antes era automático)
-                />
+                  name="Consumo (Litros)"
+                  maxBarSize={65}
+                  radius={[3, 3, 0, 0]}
+                >
+                  <LabelList 
+                    dataKey="consumo" 
+                    position="top" 
+                    content={(props) => renderCustomLabel(props, 'consumo')}
+                  />
+                </Bar>
                 <Bar 
                   dataKey="horas" 
                   fill={AZUL_SECUNDARIO}
-                  maxBarSize={50} // 🆕 Barras más anchas (antes era automático)
-                />
+                  name="Horas Trabajadas"
+                  maxBarSize={65}
+                  radius={[3, 3, 0, 0]}
+                >
+                  <LabelList 
+                    dataKey="horas" 
+                    position="top" 
+                    content={(props) => renderCustomLabel(props, 'horas')}
+                  />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
+          </div>
+
+          {/* 🆕 INFORMACIÓN ADICIONAL - SIMPLIFICADA */}
+          <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">
+                Período: {new Date(fechaDesde).toLocaleDateString('es-CL')} - {new Date(fechaHasta).toLocaleDateString('es-CL')}
+              </span>
+              <span className="text-gray-600">
+                Mostrando top {equiposData.length} equipos
+              </span>
+            </div>
           </div>
         </>
       )}

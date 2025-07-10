@@ -252,7 +252,7 @@ const Graficos = ({ children }) => {
                         </>
                     )}
 
-                    {/* Vista de gráficos */}
+                    {/* Vista de gráficos - LAYOUT MEJORADO CON TOP CHART ANCHO COMPLETO */}
                     {vistaActiva === "graficos" && (
                         <>
                             <div className="mt-6">
@@ -262,7 +262,8 @@ const Graficos = ({ children }) => {
                                         Visualización de Datos
                                     </h3>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* 🆕 TOP EQUIPOS CHART - ANCHO COMPLETO */}
+                                    <div className="mb-6">
                                         <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
                                             <h4 className="text-sm font-medium text-gray-700 mb-3">
                                                 Top Equipos por Consumo
@@ -278,7 +279,10 @@ const Graficos = ({ children }) => {
                                                 />
                                             )}
                                         </div>
+                                    </div>
 
+                                    {/* 🆕 OTROS GRÁFICOS EN GRID 2x1 */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                                         <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
                                             <h4 className="text-sm font-medium text-gray-700 mb-3">
                                                 Consumo por Faena
@@ -295,9 +299,25 @@ const Graficos = ({ children }) => {
                                                 />
                                             )}
                                         </div>
+
+                                        {/* ESPACIO PARA FUTURO GRÁFICO */}
+                                        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                                            <h4 className="text-sm font-medium text-gray-700 mb-3">
+                                                Análisis Adicional
+                                            </h4>
+                                            <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                                                <div className="text-center">
+                                                    <FiPieChart className="mx-auto text-gray-400 mb-2" size={32} />
+                                                    <p className="text-gray-500 text-sm">
+                                                        Próximo gráfico en desarrollo
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    <div className="mt-6 bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                                    {/* 🆕 TENDENCIA - ANCHO COMPLETO */}
+                                    <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
                                         <h4 className="text-sm font-medium text-gray-700 mb-3">
                                             Tendencia de Consumo
                                         </h4>

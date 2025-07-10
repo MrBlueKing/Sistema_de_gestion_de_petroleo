@@ -281,7 +281,7 @@ class PDFService {
     return yPosition;
   }
 
-  // 🆕 TABLA ARMONIOSA CON DISEÑO EQUILIBRADO
+  // 🆕 TABLA ARMONIOSA CON DISEÑO EQUILIBRADO - ¡MEJORADO!
   addHarmoniousTableWithPagination(doc, consumos, startY) {
     if (!consumos || consumos.length === 0) {
       // Estado vacío elegante
@@ -306,38 +306,34 @@ class PDFService {
     let recordsOnCurrentPage = 0;
     let pageStartRecord = 1;
 
-    // 🔧 DISTRIBUCIÓN ARMONIOSA DE COLUMNAS - ANCHO COMPLETO Y EQUILIBRADO
+    // 🔧 DISTRIBUCIÓN OPTIMIZADA - MEDICIÓN MÁS ANGOSTA Y ESPACIO REDISTRIBUIDO
     const cols = {
-      fechaHora: 18,       // 24mm - Fecha/Hora
-      equipo: 44,          // 38mm - Equipo (bien espaciado)
-      patente: 84,         // 24mm - Patente  
-      litros: 110,         // 22mm - Litros
-      solicitante: 134,    // 44mm - Solicitante (generoso)
-      rut: 180,            // 20mm - RUT
-      estanque: 202,       // 38mm - Estanques (bien espaciado)
-      medicion: 242        // 28mm - Medición
+      fechaHora: 18,       // 28mm - Fecha/Hora (+4mm)
+      equipo: 48,          // 45mm - Equipo (+5mm)
+      litros: 95,          // 32mm - Litros (+4mm)
+      solicitante: 129,    // 60mm - Solicitante (+5mm)
+      estanque: 191,       // 55mm - Estanques (+5mm)
+      medicion: 248        // 25mm - Medición (más angosta)
     };
 
-    // 🆕 DEFINIR ANCHOS DE COLUMNA PARA CENTRADO PERFECTO
+    // 🆕 DEFINIR ANCHOS DE COLUMNA PARA ALINEACIÓN CORRECTA
     const colWidths = {
-      fechaHora: 24,
-      equipo: 38,
-      patente: 24,
-      litros: 22,
-      solicitante: 44,
-      rut: 20,
-      estanque: 38,
-      medicion: 28
+      fechaHora: 28,       // +4mm redistribuido
+      equipo: 45,          // +5mm redistribuido
+      litros: 32,          // +4mm redistribuido
+      solicitante: 60,     // +5mm redistribuido
+      estanque: 55,        // +5mm redistribuido
+      medicion: 25         // 🔧 CAMBIO: Más angosta (de 35 a 25, -10mm total)
     };
 
     // Header de tabla armonioso
     this.addCleanTableHeader(doc, cols, colWidths, yPosition);
     yPosition += 12;
 
-    // Configuración de tabla
+    // 🔧 CONFIGURACIÓN DE TABLA - LETRA MÁS GRANDE
     doc.setFont(undefined, 'normal');
     doc.setTextColor(...this.colors.darkGray);
-    doc.setFontSize(8);
+    doc.setFontSize(9); // 🔧 CAMBIO: De 8 a 9 (letra más grande)
 
     consumos.forEach((consumo, index) => {
       // Control de página mejorado
@@ -357,13 +353,13 @@ class PDFService {
 
         doc.setFont(undefined, 'normal');
         doc.setTextColor(...this.colors.darkGray);
-        doc.setFontSize(8);
+        doc.setFontSize(9); // 🔧 CAMBIO: Letra más grande
       }
 
       recordsOnCurrentPage++;
 
       const isMultipleStanques = consumo.cantidad_estanques > 1;
-      const rowHeight = isMultipleStanques ? 10 : 8;
+      const rowHeight = isMultipleStanques ? 16 : 8;
 
       // Fondo alternado sutil y elegante
       if (index % 2 === 0) {
@@ -387,7 +383,7 @@ class PDFService {
     this.addPagePaginationInfo(doc, pageStartRecord, pageEndRecord, yPosition + 10);
   }
 
-  // 🆕 HEADER DE TABLA LIMPIO Y PROFESIONAL
+  // 🆕 HEADER DE TABLA LIMPIO Y PROFESIONAL - CON LETRA MÁS GRANDE
   addCleanTableHeader(doc, cols, colWidths, yPosition) {
     // Fondo del header
     doc.setFillColor(...this.colors.primary);
@@ -399,10 +395,8 @@ class PDFService {
 
     const columnPositions = [
       cols.equipo - 1, 
-      cols.patente - 1, 
       cols.litros - 1,
       cols.solicitante - 1,
-      cols.rut - 1,
       cols.estanque - 1, 
       cols.medicion - 1
     ];
@@ -413,36 +407,42 @@ class PDFService {
 
     // Textos del header centrados
     doc.setTextColor(...this.colors.white);
-    doc.setFontSize(9);
+    doc.setFontSize(10); // 🔧 CAMBIO: De 9 a 10 (letra más grande)
     doc.setFont(undefined, 'bold');
 
     const headers = [
       { text: 'Fecha/Hora', col: 'fechaHora' },
       { text: 'Equipo', col: 'equipo' },
-      { text: 'Patente', col: 'patente' },
       { text: 'Litros', col: 'litros' },
       { text: 'Solicitante', col: 'solicitante' },
-      { text: 'RUT', col: 'rut' },
       { text: 'Estanque(s)', col: 'estanque' },
       { text: 'Medición', col: 'medicion' }
     ];
 
     headers.forEach(header => {
-      const textWidth = doc.getTextWidth(header.text);
-      const centerX = cols[header.col] + (colWidths[header.col] - textWidth) / 2;
-      doc.text(header.text, centerX, yPosition + 4);
+      if (header.col === 'medicion') {
+        // 🔧 NUEVO: Medición alineada a la derecha
+        const textWidth = doc.getTextWidth(header.text);
+        const rightAlignX = cols[header.col] + colWidths[header.col] - textWidth - 2;
+        doc.text(header.text, rightAlignX, yPosition + 4);
+      } else {
+        // Resto centrado como antes
+        const textWidth = doc.getTextWidth(header.text);
+        const centerX = cols[header.col] + (colWidths[header.col] - textWidth) / 2;
+        doc.text(header.text, centerX, yPosition + 4);
+      }
     });
   }
 
-  // 🆕 RENDERIZADO LIMPIO DE FILAS
+  // 🆕 RENDERIZADO OPTIMIZADO DE FILAS CON LETRA MÁS GRANDE Y MEDICIÓN A LA DERECHA
   renderCleanTableRow(doc, consumo, cols, colWidths, yPosition, isMultipleStanques) {
-    const centerY = yPosition + (isMultipleStanques ? 5 : 4);
+    const centerY = yPosition + (isMultipleStanques ? 8 : 4);
 
     // === FECHA/HORA CENTRADA ===
     const fechaCompacta = this.formatDateCompact(consumo.fecha_consumo);
     const horaCompacta = this.formatTimeCompact(consumo.fecha_consumo);
 
-    doc.setFontSize(8);
+    doc.setFontSize(9); // 🔧 CAMBIO: De 8 a 9 (letra más grande)
     doc.setFont(undefined, 'bold');
     doc.setTextColor(...this.colors.darkGray);
     
@@ -451,104 +451,131 @@ class PDFService {
     doc.text(fechaCompacta, fechaCenterX, centerY - 1);
     
     doc.setFont(undefined, 'normal');
-    doc.setFontSize(6);
+    doc.setFontSize(8); // 🔧 CAMBIO: De 7 a 8 (letra más grande)
     doc.setTextColor(...this.colors.gray);
     const horaWidth = doc.getTextWidth(horaCompacta);
     const horaCenterX = cols.fechaHora + (colWidths.fechaHora - horaWidth) / 2;
     doc.text(horaCompacta, horaCenterX, centerY + 2);
 
-    // === EQUIPO CENTRADO ===
-    doc.setTextColor(...this.colors.primaryDark);
-    doc.setFontSize(8);
+    // === EQUIPO ALINEADO A LA IZQUIERDA ===
+    doc.setTextColor(...this.colors.darkGray); // 🔧 CAMBIO: Color plomo en lugar de naranja
+    doc.setFontSize(9); // 🔧 CAMBIO: De 8 a 9 (letra más grande)
     doc.setFont(undefined, 'bold');
     const equipoNombre = consumo.nombre_maquina || 'N/A';
-    const equipoDisplay = this.smartTruncate(equipoNombre, 24);
-    const equipoWidth = doc.getTextWidth(equipoDisplay);
-    const equipoCenterX = cols.equipo + (colWidths.equipo - equipoWidth) / 2;
-    doc.text(equipoDisplay, equipoCenterX, centerY);
-
-    // === PATENTE CENTRADA ===
-    doc.setTextColor(...this.colors.darkGray);
-    doc.setFont(undefined, 'normal');
-    doc.setFontSize(8);
-    const patenteDisplay = this.smartTruncate(consumo.patente || 'N/A', 15);
-    const patenteWidth = doc.getTextWidth(patenteDisplay);
-    const patenteCenterX = cols.patente + (colWidths.patente - patenteWidth) / 2;
-    doc.text(patenteDisplay, patenteCenterX, centerY);
+    const equipoDisplay = this.smartTruncate(equipoNombre, 32); // 🔧 CAMBIO: Ajustado para nuevo ancho
+    doc.text(equipoDisplay, cols.equipo + 2, centerY);
 
     // === LITROS DESTACADOS Y CENTRADOS ===
-    doc.setTextColor(...this.colors.primary);
+    doc.setTextColor(...this.colors.primary); // 🔧 MANTENER: Color naranja
     doc.setFont(undefined, 'bold');
-    doc.setFontSize(9);
+    doc.setFontSize(10); // 🔧 CAMBIO: De 9 a 10 (letra más grande)
     const litrosText = `${this.formatNumber(consumo.litros_consumidos)} L`;
     const litrosWidth = doc.getTextWidth(litrosText);
     const litrosCenterX = cols.litros + (colWidths.litros - litrosWidth) / 2;
     doc.text(litrosText, litrosCenterX, centerY);
 
-    // === SOLICITANTE CENTRADO ===
-    doc.setTextColor(...this.colors.darkGray);
+    // === SOLICITANTE ALINEADO A LA IZQUIERDA ===
+    doc.setTextColor(...this.colors.darkGray); // 🔧 MANTENER: Color plomo
     doc.setFont(undefined, 'normal');
-    doc.setFontSize(8);
+    doc.setFontSize(9); // 🔧 CAMBIO: De 8 a 9 (letra más grande)
     const solicitanteNombre = consumo.solicitante_nombre || 'N/A';
-    const solicitanteDisplay = this.smartTruncate(solicitanteNombre, 28);
-    const solicitanteWidth = doc.getTextWidth(solicitanteDisplay);
-    const solicitanteCenterX = cols.solicitante + (colWidths.solicitante - solicitanteWidth) / 2;
-    doc.text(solicitanteDisplay, solicitanteCenterX, centerY);
+    const solicitanteDisplay = this.smartTruncate(solicitanteNombre, 40); // 🔧 CAMBIO: Ajustado para nuevo ancho
+    doc.text(solicitanteDisplay, cols.solicitante + 2, centerY);
 
-    // === RUT CENTRADO ===
-    const rutDisplay = this.formatRUT(consumo.id_dotacion);
-    doc.setFontSize(7);
-    const rutWidth = doc.getTextWidth(rutDisplay);
-    const rutCenterX = cols.rut + (colWidths.rut - rutWidth) / 2;
-    doc.text(rutDisplay, rutCenterX, centerY);
-    doc.setFontSize(8);
+    // === ESTANQUE CON MÚLTIPLES LÍNEAS Y MÁS ESPACIO ===
+    this.renderMultiLineEstanqueInfo(doc, consumo, cols.estanque, colWidths.estanque, yPosition, isMultipleStanques);
 
-    // === ESTANQUE CENTRADO ===
-    this.renderCleanEstanqueInfo(doc, consumo, cols.estanque, colWidths.estanque, centerY, isMultipleStanques);
-
-    // === MEDICIÓN CENTRADA ===
+    // === MEDICIÓN ALINEADA A LA DERECHA ===
     const medicionText = this.formatMedicion(consumo);
-    doc.setFontSize(7);
+    doc.setFontSize(9); // 🔧 CAMBIO: De 8 a 9 (letra más grande)
+    doc.setTextColor(...this.colors.primary); // 🔧 CAMBIO: Color naranja
+    doc.setFont(undefined, 'bold'); // 🔧 NUEVO: Bold para destacar como litros
     const medicionWidth = doc.getTextWidth(medicionText);
-    const medicionCenterX = cols.medicion + (colWidths.medicion - medicionWidth) / 2;
-    doc.text(medicionText, medicionCenterX, centerY);
+    // 🔧 NUEVO: Alinear a la derecha de la columna
+    const rightAlignX = cols.medicion + colWidths.medicion - medicionWidth - 2;
+    doc.text(medicionText, rightAlignX, centerY);
   }
 
-  // 🆕 RENDERIZADO LIMPIO DE ESTANQUES
-  renderCleanEstanqueInfo(doc, consumo, x, colWidth, centerY, isMultiple) {
-    const estanqueNombre = consumo.estanque || 'N/A';
+  // 🆕 RENDERIZADO DE ESTANQUES CON MÁS ESPACIO VERTICAL - LETRA MÁS GRANDE
+  renderMultiLineEstanqueInfo(doc, consumo, x, colWidth, yPosition, isMultiple) {
     const cantidad = consumo.cantidad_estanques || 1;
 
     if (cantidad > 1) {
-      // Múltiples estanques
-      doc.setTextColor(...this.colors.copper);
-      doc.setFont(undefined, 'bold');
-      doc.setFontSize(7);
-      const cantidadText = `${cantidad} Estanques`;
-      const cantidadWidth = doc.getTextWidth(cantidadText);
-      const cantidadCenterX = x + (colWidth - cantidadWidth) / 2;
-      doc.text(cantidadText, cantidadCenterX, centerY - 1);
-
-      // Nombre base
-      doc.setTextColor(...this.colors.darkGray);
-      doc.setFont(undefined, 'normal');
-      doc.setFontSize(6);
-      const nombreBase = this.cleanEstanqueName(estanqueNombre);
-      const nombreTruncado = this.smartTruncate(nombreBase, 24);
-      const nombreWidth = doc.getTextWidth(nombreTruncado);
-      const nombreCenterX = x + (colWidth - nombreWidth) / 2;
-      doc.text(nombreTruncado, nombreCenterX, centerY + 2);
+      // === MÚLTIPLES ESTANQUES - CON MÁS ESPACIO ===
+      
+      const estanques = this.getEstanquesList(consumo);
+      
+      // Mostrar cada estanque con mejor espaciado vertical
+      estanques.forEach((nombreEstanque, index) => {
+        if (index < 4) { // Máximo 4 líneas
+          const yLinePosition = yPosition + 3 + (index * 3.5);
+          
+          doc.setTextColor(...this.colors.darkGray);
+          doc.setFont(undefined, 'normal');
+          doc.setFontSize(8); // 🔧 CAMBIO: De 7 a 8 (letra más grande)
+          
+          const nombreLimpio = this.cleanEstanqueName(nombreEstanque);
+          const nombreTruncado = this.smartTruncate(nombreLimpio, 35); // 🔧 CAMBIO: Ajustado para nuevo ancho de estanque
+          const nombreWidth = doc.getTextWidth(nombreTruncado);
+          const nombreCenterX = x + (colWidth - nombreWidth) / 2;
+          
+          doc.text(nombreTruncado, nombreCenterX, yLinePosition);
+        }
+      });
+      
     } else {
-      // Estanque único
+      // === ESTANQUE ÚNICO CENTRADO ===
+      const estanqueNombre = consumo.estanque || 'N/A';
       const nombreLimpio = this.cleanEstanqueName(estanqueNombre);
-      const nombreFinal = this.smartTruncate(nombreLimpio, 24);
+      const nombreFinal = this.smartTruncate(nombreLimpio, 37); // 🔧 CAMBIO: Ajustado para nuevo ancho de estanque
       doc.setFont(undefined, 'normal');
-      doc.setFontSize(7);
+      doc.setFontSize(8); // 🔧 CAMBIO: De 7 a 8 (letra más grande)
       doc.setTextColor(...this.colors.darkGray);
       const nombreWidth = doc.getTextWidth(nombreFinal);
       const nombreCenterX = x + (colWidth - nombreWidth) / 2;
-      doc.text(nombreFinal, nombreCenterX, centerY);
+      doc.text(nombreFinal, nombreCenterX, yPosition + 4);
     }
+  }
+
+  // 🆕 FUNCIÓN PARA OBTENER LISTA REAL DE ESTANQUES - CON LIMPIEZA INDIVIDUAL
+  getEstanquesList(consumo) {
+    const estanqueNombre = consumo.estanque || 'N/A';
+    const cantidad = consumo.cantidad_estanques || 1;
+    
+    if (cantidad === 1) {
+      return [this.cleanEstanqueName(estanqueNombre)];
+    }
+    
+    // 🔧 DIVIDIR ESTANQUES POR SEPARADORES COMUNES
+    let estanques = [];
+    
+    // Buscar separadores comunes: " / ", " - ", " | ", " y ", " Y "
+    if (estanqueNombre.includes(' / ')) {
+      estanques = estanqueNombre.split(' / ');
+    } else if (estanqueNombre.includes(' - ')) {
+      estanques = estanqueNombre.split(' - ');
+    } else if (estanqueNombre.includes(' | ')) {
+      estanques = estanqueNombre.split(' | ');
+    } else if (estanqueNombre.includes(' y ')) {
+      estanques = estanqueNombre.split(' y ');
+    } else if (estanqueNombre.includes(' Y ')) {
+      estanques = estanqueNombre.split(' Y ');
+    } else {
+      // Si no hay separadores, intentar generar nombres basados en la cantidad
+      const nombreBase = estanqueNombre.replace(/\s*\d+\s*$/, '');
+      for (let i = 1; i <= Math.min(cantidad, 4); i++) {
+        estanques.push(`${nombreBase} ${i}`);
+      }
+    }
+    
+    // 🆕 LIMPIAR CADA ESTANQUE INDIVIDUALMENTE
+    estanques = estanques
+      .map(est => est.trim()) // Quitar espacios
+      .filter(est => est && est !== '') // Filtrar vacíos
+      .map(est => this.cleanEstanqueName(est)) // 🔧 LIMPIAR CADA UNO
+      .slice(0, 4); // Máximo 4 estanques
+    
+    return estanques;
   }
 
   // 🆕 NUEVA FUNCIÓN: INFORMACIÓN DE PAGINACIÓN POR PÁGINA
@@ -652,6 +679,11 @@ class PDFService {
     if (!nombre) return 'N/A';
     return nombre
       .replace(/Cabildo\s*(esta?\.?\.\.)?\s*/gi, 'Cabildo ')
+      .replace(/\s*\(\d+\s*estanq?\.*\.*\)/gi, '') // 🆕 QUITAR "(2 estanq..)" con puntos extra
+      .replace(/\s*\(\d+\s*est\.*\.*\)/gi, '')     // 🆕 QUITAR "(2 est..)" con puntos extra
+      .replace(/\s*\d+\s*estanq?\.*\.*$/gi, '')    // 🆕 QUITAR "2 estanq.." al final
+      .replace(/\s*\d+\s*est\.*\.*$/gi, '')        // 🆕 QUITAR "2 est.." al final
+      .replace(/\s*\(\d+\s*estanques?\)/gi, '')    // 🆕 QUITAR "(2 estanques)"
       .replace(/\s+/g, ' ')
       .trim();
   }
