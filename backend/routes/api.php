@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\BodegaController;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Api\CategoriaMaquinaController;
+use App\Http\Controllers\Api\CategoriasChartController;
 use App\Http\Controllers\Api\CombustibleController;
 use App\Http\Controllers\Api\ConsumoController;
 use App\Http\Controllers\Api\ConsumoProyeccionController;
@@ -573,6 +574,36 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/tonelajes/{id}/historial', [TonelajeController::class, 'getHistorial']);
     Route::get('/tonelajes/{id}/puede-editar', [TonelajeController::class, 'puedeEditar']);
     Route::get('/reporte/pdf', [ReporteController::class, 'generarPDF']);
+
+
+    // =====================================================
+    // RUTAS PARA PIECHART DE CATEGORÍAS Y MÁQUINAS
+    // =====================================================
+
+    Route::prefix('categorias-chart')->group(function () {
+
+        // Endpoint principal: datos para el piechart (categorías o máquinas según modo)
+        Route::post('/datos', [CategoriasChartController::class, 'obtenerDatosCategoriasChart'])
+            ->name('api.categorias-chart.datos');
+
+        // Endpoint específico: solo categorías (más rápido)
+        Route::post('/categorias', [CategoriasChartController::class, 'obtenerCategoriasResumen'])
+            ->name('api.categorias-chart.categorias');
+
+        // Endpoint específico: máquinas de una categoría (drill-down)
+        Route::post('/categorias/{idCategoria}/maquinas', [CategoriasChartController::class, 'obtenerMaquinasCategoria'])
+            ->name('api.categorias-chart.maquinas');
+
+        // Endpoint auxiliar: lista de todas las categorías disponibles
+        Route::get('/lista-categorias', [CategoriasChartController::class, 'obtenerListaCategorias'])
+            ->name('api.categorias-chart.lista');
+    });
+
+    // Rutas alternativas con nombres más cortos (opcional)
+    Route::prefix('chart')->group(function () {
+        Route::post('/categorias', [CategoriasChartController::class, 'obtenerCategoriasResumen']);
+        Route::post('/maquinas/{idCategoria}', [CategoriasChartController::class, 'obtenerMaquinasCategoria']);
+    });
 });
 
 // Rutas para consumos
