@@ -117,7 +117,7 @@ const ConsumoTendenciaChart = ({ data = [], faenaSeleccionada = 'todas' }) => {
         <div className="bg-white p-3 border border-gray-200 shadow-lg rounded">
           <p className="font-bold text-gray-800">{month}</p>
           <p className="text-orange-500">
-            Consumo: {formatearNumero(consumo)} litros
+            Consumo: {  (consumo)} litros
           </p>
         </div>
       );

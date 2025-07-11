@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   BarChart,
   Bar,
@@ -70,6 +70,46 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
       isMounted.current = false;
     };
   }, []);
+
+  // 🔧 NUEVA FUNCIÓN MEJORADA PARA CALCULAR DOMINIO Y - MEMOIZADA
+  const calcularDominioY = useMemo(() => {
+    if (!equiposData || equiposData.length === 0) {
+      console.log('🔍 Dominio Y - Sin datos, usando [0, 100]');
+      return [0, 100];
+    }
+    
+    const consumos = equiposData.map(d => d.consumo).filter(c => c > 0);
+    if (consumos.length === 0) {
+      console.log('🔍 Dominio Y - No hay consumos, usando [0, 100]');
+      return [0, 100];
+    }
+    
+    const maxConsumo = Math.max(...consumos);
+    const minConsumo = Math.min(...consumos);
+    
+    // 🔧 CÁLCULO MÁS PRECISO DEL MARGEN SUPERIOR
+    let margenSuperior;
+    if (maxConsumo <= 100) {
+      margenSuperior = Math.max(20, maxConsumo * 0.25); // Mínimo 20 para valores muy pequeños
+    } else if (maxConsumo <= 1000) {
+      margenSuperior = maxConsumo * 0.2; // 20% para valores medianos
+    } else {
+      margenSuperior = maxConsumo * 0.15; // 15% para valores grandes
+    }
+    
+    const maxCalculado = Math.ceil(maxConsumo + margenSuperior);
+    
+    console.log('🔍 Calculando dominio Y:', {
+      equiposCount: equiposData.length,
+      maxConsumo,
+      minConsumo,
+      margenSuperior,
+      maxCalculado,
+      dominio: [0, maxCalculado]
+    });
+    
+    return [0, maxCalculado];
+  }, [equiposData]); // 🔑 DEPENDENCIA: Se recalcula cuando cambian los datos filtrados
 
   // 🆕 Función para determinar el color de la barra según el rendimiento Y tipo de máquina
   const getBarColor = (item) => {
@@ -209,6 +249,8 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
         setEstadisticas(stats);
         setFechaActualizacion(new Date());
         setError(null);
+        
+        console.log('✅ Datos cargados exitosamente:', formattedData.length, 'equipos');
       } else {
         setEquiposCompletos([]);
         setEstadisticas({});
@@ -233,6 +275,7 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
   useEffect(() => {
     const datosProcesados = procesarDatos(equiposCompletos);
     setEquiposData(datosProcesados);
+    console.log('🔄 Datos procesados para visualización:', datosProcesados.length, 'equipos');
   }, [equiposCompletos, mostrarSinDatos, mostrarSoloConRendimiento, filtroTipoMaquina, filtroTipoMedicion, limiteMostrar, ordenamiento]);
 
   // Effect para cargar datos cuando cambian los filtros
@@ -388,24 +431,6 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
         {displayValue}
       </text>
     );
-  };
-
-  // 🆕 Función para calcular el dominio Y inteligente
-  const calcularDominioY = (datos) => {
-    if (!datos || datos.length === 0) return [0, 100];
-    
-    const consumos = datos.map(d => d.consumo).filter(c => c > 0);
-    if (consumos.length === 0) return [0, 100];
-    
-    const maxConsumo = Math.max(...consumos);
-    const minConsumo = Math.min(...consumos);
-    
-    // Si hay una gran diferencia entre el mínimo y máximo, usar escala logarítmica visual
-    if (maxConsumo / minConsumo > 100) {
-      return [0, maxConsumo * 1.1];
-    }
-    
-    return [0, maxConsumo * 1.15];
   };
 
   return (
@@ -600,13 +625,14 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
                       tickLine={{ stroke: '#d1d5db' }}
                       interval={0} // Mostrar todas las etiquetas
                     />
+                    {/* 🔧 EJE Y CORREGIDO CON DOMINIO MEMOIZADO */}
                     <YAxis 
                       tick={{ fill: '#374151', fontSize: 11, fontWeight: 500 }}
                       axisLine={{ stroke: '#d1d5db', strokeWidth: 1 }}
                       tickLine={{ stroke: '#d1d5db' }}
                       tickFormatter={(value) => (value)}
                       width={60} // Menos ancho en mobile
-                      domain={calcularDominioY(equiposData)} // 🆕 Dominio inteligente
+                      domain={calcularDominioY} // 🔧 USAR EL DOMINIO MEMOIZADO
                     />
                     <Tooltip 
                       content={<CustomTooltip />}
