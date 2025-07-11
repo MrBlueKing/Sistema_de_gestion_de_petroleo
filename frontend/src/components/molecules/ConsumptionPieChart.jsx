@@ -49,6 +49,9 @@ const ConsumptionPieChart = ({
     return changed;
   };
 
+  // Datos actuales según el modo de vista
+  const currentData = viewMode === 'categorias' ? categorias : maquinas;
+
   useEffect(() => {
     // Establecer el ref a true cuando se monta el componente
     isMounted.current = true;
@@ -89,32 +92,28 @@ const ConsumptionPieChart = ({
         fechaHasta 
       });
       
-      // Llamada a tu API usando el endpoint de informes KPI
-      const response = await axios.get('/api/informes-kpi', {
-        params: {
-          tipo: 'consumo_equipos',
-          faena: faenaSeleccionada,
-          desde: fechaDesde,
-          hasta: fechaHasta
-        }
+      // 🆕 USAR TU ENDPOINT POST DE CATEGORÍAS
+      const response = await axios.post('/api/categorias-chart/categorias', {
+        fecha_inicio: fechaDesde,
+        fecha_fin: fechaHasta,
+        id_faena: faenaSeleccionada !== 'todas' ? faenaSeleccionada : null
       });
       
       // Solo actualizar el estado si el componente sigue montado
       if (!isMounted.current) return;
       
       // Verificar si hay datos en la respuesta
-      if (response.data && response.data.data && response.data.data.rendimiento_por_tipo) {
-        const categoriasData = response.data.data.rendimiento_por_tipo.map(categoria => ({
-          id: categoria.tipo.toLowerCase().replace(/\s+/g, '_'), // Crear ID único
-          nombre: categoria.tipo,
-          consumo_total: parseFloat(categoria.litros_consumidos || 0),
-          maquinas_count: Math.round(categoria.total_unidades || 0),
-          valor_consumo: parseFloat(categoria.valor_consumo || 0),
-          litros_por_unidad: parseFloat(categoria.litros_por_unidad || 0),
+      if (response.data && response.data.success && response.data.categorias) {
+        const categoriasData = response.data.categorias.map(categoria => ({
+          id: categoria.id,
+          nombre: categoria.name,
+          consumo_total: parseFloat(categoria.value || 0),
+          maquinas_count: parseInt(categoria.maquinas_count || 0),
           tipo_medicion: categoria.tipo_medicion,
-          unidad: categoria.unidad,
-          name: categoria.tipo,
-          value: parseFloat(categoria.litros_consumidos || 0)
+          promedio_consumo: parseFloat(categoria.promedio_consumo || 0),
+          total_registros: parseInt(categoria.total_registros || 0),
+          name: categoria.name,
+          value: parseFloat(categoria.value || 0)
         }));
 
         setCategorias(categoriasData);
@@ -147,39 +146,26 @@ const ConsumptionPieChart = ({
       
       console.log("ConsumptionPieChart: Cargando máquinas para categoría:", categoria.nombre);
       
-      // Obtener máquinas desde el endpoint de consumo por máquina
-      const response = await axios.get('/api/informes-kpi', {
-        params: {
-          tipo: 'consumo_equipos',
-          faena: faenaSeleccionada,
-          desde: fechaDesde,
-          hasta: fechaHasta
-        }
+      // 🆕 USAR TU ENDPOINT POST PARA MÁQUINAS DE CATEGORÍA
+      const response = await axios.post(`/api/categorias-chart/categorias/${categoria.id}/maquinas`, {
+        fecha_inicio: fechaDesde,
+        fecha_fin: fechaHasta,
+        id_faena: faenaSeleccionada !== 'todas' ? faenaSeleccionada : null
       });
       
       if (!isMounted.current) return;
       
-      if (response.data && response.data.data && response.data.data.consumo_por_maquina) {
-        // Filtrar máquinas que pertenezcan a la categoría seleccionada
-        // Nota: Como no tenemos el id_categoria en la respuesta, filtraremos por nombre aproximado
-        const todasLasMaquinas = response.data.data.consumo_por_maquina;
-        
-        // Filtrar máquinas que contengan palabras de la categoría seleccionada
-        const palabrasCategoria = categoria.nombre.toLowerCase().split(' ');
-        const maquinasFiltradas = todasLasMaquinas.filter(maquina => {
-          const nombreMaquina = (maquina.nombre_maquina || '').toLowerCase();
-          return palabrasCategoria.some(palabra => nombreMaquina.includes(palabra));
-        });
-
-        const maquinasData = maquinasFiltradas.map(maquina => ({
-          id: maquina.id_maquina,
-          nombre: maquina.nombre_maquina || 'Sin nombre',
+      if (response.data && response.data.success && response.data.maquinas) {
+        const maquinasData = response.data.maquinas.map(maquina => ({
+          id: maquina.id,
+          nombre: maquina.name,
           patente: maquina.patente || 'S/P',
-          consumo: parseFloat(maquina.litros_consumidos || 0),
-          valor_consumo: parseFloat(maquina.valor_consumo || 0),
-          precio_promedio: parseFloat(maquina.precio_promedio || 0),
-          name: maquina.nombre_maquina || 'Sin nombre',
-          value: parseFloat(maquina.litros_consumidos || 0)
+          consumo: parseFloat(maquina.value || 0),
+          estado: maquina.estado,
+          promedio_consumo: parseFloat(maquina.promedio_consumo || 0),
+          total_registros: parseInt(maquina.total_registros || 0),
+          name: maquina.name,
+          value: parseFloat(maquina.value || 0)
         }));
 
         setMaquinas(maquinasData);
@@ -269,8 +255,79 @@ const ConsumptionPieChart = ({
     return null;
   };
 
-  // Datos actuales según el modo de vista
-  const currentData = viewMode === 'categorias' ? categorias : maquinas;
+  // 🆕 Función para renderizar etiquetas personalizadas profesionales
+  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, value }) => {
+    // No mostrar etiqueta si es menor al 2%
+    if (percent < 0.02) return null;
+    
+    const RADIAN = Math.PI / 180;
+    const radius = outerRadius + 30; // Posición fuera del gráfico
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+    
+    // Determinar la posición del texto según el ángulo
+    const isLeftSide = x < cx;
+    
+    return (
+      <g>
+        {/* Línea conectora */}
+        <line
+          x1={cx + (outerRadius + 5) * Math.cos(-midAngle * RADIAN)}
+          y1={cy + (outerRadius + 5) * Math.sin(-midAngle * RADIAN)}
+          x2={x}
+          y2={y}
+          stroke={COLORS[index % COLORS.length]}
+          strokeWidth={1}
+          strokeOpacity={0.7}
+        />
+        
+        {/* Punto en el extremo de la línea */}
+        <circle
+          cx={x}
+          cy={y}
+          r={2}
+          fill={COLORS[index % COLORS.length]}
+        />
+        
+        {/* Etiqueta de texto */}
+        <text
+          x={x + (isLeftSide ? -5 : 5)}
+          y={y - 5}
+          textAnchor={isLeftSide ? 'end' : 'start'}
+          dominantBaseline="central"
+          fill="#374151"
+          fontSize="11"
+          fontWeight="600"
+        >
+          {name}
+        </text>
+        
+        {/* Porcentaje */}
+        <text
+          x={x + (isLeftSide ? -5 : 5)}
+          y={y + 8}
+          textAnchor={isLeftSide ? 'end' : 'start'}
+          dominantBaseline="central"
+          fill="#6b7280"
+          fontSize="10"
+        >
+          {(percent * 100).toFixed(1)}%
+        </text>
+        
+        {/* Valor en litros */}
+        <text
+          x={x + (isLeftSide ? -5 : 5)}
+          y={y + 20}
+          textAnchor={isLeftSide ? 'end' : 'start'}
+          dominantBaseline="central"
+          fill="#9ca3af"
+          fontSize="9"
+        >
+          {value.toLocaleString('es-CL')} L
+        </text>
+      </g>
+    );
+  };
 
   if (loading) {
     return (
@@ -331,52 +388,12 @@ const ConsumptionPieChart = ({
         </div>
 
         {/* Información del conjunto de datos */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-            <div className="flex items-center">
-              <FiActivity className="text-orange-600 mr-3" size={24} />
-              <div>
-                <h3 className="font-semibold text-orange-800">Total Consumo</h3>
-                <p className="text-2xl font-bold text-orange-600">
-                  {currentData.reduce((sum, item) => sum + item.value, 0).toLocaleString('es-CL')} L
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-            <div className="flex items-center">
-              <FiBarChart2 className="text-blue-600 mr-3" size={24} />
-              <div>
-                <h3 className="font-semibold text-blue-800">
-                  {viewMode === 'categorias' ? 'Categorías' : 'Máquinas'}
-                </h3>
-                <p className="text-2xl font-bold text-blue-600">
-                  {currentData.length}
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-            <div className="flex items-center">
-              <FiPieChart className="text-green-600 mr-3" size={24} />
-              <div>
-                <h3 className="font-semibold text-green-800">Promedio</h3>
-                <p className="text-2xl font-bold text-green-600">
-                  {currentData.length > 0 
-                    ? (currentData.reduce((sum, item) => sum + item.value, 0) / currentData.length).toLocaleString('es-CL')
-                    : 0
-                  } L
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+     
       </div>
 
       {/* Gráfico de Torta */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Gráfico de Torta con etiquetas profesionales */}
         <div className="h-96">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -385,10 +402,9 @@ const ConsumptionPieChart = ({
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({name, percent}) => 
-                  percent > 5 ? `${name} ${(percent * 100).toFixed(0)}%` : ''
-                }
-                outerRadius={120}
+                label={renderCustomLabel}
+                outerRadius={100}
+                innerRadius={30} // Donut style para mejor legibilidad
                 fill="#8884d8"
                 dataKey="value"
                 onClick={viewMode === 'categorias' ? handleCategoriaClick : undefined}
@@ -398,10 +414,35 @@ const ConsumptionPieChart = ({
                   <Cell 
                     key={`cell-${index}`} 
                     fill={COLORS[index % COLORS.length]}
+                    stroke="#fff"
+                    strokeWidth={2}
                   />
                 ))}
               </Pie>
               <Tooltip content={<CustomTooltip />} />
+              
+              {/* Texto central para el total */}
+              <text 
+                x="50%" 
+                y="48%" 
+                textAnchor="middle" 
+                dominantBaseline="middle" 
+                fontSize="14" 
+                fontWeight="600" 
+                fill="#374151"
+              >
+                Total
+              </text>
+              <text 
+                x="50%" 
+                y="52%" 
+                textAnchor="middle" 
+                dominantBaseline="middle" 
+                fontSize="12" 
+                fill="#6b7280"
+              >
+                {currentData.reduce((sum, item) => sum + item.value, 0).toLocaleString('es-CL')} L
+              </text>
             </PieChart>
           </ResponsiveContainer>
         </div>

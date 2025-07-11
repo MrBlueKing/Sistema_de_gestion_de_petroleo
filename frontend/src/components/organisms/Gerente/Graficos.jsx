@@ -284,29 +284,12 @@ const Graficos = ({ children }) => {
                                     </div>
 
                                     {/* 🆕 OTROS GRÁFICOS EN GRID 2x1 */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                                        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-                                            <h4 className="text-sm font-medium text-gray-700 mb-3">
-                                                Consumo por Faena
-                                            </h4>
-                                            {(fechaDesde && fechaHasta) && (
-                                                <FaenasChart
-                                                    faenaSeleccionada={faenaSeleccionada}
-                                                    setFaenaSeleccionada={setFaenaSeleccionada}
-                                                    fechaDesde={fechaDesde}
-                                                    fechaHasta={fechaHasta}
-                                                    horaDesde={horaDesde}
-                                                    horaHasta={horaHasta}
-                                                    refreshKey={refreshTrigger}
-                                                />
-                                            )}
-                                        </div>
+                                    <div className="mb-6">
+                                        
 
                                         {/* 🆕 CONSUMO POR CATEGORÍAS - REEMPLAZA EL PLACEHOLDER */}
-                                        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-                                            <h4 className="text-sm font-medium text-gray-700 mb-3">
-                                                Consumo por Categorías
-                                            </h4>
+                                        
+                                            
                                             {(fechaDesde && fechaHasta) && (
                                                 <ConsumptionPieChart
                                                     faenaSeleccionada={faenaSeleccionada}
@@ -315,7 +298,7 @@ const Graficos = ({ children }) => {
                                                     refreshKey={refreshTrigger}
                                                 />
                                             )}
-                                        </div>
+                                     
                                     </div>
 
                                     {/* 🆕 TENDENCIA - ANCHO COMPLETO */}
