@@ -10,8 +10,7 @@ use Carbon\Carbon;
 class CategoriasChartController extends Controller
 {
     /**
-     * Obtener datos para el PieChart de categorías con opción de drill-down a máquinas
-     * 🔑 CORREGIDO: Estructura de tablas compatible con el sistema existente
+     * Obtener datos para el PieChart de categorías con opción de drill-down     * 🔑 SI     * 🔑 CORREGIDO: Estructura de tablas compatible con el sistema existente
      */
     public function obtenerDatosCategoriasChart(Request $request)
     {
@@ -373,7 +372,21 @@ class CategoriasChartController extends Controller
     private function validarFechas($fechaInicio, $fechaFin)
     {
         try {
-            return $fechaInicio->lte($fechaFin);
+return $fechaInicio->lte($fechaFin);
+ías: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Métodos auxiliares
+     */
+    private function validarFechas($fechaInicio, $fechaFin)
+    {
+        try {
+            $inicio = Carbon::parse($fechaInicio);
+            $fin = Carbon::parse($fechaFin);
+            return $inicio->lte($fin);
         } catch (\Exception $e) {
             return false;
         }
