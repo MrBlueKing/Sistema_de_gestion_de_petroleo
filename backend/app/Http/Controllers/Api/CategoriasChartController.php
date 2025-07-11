@@ -10,8 +10,7 @@ use Carbon\Carbon;
 class CategoriasChartController extends Controller
 {
     /**
-     * Obtener datos para el PieChart de categorías con opción de drill-down     * 🔑 SI     * 🔑 CORREGIDO: Estructura de tablas compatible con el sistema existente
-     */
+     * Obtener datos para el PieChart de categorías con opción de drill-down     * 🔑 SI     */
     public function obtenerDatosCategoriasChart(Request $request)
     {
         try {
@@ -20,10 +19,6 @@ class CategoriasChartController extends Controller
             $idFaena = $request->id_faena; // Opcional, para filtrar por faena
             $idCategoria = $request->id_categoria; // Opcional, para drill-down a máquinas
             $modo = $request->modo ?? 'categorias'; // 'categorias' o 'maquinas'
-
-            // 🔑 Convertir fechas con Carbon
-            $fechaInicio = Carbon::parse($fechaInicio)->startOfDay();
-            $fechaFin = Carbon::parse($fechaFin)->endOfDay();
 
             // Validar fechas
             if (!$this->validarFechas($fechaInicio, $fechaFin)) {
@@ -56,86 +51,72 @@ class CategoriasChartController extends Controller
     }
 
     /**
-     * 🆕 CORREGIDO: Obtener datos de consumo por categorías usando estructura de tablas existente
+     * Obtener datos de consumo por categorías
      */
     private function obtenerDatosCategorias($fechaInicio, $fechaFin, $idFaena = null)
     {
-        // 🆕 QUERY CORREGIDA: Usar solo la tabla `maquinas` con joins apropiados
-        $queryConsumos = DB::table('consumos as c')
-            ->join('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
-            ->leftJoin('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
-            ->join('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria')
-            ->whereBetween('c.fecha_consumo', [$fechaInicio, $fechaFin])
-            ->whereNotNull('c.litros_consumidos')
-            ->where('c.litros_consumidos', '>', 0)
-            ->when($idFaena && $idFaena !== 'todas', function($q) use ($idFaena) {
-                return $q->where('c.id_faena', $idFaena);
-            })
-            ->select([
-                'cm.id_categoria',
-                'cm.nombre_categoria',
-                'cm.tipo_medicion',
-                'm.id_maquina',
-                // 🔑 CORREGIDO: Usar nombre de la máquina desde tabla maquinas o maquinas_internas
-                DB::raw('COALESCE(mi.nombre, m.nombre_maquina) as nombre_maquina'),
-                DB::raw('COALESCE(mi.patente, m.patente) as patente'),
-                DB::raw('SUM(c.litros_consumidos) as consumo_maquina'),
-                // 🔑 DETERMINAR TIPO: Si existe en maquinas_internas es interna, sino externa
-                DB::raw('CASE WHEN mi.id_maquina IS NOT NULL THEN "Interna" ELSE "Externa" END as tipo_maquina')
+        $query = DB::table('consumos')
+            ->join('maquinas', 'consumos.id_equipo', '=', 'maquinas.id_maquina')
+            ->join('categorias_maquinas', 'maquinas.id_categoria', '=', 'categorias_maquinas.id_categoria')
+            ->whereBetween('consumos.fecha_consumo', [$fechaInicio, $fechaFin])
+            ->whereNotNull('consumos.litros_consumidos')
+            ->where('consumos.litros_consumidos', '>', 0);
+
+        // Filtro opcional por faena
+        if ($idFaena) {
+            $query->where('consumos.id_faena', $idFaena);
+        }
+
+        $resultados = $query->select([
+                'categorias_maquinas.id_categoria',
+                'categorias_maquinas.nombre_categoria',
+                'categorias_maquinas.tipo_medicion',
+                DB::raw('SUM(consumos.litros_consumidos) as total_consumo'),
+                DB::raw('COUNT(DISTINCT maquinas.id_maquina) as cantidad_maquinas'),
+                DB::raw('COUNT(consumos.id_consumo) as total_registros'),
+                DB::raw('AVG(consumos.litros_consumidos) as promedio_consumo'),
+                DB::raw('MAX(consumos.fecha_consumo) as ultimo_consumo'),
+                DB::raw('MIN(consumos.fecha_consumo) as primer_consumo')
             ])
-            ->groupBy('cm.id_categoria', 'cm.nombre_categoria', 'cm.tipo_medicion', 'm.id_maquina', 'mi.nombre', 'm.nombre_maquina', 'mi.patente', 'm.patente', 'mi.id_maquina')
+            ->groupBy([
+                'categorias_maquinas.id_categoria', 
+                'categorias_maquinas.nombre_categoria',
+                'categorias_maquinas.tipo_medicion'
+            ])
+            ->orderBy('total_consumo', 'desc')
             ->get();
 
-        // 🆕 AGRUPAR POR CATEGORÍA (sumar consumos de todas las máquinas por categoría)
-        $categorias = $queryConsumos->groupBy('id_categoria')->map(function ($maquinas, $idCategoria) {
-            $primeraMaquina = $maquinas->first();
-            
-            return [
-                'id_categoria' => $idCategoria,
-                'nombre_categoria' => $primeraMaquina->nombre_categoria,
-                'tipo_medicion' => $primeraMaquina->tipo_medicion,
-                'total_consumo' => $maquinas->sum('consumo_maquina'),
-                'cantidad_maquinas' => $maquinas->count(),
-                'maquinas_internas' => $maquinas->where('tipo_maquina', 'Interna')->count(),
-                'maquinas_externas' => $maquinas->where('tipo_maquina', 'Externa')->count(),
-                'total_registros' => $maquinas->count(), // Aproximado
-                'promedio_consumo' => $maquinas->avg('consumo_maquina')
-            ];
-        })->sortByDesc('total_consumo')->values();
-
         // Formatear datos para el PieChart
-        $data = $categorias->map(function ($item) {
+        $data = $resultados->map(function ($item) {
             return [
-                'id' => $item['id_categoria'],
-                'name' => $item['nombre_categoria'],
-                'value' => round($item['total_consumo'], 2),
-                'maquinas_count' => $item['cantidad_maquinas'],
-                'maquinas_internas' => $item['maquinas_internas'],
-                'maquinas_externas' => $item['maquinas_externas'],
-                'tipo_medicion' => $item['tipo_medicion'],
-                'promedio_consumo' => round($item['promedio_consumo'], 2),
-                'total_registros' => $item['total_registros']
+                'id' => $item->id_categoria,
+                'name' => $item->nombre_categoria,
+                'value' => round($item->total_consumo, 2),
+                'maquinas_count' => $item->cantidad_maquinas,
+                'tipo_medicion' => $item->tipo_medicion,
+                'promedio_consumo' => round($item->promedio_consumo, 2),
+                'total_registros' => $item->total_registros,
+                'periodo_actividad' => [
+                    'inicio' => $item->primer_consumo,
+                    'fin' => $item->ultimo_consumo
+                ]
             ];
         });
 
         // Calcular metadata
         $totalConsumo = $data->sum('value');
         $totalMaquinas = $data->sum('maquinas_count');
-        $totalInternas = $data->sum('maquinas_internas');
-        $totalExternas = $data->sum('maquinas_externas');
 
         $metadata = [
             'periodo' => [
-                'fecha_inicio' => $fechaInicio->toDateString(),
-                'fecha_fin' => $fechaFin->toDateString(),
-                'dias_periodo' => $fechaInicio->diffInDays($fechaFin) + 1
+                'fecha_inicio' => $fechaInicio,
+                'fecha_fin' => $fechaFin,
+                'dias_periodo' => Carbon::parse($fechaInicio)->diffInDays(Carbon::parse($fechaFin)) + 1
             ],
             'resumen' => [
                 'total_categorias' => $data->count(),
                 'total_consumo_litros' => round($totalConsumo, 2),
                 'total_maquinas' => $totalMaquinas,
-                'total_maquinas_internas' => $totalInternas,
-                'total_maquinas_externas' => $totalExternas,
                 'promedio_por_categoria' => $data->count() > 0 ? round($totalConsumo / $data->count(), 2) : 0,
                 'categoria_mayor_consumo' => $data->first() ? $data->first()['name'] : null
             ],
@@ -151,7 +132,7 @@ class CategoriasChartController extends Controller
     }
 
     /**
-     * 🆕 CORREGIDO: Obtener datos de máquinas para una categoría específica
+     * Obtener datos de máquinas para una categoría específica (drill-down)
      */
     private function obtenerDatosMaquinasCategoria($idCategoria, $fechaInicio, $fechaFin, $idFaena = null)
     {
@@ -164,32 +145,35 @@ class CategoriasChartController extends Controller
             throw new \Exception('Categoría no encontrada');
         }
 
-        // 🆕 QUERY CORREGIDA: Una sola consulta con LEFT JOIN
-        $resultados = DB::table('consumos as c')
-            ->join('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
-            ->leftJoin('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
-            ->where('m.id_categoria', $idCategoria)
-            ->whereBetween('c.fecha_consumo', [$fechaInicio, $fechaFin])
-            ->whereNotNull('c.litros_consumidos')
-            ->where('c.litros_consumidos', '>', 0)
-            ->when($idFaena && $idFaena !== 'todas', function($q) use ($idFaena) {
-                return $q->where('c.id_faena', $idFaena);
-            })
-            ->select([
-                'm.id_maquina',
-                // 🔑 CORREGIDO: Usar nombre apropiado según tipo
-                DB::raw('COALESCE(mi.nombre, m.nombre_maquina) as nombre_maquina'),
-                DB::raw('COALESCE(mi.patente, m.patente) as patente'),
-                'm.estado',
-                DB::raw('SUM(c.litros_consumidos) as total_consumo'),
-                DB::raw('COUNT(c.id_consumo) as total_registros'),
-                DB::raw('AVG(c.litros_consumidos) as promedio_consumo'),
-                DB::raw('MAX(c.fecha_consumo) as ultimo_consumo'),
-                DB::raw('MIN(c.fecha_consumo) as primer_consumo'),
-                // 🔑 DETERMINAR TIPO: Si existe en maquinas_internas es interna
-                DB::raw('CASE WHEN mi.id_maquina IS NOT NULL THEN "Interna" ELSE "Externa" END as tipo_maquina')
+        $query = DB::table('consumos')
+            ->join('maquinas', 'consumos.id_equipo', '=', 'maquinas.id_maquina')
+            ->where('maquinas.id_categoria', $idCategoria)
+            ->whereBetween('consumos.fecha_consumo', [$fechaInicio, $fechaFin])
+            ->whereNotNull('consumos.litros_consumidos')
+            ->where('consumos.litros_consumidos', '>', 0);
+
+        // Filtro opcional por faena
+        if ($idFaena) {
+            $query->where('consumos.id_faena', $idFaena);
+        }
+
+        $resultados = $query->select([
+                'maquinas.id_maquina',
+                'maquinas.nombre_maquina',
+                'maquinas.patente',
+                'maquinas.estado',
+                DB::raw('SUM(consumos.litros_consumidos) as total_consumo'),
+                DB::raw('COUNT(consumos.id_consumo) as total_registros'),
+                DB::raw('AVG(consumos.litros_consumidos) as promedio_consumo'),
+                DB::raw('MAX(consumos.fecha_consumo) as ultimo_consumo'),
+                DB::raw('MIN(consumos.fecha_consumo) as primer_consumo')
             ])
-            ->groupBy('m.id_maquina', 'mi.nombre', 'm.nombre_maquina', 'mi.patente', 'm.patente', 'm.estado', 'mi.id_maquina')
+            ->groupBy([
+                'maquinas.id_maquina', 
+                'maquinas.nombre_maquina',
+                'maquinas.patente',
+                'maquinas.estado'
+            ])
             ->orderBy('total_consumo', 'desc')
             ->get();
 
@@ -201,7 +185,6 @@ class CategoriasChartController extends Controller
                 'value' => round($item->total_consumo, 2),
                 'patente' => $item->patente ?? 'N/A',
                 'estado' => $item->estado,
-                'tipo_maquina' => $item->tipo_maquina,
                 'promedio_consumo' => round($item->promedio_consumo, 2),
                 'total_registros' => $item->total_registros,
                 'periodo_actividad' => [
@@ -213,8 +196,6 @@ class CategoriasChartController extends Controller
 
         // Calcular metadata
         $totalConsumo = $data->sum('value');
-        $maquinasInternas = $data->where('tipo_maquina', 'Interna')->count();
-        $maquinasExternas = $data->where('tipo_maquina', 'Externa')->count();
 
         $metadata = [
             'categoria' => [
@@ -223,14 +204,12 @@ class CategoriasChartController extends Controller
                 'tipo_medicion' => $categoria->tipo_medicion
             ],
             'periodo' => [
-                'fecha_inicio' => $fechaInicio->toDateString(),
-                'fecha_fin' => $fechaFin->toDateString(),
-                'dias_periodo' => $fechaInicio->diffInDays($fechaFin) + 1
+                'fecha_inicio' => $fechaInicio,
+                'fecha_fin' => $fechaFin,
+                'dias_periodo' => Carbon::parse($fechaInicio)->diffInDays(Carbon::parse($fechaFin)) + 1
             ],
             'resumen' => [
                 'total_maquinas' => $data->count(),
-                'maquinas_internas' => $maquinasInternas,
-                'maquinas_externas' => $maquinasExternas,
                 'total_consumo_litros' => round($totalConsumo, 2),
                 'promedio_por_maquina' => $data->count() > 0 ? round($totalConsumo / $data->count(), 2) : 0,
                 'maquina_mayor_consumo' => $data->first() ? $data->first()['name'] : null,
@@ -249,7 +228,6 @@ class CategoriasChartController extends Controller
 
     /**
      * Endpoint específico para obtener solo las categorías (más rápido)
-     * 🔑 CORREGIDO
      */
     public function obtenerCategoriasResumen(Request $request)
     {
@@ -257,10 +235,6 @@ class CategoriasChartController extends Controller
             $fechaInicio = $request->fecha_inicio ?? Carbon::now()->startOfMonth()->format('Y-m-d');
             $fechaFin = $request->fecha_fin ?? Carbon::now()->format('Y-m-d');
             $idFaena = $request->id_faena;
-
-            // 🔑 Convertir fechas con Carbon
-            $fechaInicio = Carbon::parse($fechaInicio)->startOfDay();
-            $fechaFin = Carbon::parse($fechaFin)->endOfDay();
 
             $resultado = $this->obtenerDatosCategorias($fechaInicio, $fechaFin, $idFaena);
 
@@ -280,7 +254,6 @@ class CategoriasChartController extends Controller
 
     /**
      * Endpoint específico para obtener máquinas de una categoría
-     * 🔑 CORREGIDO
      */
     public function obtenerMaquinasCategoria(Request $request, $idCategoria)
     {
@@ -288,10 +261,6 @@ class CategoriasChartController extends Controller
             $fechaInicio = $request->fecha_inicio ?? Carbon::now()->startOfMonth()->format('Y-m-d');
             $fechaFin = $request->fecha_fin ?? Carbon::now()->format('Y-m-d');
             $idFaena = $request->id_faena;
-
-            // 🔑 Convertir fechas con Carbon
-            $fechaInicio = Carbon::parse($fechaInicio)->startOfDay();
-            $fechaFin = Carbon::parse($fechaFin)->endOfDay();
 
             $resultado = $this->obtenerDatosMaquinasCategoria($idCategoria, $fechaInicio, $fechaFin, $idFaena);
 
@@ -311,7 +280,7 @@ class CategoriasChartController extends Controller
     }
 
     /**
-     * 🆕 CORREGIDO: Obtener lista de categorías
+     * Obtener lista de categorías disponibles
      */
     public function obtenerListaCategorias()
     {
@@ -326,30 +295,18 @@ class CategoriasChartController extends Controller
                 ->orderBy('nombre_categoria')
                 ->get();
 
-            // 🆕 CORREGIDO: Conteo usando la estructura correcta
+            // Agregar conteo de máquinas por categoría
             $categoriasConConteo = $categorias->map(function ($categoria) {
-                // Contar todas las máquinas de la categoría
-                $conteoTotal = DB::table('maquinas')
+                $conteoMaquinas = DB::table('maquinas')
                     ->where('id_categoria', $categoria->id_categoria)
                     ->count();
-
-                // Contar máquinas internas (las que están en maquinas_internas)
-                $conteoInternas = DB::table('maquinas as m')
-                    ->join('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
-                    ->where('m.id_categoria', $categoria->id_categoria)
-                    ->count();
-
-                // Las externas son el total menos las internas
-                $conteoExternas = $conteoTotal - $conteoInternas;
 
                 return [
                     'id' => $categoria->id_categoria,
                     'nombre' => $categoria->nombre_categoria,
                     'tipo_medicion' => $categoria->tipo_medicion,
                     'chc' => $categoria->chc,
-                    'cantidad_maquinas' => $conteoTotal,
-                    'maquinas_internas' => $conteoInternas,
-                    'maquinas_externas' => $conteoExternas,
+                    'cantidad_maquinas' => $conteoMaquinas
                 ];
             });
 
@@ -372,8 +329,10 @@ class CategoriasChartController extends Controller
     private function validarFechas($fechaInicio, $fechaFin)
     {
         try {
-return $fechaInicio->lte($fechaFin);
-ías: ' . $e->getMessage()
+            $inicio = Carbon::parse($fechaInicio);
+            $fin = Carbon::parse($fechaFin);
+            return $inicio->lte($fin);
+>getMessage()
             ], 500);
         }
     }
