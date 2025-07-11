@@ -519,14 +519,7 @@ const ConsumptionPieChart = ({
         </div>
       </div>
 
-      {/* Instrucciones */}
-      {viewMode === 'categorias' && (
-        <div className="mt-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
-          <p className="text-orange-800">
-            💡 <strong>Tip:</strong> Haz clic en cualquier categoría del gráfico o la tabla para ver el detalle de las máquinas que la componen.
-          </p>
-        </div>
-      )}
+   
     </div>
   );
 };
