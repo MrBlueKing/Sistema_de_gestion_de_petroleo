@@ -105,7 +105,7 @@ class InformeKpiController extends Controller
     }
 
     /**
-     * Obtiene los equipos con mayor consumo de diésel - CORREGIDO
+     * Obtiene los equipos con mayor consumo de diésel - CON RENDIMIENTO SENCILLO
      */
     private function getConsumoEquipos($faena, $fechaInicio = null, $fechaFin = null)
     {
@@ -120,13 +120,15 @@ class InformeKpiController extends Controller
                 $fechaFin = Carbon::now()->endOfDay();
             }
 
-            // ✅ CORREGIDO: Subconsulta con relaciones correctas
+            // 1. Subconsulta para obtener el último consumo por equipo
             $subqueryUltimoConsumo = DB::table('consumos as c1')
                 ->select(DB::raw('MAX(c1.id_consumo)'))
                 ->join('maquinas as m1', 'c1.id_equipo', '=', 'm1.id_maquina')
+                ->whereBetween('c1.fecha_consumo', [$fechaInicio, $fechaFin])
+                ->when($faena !== 'todas', fn($q) => $q->where('c1.id_faena', $faena))
                 ->groupBy('c1.id_equipo');
 
-            // ✅ CORREGIDO: 1. Obtener el consumo TOTAL por equipo
+            // 2. Obtener el consumo TOTAL por equipo (incluyendo último consumo)
             $consumoTotalQuery = DB::table('consumos as c')
                 ->join('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
                 ->join('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
@@ -134,11 +136,14 @@ class InformeKpiController extends Controller
                     'm.id_maquina as id',
                     'mi.nombre',
                     'mi.patente',
+                    'm.chc_maquina', // 🆕 CHC INDIVIDUAL
                     DB::raw('SUM(c.litros_consumidos) as consumo'),
-                    DB::raw('MAX(c.fecha_consumo) as ultimo_consumo')
+                    DB::raw('MAX(c.fecha_consumo) as ultimo_consumo'),
+                    DB::raw('MAX(c.medicion) as medicion_final'), // 🆕 MEDICIÓN FINAL
+                    DB::raw('MIN(c.medicion) as medicion_inicial') // 🆕 MEDICIÓN INICIAL
                 )
                 ->whereBetween('c.fecha_consumo', [$fechaInicio, $fechaFin])
-                ->groupBy('m.id_maquina', 'mi.nombre', 'mi.patente');
+                ->groupBy('m.id_maquina', 'mi.nombre', 'mi.patente', 'm.chc_maquina');
 
             if ($faena !== 'todas') {
                 $consumoTotalQuery->where('c.id_faena', $faena);
@@ -146,7 +151,7 @@ class InformeKpiController extends Controller
 
             $consumoTotal = $consumoTotalQuery->get()->keyBy('id');
 
-            // ✅ CORREGIDO: 2. Obtener consumo excluyendo el último
+            // 3. Obtener consumo CONFIRMADO (excluyendo el último consumo)
             $queryFiltrado = DB::table('consumos as c')
                 ->join('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
                 ->join('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
@@ -167,59 +172,119 @@ class InformeKpiController extends Controller
 
             $consumos = $queryFiltrado->get();
 
-            // Agregar el consumo total y calcular rendimiento
+            // 4. Calcular rendimiento sencillo y otros datos
             foreach ($consumos as $item) {
-                $item->consumo = $consumoTotal[$item->id]->consumo ?? 0;
-                $item->ultimo_consumo = $consumoTotal[$item->id]->ultimo_consumo ?? null;
+                $equipoTotal = $consumoTotal[$item->id] ?? null;
 
-                $mediciones = DB::table('consumos')
-                    ->where('id_equipo', $item->id)
-                    ->when($faena !== 'todas', fn($q) => $q->where('id_faena', $faena))
-                    ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
-                    ->orderBy('fecha_consumo')
-                    ->pluck('medicion');
+                if ($equipoTotal) {
+                    // Datos básicos
+                    $item->consumo = $equipoTotal->consumo ?? 0;
+                    $item->ultimo_consumo = $equipoTotal->ultimo_consumo ?? null;
+                    $item->chc_maquina = $equipoTotal->chc_maquina ?? 0;
 
-                if ($mediciones->count() >= 2) {
-                    $km = $mediciones->last() - $mediciones->first();
-                    $item->km = $km;
-                    $item->rendimiento = ($item->consumo_filtrado > 0 && $km > 0)
-                        ? round($km / $item->consumo_filtrado, 2)
-                        : null;
-                } else {
-                    $item->km = null;
-                    $item->rendimiento = null;
-                }
+                    // 🔍 VERIFICAR CANTIDAD DE CONSUMOS EN EL RANGO
+                    $totalConsumos = DB::table('consumos')
+                        ->where('id_equipo', $item->id)
+                        ->when($faena !== 'todas', fn($q) => $q->where('id_faena', $faena))
+                        ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
+                        ->count();
 
-                // Calcular días desde el último consumo hasta hoy
-                if ($item->ultimo_consumo) {
-                    $fechaUltimoConsumo = Carbon::parse($item->ultimo_consumo);
-                    $fechaHoy = Carbon::now();
-                    $diasSinConsumo = $fechaUltimoConsumo->diffInDays($fechaHoy);
-                    $item->dias_sin_consumo = $diasSinConsumo;
-                } else {
-                    $item->dias_sin_consumo = 0;
+                    // 🆕 CÁLCULO DEL RENDIMIENTO SENCILLO
+                    $litrosConfirmados = $item->consumo_filtrado ?? 0;
+                    $medicionFinal = $equipoTotal->medicion_final ?? 0;
+                    $medicionInicial = $equipoTotal->medicion_inicial ?? 0;
+                    $horasReales = $medicionFinal - $medicionInicial;
+
+                    // ✅ NUEVA LÓGICA: Solo calcular si hay más de 1 consumo
+                    if ($totalConsumos > 1 && $horasReales > 0 && $litrosConfirmados > 0) {
+                        $item->rendimiento_sencillo = round(
+                            $litrosConfirmados / $horasReales,
+                            4
+                        );
+                    } else {
+                        $item->rendimiento_sencillo = null; // No se contempla
+                    }
+
+                    // Datos adicionales para debug/información
+                    $item->total_consumos = $totalConsumos;
+                    $item->horas_reales = $horasReales;
+                    $item->litros_confirmados = $litrosConfirmados;
+                    $item->medicion_inicial = $medicionInicial;
+                    $item->medicion_final = $medicionFinal;
+
+                    // Cálculo de rendimiento original (para mantener compatibilidad)
+                    $mediciones = DB::table('consumos')
+                        ->where('id_equipo', $item->id)
+                        ->when($faena !== 'todas', fn($q) => $q->where('id_faena', $faena))
+                        ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
+                        ->orderBy('fecha_consumo')
+                        ->pluck('medicion');
+
+                    if ($mediciones->count() >= 2) {
+                        $km = $mediciones->last() - $mediciones->first();
+                        $item->km = $km;
+                        $item->rendimiento = ($item->consumo_filtrado > 0 && $km > 0)
+                            ? round($km / $item->consumo_filtrado, 2)
+                            : 0;
+                    } else {
+                        $item->km = 0;
+                        $item->rendimiento = 0;
+                    }
+
+                    // Agregar interpretación del rendimiento sencillo
+                    $item->interpretacion_rendimiento = $this->interpretarRendimientoSencillo($item->rendimiento_sencillo);
                 }
             }
 
+            // Ordenar por consumo total descendente
+            $consumos = $consumos->sortByDesc('consumo')->take(15);
+
             return response()->json([
                 'status' => 'success',
-                'data' => $consumos,
+                'data' => $consumos->values(),
                 'fechas' => [
                     'desde' => $fechaInicio->toDateString(),
                     'hasta' => $fechaFin->toDateString()
+                ],
+                'info' => [
+                    'total_equipos' => $consumos->count(),
+                    'calculo_rendimiento_sencillo' => 'Litros Confirmados / Horas Reales (solo si hay más de 1 consumo)'
                 ]
             ]);
         } catch (\Exception $e) {
-            Log::error('Error al obtener consumo por equipos', [
+            Log::error('Error al obtener consumo de equipos con rendimiento sencillo', [
                 'error' => $e->getMessage(),
-                'linea' => $e->getLine()
+                'line' => $e->getLine(),
+                'faena' => $faena
             ]);
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Error al obtener datos de consumo por equipos: ' . $e->getMessage(),
+                'message' => 'Error al obtener consumo de equipos: ' . $e->getMessage(),
                 'data' => []
             ]);
+        }
+    }
+
+    /**
+     * 🆕 NUEVA FUNCIÓN: Interpretar el rendimiento sencillo (sin CHC)
+     */
+    private function interpretarRendimientoSencillo($rendimiento)
+    {
+        if ($rendimiento === null) {
+            return 'No calculable (solo 1 consumo en rango)';
+        } elseif ($rendimiento <= 0) {
+            return 'Sin datos para calcular';
+        } elseif ($rendimiento < 2) {
+            return 'Rendimiento muy eficiente';
+        } elseif ($rendimiento < 5) {
+            return 'Rendimiento eficiente';
+        } elseif ($rendimiento < 10) {
+            return 'Rendimiento normal';
+        } elseif ($rendimiento < 15) {
+            return 'Rendimiento por debajo del óptimo';
+        } else {
+            return 'Rendimiento deficiente - requiere revisión';
         }
     }
 
