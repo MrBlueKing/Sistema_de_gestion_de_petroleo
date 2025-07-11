@@ -294,6 +294,8 @@ Route::middleware('auth:sanctum')->group(function () {
         // Otras rutas de consumos
         Route::get('/recientes', [ConsumoController::class, 'getConsumosRecientes']);
         Route::get('/', [ConsumoController::class, 'getConsumos']);
+
+    
     });
 
 
@@ -609,6 +611,7 @@ Route::middleware('auth:sanctum')->group(function () {
 // Rutas para consumos
 Route::get('/consumos/recientes', [ConsumoController::class, 'getConsumosRecientes']);
 Route::get('/consumosFecha', [ConsumoController::class, 'getConsumos']);
+Route::get('/consumos-categoria', [ConsumoController::class, 'getConsumosPorCategoria']);
 
 // Rutas para dashboard
 Route::get('/dashboard/stats', [IngresoPetroleoController::class, 'getStats']);

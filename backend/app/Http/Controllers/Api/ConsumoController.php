@@ -1224,4 +1224,350 @@ class ConsumoController extends Controller
 
         return array_keys($equipoCount, max($equipoCount))[0];
     }
+
+    // Agregar este método al ConsumoController.php
+
+/**
+ * Obtener consumos específicos de una categoría de máquinas
+ * 🆕 NUEVO: Endpoint especializado para el modal de detalles del PieChart
+ */
+public function getConsumosPorCategoria(Request $request)
+{
+    try {
+        // Obtener parámetros
+        $idCategoria = $request->input('id_categoria');
+        $faena = $request->input('faena');
+        $dateFrom = $request->input('dateFrom');
+        $dateTo = $request->input('dateTo');
+        
+        // Parámetros de paginación
+        $page = $request->input('page', 1);
+        $perPage = $request->input('per_page', 10);
+
+        // Validaciones básicas
+        if (!$idCategoria) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El parámetro id_categoria es requerido'
+            ], 400);
+        }
+
+        if (!$faena) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El parámetro faena es requerido'
+            ], 400);
+        }
+
+        // Validar que la categoría existe
+        $categoria = DB::table('categorias_maquinas')
+            ->where('id_categoria', $idCategoria)
+            ->first();
+
+        if (!$categoria) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Categoría no encontrada'
+            ], 400);
+        }
+
+        // Construir la consulta para consumos de máquinas de esta categoría específica
+        $query = DB::table('consumos as c')
+            ->join('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
+            ->join('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria')
+            ->leftJoin('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
+            // Join para consumo simple (estanque directo)
+            ->leftJoin('estanques as e', 'c.id_estanque', '=', 'e.id_estanque')
+            // Joins para consumo múltiple (a través de consumo_estanques)
+            ->leftJoin('consumo_estanques as ce', 'c.id_consumo', '=', 'ce.id_consumo')
+            ->leftJoin('estanques as ce_estanques', 'ce.id_estanque', '=', 'ce_estanques.id_estanque')
+            ->leftJoin('faenas as f', 'c.id_faena', '=', 'f.id_faena')
+            ->leftJoin('users as u', 'c.id_usuario', '=', 'u.id')
+            ->leftJoin('solicitantes as s', 'c.id_dotacion', '=', 's.rut')
+            ->leftJoin('personal_interno as pi', function ($join) {
+                $join->on('s.rut', '=', 'pi.rut')
+                    ->where('s.tipo_personal', '=', 'Interno');
+            })
+            ->leftJoin('personal_externo as pe', function ($join) {
+                $join->on('s.rut', '=', 'pe.rut')
+                    ->where('s.tipo_personal', '=', 'Externo');
+            })
+            ->leftJoin('empresas_externas as ee', 'pe.id_empresa', '=', 'ee.id_empresa')
+            ->select([
+                'c.id_consumo',
+                'c.id_dotacion',
+                'c.fecha_consumo',
+                'c.litros_consumidos',
+                'c.medicion',
+                'c.numeral_inicial',
+                'c.numeral_final',
+                'c.precio_litro',
+                'c.observacion',
+                'c.created_at',
+                'c.updated_at',
+                'c.tipo_consumo',
+                // Información de la máquina
+                'cm.nombre_categoria',
+                'cm.tipo_medicion',
+                DB::raw('COALESCE(mi.nombre, m.nombre_maquina) as nombre_maquina'),
+                DB::raw('COALESCE(mi.patente, m.patente) as patente'),
+                // Información del estanque
+                'e.nombre as estanque_simple',
+                DB::raw("GROUP_CONCAT(
+                    DISTINCT ce_estanques.nombre 
+                    ORDER BY ce_estanques.nombre 
+                    SEPARATOR ' / '
+                ) as estanques_multiples"),
+                'f.ubicacion as faena',
+                'u.nombre as usuario_nombre',
+                'u.apellido as usuario_apellido',
+                's.tipo_personal',
+                'pi.nombre as interno_nombre',
+                'pi.apellido as interno_apellido',
+                'pe.nombre as externo_nombre',
+                'ee.nombre as empresa_nombre',
+                // Contar cuántos estanques se usaron en consumo múltiple
+                DB::raw("COUNT(DISTINCT ce.id_estanque) as cantidad_estanques"),
+                // 🆕 Determinar si es máquina interna o externa
+                DB::raw('CASE WHEN mi.id_maquina IS NOT NULL THEN "Interna" ELSE "Externa" END as tipo_maquina')
+            ]);
+
+        // 🔑 FILTRO PRINCIPAL: Solo máquinas de esta categoría
+        $query->where('cm.id_categoria', $idCategoria);
+
+        // Filtrar por faena
+        $query->where('c.id_faena', $faena);
+
+        // Aplicar filtros de fecha si están presentes
+        if ($dateFrom) {
+            try {
+                $fechaDesde = Carbon::createFromFormat('Y-m-d', $dateFrom)->startOfDay();
+                $query->where('c.fecha_consumo', '>=', $fechaDesde);
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Formato de fecha inválido para dateFrom. Use Y-m-d'
+                ], 400);
+            }
+        }
+
+        if ($dateTo) {
+            try {
+                $fechaHasta = Carbon::createFromFormat('Y-m-d', $dateTo)->endOfDay();
+                $query->where('c.fecha_consumo', '<=', $fechaHasta);
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Formato de fecha inválido para dateTo. Use Y-m-d'
+                ], 400);
+            }
+        }
+
+        // Añadir GROUP BY para manejar los JOINs de consumo múltiple
+        $query->groupBy([
+            'c.id_consumo',
+            'c.id_dotacion',
+            'c.fecha_consumo',
+            'c.litros_consumidos',
+            'c.medicion',
+            'c.numeral_inicial',
+            'c.numeral_final',
+            'c.precio_litro',
+            'c.observacion',
+            'c.created_at',
+            'c.updated_at',
+            'c.tipo_consumo',
+            'cm.nombre_categoria',
+            'cm.tipo_medicion',
+            'mi.nombre',
+            'm.nombre_maquina',
+            'mi.patente',
+            'm.patente',
+            'e.nombre',
+            'f.ubicacion',
+            'u.nombre',
+            'u.apellido',
+            's.tipo_personal',
+            'pi.nombre',
+            'pi.apellido',
+            'pe.nombre',
+            'ee.nombre',
+            'mi.id_maquina'
+        ]);
+
+        // Ordenar por fecha más reciente
+        $query->orderBy('c.fecha_consumo', 'desc');
+
+        // 🔧 CONTAR TOTAL DE REGISTROS (sin GROUP BY para evitar problemas)
+        $totalRecords = DB::table('consumos as c')
+            ->join('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
+            ->join('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria')
+            ->where('cm.id_categoria', $idCategoria)
+            ->where('c.id_faena', $faena);
+
+        // Aplicar los mismos filtros de fecha para el conteo
+        if ($dateFrom) {
+            $fechaDesde = Carbon::createFromFormat('Y-m-d', $dateFrom)->startOfDay();
+            $totalRecords->where('c.fecha_consumo', '>=', $fechaDesde);
+        }
+
+        if ($dateTo) {
+            $fechaHasta = Carbon::createFromFormat('Y-m-d', $dateTo)->endOfDay();
+            $totalRecords->where('c.fecha_consumo', '<=', $fechaHasta);
+        }
+
+        $totalRecords = $totalRecords->count();
+        $totalPages = ceil($totalRecords / $perPage);
+
+        // Aplicar paginación
+        $consumos = $query
+            ->skip(($page - 1) * $perPage)
+            ->take($perPage)
+            ->get();
+
+        // Transformar los datos
+        $consumosTransformados = $consumos->map(function ($consumo) {
+            // Determinar el nombre del solicitante
+            $solicitanteNombre = 'N/A';
+            $solicitanteTipo = $consumo->tipo_personal ?? 'N/A';
+
+            if ($consumo->tipo_personal === 'Interno' && $consumo->interno_nombre) {
+                $solicitanteNombre = trim($consumo->interno_nombre . ' ' . ($consumo->interno_apellido ?? ''));
+            } elseif ($consumo->tipo_personal === 'Externo' && $consumo->externo_nombre) {
+                $empresaNombre = $consumo->empresa_nombre ? ' (' . $consumo->empresa_nombre . ')' : '';
+                $solicitanteNombre = $consumo->externo_nombre . $empresaNombre;
+            }
+
+            // Determinar qué mostrar en el campo estanque
+            $estanque = 'N/A';
+            if ($consumo->tipo_consumo === 'multiple' && $consumo->estanques_multiples) {
+                // Para consumo múltiple, mostrar lista de estanques
+                $estanque = $consumo->estanques_multiples;
+                if ($consumo->cantidad_estanques > 1) {
+                    $estanque .= " ({$consumo->cantidad_estanques} estanques)";
+                }
+            } else if ($consumo->estanque_simple) {
+                // Para consumo simple, mostrar estanque directo
+                $estanque = $consumo->estanque_simple;
+            }
+
+            return [
+                'id_consumo' => $consumo->id_consumo,
+                'id_dotacion' => $consumo->id_dotacion,
+                'fecha_consumo' => $consumo->fecha_consumo,
+                'litros_consumidos' => number_format($consumo->litros_consumidos, 2, '.', ''),
+                'precio_litro' => $consumo->precio_litro ? number_format($consumo->precio_litro, 2, '.', '') : null,
+                'costo_total' => $consumo->precio_litro
+                    ? number_format($consumo->litros_consumidos * $consumo->precio_litro, 2, '.', '')
+                    : null,
+                'medicion' => $consumo->medicion ? number_format($consumo->medicion, 3, '.', '') : null,
+                'numeral_inicial' => $consumo->numeral_inicial ? number_format($consumo->numeral_inicial, 3, '.', '') : null,
+                'numeral_final' => $consumo->numeral_final ? number_format($consumo->numeral_final, 3, '.', '') : null,
+                'observacion' => $consumo->observacion,
+                'nombre_maquina' => $consumo->nombre_maquina,
+                'patente' => $consumo->patente,
+                'tipo_medicion' => $consumo->tipo_medicion,
+                'estanque' => $estanque,
+                'tipo_consumo' => $consumo->tipo_consumo,
+                'cantidad_estanques' => $consumo->cantidad_estanques,
+                'faena' => $consumo->faena,
+                'usuario' => trim(($consumo->usuario_nombre ?? '') . ' ' . ($consumo->usuario_apellido ?? '')),
+                'solicitante_nombre' => $solicitanteNombre,
+                'solicitante_tipo' => $solicitanteTipo,
+                'created_at' => $consumo->created_at,
+                'updated_at' => $consumo->updated_at,
+                'categoria_nombre' => $consumo->nombre_categoria,
+                'tipo_maquina' => $consumo->tipo_maquina, // 🆕 Interna/Externa
+            ];
+        });
+
+        // 🆕 CALCULAR ESTADÍSTICAS específicas de esta categoría
+        $statsQuery = DB::table('consumos as c')
+            ->join('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
+            ->join('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria')
+            ->leftJoin('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
+            ->where('cm.id_categoria', $idCategoria)
+            ->where('c.id_faena', $faena);
+
+        // Aplicar los mismos filtros de fecha para las estadísticas
+        if ($dateFrom) {
+            $fechaDesde = Carbon::createFromFormat('Y-m-d', $dateFrom)->startOfDay();
+            $statsQuery->where('c.fecha_consumo', '>=', $fechaDesde);
+        }
+
+        if ($dateTo) {
+            $fechaHasta = Carbon::createFromFormat('Y-m-d', $dateTo)->endOfDay();
+            $statsQuery->where('c.fecha_consumo', '<=', $fechaHasta);
+        }
+
+        // Obtener estadísticas de la categoría
+        $statsGlobales = $statsQuery->selectRaw('
+            COUNT(*) as total_consumos,
+            SUM(c.litros_consumidos) as total_litros,
+            AVG(c.litros_consumidos) as promedio_consumo,
+            SUM(CASE WHEN c.precio_litro IS NOT NULL THEN c.litros_consumidos * c.precio_litro ELSE 0 END) as costo_total,
+            SUM(CASE WHEN c.tipo_consumo = "simple" THEN 1 ELSE 0 END) as consumos_simples,
+            SUM(CASE WHEN c.tipo_consumo = "multiple" THEN 1 ELSE 0 END) as consumos_multiples
+        ')->first();
+
+        // Obtener equipo más usado en esta categoría
+        $equipoMasUsadoCategoria = $statsQuery
+            ->selectRaw('COALESCE(mi.nombre, m.nombre_maquina) as nombre_maquina, COUNT(*) as total_usos')
+            ->groupBy('mi.nombre', 'm.nombre_maquina')
+            ->orderBy('total_usos', 'desc')
+            ->first();
+
+        $stats = [
+            'total_consumos' => (int) $statsGlobales->total_consumos,
+            'total_litros' => (float) $statsGlobales->total_litros,
+            'promedio_consumo' => (float) $statsGlobales->promedio_consumo,
+            'costo_total' => (float) $statsGlobales->costo_total,
+            'equipo_mas_usado' => $equipoMasUsadoCategoria->nombre_maquina ?? 'N/A',
+            'consumos_simples' => (int) $statsGlobales->consumos_simples,
+            'consumos_multiples' => (int) $statsGlobales->consumos_multiples,
+            'porcentaje_multiples' => $statsGlobales->total_consumos > 0
+                ? round(($statsGlobales->consumos_multiples / $statsGlobales->total_consumos) * 100, 2)
+                : 0,
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => $consumosTransformados,
+            'stats' => $stats,
+            'pagination' => [
+                'current_page' => (int) $page,
+                'per_page' => (int) $perPage,
+                'total' => (int) $totalRecords,
+                'total_pages' => (int) $totalPages,
+                'from' => ($page - 1) * $perPage + 1,
+                'to' => min($page * $perPage, $totalRecords),
+            ],
+            'categoria_info' => [
+                'id' => $categoria->id_categoria,
+                'nombre' => $categoria->nombre_categoria,
+                'tipo_medicion' => $categoria->tipo_medicion
+            ],
+            'filters_applied' => [
+                'faena' => $faena,
+                'id_categoria' => $idCategoria,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+            ],
+            'message' => "Consumos de la categoría '{$categoria->nombre_categoria}' obtenidos exitosamente"
+        ], 200);
+
+    } catch (\Exception $e) {
+        Log::error('Error en getConsumosPorCategoria', [
+            'exception' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'request_data' => $request->all()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Error al obtener consumos por categoría: ' . $e->getMessage(),
+            'data' => []
+        ], 500);
+    }
+}
 }
