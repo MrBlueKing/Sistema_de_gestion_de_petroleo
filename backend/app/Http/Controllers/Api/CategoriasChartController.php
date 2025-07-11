@@ -384,4 +384,5 @@ class CategoriasChartController extends Controller
         $faena = DB::table('faenas')->where('id_faena', $idFaena)->first();
         return $faena ? $faena->ubicacion : "Faena ID: $idFaena";
     }
+    
 }
