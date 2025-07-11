@@ -1,5 +1,3 @@
-// TopEquiposChart.jsx - Con Rendimiento Sencillo
-
 import React, { useState, useEffect, useRef } from "react";
 import {
   BarChart,
@@ -13,25 +11,45 @@ import {
   LabelList,
   Cell,
 } from "recharts";
-import { FiTruck, FiAlertTriangle, FiRefreshCw, FiBarChart2, FiDroplet  } from "react-icons/fi";
+import { 
+  FiTruck, 
+  FiAlertTriangle, 
+  FiRefreshCw, 
+  FiBarChart2, 
+  FiDroplet,
+  FiEye,
+  FiEyeOff,
+  FiInfo,
+  FiFilter
+} from "react-icons/fi";
 import { consumoService } from "../../context/apiService";
 
 const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey }) => {
   const [loading, setLoading] = useState(true);
   const [equiposData, setEquiposData] = useState([]);
+  const [equiposCompletos, setEquiposCompletos] = useState([]);
   const [error, setError] = useState(null);
-  const [totalConsumo, setTotalConsumo] = useState(0);
-  const [totalHoras, setTotalHoras] = useState(0);
+  const [estadisticas, setEstadisticas] = useState({});
   const [fechaActualizacion, setFechaActualizacion] = useState(null);
+  
+  // 🆕 Estados para filtros y visualización
+  const [mostrarSinDatos, setMostrarSinDatos] = useState(false);
+  const [mostrarSoloConRendimiento, setMostrarSoloConRendimiento] = useState(false);
+  const [filtroTipoMaquina, setFiltroTipoMaquina] = useState('todas'); // 🆕 todas/interna/externa
+  const [filtroTipoMedicion, setFiltroTipoMedicion] = useState('todas'); // 🆕 todas/Horometro/Kilometraje
+  const [limiteMostrar, setLimiteMostrar] = useState(15);
+  const [ordenamiento, setOrdenamiento] = useState('consumo'); // 'consumo', 'rendimiento', 'nombre'
   
   // Usar useRef para evitar llamadas innecesarias a la API
   const isMounted = useRef(true);
   const initialLoadDone = useRef(false);
   const prevFilters = useRef({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey });
   
-  const NARANJA_PRINCIPAL = "#f97316"; // Orange-500
-  const AZUL_SECUNDARIO = "#3b82f6"; // Blue-500
-  const VERDE_RENDIMIENTO = "#10b981"; // Green-500 para rendimiento
+  const NARANJA_PRINCIPAL = "#f97316";
+  const AZUL_SECUNDARIO = "#3b82f6";
+  const VERDE_RENDIMIENTO = "#10b981";
+  const GRIS_SIN_DATOS = "#9ca3af";
+  const ROJO_DEFICIENTE = "#dc2626";
   
   // Función para verificar si los filtros han cambiado realmente
   const filtersChanged = () => {
@@ -42,78 +60,93 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
                    prevF.refreshKey !== refreshKey ||
                    !initialLoadDone.current;
     
-    // Actualizar los filtros previos
     prevFilters.current = { faenaSeleccionada, fechaDesde, fechaHasta, refreshKey };
     return changed;
   };
   
   useEffect(() => {
-    // Establecer el ref a true cuando se monta el componente
     isMounted.current = true;
-    
-    // Limpiar cuando se desmonta
     return () => {
       isMounted.current = false;
     };
   }, []);
-  
-  // 🆕 Función para renderizar etiquetas personalizadas
-  const renderCustomLabel = (props, tipo) => {
-    const { x, y, width, height, value } = props;
+
+  // 🆕 Función para determinar el color de la barra según el rendimiento Y tipo de máquina
+  const getBarColor = (item) => {
+    if (item.consumo === 0) return GRIS_SIN_DATOS;
     
-    if (!value || value === 0) return null;
+    // 🆕 Diferentes tonos para máquinas externas
+    const esExterna = item.tipo_maquina === 'externa';
     
-    const labelX = x + width / 2;
-    const labelY = y - 5; // Posición sobre la barra
-    
-    let color, unidad;
-    switch(tipo) {
-      case 'consumo':
-        color = '#dc2626';
-        unidad = 'L';
-        break;
-      case 'medicion':
-        color = '#1e40af';
-        unidad = ''; // Se determinará dinámicamente
-        break;
-      case 'rendimiento':
-        color = '#059669';
-        unidad = 'L/h';
-        break;
-      default:
-        color = '#374151';
-        unidad = '';
+    if (!item.rendimiento_sencillo) {
+      return esExterna ? '#fb923c' : NARANJA_PRINCIPAL; // Naranja más claro para externas
     }
     
-    return (
-      <text
-        x={labelX}
-        y={labelY}
-        textAnchor="middle"
-        dominantBaseline="bottom"
-        fill={color}
-        fontSize="11"
-        fontWeight="600"
-      >
-        {tipo === 'rendimiento' 
-          ? value.toFixed(1) + unidad
-          : value.toLocaleString('es-CL') + unidad
-        }
-      </text>
-    );
+    const rendimiento = item.rendimiento_sencillo;
+    if (rendimiento < 5) {
+      return esExterna ? '#34d399' : VERDE_RENDIMIENTO; // Verde más claro para externas
+    }
+    if (rendimiento < 10) {
+      return esExterna ? '#fb923c' : NARANJA_PRINCIPAL; // Naranja más claro para externas
+    }
+    return esExterna ? '#f87171' : ROJO_DEFICIENTE; // Rojo más claro para externas
   };
 
-  // 🔧 FUNCIÓN AUXILIAR: Formatear números grandes de manera elegante
-  const formatearNumero = (numero) => {
-    if (numero >= 1000000) {
-      return `${(numero / 1000000).toFixed(1)}M`;
+  // 🆕 Función para filtrar y ordenar datos
+  const procesarDatos = (data) => {
+    if (!data || data.length === 0) return [];
+
+    let datosFiltrados = [...data];
+
+    // Filtrar según opciones
+    if (!mostrarSinDatos) {
+      datosFiltrados = datosFiltrados.filter(item => item.consumo > 0);
     }
-    if (numero >= 1000) {
-      return `${(numero / 1000).toFixed(1)}k`;
+
+    if (mostrarSoloConRendimiento) {
+      datosFiltrados = datosFiltrados.filter(item => item.rendimiento_sencillo !== null);
     }
-    return numero.toLocaleString('es-CL', { maximumFractionDigits: 1 });
+
+    // 🆕 NUEVOS FILTROS: Tipo de máquina y tipo de medición
+    if (filtroTipoMaquina !== 'todas') {
+      datosFiltrados = datosFiltrados.filter(item => item.tipo_maquina === filtroTipoMaquina);
+    }
+
+    if (filtroTipoMedicion !== 'todas') {
+      datosFiltrados = datosFiltrados.filter(item => item.tipo_medicion === filtroTipoMedicion);
+    }
+
+    // Ordenar
+    switch (ordenamiento) {
+      case 'rendimiento':
+        datosFiltrados.sort((a, b) => {
+          if (!a.rendimiento_sencillo && !b.rendimiento_sencillo) return 0;
+          if (!a.rendimiento_sencillo) return 1;
+          if (!b.rendimiento_sencillo) return -1;
+          return b.rendimiento_sencillo - a.rendimiento_sencillo;
+        });
+        break;
+      case 'nombre':
+        datosFiltrados.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case 'tipo':
+        datosFiltrados.sort((a, b) => {
+          if (a.tipo_maquina !== b.tipo_maquina) {
+            return a.tipo_maquina === 'interna' ? -1 : 1; // Internas primero
+          }
+          return b.consumo - a.consumo; // Luego por consumo
+        });
+        break;
+      case 'consumo':
+      default:
+        datosFiltrados.sort((a, b) => b.consumo - a.consumo);
+        break;
+    }
+
+    // Aplicar límite
+    return datosFiltrados.slice(0, limiteMostrar);
   };
-  
+
   // Función para cargar los datos
   const loadData = async () => {
     if (!isMounted.current) return;
@@ -121,7 +154,6 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
     try {
       setLoading(true);
       
-      // Verificar que las fechas estén presentes
       if (!fechaDesde || !fechaHasta) {
         setError("Por favor, seleccione un rango de fechas válido.");
         setEquiposData([]);
@@ -129,7 +161,6 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
         return;
       }
 
-      // Asegúrate de que la fecha 'Hasta' no sea anterior a 'Desde'
       if (new Date(fechaDesde) > new Date(fechaHasta)) {
         setError("La fecha 'Hasta' no puede ser anterior a la fecha 'Desde'.");
         setEquiposData([]);
@@ -139,57 +170,55 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
 
       console.log("TopEquiposChart: Llamando a la API con filtros:", { faenaSeleccionada, fechaDesde, fechaHasta });
       
-      // Llamada al servicio con los filtros aplicados
-      const data = await consumoService.getTopEquipos(faenaSeleccionada, fechaDesde, fechaHasta);
+      // Llamada al servicio
+      const response = await consumoService.getTopEquipos(faenaSeleccionada, fechaDesde, fechaHasta);
       
-      // Solo actualizar el estado si el componente sigue montado
       if (!isMounted.current) return;
       
-      // Verificar si hay datos
+      // 🆕 Manejar la nueva estructura de respuesta
+      const data = response.data || response;
+      const stats = response.estadisticas || {};
+      
       if (data && data.length > 0) {
-        // 🆕 MEJORA: Formateo de datos incluyendo rendimiento_sencillo y tipo de medición
-        const formattedData = data
-          .map(item => ({
-            name: item.nombre || (item.name || 'Sin nombre'),
-            patente: item.patente || 'S/P',
-            consumo: Math.round((item.consumo || item.litros_consumidos || 0) * 100) / 100,
-            // 🆕 Detectar si es KM o Horas basado en los datos
-            medicion: Math.round((item.horas_reales || item.horas || item.km || item.medicion || 0) * 100) / 100,
-            tipo_medicion: item.tipo_medicion || (item.km ? 'Kilometraje' : 'Horometro'),
-            // 🆕 NUEVO: Rendimiento sencillo
-            rendimiento_sencillo: item.rendimiento_sencillo !== null && item.rendimiento_sencillo !== undefined 
-              ? parseFloat(item.rendimiento_sencillo) 
-              : null,
-            litros_confirmados: parseFloat(item.litros_confirmados || 0),
-            horas_reales: parseFloat(item.horas_reales || 0),
-            total_consumos: item.total_consumos || 0,
-            interpretacion_rendimiento: item.interpretacion_rendimiento || '',
-            eficiencia: (item.horas && item.consumo) 
-              ? parseFloat((item.consumo / item.horas).toFixed(2)) 
-              : null,
-            id: item.id || `EQ-${Math.floor(Math.random() * 1000)}`
-          }))
-          // 🆕 ORDENAMIENTO: De mayor a menor consumo
-          .sort((a, b) => b.consumo - a.consumo)
-          // 🆕 LIMITAR A TOP 15 PARA MEJOR VISUALIZACIÓN
-          .slice(0, 15);
+        // Formatear datos
+        const formattedData = data.map(item => ({
+          name: item.nombre || 'Sin nombre',
+          // 🆕 PATENTE: Solo máquinas internas tienen patente
+          patente: item.tipo_maquina === 'interna' ? (item.patente || 'S/P') : null,
+          consumo: parseFloat(item.consumo || 0),
+          medicion: parseFloat(item.horas_reales || item.medicion || 0),
+          // 🆕 TIPO DE MEDICIÓN REAL DESDE CATEGORÍA (no hardcodeado)
+          tipo_medicion: item.tipo_medicion || 'Horometro',
+          // 🆕 NUEVOS CAMPOS: tipo de máquina y categoría
+          tipo_maquina: item.tipo_maquina || 'interna',
+          categoria: item.categoria || 'Sin categoría',
+          // 🆕 INFORMACIÓN ADICIONAL DE MÁQUINAS EXTERNAS
+          empresa_externa: item.empresa_externa || null,
+          nombre_contacto: item.nombre_contacto || null,
+          rendimiento_sencillo: item.rendimiento_sencillo !== null && item.rendimiento_sencillo !== undefined 
+            ? parseFloat(item.rendimiento_sencillo) 
+            : null,
+          litros_confirmados: parseFloat(item.litros_confirmados || 0),
+          horas_reales: parseFloat(item.horas_reales || 0),
+          total_consumos: parseInt(item.total_consumos || 0),
+          interpretacion_rendimiento: item.interpretacion_rendimiento || 'Sin datos',
+          id: item.id || `EQ-${Math.floor(Math.random() * 1000)}`
+        }));
 
-        const total = formattedData.reduce((sum, item) => sum + item.consumo, 0);
-        const totalMedicion = formattedData.reduce((sum, item) => sum + item.medicion, 0);
-        
-        setTotalConsumo(total);
-        setTotalHoras(totalMedicion); // Reutilizar para almacenar total de medición (km o horas)
+        setEquiposCompletos(formattedData);
+        setEstadisticas(stats);
         setFechaActualizacion(new Date());
-        setEquiposData(formattedData);
         setError(null);
       } else {
-        setEquiposData([]);
+        setEquiposCompletos([]);
+        setEstadisticas({});
         setError("No hay datos disponibles para mostrar");
       }
     } catch (err) {
       console.error("Error al cargar datos de equipos:", err);
       if (isMounted.current) {
-        setEquiposData([]);
+        setEquiposCompletos([]);
+        setEstadisticas({});
         setError("No se pudieron cargar los datos de equipos. Por favor verifica la conexión con el servidor.");
       }
     } finally {
@@ -199,6 +228,12 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
       }
     }
   };
+
+  // Procesar datos para mostrar cuando cambien los filtros locales
+  useEffect(() => {
+    const datosProcesados = procesarDatos(equiposCompletos);
+    setEquiposData(datosProcesados);
+  }, [equiposCompletos, mostrarSinDatos, mostrarSoloConRendimiento, filtroTipoMaquina, filtroTipoMedicion, limiteMostrar, ordenamiento]);
 
   // Effect para cargar datos cuando cambian los filtros
   useEffect(() => {
@@ -213,82 +248,90 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
     loadData();
   };
 
-  // 🆕 Tooltip personalizado mejorado CON RENDIMIENTO SENCILLO Y DETECCIÓN DE TIPO
+  // 🆕 Tooltip personalizado mejorado
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       const esMedicionKm = data.tipo_medicion === 'Kilometraje';
-      const unidadMedicion = esMedicionKm ? 'km' : 'hrs';
+      const esExterna = data.tipo_maquina === 'externa';
       
       return (
-        <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-lg max-w-sm">
-          <p className="font-semibold text-gray-800 mb-2">{label}</p>
-          <p className="text-sm text-gray-600 mb-2">Patente: {data.patente}</p>
+        <div className="bg-white p-4 border border-gray-300 rounded-lg shadow-lg min-w-64 max-w-80">
+          <div className="font-semibold text-gray-800 mb-2 border-b pb-2 flex items-center justify-between">
+            <span className="truncate">{data.name}</span>
+            {/* 🆕 Badge de tipo de máquina */}
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ml-2 flex-shrink-0 ${
+              esExterna 
+                ? 'bg-purple-100 text-purple-800' 
+                : 'bg-blue-100 text-blue-800'
+            }`}>
+              {esExterna ? 'Externa' : 'Propia'}
+            </span>
+          </div>
           
-          {/* Datos principales de las barras */}
-          <div className="space-y-1 mb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div 
-                  className="w-3 h-3 rounded-full mr-2"
-                  style={{ backgroundColor: '#f97316' }}
-                ></div>
-                <span className="text-sm text-gray-700">Consumo:</span>
+          <div className="space-y-2">
+            {/* 🆕 PATENTE: Solo mostrar para máquinas internas */}
+            {!esExterna && data.patente && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Patente:</span>
+                <span className="font-medium">{data.patente}</span>
               </div>
-              <span className="font-medium ml-2">
-                {data.consumo.toLocaleString()} L
+            )}
+
+            {/* 🆕 Información específica según tipo de máquina */}
+            {esExterna && data.empresa_externa && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Empresa:</span>
+                <span className="font-medium text-purple-700 text-sm truncate">{data.empresa_externa}</span>
+              </div>
+            )}
+
+            {esExterna && data.nombre_contacto && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Contacto:</span>
+                <span className="font-medium text-gray-700 text-sm truncate">{data.nombre_contacto}</span>
+              </div>
+            )}
+
+            {/* 🆕 Categoría */}
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">Categoría:</span>
+              <span className="font-medium text-gray-700">{data.categoria}</span>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">Consumo:</span>
+              <span className="font-medium text-orange-600">{data.consumo.toLocaleString('es-CL')} L</span>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">{esMedicionKm ? 'Kilometraje' : 'Horometro'}:</span>
+              <span className="font-medium text-blue-600">
+                {data.medicion.toFixed(1)} {esMedicionKm ? 'km' : 'h'}
               </span>
             </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div 
-                  className="w-3 h-3 rounded-full mr-2"
-                  style={{ backgroundColor: '#3b82f6' }}
-                ></div>
-                <span className="text-sm text-gray-700">
-                  {esMedicionKm ? 'Kilómetros' : 'Horas'} reales:
+
+            {data.rendimiento_sencillo !== null ? (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Rendimiento:</span>
+                <span className="font-medium text-green-600">
+                  {data.rendimiento_sencillo.toFixed(2)} L/{esMedicionKm ? 'km' : 'h'}
                 </span>
               </div>
-              <span className="font-medium ml-2">
-                {data.horas_reales.toFixed(1)} {unidadMedicion}
-              </span>
-            </div>
-          </div>
-
-          {/* 🆕 SECCIÓN DE RENDIMIENTO SENCILLO */}
-          <div className="pt-3 border-t border-gray-200">
-            <div className="space-y-2">
-              {/* Rendimiento sencillo */}
-              {data.rendimiento_sencillo !== null ? (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600 flex items-center">
-                    <div className="w-3 h-3 rounded-full mr-2 bg-green-500"></div>
-                    Rendimiento:
-                  </span>
-                  <span className="font-medium text-green-600">
-                    {data.rendimiento_sencillo.toFixed(2)} L/{esMedicionKm ? 'km' : 'h'}
-                  </span>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Rendimiento:</span>
-                  <span className="text-sm text-gray-400 italic">No calculable</span>
-                </div>
-              )}
-              
-              {/* Interpretación */}
-              {data.interpretacion_rendimiento && (
-                <div className="text-xs text-gray-500 italic">
-                  {data.interpretacion_rendimiento}
-                </div>
-              )}
-              
-              {/* Datos adicionales */}
-              <div className="text-xs text-gray-500 space-y-1 mt-2">
-                <div>Litros confirmados: {data.litros_confirmados.toLocaleString()} L</div>
-                <div>{esMedicionKm ? 'Kilómetros' : 'Horas'} reales: {data.horas_reales.toFixed(1)} {esMedicionKm ? 'km' : 'h'}</div>
-                <div>Total consumos: {data.total_consumos}</div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">Rendimiento:</span>
+                <span className="text-sm text-gray-400 italic">No calculable</span>
               </div>
+            )}
+            
+            <div className="text-xs text-gray-500 italic border-t pt-2">
+              {data.interpretacion_rendimiento}
+            </div>
+            
+            <div className="text-xs text-gray-500 space-y-1">
+              <div>Litros confirmados: {data.litros_confirmados.toLocaleString('es-CL')} L</div>
+              <div>Total consumos: {data.total_consumos}</div>
             </div>
           </div>
         </div>
@@ -297,21 +340,76 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
     return null;
   };
 
-  // 🆕 Estadísticas resumidas en la parte superior
-  const StatCard = ({ icon: Icon, title, value, color = "text-gray-700", bgColor = "bg-gray-50" }) => (
-    <div className={`${bgColor} rounded-lg p-4 border border-gray-200`}>
+  // 🆕 Componente de estadísticas - MOBILE FRIENDLY
+  const StatCard = ({ icon: Icon, title, value, subtitle, color = "text-gray-700", bgColor = "bg-gray-50" }) => (
+    <div className={`${bgColor} rounded-lg p-3 lg:p-4 border border-gray-200`}>
       <div className="flex items-center">
-        <Icon className={`${color} mr-3`} size={20} />
-        <div>
-          <p className="text-sm text-gray-600">{title}</p>
-          <p className={`text-lg font-semibold ${color}`}>{value}</p>
+        <Icon className={`${color} mr-2 lg:mr-3 flex-shrink-0`} size={16} />
+        <div className="min-w-0 flex-1">
+          <p className="text-xs lg:text-sm text-gray-600 truncate">{title}</p>
+          <p className={`text-base lg:text-lg font-semibold ${color} truncate`}>{value}</p>
+          {subtitle && <p className="text-xs text-gray-500 truncate">{subtitle}</p>}
         </div>
       </div>
     </div>
   );
 
+  // 🆕 Componente personalizado para etiquetas de datos
+  const CustomLabel = (props) => {
+    const { x, y, width, height, value } = props;
+    
+    if (!value || value === 0) return null;
+    
+    const labelX = x + width / 2;
+    const labelY = y - 8; // Posición arriba de la barra
+    
+    // Formatear el valor para la etiqueta
+    let displayValue;
+    if (value >= 1000) {
+      displayValue = `${(value)}L`;
+    } else {
+      displayValue = `${Math.round(value)}L`;
+    }
+    
+    return (
+      <text
+        x={labelX}
+        y={labelY}
+        textAnchor="middle"
+        dominantBaseline="bottom"
+        fill="#374151"
+        fontSize="11"
+        fontWeight="600"
+        style={{
+          textShadow: '1px 1px 2px rgba(255,255,255,0.8)',
+          filter: 'drop-shadow(0px 1px 1px rgba(255,255,255,0.8))'
+        }}
+      >
+        {displayValue}
+      </text>
+    );
+  };
+
+  // 🆕 Función para calcular el dominio Y inteligente
+  const calcularDominioY = (datos) => {
+    if (!datos || datos.length === 0) return [0, 100];
+    
+    const consumos = datos.map(d => d.consumo).filter(c => c > 0);
+    if (consumos.length === 0) return [0, 100];
+    
+    const maxConsumo = Math.max(...consumos);
+    const minConsumo = Math.min(...consumos);
+    
+    // Si hay una gran diferencia entre el mínimo y máximo, usar escala logarítmica visual
+    if (maxConsumo / minConsumo > 100) {
+      return [0, maxConsumo * 1.1];
+    }
+    
+    return [0, maxConsumo * 1.15];
+  };
+
   return (
-    <div className="w-full">
+    <div className="w-full space-y-6">
       
       {loading ? (
         <div className="h-96 flex items-center justify-center bg-gray-50 rounded-lg">
@@ -331,118 +429,247 @@ const TopEquiposChart = ({ faenaSeleccionada, fechaDesde, fechaHasta, refreshKey
             <FiRefreshCw className="mr-2" /> Reintentar
           </button>
         </div>
-      ) : equiposData.length === 0 ? (
-        <div className="h-96 flex items-center justify-center">
-          <div className="text-gray-500">No hay datos disponibles para el período seleccionado</div>
-        </div>
       ) : (
         <>
-          {/* 🆕 ESTADÍSTICAS SUPERIORES */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          {/* 🆕 ESTADÍSTICAS GENERALES - MOBILE FRIENDLY CON EMPRESAS EXTERNAS */}
+          <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 lg:gap-4">
             <StatCard
               icon={FiTruck}
-              title="Equipos"
-              value={equiposData.length}
+              title="Total Equipos"
+              value={estadisticas.total_equipos || equiposCompletos.length}
+              subtitle="En el sistema"
               color="text-blue-600"
               bgColor="bg-blue-50"
             />
             <StatCard
+              icon={FiBarChart2}
+              title="Propias"
+              value={estadisticas.equipos_internos || equiposCompletos.filter(e => e.tipo_maquina === 'interna').length}
+              subtitle="Máquinas internas"
+              color="text-blue-600"
+              bgColor="bg-blue-50"
+            />
+            <StatCard
+              icon={FiTruck}
+              title="Externas"
+              value={estadisticas.equipos_externos || equiposCompletos.filter(e => e.tipo_maquina === 'externa').length}
+              subtitle="De terceros"
+              color="text-purple-600"
+              bgColor="bg-purple-50"
+            />
+            <StatCard
+              icon={FiAlertTriangle}
+              title="Sin Datos"
+              value={estadisticas.equipos_sin_datos || equiposCompletos.filter(e => e.total_consumos <= 1).length}
+              subtitle="Requieren más"
+              color="text-yellow-600"
+              bgColor="bg-yellow-50"
+            />
+            <StatCard
               icon={FiDroplet}
               title="Consumo Total"
-              value={`${formatearNumero(totalConsumo)} L`}
+              value={`${(estadisticas.consumo_total_periodo || equiposCompletos.reduce((sum, e) => sum + e.consumo, 0))} L`}
+              subtitle="En el período"
               color="text-orange-600"
               bgColor="bg-orange-50"
             />
-            <StatCard
-              icon={FiBarChart2}
-              title="Rendimiento"
-              value={equiposData.filter(e => e.rendimiento_sencillo !== null).length > 0 
-                ? `${formatearNumero(totalConsumo)}L/${(equiposData.filter(e => e.rendimiento_sencillo !== null)
-                    .reduce((sum, e) => sum + e.rendimiento_sencillo, 0) / 
-                    equiposData.filter(e => e.rendimiento_sencillo !== null).length).toFixed(1)} acordado`
-                : `${formatearNumero(totalConsumo)}L/N.A rendimiento`
-              }
-              color="text-green-600"
-              bgColor="bg-green-50"
-            />
+            {/* 🆕 Nueva estadística: Empresas externas */}
+            {estadisticas.empresas_externas > 0 && (
+              <StatCard
+                icon={FiInfo}
+                title="Empresas"
+                value={estadisticas.empresas_externas || 0}
+                subtitle="Externas"
+                color="text-purple-600"
+                bgColor="bg-purple-50"
+              />
+            )}
           </div>
 
-          {/* 🆕 GRÁFICO PRINCIPAL */}
-          <div style={{ width: "100%", height: 500 }}>
-            <ResponsiveContainer>
-              <BarChart
-                data={equiposData}
-                margin={{
-                  top: 30,
-                  right: 30,
-                  left: 20,
-                  bottom: 50,
-                }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis 
-                  dataKey="name" 
-                  angle={-45}
-                  textAnchor="end"
-                  height={100}
-                  tick={{ fill: '#374151', fontSize: 12 }}
-                  axisLine={{ stroke: '#d1d5db' }}
-                  tickLine={{ stroke: '#d1d5db' }}
-                />
-                {/* 🆕 EJE Y MÁS CLARO con mejor contraste */}
-                <YAxis 
-                  tick={{ fill: '#374151', fontSize: 12, fontWeight: 500 }}
-                  axisLine={{ stroke: '#d1d5db', strokeWidth: 1 }}
-                  tickLine={{ stroke: '#d1d5db' }}
-                  tickFormatter={(value) => {
-                    if (value >= 1000000) {
-                      return `${(value / 1000000).toFixed(1)}M`;
-                    }
-                    if (value >= 1000) {
-                      return `${(value / 1000).toFixed(1)}k`;
-                    }
-                    return value.toLocaleString('es-CL');
-                  }}
-                  width={80}
-                  domain={[0, 'dataMax + 200']}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend 
-                  verticalAlign="top" 
-                  height={36}
-                  iconType="rect"
-                  wrapperStyle={{
-                    paddingBottom: '20px',
-                    fontSize: '14px',
-                    fontWeight: '500'
-                  }}
-                />
-                {/* 🆕 SOLO UNA BARRA: Consumo */}
-                <Bar 
-                  dataKey="consumo" 
-                  fill={NARANJA_PRINCIPAL}
-                  name="Consumo (Litros)"
-                  maxBarSize={80}
-                  radius={[3, 3, 0, 0]}
-                >
-                  <LabelList 
-                    dataKey="consumo" 
-                    position="top" 
-                    content={(props) => renderCustomLabel(props, 'consumo')}
+          {/* 🆕 CONTROLES DE FILTRADO Y VISUALIZACIÓN - MOBILE FRIENDLY */}
+          <div className="bg-white p-3 md:p-4 rounded-lg border border-gray-200">
+            <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-4">
+              <div className="flex items-center space-x-2">
+                <FiFilter className="text-gray-500" size={16} />
+                <span className="text-sm font-medium text-gray-700">Filtros:</span>
+              </div>
+              
+              {/* Controles en grid para mobile */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-3 lg:gap-4">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={mostrarSinDatos}
+                    onChange={(e) => setMostrarSinDatos(e.target.checked)}
+                    className="rounded"
                   />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+                  <span className="text-xs sm:text-sm text-gray-600">Mostrar equipos sin datos</span>
+                </label>
+                
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={mostrarSoloConRendimiento}
+                    onChange={(e) => setMostrarSoloConRendimiento(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span className="text-xs sm:text-sm text-gray-600">Solo con rendimiento</span>
+                </label>
+
+                {/* 🆕 NUEVO: Filtro por tipo de máquina */}
+                <select
+                  value={filtroTipoMaquina}
+                  onChange={(e) => setFiltroTipoMaquina(e.target.value)}
+                  className="px-2 py-1 border border-gray-300 rounded text-xs sm:text-sm"
+                >
+                  <option value="todas">Todas las máquinas</option>
+                  <option value="interna">Solo propias</option>
+                  <option value="externa">Solo externas</option>
+                </select>
+
+                {/* 🆕 NUEVO: Filtro por tipo de medición */}
+                <select
+                  value={filtroTipoMedicion}
+                  onChange={(e) => setFiltroTipoMedicion(e.target.value)}
+                  className="px-2 py-1 border border-gray-300 rounded text-xs sm:text-sm"
+                >
+                  <option value="todas">Todos los tipos</option>
+                  <option value="Horometro">Horómetro</option>
+                  <option value="Kilometraje">Kilometraje</option>
+                </select>
+                
+                <select
+                  value={ordenamiento}
+                  onChange={(e) => setOrdenamiento(e.target.value)}
+                  className="px-2 py-1 border border-gray-300 rounded text-xs sm:text-sm"
+                >
+                  <option value="consumo">Por Consumo</option>
+                  <option value="rendimiento">Por Rendimiento</option>
+                  <option value="tipo">Por Tipo</option>
+                  <option value="nombre">Por Nombre</option>
+                </select>
+                
+                <select
+                  value={limiteMostrar}
+                  onChange={(e) => setLimiteMostrar(parseInt(e.target.value))}
+                  className="px-2 py-1 border border-gray-300 rounded text-xs sm:text-sm"
+                >
+                  <option value={15}>15 equipos</option>
+                  <option value={30}>30 equipos</option>
+                  <option value={50}>50 equipos</option>
+                  <option value={1000}>Todos</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="mt-2 text-xs text-gray-500">
+              Mostrando {equiposData.length} de {equiposCompletos.length} equipos
+            </div>
           </div>
 
-          {/* 🆕 INFORMACIÓN ADICIONAL - SIMPLIFICADA */}
-          <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="flex items-center justify-between text-sm">
+          {/* 🆕 GRÁFICO PRINCIPAL - MOBILE FRIENDLY */}
+          {equiposData.length > 0 ? (
+            <div className="w-full">
+              {/* Altura dinámica que se adapta al contenido y tamaño de pantalla */}
+              <div 
+                style={{ 
+                  width: "100%", 
+                  height: Math.max(300, Math.min(600, equiposData.length * 35)),
+                  minHeight: "300px"
+                }}
+                className="overflow-x-auto"
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={equiposData}
+                    margin={{
+                      top: 40,
+                      right: 10, // Menos margen en mobile
+                      left: 10,  // Menos margen en mobile
+                      bottom: 60, // Más espacio para labels rotados
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis 
+                      dataKey="name" 
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                      tick={{ fill: '#374151', fontSize: 10 }} // Fuente más pequeña en mobile
+                      axisLine={{ stroke: '#d1d5db' }}
+                      tickLine={{ stroke: '#d1d5db' }}
+                      interval={0} // Mostrar todas las etiquetas
+                    />
+                    <YAxis 
+                      tick={{ fill: '#374151', fontSize: 11, fontWeight: 500 }}
+                      axisLine={{ stroke: '#d1d5db', strokeWidth: 1 }}
+                      tickLine={{ stroke: '#d1d5db' }}
+                      tickFormatter={(value) => (value)}
+                      width={60} // Menos ancho en mobile
+                      domain={calcularDominioY(equiposData)} // 🆕 Dominio inteligente
+                    />
+                    <Tooltip 
+                      content={<CustomTooltip />}
+                      cursor={{ fill: 'rgba(0,0,0,0.1)' }}
+                    />
+                    <Legend 
+                      verticalAlign="top" 
+                      height={36}
+                      iconType="rect"
+                      wrapperStyle={{
+                        fontSize: '12px',
+                        fontWeight: '500'
+                      }}
+                    />
+                    
+                    <Bar 
+                      dataKey="consumo" 
+                      name="Consumo (Litros)"
+                      maxBarSize={50} // Barras más delgadas en mobile
+                      radius={[2, 2, 0, 0]}
+                    >
+                      {/* 🆕 ETIQUETAS DE DATOS - Solo para valores > 0 */}
+                      <LabelList 
+                        dataKey="consumo" 
+                        position="top" 
+                        content={<CustomLabel />}
+                      />
+                      {/* Colores dinámicos según rendimiento */}
+                      {equiposData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={getBarColor(entry)} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              
+              {/* 🆕 Indicador de scroll horizontal en mobile */}
+              <div className="sm:hidden mt-2 text-center">
+                <p className="text-xs text-gray-500">
+                  ← Desliza horizontalmente para ver más equipos →
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg border border-gray-200">
+              <div className="text-center">
+                <FiInfo size={40} className="text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">No hay equipos que mostrar con los filtros actuales</p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Intenta ajustar los filtros o mostrar equipos sin datos
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* 🆕 INFORMACIÓN DEL PERÍODO - MOBILE FRIENDLY */}
+          <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs sm:text-sm">
               <span className="text-gray-600">
                 Período: {new Date(fechaDesde).toLocaleDateString('es-CL')} - {new Date(fechaHasta).toLocaleDateString('es-CL')}
               </span>
               <span className="text-gray-600">
-                Mostrando top {equiposData.length} equipos
+                Actualizado: {fechaActualizacion?.toLocaleTimeString('es-CL')}
               </span>
             </div>
           </div>
