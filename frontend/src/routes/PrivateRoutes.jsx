@@ -67,11 +67,6 @@ const PrivateRoutes = ({
         setIsLoading(true);
         setAuthError(null);
 
-        // Debug info (solo desarrollo)
-        if (showDebug && process.env.NODE_ENV === 'development') {
-          setDebugInfo(getSessionDebugInfo());
-        }
-
         // 1. Verificar si la sesión es válida
         if (!isSessionValid()) {
           clearSession();

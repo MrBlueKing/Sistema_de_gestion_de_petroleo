@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Header from "../../components/organisms/Bombero/Header";
+import UniversalHeader from "../../components/organisms/Todos/UniversalHeader";
 import BomberoFormLayout from "../../components/templates/Bombero/BomberoFormRecepcion";
 
 import { FaExchangeAlt } from "react-icons/fa";
@@ -37,7 +38,7 @@ const BomberoRecepcionPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 pt-5">
-      <Header />
+       <UniversalHeader type="bombero" />
       {/* Tabs de navegación */}
       <div className="bg-white border-b border-gray-200">
         <div className="flex">

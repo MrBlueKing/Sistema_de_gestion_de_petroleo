@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FiAlertCircle, FiCheckCircle, FiTruck, FiDroplet, FiBarChart2 } from 'react-icons/fi';
 import axios from '../../../lib/axios';
 import Header from '../Gerente/Header';
+import UniversalHeader from '../Todos/UniversalHeader';
 // Importar tu componente de filtros existente
 import FiltrosComponent from '../../molecules/FiltrosComponent';
 
@@ -33,7 +34,7 @@ const VerificacionIngresos = () => {
       const response = await axios.get('/api/faenas');
       // Verificar la estructura de la respuesta
       const faenasData = response.data.data || response.data;
-      
+
       if (Array.isArray(faenasData)) {
         const faenasFormateadas = faenasData.map(faena => ({
           value: faena.id_faena.toString(),
@@ -108,10 +109,10 @@ const VerificacionIngresos = () => {
   };
 
   return (
-    
+
     <div className="min-h-screen bg-gray-50">
-     
-        <Header />
+
+      <UniversalHeader type="gerente" />
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -159,7 +160,7 @@ const VerificacionIngresos = () => {
                   {formatNumber(resumen.error_final_acumulado)} L
                 </p>
               </div>
-              
+
             </div>
           </div>
         )}

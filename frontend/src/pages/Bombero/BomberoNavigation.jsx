@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo, useContext, useEffect } from "react";
 import { UserContext } from "../../context/userContext";
 import Header from "../../components/organisms/Bombero/Header";
+import UniversalHeader from "../../components/organisms/Todos/UniversalHeader";
 import TipoSolicitante from "../../components/templates/Bombero/BomberoTipoSolicitante";
 import Solicitante from "../../components/templates/Bombero/BomberoSolicitante";
 import Maquinaria from "../../components/templates/Bombero/BomberoMaquinaria";
@@ -366,7 +367,7 @@ const BomberoNavigation = () => {
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
       {/* Header centralizado */}
-      <Header className="fixed top-0 left-0 right-0 z-10" />
+      <UniversalHeader type="bombero" />
 
       {/* Container principal con padding-top para compensar el header fijo */}
       <div>

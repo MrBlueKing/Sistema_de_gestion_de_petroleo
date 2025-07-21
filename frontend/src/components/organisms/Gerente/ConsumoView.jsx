@@ -16,6 +16,7 @@ import {
 import axios from "../../../lib/axios";
 import { UserContext } from "../../../context/userContext";
 import Header from "../Gerente/Header";
+import UniversalHeader from "../Todos/UniversalHeader";
 
 // Importar componente desde pdf/components
 import PDFGenerator from '../../../pdf/components/PDFGenerator';
@@ -755,7 +756,7 @@ const ConsumosView = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-100 py-4 sm:py-6 px-3 sm:px-4">
       <div className="max-w-7xl mx-auto">
-        <Header />
+        <UniversalHeader type="gerente" />
 
         {/* Filtros de fecha y equipo */}
         <DateFilter
@@ -837,7 +838,7 @@ const ConsumosView = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-             
+
               <PDFGenerator
                 consumos={consumos}
                 stats={stats}

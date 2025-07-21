@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from '../../../lib/axios';
 import Header from '../Gerente/Header';
+import UniversalHeader from "../Todos/UniversalHeader";
 
 import {
     FiDroplet, FiLoader, FiX, FiCheckCircle,
@@ -114,7 +115,7 @@ const Graficos = ({ children }) => {
 
     return (
         <div className="flex-1 overflow-auto bg-gray-50">
-            <Header />
+            <UniversalHeader type="gerente" />
             <div className="container mx-auto px-4 py-6">
                 {/* Mensajes de estado */}
                 {cargando && (

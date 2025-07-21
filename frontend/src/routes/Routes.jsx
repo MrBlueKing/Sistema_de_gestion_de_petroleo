@@ -35,6 +35,11 @@ import Distpach from "../pages/Distpach/MenuPrincipalDistpach";
 
 // 🔧 Importaciones Mantenimiento
 import Mantenimiento from "../pages/Mantencion/MenuPrincipalMantencion";
+import MenuPrincipalDistpach from "../pages/Distpach/MenuPrincipalDistpach";
+
+
+// ⚖️ Importaciones OperadorVehiculo (Toneladas)
+import OperadorVehiculo from "../pages/OperadorVehiculo/MenuPrincipalOperadorVehiculo";
 
 const AppRoutes = () => {
   return (
@@ -80,7 +85,7 @@ const AppRoutes = () => {
       />
 
       <Route
-        path="//gerente/VerificacionIngresos"
+        path="/gerente/VerificacionIngresos"
         element={
           <PrivateRoute requiredRole="gerente">
             <VerificacionIngresos />
@@ -389,6 +394,30 @@ const AppRoutes = () => {
         element={
           <PrivateRoute requiredRole="planificador">
             <Mantenimiento />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Mantener ruta antigua */}
+      <Route
+        path="/Mantenimiento"
+        element={
+          <PrivateRoute requiredRole="planificador">
+            <Mantenimiento />
+          </PrivateRoute>
+        }
+      />
+
+      {/* 
+      |--------------------------------------------------------------------------
+      | 🔧 RUTAS DE Operador de Vehículo
+      |--------------------------------------------------------------------------
+      */}
+      <Route
+        path="/OperadorVehiculo"
+        element={
+          <PrivateRoute requiredRole="OperadorVehiculo">
+            <OperadorVehiculo />
           </PrivateRoute>
         }
       />

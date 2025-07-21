@@ -3,6 +3,7 @@ import axios from "../../../lib/axios";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../../context/userContext";
 import Header from "../../organisms/Bombero/Header";
+import UniversalHeader from "../../organisms/Todos/UniversalHeader";
 import PageControl from "../../molecules/PageControl";
 import TabProgressBar from "../../molecules/TabProgressBar";
 import ConsumoForm from "../../organisms/Bombero/FormConsumo";
@@ -355,7 +356,7 @@ const Consumo = ({
   if (!contextLoaded) {
     return (
       <div>
-        <Header />
+         <UniversalHeader type="bombero" />
         <main className="flex-1 w-full p-4 flex items-center justify-center">
           <div className="bg-white rounded-lg shadow-md p-6 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
@@ -369,7 +370,7 @@ const Consumo = ({
   if (contextLoaded && !userInfo) {
     return (
       <div>
-        <Header />
+       <UniversalHeader type="bombero" />
         <main className="flex-1 w-full p-4 flex items-center justify-center">
           <div className="bg-white rounded-lg shadow-md p-6 text-center max-w-md">
             <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-red-100">

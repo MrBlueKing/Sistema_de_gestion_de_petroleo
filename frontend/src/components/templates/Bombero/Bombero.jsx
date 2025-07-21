@@ -1,11 +1,11 @@
 import React from "react";
 import Main from "../../organisms/Bombero/Main";
-import Header from "../../organisms/Bombero/Header";
+import UniversalHeader from "../../organisms/Todos/UniversalHeader";
 
 const MenuPrincipalBombero = () => {
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 pt-2">
-      <Header />
+      <UniversalHeader type="bombero" />
       <Main />
     </div>
   );

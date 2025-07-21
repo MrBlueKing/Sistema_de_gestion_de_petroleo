@@ -280,13 +280,13 @@ const FormRecepcionMovil = () => {
                     <div className="text-left space-y-4">
                         <h3 className="text-lg font-medium text-gray-700 flex items-center border-b pb-2">
                             <FaFileAlt className="mr-2 text-orange-600" />
-                            1. Datos de la Guía de Despacho
+                            1. Datos del Comprobante Electrónico 
                         </h3>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-4">
                             <div className="flex flex-col">
                                 <label className="text-sm font-medium text-gray-600 mb-1">
-                                    Número de Guía de Despacho *
+                                    Número Comprobante *
                                     <span className="text-xs text-gray-500 ml-1">(según documento de compra)</span>
                                 </label>
                                 <input

@@ -12,10 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('roles', function (Blueprint $table) {
-            Schema::table('roles', function (Blueprint $table) {
-                // Modificar el ENUM para permitir 'supervisor'
-                $table->enum('rol', ['admin', 'bombero', 'gerente', 'toneladas', 'planificador'])->change();
-            });
+            $table->enum('rol', ['admin', 'bombero', 'gerente', 'toneladas', 'planificador'])->change();
         });
     }
 

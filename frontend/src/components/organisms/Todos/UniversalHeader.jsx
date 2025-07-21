@@ -1,0 +1,412 @@
+import React, { useState, useContext, useEffect } from "react";
+import { FaHome, FaMapMarkerAlt, FaUser, FaBars, FaTimes } from "react-icons/fa";
+import UserProfileDropdown from "../../molecules/UserProfileDropdown";
+import NotificationDropdown from "../../molecules/NotificationDropdown";
+import IconButton from "../../atoms/Button/IconButton";
+import Sidebar from "../../molecules/SideBard";
+import { useNavigate } from "react-router-dom";
+import { UserContext } from "../../../context/userContext";
+
+const UniversalHeader = ({ 
+  // Configuración básica
+  type = "simple", // "admin", "bombero", "dispatch", "gerente", "home", "simple"
+  title = "Sistema",
+  
+  // Configuración de layout
+  hasSidebar = false,
+  hasTopBar = false,
+  isFixed = true,
+  showSpacer = true,
+  
+  // Configuración de navegación
+  homeRoute = "/",
+  showHomeButton = false,
+  
+  // Configuración de sidebar
+  menuItems = [],
+  
+  // Configuración de notificaciones
+  notifications = [],
+  
+  // Configuración de logo/icono
+  logo = null,
+  logoSize = "w-32 h-40",
+  
+  // Props adicionales
+  className = "",
+  onCustomAction = null,
+  customRightContent = null,
+  customLeftContent = null,
+  
+  // Control de visibilidad de elementos
+  showNotifications = false,
+  showUserProfile = true,
+  showClock = false,
+}) => {
+  const { user, setUser, loading } = useContext(UserContext);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [scrolled, setScrolled] = useState(false);
+  const navigate = useNavigate();
+
+  // Configuración de faenas para el header bombero
+  const FAENAS = {
+    1: { ubicacion: "Cabildo", detalle: "Región de Valparaíso", color: "blue-600" },
+    2: { ubicacion: "Catemu", detalle: "Región de Valparaíso", color: "green-600" },
+    3: { ubicacion: "Chincolco", detalle: "Región de Valparaíso", color: "purple-600" },
+    4: { ubicacion: "Tiltil", detalle: "Región Metropolitana", color: "orange-500" },
+  };
+
+  // Obtener información de faena si existe
+  const faena = user?.id_faena ? FAENAS[user.id_faena] : null;
+
+  // Actualizar reloj
+  useEffect(() => {
+    if (showClock || type === "bombero" || type === "operador") {
+      const timer = setInterval(() => {
+        setCurrentTime(new Date());
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [showClock, type]);
+
+  // Efecto de scroll solo para tipos que lo necesiten
+  useEffect(() => {
+    if (type === "bombero" || type === "operador") {
+      const handleScroll = () => {
+        setScrolled(window.scrollY > 10);
+      };
+      window.addEventListener('scroll', handleScroll);
+      return () => window.removeEventListener('scroll', handleScroll);
+    }
+  }, [type]);
+
+  // Función de logout universal
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    if (setUser) setUser(null);
+    navigate('/');
+  };
+
+  // Toggle sidebar
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
+  // Funciones de formateo de fecha/hora
+  const formatTime = (date) => {
+    return date.toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
+  const formatDate = (date) => {
+    return date.toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
+  const formatFullDate = (date) => {
+    return date.toLocaleDateString('es-ES', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  // Configuración específica por tipo
+  const getTypeConfig = () => {
+    switch (type) {
+      case "admin":
+        return {
+          title: "Administrador",
+          hasTopBar: false,
+          hasSidebar: true,
+          isFixed: true,
+          showHomeButton: false,
+          showNotifications: true,
+          headerHeight: "h-14",
+          spacerClass: "pt-14",
+          layout: "admin"
+        };
+      
+      case "bombero":
+        return {
+          title: "Encargado de Operaciones de Combustible",
+          mobileTitle: "Encargado de\nOperaciones",
+          hasTopBar: true,
+          hasSidebar: false,
+          isFixed: true,
+          showHomeButton: true,
+          homeRoute: "/bombero",
+          showNotifications: false,
+          headerHeight: "",
+          spacerClass: "pt-14 md:pt-20",
+          layout: "bombero"
+        };
+      
+      case "operador":
+        return {
+          title: "Operador de Vehículo",
+          mobileTitle: "Operador de\nVehículo",
+          hasTopBar: true,
+          hasSidebar: false,
+          isFixed: true,
+          showHomeButton: true,
+          homeRoute: "/operador",
+          showNotifications: false,
+          headerHeight: "",
+          spacerClass: "pt-14 md:pt-20",
+          layout: "bombero" // ⭐ Usa el mismo layout que bombero
+        };
+      
+      case "dispatch":
+        return {
+          title: "Dispatch",
+          hasTopBar: false,
+          hasSidebar: false,
+          isFixed: true,
+          showHomeButton: false,
+          showNotifications: false,
+          headerHeight: "h-14",
+          spacerClass: "pt-14",
+          layout: "dispatch"
+        };
+      
+      case "gerente":
+        return {
+          title: "Gerente",
+          hasTopBar: false,
+          hasSidebar: false,
+          isFixed: false,
+          showHomeButton: true,
+          homeRoute: "/gerente",
+          showNotifications: false,
+          headerHeight: "",
+          spacerClass: "",
+          layout: "gerente"
+        };
+      
+      case "home":
+        return {
+          title: "",
+          hasTopBar: false,
+          hasSidebar: false,
+          isFixed: false,
+          showHomeButton: false,
+          showNotifications: false,
+          showUserProfile: false,
+          headerHeight: "",
+          spacerClass: "",
+          layout: "home"
+        };
+      
+      default:
+        return {
+          title: title,
+          hasTopBar: hasTopBar,
+          hasSidebar: hasSidebar,
+          isFixed: isFixed,
+          showHomeButton: showHomeButton,
+          showNotifications: showNotifications,
+          headerHeight: "h-14",
+          spacerClass: "pt-14",
+          layout: "simple"
+        };
+    }
+  };
+
+  const config = getTypeConfig();
+
+  // Contenido del lado izquierdo
+  const renderLeftContent = () => {
+    if (customLeftContent) return customLeftContent;
+
+    return (
+      <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
+        {/* Botón hamburguesa para sidebar */}
+        {config.hasSidebar && (
+          <IconButton
+            icono={<FaBars size={24} className="text-gray-600" />}
+            onClick={toggleSidebar}
+          />
+        )}
+        
+        {/* Botón home */}
+        {config.showHomeButton && (
+          <IconButton
+            icono={<FaHome size={18} className="text-blue-600 md:w-5 md:h-5" />}
+            onClick={() => navigate(config.homeRoute || homeRoute)}
+            className="flex-shrink-0"
+          />
+        )}
+
+        {/* Título */}
+        {config.title && (
+          <div className="flex flex-col min-w-0 flex-1">
+            <h1 className="text-sm md:text-lg font-bold text-gray-800 leading-tight">
+              {config.mobileTitle ? (
+                <>
+                  <span className="md:hidden">
+                    {config.mobileTitle.split('\n').map((line, i) => (
+                      <span key={i}>
+                        {line}
+                        {i < config.mobileTitle.split('\n').length - 1 && <br />}
+                      </span>
+                    ))}
+                  </span>
+                  <span className="hidden md:inline">{config.title}</span>
+                </>
+              ) : (
+                config.title
+              )}
+            </h1>
+
+            {/* Ubicación para bombero y operador */}
+            {(type === "bombero" || type === "operador") && faena && (
+              <div className="flex items-center text-xs md:text-sm mt-0.5 md:mt-0">
+                <FaMapMarkerAlt className={`text-${faena.color} mr-1 flex-shrink-0`} size={10} />
+                <span className="font-medium truncate">{faena.ubicacion}</span>
+                <span className="hidden md:inline text-gray-500 ml-1">• {faena.detalle}</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Contenido del lado derecho
+  const renderRightContent = () => {
+    if (customRightContent) return customRightContent;
+
+    return (
+      <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
+        {/* Reloj en móvil para bombero y operador */}
+        {(type === "bombero" || type === "operador") && (
+          <div className="md:hidden text-right">
+            <div className="text-xs text-gray-600 leading-tight font-mono">
+              {formatTime(currentTime)}
+            </div>
+            <div className="text-xs text-gray-500">
+              {formatDate(currentTime)}
+            </div>
+          </div>
+        )}
+
+        {/* Logo para home */}
+        {type === "home" && logo && (
+          <img src={logo} alt="Logo" className={logoSize} />
+        )}
+
+        {/* Notificaciones */}
+        {config.showNotifications && notifications.length > 0 && (
+          <NotificationDropdown notifications={notifications} />
+        )}
+
+        {/* Perfil de usuario */}
+        {(config.showUserProfile ?? showUserProfile) && (
+          <UserProfileDropdown
+            userMenuOpen={userMenuOpen}
+            setUserMenuOpen={setUserMenuOpen}
+            handleLogout={handleLogout}
+          />
+        )}
+      </div>
+    );
+  };
+
+  // Renderizar top bar
+  const renderTopBar = () => {
+    if (!config.hasTopBar && !hasTopBar) return null;
+
+    return (
+      <div className="hidden md:block bg-gray-800 text-white py-1 px-4">
+        <div className="flex justify-between items-center text-xs">
+          <div>{formatFullDate(currentTime)}</div>
+          <div className="font-mono">{formatTime(currentTime)}</div>
+        </div>
+      </div>
+    );
+  };
+
+  // Clases del header
+  const getHeaderClasses = () => {
+    let classes = "transition-all duration-300";
+    
+    if (config.isFixed) {
+      classes += " fixed top-0 left-0 right-0 z-10";
+      if ((type === "bombero" || type === "operador") && scrolled) {
+        classes += " bg-white shadow-lg";
+      } else {
+        classes += " bg-white shadow-md";
+      }
+    } else {
+      classes += " bg-white shadow-md";
+    }
+    
+    if (config.headerHeight) {
+      classes += ` ${config.headerHeight}`;
+    }
+    
+    if (className) {
+      classes += ` ${className}`;
+    }
+    
+    return classes;
+  };
+
+  // Layout para tipos que manejan su propio contenedor
+  if (config.layout === "admin" || config.layout === "dispatch") {
+    return (
+      <div className="flex overflow-hidden">
+        {/* Sidebar solo para admin */}
+        {config.layout === "admin" && (
+          <Sidebar 
+            isOpen={sidebarOpen} 
+            toggleSidebar={toggleSidebar} 
+            menuItems={menuItems}
+          />
+        )}
+        
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <header className={`flex items-center justify-between bg-white shadow-md px-4 py-2 ${config.headerHeight} fixed top-0 left-0 right-0 z-10`}>
+            {renderLeftContent()}
+            {renderRightContent()}
+          </header>
+          
+          <main className={`flex-1 overflow-auto ${config.spacerClass} bg-gray-50`}>
+            {/* El contenido se renderiza fuera de este componente */}
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  // Layout normal para otros tipos
+  return (
+    <>
+      <header className={getHeaderClasses()}>
+        {renderTopBar()}
+        
+        <div className="flex items-center justify-between px-3 md:px-4 py-2 min-h-[56px] md:h-14">
+          {renderLeftContent()}
+          {renderRightContent()}
+        </div>
+      </header>
+      
+      {/* Espaciador */}
+      {config.isFixed && showSpacer && config.spacerClass && (
+        <div className={config.spacerClass}></div>
+      )}
+    </>
+  );
+};
+
+export default UniversalHeader;

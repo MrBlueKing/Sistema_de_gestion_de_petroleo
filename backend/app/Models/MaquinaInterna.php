@@ -16,8 +16,8 @@ class MaquinaInterna extends Model
     ];
 
     // Si tienes relación con la tabla "maquinarias"
-    public function maquinaria()
+    public function maquina()
     {
-        return $this->belongsTo(Maquinas::class, 'id_maquina');
+        return $this->belongsTo(Maquinas::class, 'id_maquina', 'id_maquina');
     }
 }

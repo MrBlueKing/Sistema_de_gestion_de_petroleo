@@ -28,7 +28,7 @@ const Main = () => {
     },
     // ÁREA DE PRODUCCIÓN
     {
-      title: "Gestión de Producción",
+      title: "Gestión de Producción(En Desarrollo!)",
       description: "Tonelajes, padrones, plantas y metas de producción",
       icon: <FiTruck className="w-10 h-10 text-blue-500" />,
       path: "/gerente/produccion",

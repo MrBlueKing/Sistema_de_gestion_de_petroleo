@@ -49,12 +49,11 @@ use App\Http\Controllers\ApiPdf\ConsumosPdfController;
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 
-// Testing básico (mantener mínimo para desarrollo)
-Route::get('/test-mantenimiento', function () {
+Route::get('/test', function () {
     return response()->json([
-        'status' => 'success',
-        'message' => 'API de mantenimiento funcionando correctamente',
-        'timestamp' => now()
+        'message' => 'API Choferes funcionando correctamente',
+        'timestamp' => now(),
+        'version' => '1.0'
     ]);
 });
 

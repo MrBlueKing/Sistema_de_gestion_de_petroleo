@@ -207,6 +207,7 @@
         icon: <FaIdCard />,
         tooltip: "Sin puntos ni guion (ej: 12345678k)",
         required: true,
+        autoComplete: "off", // ⭐ Agregar
         customOnChange: handleRutChange
       },
       {
@@ -233,7 +234,8 @@
           { label: "Gerente", value: 2 },
           { label: "Administrador", value: 3 },
           { label: "Distpach", value: 4 },
-          { label: "Planificador", value: 5 }
+          { label: "Planificador", value: 5 },
+          { label: "Operador de Vehículos", value: 6 }
         ]
       },
       {

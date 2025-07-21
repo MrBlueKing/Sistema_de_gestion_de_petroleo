@@ -58,7 +58,8 @@ const LoginScreen = () => {
       bombero: "/bombero",
       gerente: "/gerente",
       toneladas: "/IngresoToneladas",
-      planificador: "/Mantenimiento"
+      planificador: "/Mantenimiento",
+      OperadorVehiculo: "/OperadorVehiculo",
     };
 
     const targetRoute = roleRoutes[rol];

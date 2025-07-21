@@ -16,6 +16,7 @@ import {
   FiMenu
 } from 'react-icons/fi';
 import Header from "../../organisms/Gerente/Header";
+import UniversalHeader from '../Todos/UniversalHeader';
 
 const ProduccionDiaria = () => {
   const [loading, setLoading] = useState(true);
@@ -339,13 +340,13 @@ const ProduccionDiaria = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex-1 overflow-auto bg-gray-50">
       <div className="max-w-7xl mx-auto p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6">
         <div className="block lg:hidden">
-          <Header />
+          <UniversalHeader type="gerente" />
         </div>
         <div className="hidden lg:block">
-          <Header />
+          <UniversalHeader type="gerente" />
         </div>
 
         {/* Header con controles */}
