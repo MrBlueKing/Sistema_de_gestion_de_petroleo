@@ -18,7 +18,7 @@ export const useOperadorData = () => {
         // Obtener datos básicos de sesión como fallback
         const usuarioSesion = getAuthUser();
 
-        // Intentar obtener la máquina asignada desde la API (ahora incluye última medición)
+        // Intentar obtener la máquina asignada desde la API (ahora incluye último consumo)
         const response = await apiClient.get(`/api/chofer/mi-maquina`);
         
         if (response.data.status === 'success' && response.data.data) {
@@ -37,14 +37,15 @@ export const useOperadorData = () => {
             estado: asignacion.user.estado
           });
 
-          // ✅ MANTENER LA ESTRUCTURA ORIGINAL + AGREGAR ÚLTIMA MEDICIÓN
+          // Mantener la estructura original
           setMaquinaAsignada(asignacion);
 
           console.log('✅ Datos cargados correctamente:', {
             usuario: asignacion.user.nombre + ' ' + asignacion.user.apellido,
             maquina: asignacion.maquina.maquina_interna?.nombre || asignacion.maquina.nombre_maquina,
             patente: asignacion.maquina.patente,
-            ultima_medicion: asignacion.maquina.ultima_medicion?.medicion || 'Sin medición'
+            ultimo_consumo: asignacion.maquina.ultimo_consumo?.litros ? 
+              `${asignacion.maquina.ultimo_consumo.litros}L` : 'Sin consumos'
           });
 
         } else {
@@ -117,7 +118,7 @@ export const useOperadorData = () => {
     nombreCorto: usuario?.nombre?.split(' ')[0] || 'Usuario',
     nombreCompleto: usuario?.nombreCompleto || usuario?.nombre || 'Usuario',
     
-    // ✅ Datos específicos de la máquina para fácil acceso (CON MEDICIÓN)
+    // ✅ Datos específicos de la máquina para fácil acceso
     vehiculoInfo: maquinaAsignada ? {
       nombre: maquinaAsignada.maquina?.maquina_interna?.nombre || maquinaAsignada.maquina?.nombre_maquina || 'Sin nombre',
       patente: maquinaAsignada.maquina?.patente || maquinaAsignada.maquina?.maquina_interna?.patente || 'Sin patente',
@@ -126,13 +127,9 @@ export const useOperadorData = () => {
       categoria: maquinaAsignada.maquina?.maquina_interna?.categoria || 'Sin categoría',
       combustible: maquinaAsignada.maquina?.tipo_combustible || 'Diésel',
       kilometraje: maquinaAsignada.maquina?.kilometraje_actual || null,
-      
-      // ✅ NUEVOS DATOS DE MEDICIÓN
-      ultima_medicion: maquinaAsignada.maquina?.ultima_medicion?.medicion || null,
-      fecha_medicion: maquinaAsignada.maquina?.ultima_medicion?.fecha_medicion || null,
     } : null,
 
-    // ✅ Helper específico para datos de combustible
+    // ✅ Helper específico para datos de combustible (MANTENER COMPATIBILIDAD)
     combustibleInfo: maquinaAsignada ? {
       tipo: maquinaAsignada.maquina?.tipo_combustible || 'Diésel',
       ultima_medicion: maquinaAsignada.maquina?.ultima_medicion?.medicion || null,
@@ -142,6 +139,38 @@ export const useOperadorData = () => {
       fecha_medicion_formateada: maquinaAsignada.maquina?.ultima_medicion?.fecha_medicion ? 
         new Date(maquinaAsignada.maquina.ultima_medicion.fecha_medicion).toLocaleDateString('es-ES') : null,
       tiene_medicion: !!(maquinaAsignada.maquina?.ultima_medicion?.medicion)
-    } : null
+    } : null,
+
+    // ✅ NUEVO: Helper específico para último consumo completo (NOMBRES CORRECTOS)
+    ultimoConsumoInfo: maquinaAsignada?.maquina?.ultimo_consumo ? {
+      tiene_consumo: true,
+      litros: maquinaAsignada.maquina.ultimo_consumo.litros_consumidos,
+      litros_formateados: maquinaAsignada.maquina.ultimo_consumo.litros_consumidos ? 
+        `${parseFloat(maquinaAsignada.maquina.ultimo_consumo.litros_consumidos).toFixed(1)} L` : 'N/A',
+      kilometraje: maquinaAsignada.maquina.ultimo_consumo.kilometraje,
+      kilometraje_formateado: maquinaAsignada.maquina.ultimo_consumo.kilometraje ? 
+        `${parseFloat(maquinaAsignada.maquina.ultimo_consumo.kilometraje).toFixed(0)} km` : 'N/A',
+      fecha_consumo: maquinaAsignada.maquina.ultimo_consumo.fecha_consumo,
+      fecha_formateada: maquinaAsignada.maquina.ultimo_consumo.fecha_consumo ? 
+        new Date(maquinaAsignada.maquina.ultimo_consumo.fecha_consumo).toLocaleDateString('es-ES') : 'Sin fecha',
+      costo_total: maquinaAsignada.maquina.ultimo_consumo.costo_total,
+      costo_formateado: maquinaAsignada.maquina.ultimo_consumo.costo_total ? 
+        `${parseFloat(maquinaAsignada.maquina.ultimo_consumo.costo_total).toLocaleString()}` : 'N/A',
+      precio_litro: maquinaAsignada.maquina.ultimo_consumo.precio_litro,
+      precio_formateado: maquinaAsignada.maquina.ultimo_consumo.precio_litro ? 
+        `${parseFloat(maquinaAsignada.maquina.ultimo_consumo.precio_litro).toFixed(0)}` : 'N/A',
+      tipo_consumo: maquinaAsignada.maquina.ultimo_consumo.tipo_consumo,
+      tipo_operacion: maquinaAsignada.maquina.ultimo_consumo.tipo_operacion,
+      numeral_inicial: maquinaAsignada.maquina.ultimo_consumo.numeral_inicial,
+      numeral_final: maquinaAsignada.maquina.ultimo_consumo.numeral_final,
+      observacion: maquinaAsignada.maquina.ultimo_consumo.observacion,
+    } : {
+      tiene_consumo: false,
+      litros_formateados: 'Sin consumos',
+      kilometraje_formateado: 'Sin registros',
+      fecha_formateada: 'Sin fecha',
+      costo_formateado: 'N/A',
+      precio_formateado: 'N/A'
+    }
   };
 };

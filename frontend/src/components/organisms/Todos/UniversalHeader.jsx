@@ -7,37 +7,37 @@ import Sidebar from "../../molecules/SideBard";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../../context/userContext";
 
-const UniversalHeader = ({ 
+const UniversalHeader = ({
   // Configuración básica
   type = "simple", // "admin", "bombero", "dispatch", "gerente", "home", "simple"
   title = "Sistema",
-  
+
   // Configuración de layout
   hasSidebar = false,
   hasTopBar = false,
   isFixed = true,
   showSpacer = true,
-  
+
   // Configuración de navegación
   homeRoute = "/",
   showHomeButton = false,
-  
+
   // Configuración de sidebar
   menuItems = [],
-  
+
   // Configuración de notificaciones
   notifications = [],
-  
+
   // Configuración de logo/icono
   logo = null,
   logoSize = "w-32 h-40",
-  
+
   // Props adicionales
   className = "",
   onCustomAction = null,
   customRightContent = null,
   customLeftContent = null,
-  
+
   // Control de visibilidad de elementos
   showNotifications = false,
   showUserProfile = true,
@@ -135,7 +135,7 @@ const UniversalHeader = ({
           spacerClass: "pt-14",
           layout: "admin"
         };
-      
+
       case "bombero":
         return {
           title: "Encargado de Operaciones de Combustible",
@@ -150,7 +150,7 @@ const UniversalHeader = ({
           spacerClass: "pt-14 md:pt-20",
           layout: "bombero"
         };
-      
+
       case "operador":
         return {
           title: "Operador de Vehículo",
@@ -159,13 +159,13 @@ const UniversalHeader = ({
           hasSidebar: false,
           isFixed: true,
           showHomeButton: true,
-          homeRoute: "/operador",
+          homeRoute: "/OperadorVehiculo",
           showNotifications: false,
           headerHeight: "",
           spacerClass: "pt-14 md:pt-20",
           layout: "bombero" // ⭐ Usa el mismo layout que bombero
         };
-      
+
       case "dispatch":
         return {
           title: "Dispatch",
@@ -178,7 +178,7 @@ const UniversalHeader = ({
           spacerClass: "pt-14",
           layout: "dispatch"
         };
-      
+
       case "gerente":
         return {
           title: "Gerente",
@@ -192,7 +192,7 @@ const UniversalHeader = ({
           spacerClass: "",
           layout: "gerente"
         };
-      
+
       case "home":
         return {
           title: "",
@@ -206,7 +206,7 @@ const UniversalHeader = ({
           spacerClass: "",
           layout: "home"
         };
-      
+
       default:
         return {
           title: title,
@@ -237,7 +237,7 @@ const UniversalHeader = ({
             onClick={toggleSidebar}
           />
         )}
-        
+
         {/* Botón home */}
         {config.showHomeButton && (
           <IconButton
@@ -339,9 +339,9 @@ const UniversalHeader = ({
   // Clases del header
   const getHeaderClasses = () => {
     let classes = "transition-all duration-300";
-    
+
     if (config.isFixed) {
-      classes += " fixed top-0 left-0 right-0 z-10";
+      classes += " fixed top-0 left-0 right-0 z-50"; // ✅ Cambiar z-10 a z-50
       if ((type === "bombero" || type === "operador") && scrolled) {
         classes += " bg-white shadow-lg";
       } else {
@@ -350,15 +350,15 @@ const UniversalHeader = ({
     } else {
       classes += " bg-white shadow-md";
     }
-    
+
     if (config.headerHeight) {
       classes += ` ${config.headerHeight}`;
     }
-    
+
     if (className) {
       classes += ` ${className}`;
     }
-    
+
     return classes;
   };
 
@@ -368,19 +368,19 @@ const UniversalHeader = ({
       <div className="flex overflow-hidden">
         {/* Sidebar solo para admin */}
         {config.layout === "admin" && (
-          <Sidebar 
-            isOpen={sidebarOpen} 
-            toggleSidebar={toggleSidebar} 
+          <Sidebar
+            isOpen={sidebarOpen}
+            toggleSidebar={toggleSidebar}
             menuItems={menuItems}
           />
         )}
-        
+
         <div className="flex flex-col flex-1 overflow-hidden">
           <header className={`flex items-center justify-between bg-white shadow-md px-4 py-2 ${config.headerHeight} fixed top-0 left-0 right-0 z-10`}>
             {renderLeftContent()}
             {renderRightContent()}
           </header>
-          
+
           <main className={`flex-1 overflow-auto ${config.spacerClass} bg-gray-50`}>
             {/* El contenido se renderiza fuera de este componente */}
           </main>
@@ -394,13 +394,13 @@ const UniversalHeader = ({
     <>
       <header className={getHeaderClasses()}>
         {renderTopBar()}
-        
+
         <div className="flex items-center justify-between px-3 md:px-4 py-2 min-h-[56px] md:h-14">
           {renderLeftContent()}
           {renderRightContent()}
         </div>
       </header>
-      
+
       {/* Espaciador */}
       {config.isFixed && showSpacer && config.spacerClass && (
         <div className={config.spacerClass}></div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom"; // ✅ Agregar esta línea
 import {
   FaGasPump,
   FaTruck,
@@ -17,14 +18,23 @@ import {
   FaChartLine,
   FaRoute,
   FaArrowRight,
-  FaTachometerAlt
+  FaTachometerAlt,
+  FaBuilding,
+  FaUserShield,
+  FaBatteryThreeQuarters
 } from "react-icons/fa";
+import { RxIdCard } from "react-icons/rx";
+import { CgInternal } from "react-icons/cg";
+import { FaIdCard } from "react-icons/fa6";
+import { GrStatusGood } from "react-icons/gr";
+import { LiaTachometerAltSolid } from "react-icons/lia";
 import UniversalHeader from "../../components/organisms/Todos/UniversalHeader";
 import { useOperadorData } from "../../hook/OperadorVehiculo/useOperadorData";
 
 const MenuPrincipalOperadorVehiculo = () => {
   // Usar el hook con destructuring seguro
-  const { loading, usuario, maquinaAsignada, vehiculoInfo, combustibleInfo } = useOperadorData();
+  const { loading, usuario, maquinaAsignada, vehiculoInfo, ultimoConsumoInfo } = useOperadorData();
+  const navigate = useNavigate(); // ✅ Agregar esta línea
 
   const [resumenCargas, setResumenCargas] = useState({
     pendientes: 0,
@@ -34,38 +44,49 @@ const MenuPrincipalOperadorVehiculo = () => {
   });
   const [cargasRecientes, setCargasRecientes] = useState([]);
 
+  // Helper para obtener nombre de faena
+  const getFaenaName = (idFaena) => {
+    const faenas = {
+      1: "Cabildo",
+      2: "Catemu",
+      3: "Chincolco",
+      4: "Tiltil"
+    };
+    return faenas[idFaena] || "Sin asignar";
+  };
+
   // Helper para obtener información de estado
   const getEstadoInfo = (estado) => {
     switch (estado) {
       case 'pendiente':
-        return { 
-          icon: FaClock, 
-          color: 'text-yellow-600', 
-          bg: 'bg-yellow-100', 
+        return {
+          icon: FaClock,
+          color: 'text-yellow-600',
+          bg: 'bg-yellow-100',
           badge: 'bg-yellow-100 text-yellow-800',
           text: 'Pendiente'
         };
       case 'aprobada':
-        return { 
-          icon: FaCheckCircle, 
-          color: 'text-green-600', 
-          bg: 'bg-green-100', 
+        return {
+          icon: FaCheckCircle,
+          color: 'text-green-600',
+          bg: 'bg-green-100',
           badge: 'bg-green-100 text-green-800',
           text: 'Aprobada'
         };
       case 'rechazada':
-        return { 
-          icon: FaTimesCircle, 
-          color: 'text-red-600', 
-          bg: 'bg-red-100', 
+        return {
+          icon: FaTimesCircle,
+          color: 'text-red-600',
+          bg: 'bg-red-100',
           badge: 'bg-red-100 text-red-800',
           text: 'Rechazada'
         };
       default:
-        return { 
-          icon: FaExclamationCircle, 
-          color: 'text-gray-600', 
-          bg: 'bg-gray-100', 
+        return {
+          icon: FaExclamationCircle,
+          color: 'text-gray-600',
+          bg: 'bg-gray-100',
           badge: 'bg-gray-100 text-gray-800',
           text: 'Desconocido'
         };
@@ -95,22 +116,22 @@ const MenuPrincipalOperadorVehiculo = () => {
     </div>
   );
 
-  // Componente de acción rápida
+  // Componente de acción rápida actualizado
   const ActionCard = ({ icon: Icon, title, description, color, onClick, badge, disabled = false }) => (
     <div className="relative group">
       <button
         onClick={onClick}
         disabled={disabled}
         className={`
-          ${color} ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-lg active:scale-[0.98]'} 
-          text-white rounded-xl p-5 lg:p-6 transition-all duration-300 transform hover:scale-[1.02] 
-          w-full text-left min-h-[130px] lg:min-h-[140px] flex flex-col justify-between shadow-md
-          relative overflow-hidden
-        `}
+        ${color} ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-lg active:scale-[0.98]'} 
+        text-white rounded-xl p-5 lg:p-6 transition-all duration-300 transform hover:scale-[1.02] 
+        w-full text-left min-h-[130px] lg:min-h-[140px] flex flex-col justify-between shadow-md
+        relative overflow-hidden z-10
+      `} // ✅ Agregar z-10 aquí
       >
-        <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
-        
-        <div className="flex items-start justify-between mb-3 relative z-10">
+        <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity duration-300 z-0"></div> {/* ✅ z-0 */}
+
+        <div className="flex items-start justify-between mb-3 relative z-20"> {/* ✅ z-20 */}
           <Icon size={28} className="lg:w-8 lg:h-8 opacity-90" />
           {badge && (
             <span className="bg-white bg-opacity-20 backdrop-blur-sm text-white text-xs px-2.5 py-1 rounded-full font-medium border border-white border-opacity-20">
@@ -118,12 +139,13 @@ const MenuPrincipalOperadorVehiculo = () => {
             </span>
           )}
         </div>
-        <div className="relative z-10">
+        <div className="relative z-20"> {/* ✅ z-20 */}
           <h3 className="font-bold text-base lg:text-lg mb-2 leading-tight">{title}</h3>
           <p className="text-sm lg:text-base opacity-90 leading-relaxed">{description}</p>
         </div>
-        
-        <FaArrowRight className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-60 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0 text-sm" />
+
+        {/* ✅ Icono con z-index controlado */}
+        <FaArrowRight className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-60 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0 text-sm z-10" />
       </button>
     </div>
   );
@@ -173,129 +195,97 @@ const MenuPrincipalOperadorVehiculo = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <UniversalHeader type="operador" />
-      
+
       <div className="pt-0 lg:pt-0">
-        {/* Hero Section */}
+        {/* Hero Section mejorado */}
         <div className="bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 text-white shadow-xl">
-          <div className="container mx-auto px-4 py-6 lg:py-8">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-6">
-              <div className="flex items-center space-x-3 lg:space-x-4">
-                <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl lg:rounded-2xl p-3 lg:p-4">
-                  <FaTruckPickup className="w-8 h-8 lg:w-10 lg:h-10" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h1 className="text-xl lg:text-3xl font-bold leading-tight mb-1">Sistema de Gestión de Combustible</h1>
-                  <p className="text-orange-100 text-sm lg:text-base">Panel Operador</p>
-                  <div className="flex items-center mt-1 text-xs lg:text-sm text-orange-200">
-                    <FaCalendarAlt className="mr-1.5 flex-shrink-0" />
-                    <span className="truncate">
-                      {new Date().toLocaleDateString('es-ES', { 
-                        weekday: 'short', 
-                        month: 'short', 
-                        day: 'numeric' 
-                      })}
-                    </span>
-                  </div>
-                </div>
+          <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 lg:py-8">
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-white bg-opacity-20 rounded-full mb-3 sm:mb-4 mt-6">
+                <FaGasPump className="text-amber-600 text-lg sm:text-2xl" />
               </div>
-              
-              <div className="bg-white bg-opacity-10 backdrop-blur-sm rounded-lg lg:rounded-xl p-3 lg:p-4 text-center lg:text-right">
-                <p className="text-xs lg:text-sm text-orange-200 mb-0.5">Bienvenido</p>
-                <p className="text-base lg:text-xl font-bold truncate">{usuario?.nombre || 'Usuario'}</p>
-                <p className="text-xs text-orange-300 mt-0.5">{usuario?.rol || 'Operador'}</p>
-              </div>
+              <h1 className="text-lg sm:text-xl lg:text-3xl font-bold leading-tight mb-1 sm:mb-2">
+                ¡Bienvenido, {usuario?.nombre || 'Usuario'}! 👋
+              </h1>
+              <p className="text-orange-100 text-xs sm:text-sm lg:text-base max-w-md mx-auto leading-relaxed">
+                Sistema de Gestión de Combustible
+              </p>
             </div>
           </div>
         </div>
 
         <div className="container mx-auto px-4 py-6 lg:py-8 space-y-6 lg:space-y-8">
-          {/* Información del Usuario y Vehículo */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6">
-            {/* Info Usuario */}
+          {/* ✅ NUEVA DISTRIBUCIÓN: 3 columnas */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
+
+            {/* 1️⃣ Perfil del Operador */}
             <div className="bg-white rounded-xl lg:rounded-2xl shadow-lg p-4 lg:p-6 border border-gray-100">
               <div className="flex items-center mb-4 lg:mb-6">
                 <div className="bg-orange-100 rounded-lg lg:rounded-xl p-2.5 lg:p-3 mr-3">
                   <FaUser className="text-orange-600 text-lg lg:text-xl" />
                 </div>
-                <h2 className="text-lg lg:text-xl font-bold text-gray-800">Mi Información</h2>
+                <h2 className="text-lg lg:text-xl font-bold text-gray-800">Operador</h2>
               </div>
               <div className="space-y-0">
-                <VehicleInfoRow 
+                <VehicleInfoRow
                   icon={FaUser}
-                  label="Nombre" 
-                  value={usuario?.nombre || 'No disponible'} 
+                  label="Nombre"
+                  value={usuario?.nombreCompleto || usuario?.nombre || 'No disponible'}
+                  highlight={true}
                 />
-                <VehicleInfoRow 
-                  label="RUT" 
-                  value={usuario?.rut || 'No disponible'} 
+                <VehicleInfoRow
+                  icon={FaIdCard}
+                  label="RUT"
+                  value={usuario?.rut || 'No disponible'}
                 />
-                <VehicleInfoRow 
-                  label="Rol" 
-                  value={usuario?.rol || 'Sin rol'} 
+                <VehicleInfoRow
+                  icon={FaBuilding}
+                  label="Faena"
+                  value={getFaenaName(usuario?.id_faena)}
                   type="badge"
                   highlight={true}
+                />
+                <VehicleInfoRow
+                  icon={FaUserShield}
+                  label="Estado"
+                  value={usuario?.estado === 1 ? 'Activo' : 'Inactivo'}
+                  type="badge"
+                  highlight={usuario?.estado === 1}
                 />
               </div>
             </div>
 
-            {/* Info Vehículo - ✅ AQUÍ ESTÁ LA CORRECCIÓN */}
+            {/* 2️⃣ Información del Vehículo */}
             <div className="bg-white rounded-xl lg:rounded-2xl shadow-lg p-4 lg:p-6 border border-gray-100">
               <div className="flex items-center mb-4 lg:mb-6">
                 <div className="bg-orange-100 rounded-lg lg:rounded-xl p-2.5 lg:p-3 mr-3">
                   <FaTruck className="text-orange-600 text-lg lg:text-xl" />
                 </div>
-                <h2 className="text-lg lg:text-xl font-bold text-gray-800">Mi Vehículo</h2>
+                <h2 className="text-lg lg:text-xl font-bold text-gray-800">Vehículo</h2>
               </div>
               {maquinaAsignada ? (
                 <div className="space-y-0">
-                  <VehicleInfoRow 
+                  <VehicleInfoRow
                     icon={FaTruck}
-                    label="Vehículo" 
-                    value={vehiculoInfo?.nombre || 'No disponible'} 
+                    label="Nombre"
+                    value={vehiculoInfo?.nombre || 'No disponible'}
                     highlight={true}
                   />
-                  <VehicleInfoRow 
-                    label="Patente" 
-                    value={vehiculoInfo?.patente || 'No disponible'} 
+                  <VehicleInfoRow
+                    icon={RxIdCard}
+                    label="Patente"
+                    value={vehiculoInfo?.patente || 'No disponible'}
                     type="license"
                   />
-                  <VehicleInfoRow 
-                    label="Tipo" 
-                    value={vehiculoInfo?.tipo || 'No disponible'} 
+                  <VehicleInfoRow
+                    icon={CgInternal}
+                    label="Tipo"
+                    value={vehiculoInfo?.tipo || 'No disponible'}
                   />
-                  <VehicleInfoRow 
-                    icon={FaTachometerAlt}
-                    label="Kilometraje" 
-                    value={vehiculoInfo?.kilometraje ? `${vehiculoInfo.kilometraje} km` : 'No disponible'} 
-                  />
-                  <VehicleInfoRow 
-                    icon={FaGasPump}
-                    label="Combustible" 
-                    value={vehiculoInfo?.combustible || 'Diésel'} 
-                    type="badge"
-                    highlight={true}
-                  />
-                  {/* ✅ NUEVA FILA: Última medición */}
-                  <VehicleInfoRow 
-                    icon={FaGasPump}
-                    label="Última Medición" 
-                    value={combustibleInfo?.tiene_medicion ? 
-                      combustibleInfo.medicion_formateada : 
-                      'Sin medición registrada'
-                    } 
-                    highlight={combustibleInfo?.tiene_medicion}
-                  />
-                  {/* ✅ NUEVA FILA: Fecha de medición */}
-                  {combustibleInfo?.tiene_medicion && (
-                    <VehicleInfoRow 
-                      icon={FaCalendarAlt}
-                      label="Fecha Medición" 
-                      value={combustibleInfo.fecha_medicion_formateada || 'Fecha no disponible'} 
-                    />
-                  )}
-                  <VehicleInfoRow 
-                    label="Estado" 
-                    value={vehiculoInfo?.estado || 'Desconocido'} 
+                  <VehicleInfoRow
+                    icon={GrStatusGood}
+                    label="Estado"
+                    value={vehiculoInfo?.estado || 'Desconocido'}
                     type="badge"
                     highlight={vehiculoInfo?.estado === 'operativo'}
                   />
@@ -310,17 +300,49 @@ const MenuPrincipalOperadorVehiculo = () => {
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Debug info - solo en desarrollo */}
-          {process.env.NODE_ENV === 'development' && maquinaAsignada && (
-            <div className="bg-gray-100 rounded-lg p-4 text-xs">
-              <p className="font-bold mb-2">🔍 Debug - Estructura de datos:</p>
-              <pre className="bg-gray-800 text-green-400 p-2 rounded text-xs overflow-auto">
-                {JSON.stringify(maquinaAsignada, null, 2)}
-              </pre>
+            {/* 3️⃣ Último Consumo */}
+            <div className="bg-white rounded-xl lg:rounded-2xl shadow-lg p-4 lg:p-6 border border-gray-100">
+              <div className="flex items-center mb-4 lg:mb-6">
+                <div className="bg-orange-100 rounded-lg lg:rounded-xl p-2.5 lg:p-3 mr-3">
+                  <FaGasPump className="text-orange-600 text-lg lg:text-xl" />
+                </div>
+                <h2 className="text-lg lg:text-xl font-bold text-gray-800">Último Consumo</h2>
+              </div>
+              {maquinaAsignada ? (
+                <div className="space-y-0">
+                  <VehicleInfoRow
+                    icon={FaGasPump}
+                    label="Litros Consumidos"
+                    value={ultimoConsumoInfo?.litros_formateados || 'Sin consumos'}
+                    highlight={ultimoConsumoInfo?.tiene_consumo}
+                  />
+                  <VehicleInfoRow
+                    icon={FaTachometerAlt}
+                    label="Kilometraje"
+                    value={ultimoConsumoInfo?.kilometraje_formateado || 'Sin registros'}
+                  />
+                  <VehicleInfoRow
+                    icon={FaBatteryThreeQuarters}
+                    label="Precio por Litro"
+                    value={ultimoConsumoInfo?.precio_formateado || 'N/A'}
+                  />
+                  <VehicleInfoRow
+                    icon={FaCalendarAlt}
+                    label="Fecha"
+                    value={ultimoConsumoInfo?.fecha_formateada || 'Sin fecha'}
+                  />
+                </div>
+              ) : (
+                <div className="text-center py-6 lg:py-8">
+                  <div className="bg-gray-100 rounded-full p-3 lg:p-4 w-12 h-12 lg:w-16 lg:h-16 mx-auto mb-3 lg:mb-4 flex items-center justify-center">
+                    <FaGasPump className="text-gray-400 text-lg lg:text-2xl" />
+                  </div>
+                  <p className="text-gray-500 text-sm lg:text-base">Sin información de consumo</p>
+                </div>
+              )}
             </div>
-          )}
+          </div>
 
           {/* Estadísticas */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
@@ -365,9 +387,9 @@ const MenuPrincipalOperadorVehiculo = () => {
                 title="Nueva Carga"
                 description="Registrar combustible y kilometraje"
                 color="bg-gradient-to-br from-orange-500 to-orange-600"
-                badge="Nuevo"
+                //badge="Nuevo"
                 disabled={!maquinaAsignada}
-                onClick={() => alert('Ir a formulario de nueva carga')}
+                onClick={() => navigate('/FormularioOperador')} // ✅ Cambiar esta línea
               />
               <ActionCard
                 icon={FaHistory}
@@ -425,7 +447,7 @@ const MenuPrincipalOperadorVehiculo = () => {
                                   {estadoInfo.text}
                                 </span>
                               </div>
-                              
+
                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs lg:text-sm text-gray-600">
                                 <div className="flex items-center">
                                   <FaMapMarkerAlt className="mr-1.5 text-gray-400 flex-shrink-0" size={10} />
@@ -461,9 +483,6 @@ const MenuPrincipalOperadorVehiculo = () => {
                   </div>
                   <p className="text-gray-700 text-lg lg:text-xl font-semibold mb-2">No hay cargas registradas</p>
                   <p className="text-gray-500 mb-4 lg:mb-6 text-sm lg:text-base">Comienza registrando tu primera carga</p>
-                  <button className="bg-orange-500 hover:bg-orange-600 text-white px-4 lg:px-6 py-2 lg:py-3 rounded-lg lg:rounded-xl font-semibold transition-colors duration-200 text-sm lg:text-base">
-                    Registrar primera carga
-                  </button>
                 </div>
               )}
             </div>

@@ -40,6 +40,7 @@ import MenuPrincipalDistpach from "../pages/Distpach/MenuPrincipalDistpach";
 
 // ⚖️ Importaciones OperadorVehiculo (Toneladas)
 import OperadorVehiculo from "../pages/OperadorVehiculo/MenuPrincipalOperadorVehiculo";
+import FormularioOperador from "../components/templates/OperadorVehiculo/FormularioAsignacionVehiculo";
 
 const AppRoutes = () => {
   return (
@@ -418,6 +419,14 @@ const AppRoutes = () => {
         element={
           <PrivateRoute requiredRole="OperadorVehiculo">
             <OperadorVehiculo />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/FormularioOperador"
+        element={
+          <PrivateRoute requiredRole="OperadorVehiculo">
+            <FormularioOperador />
           </PrivateRoute>
         }
       />

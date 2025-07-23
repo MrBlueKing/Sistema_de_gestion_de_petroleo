@@ -16,8 +16,8 @@ return new class extends Migration
             $table->unsignedBigInteger('id_user'); // ✅ Cambio aquí
             $table->unsignedBigInteger('id_maquina');
             $table->string('numero_boleta', 50); // ✅ Corregí el nombre del campo
-            $table->decimal('litros', 10, 2);
-            $table->decimal('costo', 12, 2);
+            $table->decimal('litros', 10, 3);
+            $table->decimal('costo', 12, 3);
             $table->decimal('precio_por_litro', 8, 2)->nullable();
             $table->datetime('fecha_carga');
             $table->string('ubicacion', 100);

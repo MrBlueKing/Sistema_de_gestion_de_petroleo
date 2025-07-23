@@ -236,21 +236,41 @@ class AsignacionUserMaquinaController extends Controller
                 ], 404);
             }
 
-            // ✅ NUEVO: Obtener la última medición de consumos
-            $ultimamedicion = DB::table('consumos')
+            // ✅ CORREGIDO: Obtener el último CONSUMO con nombres correctos de columnas
+            $ultimoConsumo = DB::table('consumos')
                 ->where('id_equipo', $asignacion->id_maquina)
-                ->orderBy('created_at', 'desc') // O el campo de fecha que uses
+                ->orderBy('created_at', 'desc')
                 ->first();
 
-            // ✅ NUEVO: Agregar la última medición a los datos de la máquina
+            // ✅ NUEVO: Agregar toda la información del último consumo con nombres correctos
             $asignacionData = $asignacion->toArray();
 
-            if ($ultimamedicion) {
+            if ($ultimoConsumo) {
+                $asignacionData['maquina']['ultimo_consumo'] = [
+                    'id_consumo' => $ultimoConsumo->id_consumo ?? null,
+                    'litros_consumidos' => $ultimoConsumo->litros_consumidos ?? null,
+                    'kilometraje' => $ultimoConsumo->medicion ?? null, // medicion = kilometraje
+                    'fecha_consumo' => $ultimoConsumo->fecha_consumo ?? $ultimoConsumo->created_at,
+                    'precio_litro' => $ultimoConsumo->precio_litro ?? null,
+                    'tipo_consumo' => $ultimoConsumo->tipo_consumo ?? null,
+                    'tipo_operacion' => $ultimoConsumo->tipo_operacion ?? null,
+                    'id_estanque' => $ultimoConsumo->id_estanque ?? null,
+                    'numeral_inicial' => $ultimoConsumo->numeral_inicial ?? null,
+                    'numeral_final' => $ultimoConsumo->numeral_final ?? null,
+                    'observacion' => $ultimoConsumo->observacion ?? null,
+
+                    // ✅ Campos calculados
+                    'costo_total' => ($ultimoConsumo->litros_consumidos && $ultimoConsumo->precio_litro) ?
+                        $ultimoConsumo->litros_consumidos * $ultimoConsumo->precio_litro : null,
+                ];
+
+                // ✅ MANTENER compatibilidad con código anterior (para evitar errores)
                 $asignacionData['maquina']['ultima_medicion'] = [
-                    'medicion' => $ultimamedicion->medicion,
-                    'fecha_medicion' => $ultimamedicion->created_at,
+                    'medicion' => $ultimoConsumo->medicion,
+                    'fecha_medicion' => $ultimoConsumo->fecha_consumo ?? $ultimoConsumo->created_at,
                 ];
             } else {
+                $asignacionData['maquina']['ultimo_consumo'] = null;
                 $asignacionData['maquina']['ultima_medicion'] = null;
             }
 
@@ -266,7 +286,6 @@ class AsignacionUserMaquinaController extends Controller
             ], 500);
         }
     }
-
     /**
      * Alternativa: Obtener solo información del usuario autenticado
      */
