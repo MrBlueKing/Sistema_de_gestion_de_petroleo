@@ -755,7 +755,7 @@ const ConsumosView = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-100 py-4 sm:py-6 px-3 sm:px-4">
-      <div className="max-w-7xl mx-auto">
+      
         <UniversalHeader type="gerente" />
 
         {/* Filtros de fecha y equipo */}
@@ -1051,7 +1051,7 @@ const ConsumosView = () => {
           </p>
         </div>
       </div>
-    </div>
+    
   );
 };
 export default ConsumosView;
