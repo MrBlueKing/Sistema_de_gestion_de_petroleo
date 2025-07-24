@@ -48,14 +48,15 @@ const Consumo = ({
   const [estanqueSeleccionado, setEstanqueSeleccionado] = useState(null);
 
   // 🆕 HOOK PARA ÚLTIMA MEDICIÓN (reemplaza los estados manuales anteriores)
-  const {
-    loading: loadingUltimaMedicion,
-    error: errorUltimaMedicion,
-    medicionFormateada,
-    tieneConsumo,
-    numeralInicialSugerido,
-    cargarUltimaMedicion
-  } = useUltimaMedicionNumeralFinal();
+const {
+  loading: loadingUltimaMedicion,
+  error: errorUltimaMedicion,
+  data, // <-- AGREGAR ESTA LÍNEA
+  medicionFormateada,
+  tieneConsumo,
+  numeralInicialSugerido,
+  cargarUltimaMedicion
+} = useUltimaMedicionNumeralFinal();
 
   // Constantes
   const totalPages = 4;
@@ -596,11 +597,13 @@ const Consumo = ({
                       userInfo={userInfo}
                       onComplete={handleConsumoComplete}
                       resetFlow={resetFlow}
-                      
+
                       // 🆕 NUEVAS PROPS: Pasar datos del hook a FormConsumo
                       numeralInicialSugerido={numeralInicialSugerido}
                       loadingNumeralSugerido={loadingUltimaMedicion}
                       errorNumeralSugerido={errorUltimaMedicion}
+                      // 🎯 ESTA ES LA PROP QUE FALTA - los datos completos
+                      datosUltimaMedicion={data}  // <-- AGREGAR ESTA LÍNEA
                     />
                   </div>
                 </>

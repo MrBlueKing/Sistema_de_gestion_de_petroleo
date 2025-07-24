@@ -11,11 +11,141 @@ import {
   FaBalanceScale,
   FaLayerGroup,
   FaTruck,
+  FaTimes, // <-- AGREGAR
+  FaExclamationCircle, // <-- AGREGAR
 } from "react-icons/fa";
 import { GiGasPump } from "react-icons/gi";
 import SelectorEstanque from "../../molecules/SelectorEstanque";
 import bomberoService from "../../../context/bomberoService";
 import axios from "../../../lib/axios";
+
+// 🎨 COMPONENTE MODAL BONITO
+// 🎨 COMPONENTE MODAL BONITO - VERSIÓN CORREGIDA
+const ModalValidacion = ({ isOpen, onClose, onContinue, validacion }) => {
+  if (!isOpen || !validacion) return null;
+
+  const esError = validacion.severidad === 'error';
+  const esWarning = validacion.severidad === 'warning';
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      {/* Overlay */}
+      <div 
+        className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" 
+        onClick={onClose}
+      ></div>
+
+      {/* 🔧 CONTENEDOR FLEX PARA CENTRAR EL MODAL */}
+      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        
+        {/* 🔧 SPACER INVISIBLE PARA CENTRADO VERTICAL EN SM+ */}
+        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+        {/* Modal - MEJORADO */}
+        <div className="relative inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl sm:align-middle">
+
+          {/* Header */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center">
+              <div className={`flex items-center justify-center w-12 h-12 rounded-full ${
+                esError ? 'bg-red-100' : 'bg-yellow-100'
+              }`}>
+                {esError ? (
+                  <FaExclamationCircle className="w-6 h-6 text-red-600" />
+                ) : (
+                  <FaExclamationTriangle className="w-6 h-6 text-yellow-600" />
+                )}
+              </div>
+              <div className="ml-3">
+                <h3 className={`text-lg font-medium ${
+                  esError ? 'text-red-900' : 'text-yellow-900'
+                }`}>
+                  {esError ? 'Error en Medición' : 'Advertencia de Medición'}
+                </h3>
+                <p className="text-sm text-gray-500">
+                  {esError ? 'Se detectó un valor incorrecto' : 'Se detectó un valor sospechoso'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <FaTimes className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Contenido */}
+          <div className={`p-4 rounded-lg ${
+            esError ? 'bg-red-50 border border-red-200' : 'bg-yellow-50 border border-yellow-200'
+          }`}>
+            <p className={`text-sm ${
+              esError ? 'text-red-800' : 'text-yellow-800'
+            } mb-3`}>
+              {validacion.mensaje}
+            </p>
+
+            {validacion.detalles && (
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="bg-white/50 p-2 rounded border">
+                  <p className="text-xs font-semibold text-gray-600">Valor Ingresado</p>
+                  <p className="text-lg font-bold text-gray-900">
+                    {validacion.detalles.valorActual?.toLocaleString()}
+                    {validacion.tipo === 'horometro' ? ' hrs' : ' km'}
+                  </p>
+                </div>
+                <div className="bg-white/50 p-2 rounded border">
+                  <p className="text-xs font-semibold text-gray-600">Última Medición</p>
+                  <p className="text-lg font-bold text-gray-900">
+                    {(validacion.detalles.valorAnterior || validacion.detalles.valorMinimo)?.toLocaleString()}
+                    {validacion.tipo === 'horometro' ? ' hrs' : ' km'}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {validacion.detalles?.sugerencia && (
+              <div className="bg-blue-50 border border-blue-200 rounded p-2 mb-3">
+                <p className="text-xs text-blue-700">
+                  💡 <strong>Sugerencia:</strong> {validacion.detalles.sugerencia}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Botones */}
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors"
+            >
+              📝 Corregir Valor
+            </button>
+
+            {/* Solo mostrar "Continuar" si no es error crítico */}
+            {!esError && (
+              <button
+                onClick={onContinue}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-yellow-600 border border-transparent rounded-lg hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-colors"
+              >
+                ⚠️ Continuar Igual
+              </button>
+            )}
+          </div>
+
+          {/* Nota para errores críticos */}
+          {esError && (
+            <div className="mt-3 p-2 bg-red-100 border border-red-300 rounded">
+              <p className="text-xs text-red-700 text-center">
+                ❌ <strong>Error crítico:</strong> Este valor debe ser corregido antes de continuar.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const FormConsumo = ({
   formData,
@@ -32,13 +162,16 @@ const FormConsumo = ({
   userInfo,
   onComplete,
   resetFlow,
-  
+
   // 🆕 NUEVAS PROPS del hook de última medición
   numeralInicialSugerido,
   loadingNumeralSugerido = false,
   errorNumeralSugerido = null,
   tieneConsumo = false,
   medicionFormateada = "0 km",
+
+  // 🆕 PROP ADICIONAL: datos completos del hook para validaciones
+  datosUltimaMedicion = null,
 }) => {
   const DEBUG = false;
   const showHorometro = tipoMedicion === "Horometro";
@@ -58,6 +191,22 @@ const FormConsumo = ({
   // 🆕 Estado para controlar si ya se estableció el numeral inicial sugerido
   const [numeralInicialEstablecido, setNumeralInicialEstablecido] = useState(false);
 
+  // 🆕 ESTADOS PARA VALIDACIONES DE MEDICIÓN
+  const [validacionesMedicion, setValidacionesMedicion] = useState({
+    kilometraje: { valido: true, mensaje: '', puedeIgnorar: false },
+    horometro: { valido: true, mensaje: '', puedeIgnorar: false }
+  });
+  const [ignorarValidaciones, setIgnorarValidaciones] = useState({
+    kilometraje: false,
+    horometro: false
+  });
+
+  // 🆕 NUEVOS ESTADOS PARA EL MODAL
+  const [modalValidacion, setModalValidacion] = useState({
+    isOpen: false,
+    validacion: null
+  });
+
   // 🆕 EFECTO PARA ESTABLECER EL NUMERAL INICIAL SUGERIDO
   useEffect(() => {
     // Solo establecer si:
@@ -65,10 +214,10 @@ const FormConsumo = ({
     // 2. El campo está vacío o no se ha establecido antes
     // 3. No está en modo de guardado
     if (
-      numeralInicialSugerido && 
-      !formData.numeralInicial && 
+      numeralInicialSugerido &&
+      !formData.numeralInicial &&
       !numeralInicialEstablecido &&
-      !isSaving && 
+      !isSaving &&
       !isSaved
     ) {
       console.log('🎯 Estableciendo numeral inicial sugerido:', numeralInicialSugerido);
@@ -81,6 +230,106 @@ const FormConsumo = ({
   useEffect(() => {
     setNumeralInicialEstablecido(false);
   }, [patenteSeleccionada?.id_maquina]);
+
+  // 🆕 FUNCIÓN PARA VALIDAR MEDICIONES (KILOMETRAJE Y HORÓMETRO)
+  const validarMedicion = useCallback((valor, tipo) => {
+    if (!datosUltimaMedicion || !datosUltimaMedicion.tiene_consumo || !valor) {
+      return { valido: true, mensaje: '', puedeIgnorar: false };
+    }
+
+    const valorActual = parseFloat(valor);
+    const ultimaMedicion = datosUltimaMedicion.ultimo_consumo_maquina?.medicion || 0;
+
+    if (tipo === 'kilometraje') {
+      // ❌ ERROR CRÍTICO: No puede ser menor
+      if (valorActual < ultimaMedicion) {
+        return {
+          valido: false,
+          mensaje: `Menor que última medición (${ultimaMedicion.toLocaleString()} km)`,
+          puedeIgnorar: false
+        };
+      }
+
+      // ❌ ERROR CRÍTICO: No puede ser igual (mismo valor)
+      if (valorActual === ultimaMedicion) {
+        return {
+          valido: false,
+          mensaje: `Mismo valor que última medición (${ultimaMedicion.toLocaleString()} km)`,
+          puedeIgnorar: false
+        };
+      }
+
+      // ⚠️ ADVERTENCIA: Valor alto - necesita confirmación
+      const limiteCuidadoKm = ultimaMedicion + 1000;
+      if (valorActual > limiteCuidadoKm) {
+        return {
+          valido: false,
+          mensaje: `Recorrido alto (${(valorActual - ultimaMedicion).toLocaleString()} km) - Confirmar al guardar`,
+          puedeIgnorar: true
+        };
+      }
+
+    } else if (tipo === 'horometro') {
+      // ❌ ERROR CRÍTICO: No puede ser menor
+      if (valorActual < ultimaMedicion) {
+        return {
+          valido: false,
+          mensaje: `Menor que última medición (${ultimaMedicion.toLocaleString()} hrs)`,
+          puedeIgnorar: false
+        };
+      }
+
+      // ❌ ERROR CRÍTICO: No puede ser igual (mismo valor)
+      if (valorActual === ultimaMedicion) {
+        return {
+          valido: false,
+          mensaje: `Mismo valor que última medición (${ultimaMedicion.toLocaleString()} hrs)`,
+          puedeIgnorar: false
+        };
+      }
+
+      // ⚠️ ADVERTENCIA: Valor alto - necesita confirmación
+      const limiteCuidado = ultimaMedicion + 6;
+      if (valorActual > limiteCuidado) {
+        return {
+          valido: false,
+          mensaje: `Tiempo alto (${(valorActual - ultimaMedicion).toFixed(1)} hrs) - Confirmar al guardar`,
+          puedeIgnorar: true
+        };
+      }
+    }
+
+    return { valido: true, mensaje: '', puedeIgnorar: false };
+  }, [datosUltimaMedicion]);
+
+  // 🆕 VALIDAR MEDICIONES CUANDO CAMBIEN LOS VALORES
+  useEffect(() => {
+    if (showKilometraje && formData.kilometraje) {
+      const validacion = validarMedicion(formData.kilometraje, 'kilometraje');
+      setValidacionesMedicion(prev => ({
+        ...prev,
+        kilometraje: validacion
+      }));
+    }
+  }, [formData.kilometraje, showKilometraje, validarMedicion]);
+
+  useEffect(() => {
+    if (showHorometro && formData.horometro) {
+      const validacion = validarMedicion(formData.horometro, 'horometro');
+      setValidacionesMedicion(prev => ({
+        ...prev,
+        horometro: validacion
+      }));
+    }
+  }, [formData.horometro, showHorometro, validarMedicion]);
+
+  // 🆕 FUNCIÓN PARA IGNORAR VALIDACIONES
+  const handleIgnorarValidacion = (tipo) => {
+    setIgnorarValidaciones(prev => ({
+      ...prev,
+      [tipo]: true
+    }));
+  };
 
   // ===================================
   // HANDLERS PARA EL SELECTOR EXTENDIDO
@@ -206,12 +455,12 @@ const FormConsumo = ({
 
         ...(modoMultiEstanque
           ? {
-              estanques_multiples: datosConsumo.estanques_multiples || [],
-            }
+            estanques_multiples: datosConsumo.estanques_multiples || [],
+          }
           : {
-              id_estanque:
-                datosConsumo.id_estanque || estanqueSeleccionado?.id_estanque,
-            }),
+            id_estanque:
+              datosConsumo.id_estanque || estanqueSeleccionado?.id_estanque,
+          }),
       };
 
       console.log("📦 Datos preparados para envío:", consumoData);
@@ -377,6 +626,7 @@ const FormConsumo = ({
   const handleSubmitWrapper = useCallback(async () => {
     console.log("🚀 Iniciando envío de consumo...");
 
+    // 🔧 VALIDACIONES PREVIAS (sin setear isSaving todavía)
     if (!solicitante?.rut) {
       setHasError(true);
       setErrorMessage("Error: No se encontró el solicitante. Por favor, vuelva al paso anterior.");
@@ -417,11 +667,231 @@ const FormConsumo = ({
       }
     }
 
-    setIsSaving(true);
+    // 🔧 FUNCIÓN DE VALIDACIÓN MEJORADA
+    const validarMedicion = (datosUltimaMedicion, tipoMedicion, formData) => {
+      console.log("🔍 Ejecutando validarMedicion con datos:", {
+        datosUltimaMedicion,
+        tipoMedicion,
+        horometro: formData.horometro,
+        kilometraje: formData.kilometraje
+      });
+
+      // ✅ Verificar si hay datos de última medición
+      if (!datosUltimaMedicion || !datosUltimaMedicion.tiene_consumo) {
+        console.log("ℹ️ No hay datos de última medición para validar");
+        return { valido: true, mensaje: '', severidad: 'info' };
+      }
+
+      // ✅ Extraer la medición numérica del último consumo
+      const ultimaMedicion = datosUltimaMedicion.ultimo_consumo_maquina?.medicion || 0;
+      console.log("📊 Última medición extraída:", ultimaMedicion);
+
+      // 🔧 VALIDACIÓN PARA HORÓMETRO
+      if (tipoMedicion === "Horometro" && formData.horometro) {
+        const horasActual = parseFloat(formData.horometro);
+        console.log("⏰ Validando horómetro:", { horasActual, ultimaMedicion });
+
+        // ❌ ERROR CRÍTICO: Horómetro menor que última medición
+        if (horasActual < ultimaMedicion) {
+          console.log("❌ Horómetro menor que última medición - ERROR CRÍTICO");
+          return {
+            valido: false,
+            severidad: 'error',
+            tipo: 'horometro',
+            mensaje: `El horómetro no puede retroceder. El valor actual (${horasActual.toLocaleString()} hrs) es menor que la última medición registrada.`,
+            detalles: {
+              valorActual: horasActual,
+              valorAnterior: ultimaMedicion,
+              diferencia: ultimaMedicion - horasActual,
+              sugerencia: `Verifique el horómetro. Debe ser mayor que ${ultimaMedicion.toLocaleString()} hrs.`
+            }
+          };
+        }
+
+        // ❌ ERROR CRÍTICO: Horómetro igual que última medición
+        if (horasActual === ultimaMedicion) {
+          console.log("❌ Horómetro igual que última medición - ERROR CRÍTICO");
+          return {
+            valido: false,
+            severidad: 'error',
+            tipo: 'horometro',
+            mensaje: `El horómetro no puede tener el mismo valor que la última medición registrada (${ultimaMedicion.toLocaleString()} hrs).`,
+            detalles: {
+              valorActual: horasActual,
+              valorAnterior: ultimaMedicion,
+              diferencia: 0,
+              sugerencia: `El horómetro debe haber avanzado. Ingrese un valor mayor que ${ultimaMedicion.toLocaleString()} hrs.`
+            }
+          };
+        }
+
+        // ⚠️ WARNING: Horómetro excesivo (MÁS DE 12 horas)
+        const maximoEsperado = ultimaMedicion + 12;
+        if (horasActual > maximoEsperado) {
+          console.log("⚠️ Horómetro mayor que límite esperado - WARNING");
+          return {
+            valido: false,
+            severidad: 'warning',
+            tipo: 'horometro',
+            mensaje: `El horómetro indica ${(horasActual - ultimaMedicion).toFixed(1)} horas de trabajo desde la última medición. ¿Está seguro de que es correcto?`,
+            detalles: {
+              valorActual: horasActual,
+              valorAnterior: ultimaMedicion,
+              diferencia: horasActual - ultimaMedicion,
+              sugerencia: `Normalmente se esperan máximo 12 horas de trabajo. Verifique si ${horasActual.toLocaleString()} hrs es correcto.`
+            }
+          };
+        }
+
+        // ⚠️ WARNING: Horómetro alto pero razonable (6-12 horas)
+        const limiteCuidado = ultimaMedicion + 6;
+        if (horasActual > limiteCuidado) {
+          console.log("⚠️ Horómetro en rango alto - WARNING");
+          return {
+            valido: false,
+            severidad: 'warning',
+            tipo: 'horometro',
+            mensaje: `El horómetro indica ${(horasActual - ultimaMedicion).toFixed(1)} horas de trabajo. ¿Es correcto?`,
+            detalles: {
+              valorActual: horasActual,
+              valorAnterior: ultimaMedicion,
+              diferencia: horasActual - ultimaMedicion,
+              sugerencia: `Se detectaron más de 6 horas de trabajo. Confirme si es correcto.`
+            }
+          };
+        }
+      }
+
+      // 🔧 VALIDACIÓN PARA KILOMETRAJE
+      if (tipoMedicion === "Kilometraje" && formData.kilometraje) {
+        const kmActual = parseFloat(formData.kilometraje);
+        console.log("🚗 Validando kilometraje:", { kmActual, ultimaMedicion });
+
+        // ❌ ERROR CRÍTICO: Kilometraje menor que última medición
+        if (kmActual < ultimaMedicion) {
+          console.log("❌ Kilometraje menor que última medición - ERROR CRÍTICO");
+          return {
+            valido: false,
+            severidad: 'error',
+            tipo: 'kilometraje',
+            mensaje: `El kilometraje no puede retroceder. El valor actual (${kmActual.toLocaleString()} km) es menor que la última medición registrada.`,
+            detalles: {
+              valorActual: kmActual,
+              valorAnterior: ultimaMedicion,
+              diferencia: ultimaMedicion - kmActual,
+              sugerencia: `Verifique el odómetro. Debe ser mayor que ${ultimaMedicion.toLocaleString()} km.`
+            }
+          };
+        }
+
+        // ❌ ERROR CRÍTICO: Kilometraje igual que última medición
+        if (kmActual === ultimaMedicion) {
+          console.log("❌ Kilometraje igual que última medición - ERROR CRÍTICO");
+          return {
+            valido: false,
+            severidad: 'error',
+            tipo: 'kilometraje',
+            mensaje: `El kilometraje no puede tener el mismo valor que la última medición registrada (${ultimaMedicion.toLocaleString()} km).`,
+            detalles: {
+              valorActual: kmActual,
+              valorAnterior: ultimaMedicion,
+              diferencia: 0,
+              sugerencia: `El vehículo debe haber recorrido alguna distancia. Ingrese un valor mayor que ${ultimaMedicion.toLocaleString()} km.`
+            }
+          };
+        }
+
+        // ⚠️ WARNING: Kilometraje muy alto (+10,000 km)
+        const limiteMuyAlto = ultimaMedicion + 10000;
+        if (kmActual > limiteMuyAlto) {
+          console.log("⚠️ Kilometraje muy alto - WARNING");
+          return {
+            valido: false,
+            severidad: 'warning',
+            tipo: 'kilometraje',
+            mensaje: `El vehículo habría recorrido ${(kmActual - ultimaMedicion).toLocaleString()} km desde la última medición. ¿Está seguro?`,
+            detalles: {
+              valorActual: kmActual,
+              valorAnterior: ultimaMedicion,
+              diferencia: kmActual - ultimaMedicion,
+              sugerencia: `Un recorrido de más de 10,000 km es inusual. Verifique si ${kmActual.toLocaleString()} km es correcto.`
+            }
+          };
+        }
+
+        // ⚠️ WARNING: Kilometraje alto pero razonable (1,000-10,000 km)
+        const limiteCuidadoKm = ultimaMedicion + 1000;
+        if (kmActual > limiteCuidadoKm) {
+          console.log("⚠️ Kilometraje en rango alto - WARNING");
+          return {
+            valido: false,
+            severidad: 'warning',
+            tipo: 'kilometraje',
+            mensaje: `El vehículo habría recorrido ${(kmActual - ultimaMedicion).toLocaleString()} km. ¿Es correcto?`,
+            detalles: {
+              valorActual: kmActual,
+              valorAnterior: ultimaMedicion,
+              diferencia: kmActual - ultimaMedicion,
+              sugerencia: `Se detectó un recorrido superior a 1,000 km. Confirme si es correcto.`
+            }
+          };
+        }
+      }
+
+      console.log("✅ Validación pasó correctamente");
+      return { valido: true, mensaje: '', severidad: 'success' };
+    };
+
+    // 🔧 LIMPIAR ESTADOS ANTES DE VALIDAR
     setHasError(false);
-    setIsSaved(false);
     setErrorMessage("");
 
+    // Ejecutar validación
+    console.log("🎯 A punto de ejecutar validación...");
+    const validacion = validarMedicion(datosUltimaMedicion, tipoMedicion, formData);
+    console.log("🎯 Resultado de validación:", validacion);
+
+    if (!validacion.valido) {
+      console.log("⚠️ Validación falló, mostrando modal...");
+
+      // 🎨 MOSTRAR MODAL EN LUGAR DE CONFIRM
+      setModalValidacion({
+        isOpen: true,
+        validacion: validacion
+      });
+
+      // 🔧 NO SETEAR isSaving AQUÍ - el modal maneja su propio estado
+      return; // Parar aquí y esperar respuesta del modal
+    }
+
+    // ✅ EJECUTAR EL ENVÍO REAL
+    await ejecutarEnvioConsumo();
+  }, [
+    modoMultiEstanque,
+    formData,
+    estanquesDisponibles,
+    distribucionLitros,
+    estanqueSeleccionado,
+    userInfo,
+    solicitante,
+    categoriaSeleccionada,
+    patenteSeleccionada,
+    idFaena,
+    tieneEstanquesSeleccionados,
+    distribucionCompleta,
+    stockSuficienteMulti,
+    onComplete,
+    resetFlow,
+    determinarTipoOperacion,
+    datosUltimaMedicion,
+    tipoMedicion,
+  ]);
+
+  // 🔧 FUNCIÓN SEPARADA PARA EL ENVÍO REAL
+  // 🔧 FUNCIÓN SEPARADA PARA EL ENVÍO REAL - AGREGAR DESPUÉS DE handleSubmitWrapper
+  const ejecutarEnvioConsumo = useCallback(async () => {
+    // 🔧 SETEAR isSaving AL INICIO
+    setIsSaving(true);
     try {
       let datosParaEnvio;
 
@@ -437,9 +907,9 @@ const FormConsumo = ({
         datosParaEnvio = {
           ...formData,
           id_dotacion: solicitante.rut,
-          id_equipo: equipoId,
+          id_equipo: patenteSeleccionada?.id_maquina || categoriaSeleccionada?.id_maquina,
           id_usuario: userInfo.id,
-          id_faena: faenaId,
+          id_faena: userInfo?.faena || idFaena,
           es_consumo_multiple: true,
           estanques_multiples: estanquesConLitros,
           medicion: parseFloat(formData.horometro || formData.kilometraje || formData.medicion || 0),
@@ -450,9 +920,9 @@ const FormConsumo = ({
         datosParaEnvio = {
           ...formData,
           id_dotacion: solicitante.rut,
-          id_equipo: equipoId,
+          id_equipo: patenteSeleccionada?.id_maquina || categoriaSeleccionada?.id_maquina,
           id_usuario: userInfo.id,
-          id_faena: faenaId,
+          id_faena: userInfo?.faena || idFaena,
           id_estanque: estanqueSeleccionado.id_estanque,
           es_consumo_multiple: false,
         };
@@ -482,6 +952,7 @@ const FormConsumo = ({
       setErrorMessage(error.message || "Error inesperado al guardar el consumo");
       setIsSaved(false);
     } finally {
+      // 🔧 CRÍTICO: SIEMPRE resetear isSaving en el finally
       setIsSaving(false);
     }
   }, [
@@ -490,18 +961,42 @@ const FormConsumo = ({
     estanquesDisponibles,
     distribucionLitros,
     estanqueSeleccionado,
-    userInfo,
     solicitante,
     categoriaSeleccionada,
     patenteSeleccionada,
+    userInfo,
     idFaena,
-    tieneEstanquesSeleccionados,
-    distribucionCompleta,
-    stockSuficienteMulti,
-    onComplete,
-    resetFlow,
-    determinarTipoOperacion,
+    enviarConsumoAlBackend,
+    onComplete
   ]);
+
+  // 🎯 FUNCIONES PARA MANEJAR EL MODAL - CORREGIDAS
+  const handleModalClose = () => {
+    console.log("🚪 Cerrando modal");
+    setModalValidacion({
+      isOpen: false,
+      validacion: null
+    });
+    // 🔧 NO resetear isSaving aquí porque nunca se seteó
+  };
+
+  // 🎯 SOLUCIÓN DEFINITIVA - handleModalContinue SIN setear isSaving
+  const handleModalContinue = async () => {
+    console.log("✅ Usuario decidió continuar desde modal");
+
+    // 🔧 CERRAR EL MODAL PRIMERO
+    setModalValidacion({
+      isOpen: false,
+      validacion: null
+    });
+
+    // 🔧 LIMPIAR ERRORES PREVIOS
+    setHasError(false);
+    setErrorMessage("");
+
+    // 🔧 SOLO EJECUTAR - ejecutarEnvioConsumo maneja su propio isSaving
+    await ejecutarEnvioConsumo();
+  };
 
   // Funciones auxiliares
   const formatDate = (dateString) => {
@@ -527,13 +1022,13 @@ const FormConsumo = ({
   const tieneStockSuficiente = modoMultiEstanque
     ? stockSuficienteMulti && distribucionCompleta
     : estanqueSeleccionado &&
-      estanqueSeleccionado.stock_actual >= litrosTotalesRequeridos;
+    estanqueSeleccionado.stock_actual >= litrosTotalesRequeridos;
 
   const formularioCompleto =
     (modoMultiEstanque
       ? tieneEstanquesSeleccionados &&
-        distribucionCompleta &&
-        stockSuficienteMulti
+      distribucionCompleta &&
+      stockSuficienteMulti
       : estanqueSeleccionado) &&
     formData.numeralInicial &&
     formData.numeralFinal &&
@@ -541,7 +1036,10 @@ const FormConsumo = ({
     (showHorometro ? formData.horometro : true) &&
     (showKilometraje ? formData.kilometraje : true) &&
     parseFloat(formData.litros) > 0 &&
-    tieneStockSuficiente;
+    tieneStockSuficiente &&
+    // 🎯 SOLO BLOQUEAR ERRORES CRÍTICOS (puedeIgnorar = false)
+    (!showKilometraje || validacionesMedicion.kilometraje.valido || validacionesMedicion.kilometraje.puedeIgnorar) &&
+    (!showHorometro || validacionesMedicion.horometro.valido || validacionesMedicion.horometro.puedeIgnorar);
 
   console.log("🔍 DEBUG Validaciones del formulario:", {
     estanqueSeleccionado: !!estanqueSeleccionado,
@@ -594,6 +1092,13 @@ const FormConsumo = ({
           </div>
         </div>
       )}
+
+      <ModalValidacion
+        isOpen={modalValidacion.isOpen}
+        onClose={handleModalClose}
+        onContinue={handleModalContinue}
+        validacion={modalValidacion.validacion}
+      />
 
       {/* 🆕 INDICADOR DE TIPO DE OPERACIÓN */}
       {(estanqueSeleccionado ||
@@ -687,10 +1192,38 @@ const FormConsumo = ({
                 step="0.01"
                 value={formData.horometro}
                 onChange={(e) => handleChange("horometro", e.target.value)}
+                onBlur={() => {
+                  if (formData.horometro) {
+                    const validacion = validarMedicion(formData.horometro, 'horometro');
+                    setValidacionesMedicion(prev => ({
+                      ...prev,
+                      horometro: validacion
+                    }));
+                  }
+                }}
                 disabled={isSaving || isSaved}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                className={`w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${!validacionesMedicion.horometro.valido
+                  ? validacionesMedicion.horometro.puedeIgnorar
+                    ? "border-yellow-400 bg-yellow-50"  // Advertencia (amarillo)
+                    : "border-red-400 bg-red-50"        // Error crítico (rojo)
+                  : "border-gray-300"
+                  }`}
                 placeholder="Ej: 1234"
               />
+              {/* 🎨 MENSAJE MEJORADO CON COLORES SEGÚN SEVERIDAD */}
+              {!validacionesMedicion.horometro.valido && (
+                <p className={`text-xs mt-1 flex items-center ${validacionesMedicion.horometro.puedeIgnorar
+                  ? "text-yellow-700"  // Advertencia
+                  : "text-red-600"     // Error crítico
+                  }`}>
+                  {validacionesMedicion.horometro.puedeIgnorar ? (
+                    <FaInfoCircle className="mr-1" size={10} />
+                  ) : (
+                    <FaExclamationTriangle className="mr-1" size={10} />
+                  )}
+                  {validacionesMedicion.horometro.mensaje}
+                </p>
+              )}
             </div>
           )}
 
@@ -707,10 +1240,38 @@ const FormConsumo = ({
                 step="0.01"
                 value={formData.kilometraje}
                 onChange={(e) => handleChange("kilometraje", e.target.value)}
+                onBlur={() => {
+                  if (formData.kilometraje) {
+                    const validacion = validarMedicion(formData.kilometraje, 'kilometraje');
+                    setValidacionesMedicion(prev => ({
+                      ...prev,
+                      kilometraje: validacion
+                    }));
+                  }
+                }}
                 disabled={isSaving || isSaved}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                className={`w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${!validacionesMedicion.kilometraje.valido
+                  ? validacionesMedicion.kilometraje.puedeIgnorar
+                    ? "border-yellow-400 bg-yellow-50"  // Advertencia (amarillo)
+                    : "border-red-400 bg-red-50"        // Error crítico (rojo)
+                  : "border-gray-300"
+                  }`}
                 placeholder="Ej: 12345"
               />
+              {/* 🎨 MENSAJE MEJORADO CON COLORES SEGÚN SEVERIDAD */}
+              {!validacionesMedicion.kilometraje.valido && (
+                <p className={`text-xs mt-1 flex items-center ${validacionesMedicion.kilometraje.puedeIgnorar
+                  ? "text-yellow-700"  // Advertencia
+                  : "text-red-600"     // Error crítico
+                  }`}>
+                  {validacionesMedicion.kilometraje.puedeIgnorar ? (
+                    <FaInfoCircle className="mr-1" size={10} />
+                  ) : (
+                    <FaExclamationTriangle className="mr-1" size={10} />
+                  )}
+                  {validacionesMedicion.kilometraje.mensaje}
+                </p>
+              )}
             </div>
           )}
 
@@ -737,11 +1298,10 @@ const FormConsumo = ({
                   }
                 }}
                 disabled={isSaving || isSaved}
-                className={`w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
-                  numeralInicialSugerido && formData.numeralInicial === numeralInicialSugerido
-                    ? "border-green-300 bg-green-50"
-                    : "border-gray-300"
-                }`}
+                className={`w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${numeralInicialSugerido && formData.numeralInicial === numeralInicialSugerido
+                  ? "border-green-300 bg-green-50"
+                  : "border-gray-300"
+                  }`}
                 placeholder="Ej: 100.5"
               />
               {numeralInicialSugerido && formData.numeralInicial === numeralInicialSugerido && (
@@ -773,9 +1333,8 @@ const FormConsumo = ({
               value={formData.numeralFinal}
               onChange={(e) => handleChange("numeralFinal", e.target.value)}
               disabled={isSaving || isSaved}
-              className={`w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
-                hasNumeralError ? "border-red-500 bg-red-50" : "border-gray-300"
-              }`}
+              className={`w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${hasNumeralError ? "border-red-500 bg-red-50" : "border-gray-300"
+                }`}
               placeholder="Ej: 150.5"
             />
             {hasNumeralError && (
@@ -885,11 +1444,10 @@ const FormConsumo = ({
                   litros
                   {estanqueSeleccionado.tipo_estanque && (
                     <span
-                      className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        estanqueSeleccionado.tipo_estanque === "movil"
-                          ? "bg-amber-100 text-amber-800"
-                          : "bg-blue-100 text-blue-800"
-                      }`}
+                      className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${estanqueSeleccionado.tipo_estanque === "movil"
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-blue-100 text-blue-800"
+                        }`}
                     >
                       {estanqueSeleccionado.tipo_estanque === "movil"
                         ? "Móvil"
@@ -913,15 +1471,13 @@ const FormConsumo = ({
         <button
           onClick={handleSubmitWrapper}
           disabled={isSaving || isSaved || !formularioCompleto}
-          className={`w-full md:w-auto px-6 py-2.5 rounded-lg flex items-center justify-center transition-colors ${
-            isSaved
-              ? "bg-green-600 hover:bg-green-700 text-white"
-              : "bg-orange-500 hover:bg-orange-600 text-white"
-          } ${
-            isSaving || isSaved || !formularioCompleto
+          className={`w-full md:w-auto px-6 py-2.5 rounded-lg flex items-center justify-center transition-colors ${isSaved
+            ? "bg-green-600 hover:bg-green-700 text-white"
+            : "bg-orange-500 hover:bg-orange-600 text-white"
+            } ${isSaving || isSaved || !formularioCompleto
               ? "opacity-80 cursor-not-allowed"
               : ""
-          }`}
+            }`}
         >
           {isSaving ? (
             <>
