@@ -8,7 +8,7 @@ import InputField from "../../atoms/Inputs/InputField";
 import Button from "../../atoms/Button/Button";
 import LoadingOverlay from "../../atoms/FeedBack/Loading";
 import ErrorMessage from "../../atoms/FeedBack/ErrorMessage";
-import icono from "../../../assets/icono.png";
+import icono from "../../../assets/logo.png";
 import { FaUser, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
 import { UserContext } from "../../../context/userContext";
 

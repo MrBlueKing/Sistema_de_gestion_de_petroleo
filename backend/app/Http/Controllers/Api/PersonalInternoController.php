@@ -188,20 +188,74 @@ class PersonalInternoController extends Controller
         }
     }
 
-    // Función para listar todos los usuarios registrados
-    public function index()
+    /**
+     * Función para listar usuarios internos - MEJORADA CON FILTRO POR FAENA
+     */
+    public function index(Request $request)
     {
         try {
-            // Obtener todos los usuarios de la tabla 'personal_interno'
-            $personalInterno = PersonalInterno::all();
+            // 🎯 OBTENER EL PARÁMETRO DE FAENA
+            $idFaena = $request->query('id_faena');
+            
+            Log::info('PersonalInternoController::index - Parámetros recibidos:', [
+                'id_faena' => $idFaena,
+                'todos_los_params' => $request->all()
+            ]);
 
-            // Opcionalmente, podemos incluir información de las faenas relacionadas
+            if ($idFaena) {
+                // ✅ FILTRAR POR FAENA ESPECÍFICA
+                Log::info("Filtrando personal interno por faena: {$idFaena}");
+                
+                // 1. Obtener IDs de solicitantes que pertenecen a la faena
+                $solicitantesEnFaena = SolicitanteFaena::where('id_faena', $idFaena)
+                    ->pluck('id_dotacion') // Estos son los IDs de la tabla solicitantes
+                    ->toArray();
+
+                Log::info('Solicitantes encontrados en faena:', [
+                    'ids' => $solicitantesEnFaena,
+                    'cantidad' => count($solicitantesEnFaena)
+                ]);
+
+                if (empty($solicitantesEnFaena)) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => "No hay personal interno asignado a la faena {$idFaena}",
+                        'personal_interno' => []
+                    ], 200);
+                }
+
+                // 2. Obtener los RUTs de esos solicitantes
+                $solicitantes = Solicitante::whereIn('id', $solicitantesEnFaena)
+                    ->where('tipo_personal', 'Interno')
+                    ->pluck('rut')
+                    ->toArray();
+
+                Log::info('RUTs de solicitantes internos en faena:', [
+                    'ruts' => $solicitantes,
+                    'cantidad' => count($solicitantes)
+                ]);
+
+                // 3. Obtener el personal interno con esos RUTs
+                $personalInterno = PersonalInterno::whereIn('rut', $solicitantes)->get();
+
+            } else {
+                // ✅ SIN FILTRO - OBTENER TODOS (comportamiento original)
+                Log::info('Sin filtro de faena - obteniendo todo el personal interno');
+                $personalInterno = PersonalInterno::all();
+            }
+
+            Log::info('Personal interno obtenido:', [
+                'cantidad' => $personalInterno->count(),
+                'con_filtro_faena' => $idFaena ? true : false
+            ]);
+
+            // 🔄 PROCESAR LOS RESULTADOS (igual que antes)
             $usuariosDetallados = [];
             foreach ($personalInterno as $personal) {
                 // Buscar el solicitante asociado por rut
                 $solicitante = Solicitante::where('rut', $personal->rut)->first();
 
-                // Validar si se encontró el solicitante
+                // Obtener las faenas del solicitante
                 $solicitanteFaenas = [];
                 if ($solicitante) {
                     $solicitanteFaenas = SolicitanteFaena::where('id_dotacion', $solicitante->id)->get();
@@ -215,9 +269,8 @@ class PersonalInternoController extends Controller
                     }
                 }
 
-                // Cambiar 'id_personal_interno' por el 'id' del solicitante
                 $usuariosDetallados[] = [
-                    'id_dotacion' => $solicitante ? $solicitante->id : null,  // Ahora usamos el id del solicitante
+                    'id_dotacion' => $solicitante ? $solicitante->id : null,
                     'personal_interno' => $personal,
                     'faenas' => $faenas
                 ];
@@ -225,10 +278,21 @@ class PersonalInternoController extends Controller
 
             return response()->json([
                 'success' => true,
-                'personal_interno' => $usuariosDetallados
+                'personal_interno' => $usuariosDetallados,
+                'filtros_aplicados' => [
+                    'id_faena' => $idFaena,
+                    'total_encontrados' => count($usuariosDetallados)
+                ]
             ], 200);
+
         } catch (\Exception $e) {
+            Log::error('Error en PersonalInternoController::index:', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
+                'success' => false,
                 'error' => 'Hubo un error al obtener los usuarios.',
                 'message' => $e->getMessage(),
             ], 500);

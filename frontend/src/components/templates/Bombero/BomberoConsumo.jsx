@@ -11,6 +11,7 @@ import { FaArrowLeft, FaCarSide, FaUserAlt, FaCheck, FaHome, FaPlus, FaInfoCircl
 import StepHeader from "../../molecules/StepHeader";
 import Button from "../../atoms/Button/Button";
 import { format } from "date-fns";
+import { useUltimaMedicionNumeralFinal } from "../../../hook/Bombero/useUltimaMedicionNumeralFinal"; // 🆕 NUEVO IMPORT
 
 const Consumo = ({
   onPrevious,
@@ -46,6 +47,16 @@ const Consumo = ({
   const [successData, setSuccessData] = useState(null);
   const [estanqueSeleccionado, setEstanqueSeleccionado] = useState(null);
 
+  // 🆕 HOOK PARA ÚLTIMA MEDICIÓN (reemplaza los estados manuales anteriores)
+  const {
+    loading: loadingUltimaMedicion,
+    error: errorUltimaMedicion,
+    medicionFormateada,
+    tieneConsumo,
+    numeralInicialSugerido,
+    cargarUltimaMedicion
+  } = useUltimaMedicionNumeralFinal();
+
   // Constantes
   const totalPages = 4;
 
@@ -78,7 +89,7 @@ const Consumo = ({
           nombre: user.nombre,
           apellido: user.apellido
         };
-        
+
         setUserInfo(userInfoData);
         DEBUG && console.log('DEBUG CONSUMO - UserInfo establecido:', userInfoData);
       } else {
@@ -87,6 +98,14 @@ const Consumo = ({
       }
     }
   }, [user, loading]);
+
+  // 🆕 NUEVO useEffect: Cargar información de la última medición usando el hook
+  useEffect(() => {
+    if (patenteSeleccionada?.id_maquina) {
+      console.log('🎯 Cargando datos para máquina:', patenteSeleccionada.id_maquina);
+      cargarUltimaMedicion(patenteSeleccionada.id_maquina);
+    }
+  }, [patenteSeleccionada?.id_maquina, cargarUltimaMedicion]);
 
   useEffect(() => {
     const inicial = parseFloat(formData.numeralInicial) || 0;
@@ -133,12 +152,12 @@ const Consumo = ({
 
   const handleConsumoComplete = (response = null) => {
     DEBUG && console.log('DEBUG CONSUMO - Consumo completado desde ConsumoFormMultiEstanque', response);
-    
+
     setIsSaved(true);
     setIsSaving(false);
     setHasError(false);
     setErrorMessage("");
-    
+
     const successInfo = {
       id: response?.data?.id_consumo || 'Generado automáticamente',
       litros: formData.litros,
@@ -147,7 +166,7 @@ const Consumo = ({
       equipo: formatPatente(),
       observacion: formData.observacion
     };
-    
+
     setSuccessData(successInfo);
     DEBUG && console.log('DEBUG CONSUMO - Datos de éxito establecidos:', successInfo);
   };
@@ -223,6 +242,32 @@ const Consumo = ({
     return true;
   };
 
+  // 🆕 FUNCIÓN ACTUALIZADA para mostrar el kilometraje actual usando el hook
+  const renderKilometrajeActual = () => {
+    if (loadingUltimaMedicion) {
+      return (
+        <div className="flex items-center text-xs text-gray-500">
+          <div className="animate-spin rounded-full h-3 w-3 border border-gray-400 border-t-transparent mr-1"></div>
+          <span>Cargando...</span>
+        </div>
+      );
+    }
+
+    if (errorUltimaMedicion) {
+      return (
+        <div className="text-xs text-red-500">
+          Error al cargar
+        </div>
+      );
+    }
+
+    return (
+      <div className={`text-base font-medium ${tieneConsumo ? 'text-green-600' : 'text-gray-500'}`}>
+        {medicionFormateada}
+      </div>
+    );
+  };
+
   const getFieldName = (field) => {
     const fieldNames = {
       horometro: 'Horómetro',
@@ -270,8 +315,8 @@ const Consumo = ({
       };
 
       const response = await axios.post('/api/consumos', apiData);
-      DEBUG && console.log("datiños: ", response.data);
-      DEBUG && console.log("datiños: ", response.data.data);
+      DEBUG && console.log("datos: ", response.data);
+      DEBUG && console.log("datos: ", response.data.data);
 
       if (response.data.success) {
         setIsSaved(true);
@@ -356,7 +401,7 @@ const Consumo = ({
   if (!contextLoaded) {
     return (
       <div>
-         <UniversalHeader type="bombero" />
+        <UniversalHeader type="bombero" />
         <main className="flex-1 w-full p-4 flex items-center justify-center">
           <div className="bg-white rounded-lg shadow-md p-6 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
@@ -370,7 +415,7 @@ const Consumo = ({
   if (contextLoaded && !userInfo) {
     return (
       <div>
-       <UniversalHeader type="bombero" />
+        <UniversalHeader type="bombero" />
         <main className="flex-1 w-full p-4 flex items-center justify-center">
           <div className="bg-white rounded-lg shadow-md p-6 text-center max-w-md">
             <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-red-100">
@@ -521,6 +566,11 @@ const Consumo = ({
                               </span>
                             )}
                           </div>
+                          {/* 🆕 AQUÍ SE MUESTRA EL KILOMETRAJE ACTUAL usando el hook */}
+                          <div className="mt-1">
+                            <span className="text-xs text-gray-600 font-medium">Ultima Medición: </span>
+                            {renderKilometrajeActual()}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -546,6 +596,11 @@ const Consumo = ({
                       userInfo={userInfo}
                       onComplete={handleConsumoComplete}
                       resetFlow={resetFlow}
+                      
+                      // 🆕 NUEVAS PROPS: Pasar datos del hook a FormConsumo
+                      numeralInicialSugerido={numeralInicialSugerido}
+                      loadingNumeralSugerido={loadingUltimaMedicion}
+                      errorNumeralSugerido={errorUltimaMedicion}
                     />
                   </div>
                 </>

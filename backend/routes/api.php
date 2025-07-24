@@ -290,11 +290,12 @@ Route::middleware('auth:sanctum')->group(function () {
         // ✅ NUEVA RUTA: Consumos multi-estanque
         Route::post('/multi', [ConsumoController::class, 'storeMultiEstanque']);
 
+        // Nueva Ruta: para el apartado de consumo(bombero navigation) se obtiene datos del ultimo consumo de una maquina especifica
+        Route::get('/ultima-medicion', [ConsumoController::class, 'getUltimaMedicion']);
+
         // Otras rutas de consumos
         Route::get('/recientes', [ConsumoController::class, 'getConsumosRecientes']);
         Route::get('/', [ConsumoController::class, 'getConsumos']);
-
-    
     });
 
 

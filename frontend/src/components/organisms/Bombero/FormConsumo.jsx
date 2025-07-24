@@ -13,7 +13,7 @@ import {
   FaTruck,
 } from "react-icons/fa";
 import { GiGasPump } from "react-icons/gi";
-import SelectorEstanque from "../../molecules/SelectorEstanque"; // Componente extendido
+import SelectorEstanque from "../../molecules/SelectorEstanque";
 import bomberoService from "../../../context/bomberoService";
 import axios from "../../../lib/axios";
 
@@ -32,8 +32,15 @@ const FormConsumo = ({
   userInfo,
   onComplete,
   resetFlow,
+  
+  // 🆕 NUEVAS PROPS del hook de última medición
+  numeralInicialSugerido,
+  loadingNumeralSugerido = false,
+  errorNumeralSugerido = null,
+  tieneConsumo = false,
+  medicionFormateada = "0 km",
 }) => {
-  const DEBUG = false; // o true si estás depurando
+  const DEBUG = false;
   const showHorometro = tipoMedicion === "Horometro";
   const showKilometraje = tipoMedicion === "Kilometraje";
 
@@ -48,6 +55,33 @@ const FormConsumo = ({
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
+  // 🆕 Estado para controlar si ya se estableció el numeral inicial sugerido
+  const [numeralInicialEstablecido, setNumeralInicialEstablecido] = useState(false);
+
+  // 🆕 EFECTO PARA ESTABLECER EL NUMERAL INICIAL SUGERIDO
+  useEffect(() => {
+    // Solo establecer si:
+    // 1. Hay un numeral sugerido
+    // 2. El campo está vacío o no se ha establecido antes
+    // 3. No está en modo de guardado
+    if (
+      numeralInicialSugerido && 
+      !formData.numeralInicial && 
+      !numeralInicialEstablecido &&
+      !isSaving && 
+      !isSaved
+    ) {
+      console.log('🎯 Estableciendo numeral inicial sugerido:', numeralInicialSugerido);
+      handleChange('numeralInicial', numeralInicialSugerido);
+      setNumeralInicialEstablecido(true);
+    }
+  }, [numeralInicialSugerido, formData.numeralInicial, numeralInicialEstablecido, isSaving, isSaved, handleChange]);
+
+  // 🆕 RESETEAR el flag cuando cambie la máquina
+  useEffect(() => {
+    setNumeralInicialEstablecido(false);
+  }, [patenteSeleccionada?.id_maquina]);
+
   // ===================================
   // HANDLERS PARA EL SELECTOR EXTENDIDO
   // ===================================
@@ -55,7 +89,6 @@ const FormConsumo = ({
     console.log("🔄 Cambiando modo a:", nuevoModo);
     setModoMultiEstanque(nuevoModo);
     if (nuevoModo) {
-      // Al activar modo múltiple, limpiar distribución
       setDistribucionLitros({});
     }
   }, []);
@@ -70,15 +103,13 @@ const FormConsumo = ({
   // ===================================
   const determinarTipoOperacion = useCallback(
     (modoMultiple, estanquesUsados) => {
-      let tipoOperacion = "normal"; // Valor por defecto
+      let tipoOperacion = "normal";
 
       if (modoMultiple) {
-        // Para modo múltiple, revisar todos los estanques con litros asignados
         const estanquesConLitros = estanquesDisponibles.filter(
           (estanque) => (distribucionLitros[estanque.id_estanque] || 0) > 0
         );
 
-        // Si hay algún estanque móvil, es estanque_movil
         const tieneEstanqueMovil = estanquesConLitros.some(
           (estanque) => estanque.tipo_estanque === "movil"
         );
@@ -95,7 +126,6 @@ const FormConsumo = ({
           tipo_operacion: tipoOperacion,
         });
       } else {
-        // Para modo simple, revisar el estanque seleccionado
         if (estanqueSeleccionado) {
           tipoOperacion =
             estanqueSeleccionado.tipo_estanque === "movil"
@@ -121,23 +151,12 @@ const FormConsumo = ({
   );
 
   // ===================================
-  // FUNCIÓN PARA ENVIAR CONSUMO AL BACKEND (manteniendo tu lógica original)
+  // FUNCIÓN PARA ENVIAR CONSUMO AL BACKEND
   // ===================================
-  // REEMPLAZA LA FUNCIÓN enviarConsumoAlBackend EN FormConsumo.jsx CON ESTA VERSIÓN CORREGIDA:
-
   const enviarConsumoAlBackend = async (datosConsumo, modoMultiEstanque) => {
     try {
       console.log("📤 Enviando consumo al backend...", datosConsumo);
-      console.log("🔍 Props disponibles:", {
-        solicitante,
-        patenteSeleccionada,
-        categoriaSeleccionada,
-        userInfo,
-        idFaena,
-        estanqueSeleccionado,
-      });
 
-      // 🔧 VALIDAR DATOS CRÍTICOS ANTES DE ENVIAR
       const id_dotacion = datosConsumo.id_dotacion || solicitante?.rut;
       const id_equipo =
         datosConsumo.id_equipo ||
@@ -146,45 +165,22 @@ const FormConsumo = ({
       const id_usuario = datosConsumo.id_usuario || userInfo?.id;
       const id_faena = datosConsumo.id_faena || userInfo?.faena || idFaena;
 
-      // ❌ VERIFICAR QUE LOS DATOS CRÍTICOS EXISTAN
       if (!id_dotacion) {
-        throw new Error(
-          "❌ No se encontró el RUT del solicitante. Datos: " +
-          JSON.stringify(solicitante)
-        );
+        throw new Error("❌ No se encontró el RUT del solicitante.");
       }
       if (!id_equipo) {
-        throw new Error(
-          "❌ No se encontró el ID del equipo. Datos: " +
-          JSON.stringify({ patenteSeleccionada, categoriaSeleccionada })
-        );
+        throw new Error("❌ No se encontró el ID del equipo.");
       }
       if (!id_usuario) {
-        throw new Error(
-          "❌ No se encontró el ID del usuario. Datos: " +
-          JSON.stringify(userInfo)
-        );
+        throw new Error("❌ No se encontró el ID del usuario.");
       }
       if (!id_faena) {
-        throw new Error(
-          "❌ No se encontró el ID de la faena. Datos: " +
-          JSON.stringify({ userInfo, idFaena })
-        );
+        throw new Error("❌ No se encontró el ID de la faena.");
       }
 
-      console.log("✅ Datos críticos validados:", {
-        id_dotacion,
-        id_equipo,
-        id_usuario,
-        id_faena,
-      });
-
-      // 🔧 DETERMINAR TIPO DE OPERACIÓN AUTOMÁTICAMENTE
       const tipoOperacion = determinarTipoOperacion(modoMultiEstanque);
 
-      // 📋 PREPARAR DATOS PARA ENVÍO
       const consumoData = {
-        // Datos principales
         id_dotacion,
         id_equipo,
         id_usuario,
@@ -194,7 +190,6 @@ const FormConsumo = ({
         tipo_consumo: modoMultiEstanque ? "multiple" : "simple",
         tipo_operacion: tipoOperacion,
 
-        // ✅ SIEMPRE INCLUIR LA MEDICIÓN (TANTO SIMPLE COMO MÚLTIPLE)
         medicion: parseFloat(
           datosConsumo.medicion ||
           datosConsumo.horometro ||
@@ -204,42 +199,24 @@ const FormConsumo = ({
         horometro: parseFloat(datosConsumo.horometro || 0),
         kilometraje: parseFloat(datosConsumo.kilometraje || 0),
 
-        // Datos de la bomba
         numeral_inicial: parseFloat(datosConsumo.numeralInicial) || 0,
         numeral_final: parseFloat(datosConsumo.numeralFinal) || 0,
         precio_litro: parseFloat(datosConsumo.precio_litro),
         observacion: datosConsumo.observacion || null,
 
-        // Datos específicos según el modo
         ...(modoMultiEstanque
           ? {
-            // MODO MÚLTIPLE
-            estanques_multiples: datosConsumo.estanques_multiples || [],
-          }
+              estanques_multiples: datosConsumo.estanques_multiples || [],
+            }
           : {
-            // MODO SIMPLE
-            id_estanque:
-              datosConsumo.id_estanque || estanqueSeleccionado?.id_estanque,
-            medicion: parseFloat(
-              datosConsumo.medicion ||
-              datosConsumo.horometro ||
-              datosConsumo.kilometraje ||
-              0
-            ),
-          }),
+              id_estanque:
+                datosConsumo.id_estanque || estanqueSeleccionado?.id_estanque,
+            }),
       };
 
       console.log("📦 Datos preparados para envío:", consumoData);
-      console.log("🚛 Tipo de operación determinado:", tipoOperacion);
 
-      // ✅ SIEMPRE USAR /api/consumos/multi PARA AMBOS CASOS
       const endpoint = "/api/consumos/multi";
-
-      console.log("🎯 Enviando SIEMPRE a endpoint:", endpoint);
-      console.log("📡 Modo múltiple estanque:", modoMultiEstanque);
-      console.log("🔍 Tipo de consumo:", modoMultiEstanque ? "multiple" : "simple");
-
-      // Realizar petición POST al backend - SIEMPRE a /multi
       const response = await axios.post(endpoint, consumoData);
 
       if (response.data.success) {
@@ -258,14 +235,11 @@ const FormConsumo = ({
       let errorMessage = "Error al guardar el consumo";
 
       if (error.response?.data?.errors) {
-        // Errores de validación
         const errores = Object.values(error.response.data.errors).flat();
         errorMessage = errores.join(", ");
       } else if (error.response?.data?.message) {
-        // Error del servidor
         errorMessage = error.response.data.message;
       } else if (error.message) {
-        // Error lanzado manualmente
         errorMessage = error.message;
       }
 
@@ -277,7 +251,7 @@ const FormConsumo = ({
   };
 
   // ===================================
-  // FUNCIÓN PARA CARGAR ESTANQUES (manteniendo tu lógica original)
+  // FUNCIÓN PARA CARGAR ESTANQUES
   // ===================================
   const cargarEstanquesIgualQueSimple = useCallback(async () => {
     if (!idFaena) return;
@@ -299,11 +273,8 @@ const FormConsumo = ({
 
       console.log("✅ Estanques procesados:", estanques);
 
-      // 🆕 Log para verificar tipos de estanque
       estanques.forEach((estanque) => {
-        DEBUG && console.log(`🏷️ Estanque: ${estanque.nombre} - Tipo: ${estanque.tipo_estanque || "no definido"
-          }`
-        );
+        DEBUG && console.log(`🏷️ Estanque: ${estanque.nombre} - Tipo: ${estanque.tipo_estanque || "no definido"}`);
       });
 
       setEstanquesDisponibles(estanques);
@@ -313,7 +284,6 @@ const FormConsumo = ({
     }
   }, [idFaena]);
 
-  // Cargar estanques cuando se monta el componente
   useEffect(() => {
     if (idFaena && estanquesDisponibles.length === 0) {
       cargarEstanquesIgualQueSimple();
@@ -339,7 +309,6 @@ const FormConsumo = ({
     !estanqueConStockSuficiente &&
     stockTotalDisponible >= litrosTotalesRequeridos;
 
-  // Validaciones para multi-estanque
   const litrosDistribuidos = Object.values(distribucionLitros).reduce(
     (total, litros) => total + (parseFloat(litros) || 0),
     0
@@ -363,7 +332,6 @@ const FormConsumo = ({
     }
   );
 
-  // 🆕 FUNCIÓN PARA OBTENER INFORMACIÓN DEL TIPO DE OPERACIÓN
   const obtenerInfoTipoOperacion = useCallback(() => {
     const tipoOperacion = determinarTipoOperacion(modoMultiEstanque);
 
@@ -404,58 +372,41 @@ const FormConsumo = ({
   ]);
 
   // ===================================
-  // FUNCIÓN PRINCIPAL DE ENVÍO (manteniendo tu lógica original)
+  // FUNCIÓN PRINCIPAL DE ENVÍO
   // ===================================
   const handleSubmitWrapper = useCallback(async () => {
     console.log("🚀 Iniciando envío de consumo...");
 
-    // ❌ VALIDACIONES PREVIAS
     if (!solicitante?.rut) {
       setHasError(true);
-      setErrorMessage(
-        "Error: No se encontró el solicitante. Por favor, vuelva al paso anterior."
-      );
+      setErrorMessage("Error: No se encontró el solicitante. Por favor, vuelva al paso anterior.");
       return;
     }
 
-    const equipoId =
-      patenteSeleccionada?.id_maquina || categoriaSeleccionada?.id_maquina;
+    const equipoId = patenteSeleccionada?.id_maquina || categoriaSeleccionada?.id_maquina;
     if (!equipoId) {
       setHasError(true);
-      setErrorMessage(
-        "Error: No se encontró el equipo seleccionado. Por favor, vuelva al paso anterior."
-      );
+      setErrorMessage("Error: No se encontró el equipo seleccionado. Por favor, vuelva al paso anterior.");
       return;
     }
 
     if (!userInfo?.id) {
       setHasError(true);
-      setErrorMessage(
-        "Error: Usuario no autenticado. Por favor, inicie sesión nuevamente."
-      );
+      setErrorMessage("Error: Usuario no autenticado. Por favor, inicie sesión nuevamente.");
       return;
     }
 
     const faenaId = userInfo?.faena || idFaena;
     if (!faenaId) {
       setHasError(true);
-      setErrorMessage(
-        "Error: No se encontró la faena. Por favor, contacte al administrador."
-      );
+      setErrorMessage("Error: No se encontró la faena. Por favor, contacte al administrador.");
       return;
     }
 
-    // Validaciones específicas por modo
     if (modoMultiEstanque) {
-      if (
-        !tieneEstanquesSeleccionados ||
-        !distribucionCompleta ||
-        !stockSuficienteMulti
-      ) {
+      if (!tieneEstanquesSeleccionados || !distribucionCompleta || !stockSuficienteMulti) {
         setHasError(true);
-        setErrorMessage(
-          "Error: Complete correctamente la distribución de estanques múltiples."
-        );
+        setErrorMessage("Error: Complete correctamente la distribución de estanques múltiples.");
         return;
       }
     } else {
@@ -466,7 +417,6 @@ const FormConsumo = ({
       }
     }
 
-    // Cambiar estado a "guardando"
     setIsSaving(true);
     setHasError(false);
     setIsSaved(false);
@@ -476,43 +426,29 @@ const FormConsumo = ({
       let datosParaEnvio;
 
       if (modoMultiEstanque) {
-        // PREPARAR DATOS PARA CONSUMO MÚLTIPLE
         const estanquesConLitros = estanquesDisponibles
-          .filter(
-            (estanque) => (distribucionLitros[estanque.id_estanque] || 0) > 0
-          )
+          .filter((estanque) => (distribucionLitros[estanque.id_estanque] || 0) > 0)
           .map((estanque) => ({
             id_estanque: estanque.id_estanque,
             litros: distribucionLitros[estanque.id_estanque],
             nombre_estanque: estanque.nombre,
           }));
 
-        console.log("📊 Estanques con medición incluida:", estanquesConLitros);
-
         datosParaEnvio = {
           ...formData,
-          // ✅ ASEGURAR QUE LOS DATOS CRÍTICOS ESTÉN PRESENTES
           id_dotacion: solicitante.rut,
           id_equipo: equipoId,
           id_usuario: userInfo.id,
           id_faena: faenaId,
           es_consumo_multiple: true,
           estanques_multiples: estanquesConLitros,
-          // ✅ TAMBIÉN INCLUIR LOS CAMPOS ESPERADOS POR EL BACKEND
-          medicion: parseFloat(
-            formData.horometro ||
-            formData.kilometraje ||
-            formData.medicion ||
-            0
-          ),
+          medicion: parseFloat(formData.horometro || formData.kilometraje || formData.medicion || 0),
           horometro: parseFloat(formData.horometro || 0),
           kilometraje: parseFloat(formData.kilometraje || 0),
         };
       } else {
-        // PREPARAR DATOS PARA CONSUMO SIMPLE
         datosParaEnvio = {
           ...formData,
-          // ✅ ASEGURAR QUE LOS DATOS CRÍTICOS ESTÉN PRESENTES
           id_dotacion: solicitante.rut,
           id_equipo: equipoId,
           id_usuario: userInfo.id,
@@ -524,24 +460,17 @@ const FormConsumo = ({
 
       console.log("📋 Datos finales a enviar:", datosParaEnvio);
 
-      // ENVIAR AL BACKEND
-      const resultado = await enviarConsumoAlBackend(
-        datosParaEnvio,
-        modoMultiEstanque
-      );
+      const resultado = await enviarConsumoAlBackend(datosParaEnvio, modoMultiEstanque);
 
       if (resultado.success) {
-        // ✅ ÉXITO
         console.log("🎉 Consumo guardado exitosamente");
         setIsSaved(true);
         setHasError(false);
 
-        // En handleSubmitWrapper, después de setIsSaved(true):
         if (typeof onComplete === "function") {
           onComplete(resultado);
         }
       } else {
-        // ❌ ERROR
         console.error("💥 Error al guardar consumo:", resultado.message);
         setHasError(true);
         setErrorMessage(resultado.message);
@@ -550,9 +479,7 @@ const FormConsumo = ({
     } catch (error) {
       console.error("💥 Error inesperado:", error);
       setHasError(true);
-      setErrorMessage(
-        error.message || "Error inesperado al guardar el consumo"
-      );
+      setErrorMessage(error.message || "Error inesperado al guardar el consumo");
       setIsSaved(false);
     } finally {
       setIsSaving(false);
@@ -576,7 +503,7 @@ const FormConsumo = ({
     determinarTipoOperacion,
   ]);
 
-  // Formatea la fecha para mostrarla en formato legible
+  // Funciones auxiliares
   const formatDate = (dateString) => {
     if (!dateString) return "";
     const date = new Date(dateString);
@@ -589,28 +516,24 @@ const FormConsumo = ({
     });
   };
 
-  // Determina si hay un error en el numeral final
   const hasNumeralError =
     parseFloat(formData.numeralFinal) <= parseFloat(formData.numeralInicial) &&
     formData.numeralFinal &&
     formData.numeralInicial;
 
-  // Asegurarse de que idFaena sea un valor numérico
   const faenaIdForSelector =
     idFaena !== undefined && idFaena !== null ? Number(idFaena) : null;
 
-  // Verificar si tenemos stock suficiente
   const tieneStockSuficiente = modoMultiEstanque
     ? stockSuficienteMulti && distribucionCompleta
     : estanqueSeleccionado &&
-    estanqueSeleccionado.stock_actual >= litrosTotalesRequeridos;
+      estanqueSeleccionado.stock_actual >= litrosTotalesRequeridos;
 
-  // Verificar si el formulario está completo para habilitar el botón
   const formularioCompleto =
     (modoMultiEstanque
       ? tieneEstanquesSeleccionados &&
-      distribucionCompleta &&
-      stockSuficienteMulti
+        distribucionCompleta &&
+        stockSuficienteMulti
       : estanqueSeleccionado) &&
     formData.numeralInicial &&
     formData.numeralFinal &&
@@ -620,7 +543,6 @@ const FormConsumo = ({
     parseFloat(formData.litros) > 0 &&
     tieneStockSuficiente;
 
-  // Justo después de la línea que define formularioCompleto, agrega:
   console.log("🔍 DEBUG Validaciones del formulario:", {
     estanqueSeleccionado: !!estanqueSeleccionado,
     numeralInicial: !!formData.numeralInicial,
@@ -635,7 +557,6 @@ const FormConsumo = ({
     formularioCompleto
   });
 
-  // 🆕 Obtener info del tipo de operación para mostrar
   const infoTipoOperacion = obtenerInfoTipoOperacion();
 
   return (
@@ -652,6 +573,25 @@ const FormConsumo = ({
         <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-2 rounded flex items-start">
           <FaCheckCircle className="text-green-500 mt-0.5 mr-2 flex-shrink-0" />
           <span className="text-sm">Consumo guardado correctamente</span>
+        </div>
+      )}
+
+      {/* 🆕 INDICADOR DE INFORMACIÓN DE ÚLTIMA MEDICIÓN */}
+      {(tieneConsumo || medicionFormateada !== "0 km") && (
+        <div className="bg-blue-50 border-l-4 border-blue-500 p-3 rounded">
+          <div className="flex items-center">
+            <FaInfoCircle className="text-blue-500 mr-2 flex-shrink-0" />
+            <div className="text-sm text-blue-800">
+              <p className="font-medium">
+                Última medición registrada: <span className="font-bold">{medicionFormateada}</span>
+              </p>
+              {numeralInicialSugerido && (
+                <p className="text-xs mt-1">
+                  Se sugiere usar <strong>{parseFloat(numeralInicialSugerido).toLocaleString()}</strong> como numeral inicial
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -709,7 +649,7 @@ const FormConsumo = ({
           </div>
         )}
 
-      {/* PASO 1: Datos de consumo (manteniendo tu estructura original) */}
+      {/* PASO 1: Datos de consumo */}
       <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
         <div className="mb-3">
           <h3 className="text-left text-gray-800 font-semibold text-sm sm:text-base flex items-center">
@@ -745,8 +685,8 @@ const FormConsumo = ({
               <input
                 type="number"
                 step="0.01"
-                value={formData.horometro}  // ✅ USAR horometro
-                onChange={(e) => handleChange("horometro", e.target.value)}  // ✅ ACTUALIZAR horometro
+                value={formData.horometro}
+                onChange={(e) => handleChange("horometro", e.target.value)}
                 disabled={isSaving || isSaved}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 placeholder="Ej: 1234"
@@ -774,20 +714,52 @@ const FormConsumo = ({
             </div>
           )}
 
-          {/* Numeral Inicial */}
+          {/* 🆕 NUMERAL INICIAL CON INTEGRACIÓN DEL HOOK */}
           <div className="col-span-1">
             <label className="block text-left text-gray-700 text-xs sm:text-sm font-medium mb-1">
-              Numeral Inicial <span className="text-red-500">*</span>
+              <span className="flex items-center">
+                Numeral Inicial <span className="text-red-500">*</span>
+                {loadingNumeralSugerido && (
+                  <FaSpinner className="animate-spin ml-2 text-gray-400" size={12} />
+                )}
+              </span>
             </label>
-            <input
-              type="number"
-              step="0.01"
-              value={formData.numeralInicial}
-              onChange={(e) => handleChange("numeralInicial", e.target.value)}
-              disabled={isSaving || isSaved}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              placeholder="Ej: 100.5"
-            />
+            <div className="relative">
+              <input
+                type="number"
+                step="0.01"
+                value={formData.numeralInicial}
+                onChange={(e) => {
+                  handleChange("numeralInicial", e.target.value);
+                  // Marcar que el usuario modificó manualmente el valor
+                  if (e.target.value !== numeralInicialSugerido) {
+                    setNumeralInicialEstablecido(true);
+                  }
+                }}
+                disabled={isSaving || isSaved}
+                className={`w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                  numeralInicialSugerido && formData.numeralInicial === numeralInicialSugerido
+                    ? "border-green-300 bg-green-50"
+                    : "border-gray-300"
+                }`}
+                placeholder="Ej: 100.5"
+              />
+              {numeralInicialSugerido && formData.numeralInicial === numeralInicialSugerido && (
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                  <FaCheckCircle className="text-green-500" size={14} />
+                </div>
+              )}
+            </div>
+            {numeralInicialSugerido && (
+              <p className="text-left text-xs text-green-600 mt-1">
+                ✓ Valor sugerido basado en el último registro: {parseFloat(numeralInicialSugerido).toLocaleString()}
+              </p>
+            )}
+            {errorNumeralSugerido && (
+              <p className="text-left text-xs text-red-500 mt-1">
+                {errorNumeralSugerido}
+              </p>
+            )}
           </div>
 
           {/* Numeral Final */}
@@ -801,8 +773,9 @@ const FormConsumo = ({
               value={formData.numeralFinal}
               onChange={(e) => handleChange("numeralFinal", e.target.value)}
               disabled={isSaving || isSaved}
-              className={`w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${hasNumeralError ? "border-red-500 bg-red-50" : "border-gray-300"
-                }`}
+              className={`w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                hasNumeralError ? "border-red-500 bg-red-50" : "border-gray-300"
+              }`}
               placeholder="Ej: 150.5"
             />
             {hasNumeralError && (
@@ -870,15 +843,8 @@ const FormConsumo = ({
         </div>
       </div>
 
-      {/* PASO 2: Selector de Estanques - USANDO EL COMPONENTE EXTENDIDO */}
+      {/* PASO 2: Selector de Estanques */}
       <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-        {/* ✅ DEBUG: Agregar esto */}
-        {console.log("🔍 FormConsumo - Props que envío al SelectorEstanque:", {
-          onEstanqueSelect: typeof onEstanqueSelect,
-          estanqueSeleccionado,
-          modoMultiEstanque,
-          faenaIdForSelector
-        })}
         <SelectorEstanque
           idFaena={faenaIdForSelector}
           onEstanqueSelect={onEstanqueSelect}
@@ -898,7 +864,7 @@ const FormConsumo = ({
           className=""
         />
 
-        {/* Información del estanque seleccionado (modo simple) - manteniendo tu estilo */}
+        {/* Información del estanque seleccionado (modo simple) */}
         {!modoMultiEstanque && estanqueSeleccionado && (
           <div className="mt-3 bg-white rounded-lg p-3 border border-blue-300">
             <div className="flex items-center justify-between">
@@ -919,10 +885,11 @@ const FormConsumo = ({
                   litros
                   {estanqueSeleccionado.tipo_estanque && (
                     <span
-                      className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${estanqueSeleccionado.tipo_estanque === "movil"
-                        ? "bg-amber-100 text-amber-800"
-                        : "bg-blue-100 text-blue-800"
-                        }`}
+                      className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                        estanqueSeleccionado.tipo_estanque === "movil"
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-blue-100 text-blue-800"
+                      }`}
                     >
                       {estanqueSeleccionado.tipo_estanque === "movil"
                         ? "Móvil"
@@ -941,18 +908,20 @@ const FormConsumo = ({
         )}
       </div>
 
-      {/* Botón de guardar - manteniendo tu lógica original */}
+      {/* Botón de guardar */}
       <div className="pt-2">
         <button
           onClick={handleSubmitWrapper}
           disabled={isSaving || isSaved || !formularioCompleto}
-          className={`w-full md:w-auto px-6 py-2.5 rounded-lg flex items-center justify-center transition-colors ${isSaved
-            ? "bg-green-600 hover:bg-green-700 text-white"
-            : "bg-orange-500 hover:bg-orange-600 text-white"
-            } ${isSaving || isSaved || !formularioCompleto
+          className={`w-full md:w-auto px-6 py-2.5 rounded-lg flex items-center justify-center transition-colors ${
+            isSaved
+              ? "bg-green-600 hover:bg-green-700 text-white"
+              : "bg-orange-500 hover:bg-orange-600 text-white"
+          } ${
+            isSaving || isSaved || !formularioCompleto
               ? "opacity-80 cursor-not-allowed"
               : ""
-            }`}
+          }`}
         >
           {isSaving ? (
             <>
@@ -1004,7 +973,7 @@ const FormConsumo = ({
           )}
         </button>
 
-        {/* Ayuda adicional - manteniendo tu lógica original */}
+        {/* Ayuda adicional */}
         {modoMultiEstanque ? (
           <div className="mt-2 text-xs text-gray-500 text-center">
             <p>

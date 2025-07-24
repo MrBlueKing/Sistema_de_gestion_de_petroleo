@@ -14,7 +14,6 @@ import Button from "../../atoms/Button/Button";
 import StepHeader from "../../molecules/StepHeader";
 import { FaArrowLeft, FaMapMarkerAlt, FaSpinner, FaUsers } from "react-icons/fa";
 import bomberoService from "../../../context/bomberoService";
-import axios from "../../../lib/axios";
 
 const Solicitante = ({
   onNext,
