@@ -1,28 +1,61 @@
-import React, { useEffect } from "react";
-import { FiCalendar, FiClock } from "react-icons/fi";
+import React, { useState, useEffect, useCallback } from "react";
+import { FiCalendar, FiClock, FiSearch, FiX } from "react-icons/fi";
+import { FaBuilding, FaTruck } from "react-icons/fa";
 
 const FiltrosComponent = ({
+  // Props básicas (MANTENIENDO COMPATIBILIDAD con la API existente)
   fechaDesde,
   setFechaDesde,
   fechaHasta,
   setFechaHasta,
-  faenaSeleccionada,
+  faenaSeleccionada = "todas",
   setFaenaSeleccionada,
   faenas = [],
-  // ✅ NUEVAS PROPS OPCIONALES para horas
+  
+  // 🆕 Props para el nuevo sistema de onChange (OPCIONAL - para ConsumoView)
+  onChange,
+  
+  // 🆕 Props específicas para ConsumoView
+  mostrarEquipoFilter = false,
+  equipoFilter = "",
+  placeholderEquipo = "Buscar equipo...",
+  
+  // Props de configuración (mantenidas para compatibilidad)
   incluirHoras = false,
-  horaDesde,
+  horaDesde = "08:00",
   setHoraDesde,
-  horaHasta,
+  horaHasta = "18:00",
   setHoraHasta,
-  // ✅ PROPS OPCIONALES para personalización
-  tituloPersonalizado,
-  mostrarResumen = true
+  mostrarFaenas = true,
+  tituloPersonalizado = null,
+  mostrarTitulo = true,
+  mostrarResumen = true, // Para compatibilidad con VerificacionIngresos
+  
+  // Props de estado
+  cargando = false,
+  
+  // 🆕 Props adicionales para personalización
+  className = "",
+  compacto = false,
 }) => {
+  // 🆕 Estado interno para el filtro de equipo
+  const [equipoFilterInterno, setEquipoFilterInterno] = useState(equipoFilter);
+
+  // Estado interno para validación
+  const [estadoValidacion, setEstadoValidacion] = useState({
+    valido: true,
+    mensaje: ""
+  });
+
+  // Sincronizar estado interno con prop externa
+  useEffect(() => {
+    setEquipoFilterInterno(equipoFilter);
+  }, [equipoFilter]);
+
   // ✅ CORREGIDO: Establecer valores iniciales más robustos
   useEffect(() => {
-    // Solo establecer fechas si ambas están vacías
-    if (!fechaDesde || !fechaHasta) {
+    // Solo establecer fechas si ambas están vacías y tenemos setters
+    if (setFechaDesde && setFechaHasta && (!fechaDesde || !fechaHasta)) {
       const hoy = new Date();
       const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
 
@@ -41,142 +74,137 @@ const FiltrosComponent = ({
     }
   }, [fechaDesde, fechaHasta, setFechaDesde, setFechaHasta, incluirHoras, horaDesde, horaHasta, setHoraDesde, setHoraHasta]);
 
-  // Obtener el nombre de la faena según su ID
-  const getNombreFaena = (id) => {
-    const faenaEncontrada = faenas.find(f => f.value === id);
-    return faenaEncontrada ? faenaEncontrada.label : id;
-  };
-
-  // ✅ FUNCIÓN: Formatear fecha con hora para mostrar
-  const formatearFechaHora = (fecha, hora) => {
-    if (!incluirHoras || !hora) return fecha;
-    return `${fecha} ${hora}`;
-  };
-
-  // ✅ FUNCIÓN CORREGIDA: Validar fechas y horas más estricta
-  const validarFechaHasta = (nuevaFechaHasta, nuevaHoraHasta = horaHasta) => {
-    if (!fechaDesde || !nuevaFechaHasta) return true; // Permitir si falta alguna fecha
-
-    if (!incluirHoras) {
-      // Solo comparar fechas
-      return nuevaFechaHasta >= fechaDesde;
-    }
-
-    // Comparar fechas + horas
-    const horaDesdeSegura = horaDesde || "00:00";
-    const horaHastaSegura = nuevaHoraHasta || "23:59";
-
-    const fechaHoraDesde = new Date(`${fechaDesde}T${horaDesdeSegura}:00`);
-    const fechaHoraHasta = new Date(`${nuevaFechaHasta}T${horaHastaSegura}:00`);
-
-    return fechaHoraHasta >= fechaHoraDesde;
-  };
-
-  // ✅ FUNCIÓN CORREGIDA: Manejar cambio de fecha desde con validación
-  const manejarCambioFechaDesde = (nuevaFechaDesde) => {
-    setFechaDesde(nuevaFechaDesde);
-
-    // ✅ CORRECCIÓN CRÍTICA: Si fecha_desde > fecha_hasta, ajustar fecha_hasta
-    if (fechaHasta && nuevaFechaDesde > fechaHasta) {
-      console.log('🔧 Ajustando fecha_hasta porque fecha_desde es mayor');
-      setFechaHasta(nuevaFechaDesde);
-
-      // Si incluye horas y están en el mismo día, ajustar hora también
-      if (incluirHoras && setHoraHasta && horaDesde && nuevaFechaDesde === fechaHasta) {
-        if (horaDesde > (horaHasta || "00:00")) {
-          setHoraHasta(horaDesde);
-        }
-      }
-    }
-  };
-
-  // ✅ FUNCIÓN CORREGIDA: Manejar cambio de fecha hasta con validación
-  const manejarCambioFechaHasta = (nuevaFechaHasta) => {
-    if (!fechaDesde) {
-      setFechaHasta(nuevaFechaHasta);
-      return;
-    }
-
-    // ✅ VALIDACIÓN ESTRICTA: No permitir fecha_hasta < fecha_desde
-    if (nuevaFechaHasta < fechaDesde) {
-      const mensaje = incluirHoras
-        ? "La fecha 'Hasta' no puede ser anterior a la fecha 'Desde'"
-        : "La fecha 'Hasta' no puede ser anterior a la fecha 'Desde'";
-
-      alert(mensaje);
-      return; // ✅ NO actualizar el estado si la validación falla
-    }
-
-    // ✅ Si pasa la validación, actualizar
-    setFechaHasta(nuevaFechaHasta);
-  };
-
-  // ✅ FUNCIÓN CORREGIDA: Manejar cambio de hora desde
-  const manejarCambioHoraDesde = (nuevaHoraDesde) => {
-    if (!setHoraDesde) return;
-
-    setHoraDesde(nuevaHoraDesde);
-
-    // ✅ Si están en el mismo día y hora_desde > hora_hasta, ajustar hora_hasta
-    if (fechaDesde === fechaHasta && horaHasta && nuevaHoraDesde > horaHasta) {
-      console.log('🔧 Ajustando hora_hasta porque hora_desde es mayor');
-      if (setHoraHasta) {
-        setHoraHasta(nuevaHoraDesde);
-      }
-    }
-  };
-
-  // ✅ FUNCIÓN CORREGIDA: Manejar cambio de hora hasta con validación estricta
-  const manejarCambioHoraHasta = (nuevaHoraHasta) => {
-    if (!setHoraHasta) return;
-
-    // ✅ VALIDACIÓN ESTRICTA solo si están en el mismo día
-    if (fechaDesde === fechaHasta && horaDesde && nuevaHoraHasta < horaDesde) {
-      alert("La hora 'Hasta' no puede ser anterior a la hora 'Desde' en el mismo día");
-      return; // ✅ NO actualizar el estado si la validación falla
-    }
-
-    // ✅ Si pasa la validación, actualizar
-    setHoraHasta(nuevaHoraHasta);
-  };
-
-  // ✅ NUEVA FUNCIÓN: Validar estado actual para mostrar warnings
-  const obtenerEstadoValidacion = () => {
-    if (!fechaDesde || !fechaHasta) return { valido: true, mensaje: null };
-
-    if (!incluirHoras) {
-      if (fechaHasta < fechaDesde) {
-        return {
-          valido: false,
-          mensaje: "⚠️ Fecha 'Hasta' es anterior a fecha 'Desde'"
-        };
-      }
+  // Validar fechas y horas
+  useEffect(() => {
+    if (fechaDesde && fechaHasta && fechaDesde > fechaHasta) {
+      setEstadoValidacion({
+        valido: false,
+        mensaje: "La fecha 'Desde' no puede ser posterior a la fecha 'Hasta'"
+      });
+    } else if (incluirHoras && horaDesde && horaHasta && fechaDesde === fechaHasta && horaDesde >= horaHasta) {
+      setEstadoValidacion({
+        valido: false,
+        mensaje: "La hora 'Desde' debe ser anterior a la hora 'Hasta' cuando es el mismo día"
+      });
     } else {
-      const horaDesdeSegura = horaDesde || "00:00";
-      const horaHastaSegura = horaHasta || "23:59";
-
-      const fechaHoraDesde = new Date(`${fechaDesde}T${horaDesdeSegura}:00`);
-      const fechaHoraHasta = new Date(`${fechaHasta}T${horaHastaSegura}:00`);
-
-      if (fechaHoraHasta < fechaHoraDesde) {
-        return {
-          valido: false,
-          mensaje: "⚠️ Fecha/hora 'Hasta' es anterior a fecha/hora 'Desde'"
-        };
-      }
+      setEstadoValidacion({
+        valido: true,
+        mensaje: ""
+      });
     }
+  }, [fechaDesde, fechaHasta, horaDesde, horaHasta, incluirHoras]);
 
-    return { valido: true, mensaje: null };
+  // 🆕 Función para manejar cambios usando el nuevo sistema onChange
+  const notificarCambio = useCallback((nuevosCambios) => {
+    if (onChange) {
+      const cambiosCompletos = {
+        fechaDesde,
+        fechaHasta,
+        horaDesde,
+        horaHasta,
+        faenaSeleccionada,
+        ...(mostrarEquipoFilter && { equipoFilter: equipoFilterInterno }),
+        ...nuevosCambios
+      };
+      
+      onChange(cambiosCompletos);
+    }
+  }, [onChange, fechaDesde, fechaHasta, horaDesde, horaHasta, faenaSeleccionada, equipoFilterInterno, mostrarEquipoFilter]);
+
+  // Manejadores de cambio - COMPATIBLES CON AMBOS SISTEMAS
+  const handleFechaDesdeChange = (valor) => {
+    if (setFechaDesde) {
+      setFechaDesde(valor); // Sistema antiguo
+    }
+    if (onChange) {
+      notificarCambio({ fechaDesde: valor }); // Sistema nuevo
+    }
   };
 
-  const estadoValidacion = obtenerEstadoValidacion();
+  const handleFechaHastaChange = (valor) => {
+    if (setFechaHasta) {
+      setFechaHasta(valor); // Sistema antiguo
+    }
+    if (onChange) {
+      notificarCambio({ fechaHasta: valor }); // Sistema nuevo
+    }
+  };
+
+  const handleHoraDesdeChange = (valor) => {
+    if (setHoraDesde) {
+      setHoraDesde(valor); // Sistema antiguo
+    }
+    if (onChange) {
+      notificarCambio({ horaDesde: valor }); // Sistema nuevo
+    }
+  };
+
+  const handleHoraHastaChange = (valor) => {
+    if (setHoraHasta) {
+      setHoraHasta(valor); // Sistema antiguo
+    }
+    if (onChange) {
+      notificarCambio({ horaHasta: valor }); // Sistema nuevo
+    }
+  };
+
+  const handleFaenaChange = (valor) => {
+    if (setFaenaSeleccionada) {
+      setFaenaSeleccionada(valor); // Sistema antiguo
+    }
+    if (onChange) {
+      notificarCambio({ faenaSeleccionada: valor }); // Sistema nuevo
+    }
+  };
+
+  // 🆕 Manejador para el filtro de equipo
+  const handleEquipoFilterChange = (valor) => {
+    setEquipoFilterInterno(valor);
+    if (onChange) {
+      notificarCambio({ equipoFilter: valor });
+    }
+  };
+
+  // 🆕 Función para limpiar filtro de equipo
+  const limpiarEquipoFilter = () => {
+    setEquipoFilterInterno("");
+    if (onChange) {
+      notificarCambio({ equipoFilter: "" });
+    }
+  };
+
+  // Función para formatear fecha y hora
+  const formatearFechaHora = (fecha, hora) => {
+    if (!fecha) return "";
+    const fechaObj = new Date(fecha + (hora ? `T${hora}` : ""));
+    return fechaObj.toLocaleString("es-ES", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      ...(incluirHoras && hora ? {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      } : {})
+    });
+  };
+
+  // Función para obtener nombre de faena
+  const getNombreFaena = (idFaena) => {
+    if (idFaena === "todas") return "Todas las faenas";
+    const faena = faenas.find(f => f.value === idFaena || f.value === idFaena.toString());
+    return faena ? faena.label : `Faena ${idFaena}`;
+  };
+
+  // Determinar si hay filtros activos
+  const hayFiltrosActivos = fechaDesde || fechaHasta || (mostrarEquipoFilter && equipoFilterInterno) || (mostrarFaenas && faenaSeleccionada !== "todas");
 
   return (
-    <>
-      {/* Encabezado con información del período */}
-      {mostrarResumen && (
-        <div className="flex flex-col md:flex-row justify-between items-center mb-6 text-sm text-gray-500">
-          <div className="flex items-center mb-3 md:mb-0">
+    <div className={`space-y-4 ${className}`}>
+      {/* Título e información de filtros activos */}
+      {mostrarTitulo && hayFiltrosActivos && mostrarResumen && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <div className="flex items-center text-sm text-blue-800">
             {incluirHoras ? (
               <FiClock className="mr-2 text-blue-500" />
             ) : (
@@ -186,7 +214,7 @@ const FiltrosComponent = ({
             <span className="font-medium text-gray-700 ml-1">
               {formatearFechaHora(fechaDesde, horaDesde)} hasta {formatearFechaHora(fechaHasta, horaHasta)}
             </span>
-            {faenaSeleccionada !== "todas" && (
+            {mostrarFaenas && faenaSeleccionada !== "todas" && (
               <span className="ml-2">
                 | Faena:{" "}
                 <span className="font-medium text-gray-700 ml-1">
@@ -194,20 +222,28 @@ const FiltrosComponent = ({
                 </span>
               </span>
             )}
+            {mostrarEquipoFilter && equipoFilterInterno && (
+              <span className="ml-2">
+                | Equipo:{" "}
+                <span className="font-medium text-gray-700 ml-1">
+                  "{equipoFilterInterno}"
+                </span>
+              </span>
+            )}
           </div>
 
           {/* ✅ INDICADOR de modo con horas */}
           {incluirHoras && (
-            <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+            <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded mt-2">
               🕐 Filtro con precisión horaria activado
             </div>
           )}
         </div>
       )}
 
-      {/* ✅ NUEVO: Warning de validación */}
+      {/* ✅ Warning de validación */}
       {!estadoValidacion.valido && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
           <div className="text-sm text-red-700 font-medium">
             {estadoValidacion.mensaje}
           </div>
@@ -218,133 +254,173 @@ const FiltrosComponent = ({
       )}
 
       {/* Contenedor de filtros */}
-      <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-        <div className={`grid gap-4 ${incluirHoras
+      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+        <div className={`grid gap-4 ${
+          incluirHoras
             ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-5'
-            : 'grid-cols-1 md:grid-cols-3'
-          }`}>
+            : compacto
+              ? 'grid-cols-1 md:grid-cols-2'
+              : mostrarFaenas && mostrarEquipoFilter
+                ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'
+                : mostrarFaenas || mostrarEquipoFilter
+                  ? 'grid-cols-1 md:grid-cols-3'
+                  : 'grid-cols-1 md:grid-cols-2'
+        }`}>
 
-          {/* Faena */}
-          <div className={incluirHoras ? 'lg:col-span-1' : ''}>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Seleccionar Faena:
-            </label>
-            <select
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              value={faenaSeleccionada}
-              onChange={(e) => setFaenaSeleccionada(e.target.value)}
-            >
-              <option value="todas">Todas las faenas</option>
-              {faenas.map(faena => (
-                <option key={faena.value} value={faena.value}>
-                  {faena.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* ✅ CORREGIDO: Fecha Desde */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Fecha Desde:
-            </label>
-            <input
-              type="date"
-              value={fechaDesde || ''}
-              onChange={(e) => manejarCambioFechaDesde(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          {/* ✅ CORREGIDO: Hora Desde */}
-          {incluirHoras && setHoraDesde && (
-            <div>
+          {/* Faena - Solo si está habilitado */}
+          {mostrarFaenas && (
+            <div className={incluirHoras ? "" : "md:col-span-1"}>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Hora Desde:
+                <FaBuilding className="inline mr-2 text-blue-500" />
+                Faena
               </label>
-              <input
-                type="time"
-                value={horaDesde || "08:00"}
-                onChange={(e) => manejarCambioHoraDesde(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
+              <select
+                value={faenaSeleccionada}
+                onChange={(e) => handleFaenaChange(e.target.value)}
+                disabled={cargando}
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  cargando ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                <option value="todas">Todas las faenas</option>
+                {faenas.map((faena) => (
+                  <option key={faena.value} value={faena.value}>
+                    {faena.label}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
 
-          {/* ✅ CORREGIDO: Fecha Hasta */}
+          {/* 🆕 Filtro por Equipo - Solo si está habilitado */}
+          {mostrarEquipoFilter && (
+            <div className={incluirHoras ? "" : "md:col-span-1"}>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <FaTruck className="inline mr-2 text-green-500" />
+                Filtrar por Equipo
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={equipoFilterInterno}
+                  onChange={(e) => handleEquipoFilterChange(e.target.value)}
+                  placeholder={placeholderEquipo}
+                  disabled={cargando}
+                  className={`w-full px-3 py-2 pl-10 pr-10 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                    cargando ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                />
+                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                {equipoFilterInterno && (
+                  <button
+                    onClick={limpiarEquipoFilter}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    title="Limpiar filtro"
+                  >
+                    <FiX />
+                  </button>
+                )}
+              </div>
+              {equipoFilterInterno && (
+                <div className="text-xs text-green-600 mt-1">
+                  Buscando: "{equipoFilterInterno}"
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Fecha Desde */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Fecha Hasta:
+              <FiCalendar className="inline mr-2 text-blue-500" />
+              Fecha Desde
             </label>
             <input
               type="date"
-              value={fechaHasta || ''}
-              onChange={(e) => manejarCambioFechaHasta(e.target.value)}
-              min={fechaDesde} // ✅ IMPORTANTE: Restricción nativa del navegador
-              className={`w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${!estadoValidacion.valido ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                }`}
+              value={fechaDesde}
+              onChange={(e) => handleFechaDesdeChange(e.target.value)}
+              disabled={cargando}
+              className={`w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                cargando ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             />
           </div>
 
-          {/* ✅ CORREGIDO: Hora Hasta */}
-          {incluirHoras && setHoraHasta && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Hora Hasta:
-              </label>
-              <input
-                type="time"
-                value={horaHasta || "18:00"}
-                onChange={(e) => manejarCambioHoraHasta(e.target.value)}
-                className={`w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${!estadoValidacion.valido ? 'border-red-300 bg-red-50' : 'border-gray-300'
+          {/* Fecha Hasta */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <FiCalendar className="inline mr-2 text-blue-500" />
+              Fecha Hasta
+            </label>
+            <input
+              type="date"
+              value={fechaHasta}
+              onChange={(e) => handleFechaHastaChange(e.target.value)}
+              disabled={cargando}
+              className={`w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                cargando ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+            />
+          </div>
+
+          {/* Horas - Solo si incluirHoras está habilitado */}
+          {incluirHoras && (
+            <>
+              {/* Hora Desde */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <FiClock className="inline mr-2 text-purple-500" />
+                  Hora Desde
+                </label>
+                <input
+                  type="time"
+                  value={horaDesde}
+                  onChange={(e) => handleHoraDesdeChange(e.target.value)}
+                  disabled={cargando}
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
+                    cargando ? 'opacity-50 cursor-not-allowed' : ''
                   }`}
-              />
-            </div>
+                />
+              </div>
+
+              {/* Hora Hasta */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <FiClock className="inline mr-2 text-purple-500" />
+                  Hora Hasta
+                </label>
+                <input
+                  type="time"
+                  value={horaHasta}
+                  onChange={(e) => handleHoraHastaChange(e.target.value)}
+                  disabled={cargando}
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
+                    cargando ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                />
+              </div>
+            </>
           )}
         </div>
 
-        {/* ✅ ATAJOS rápidos para horarios comunes */}
-        {incluirHoras && setHoraDesde && setHoraHasta && (
-          <div className="mt-4 pt-3 border-t border-gray-200">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Atajos de horario:
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setHoraDesde("08:00");
-                  setHoraHasta("18:00");
-                }}
-                className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
-              >
-                Horario Laboral (8:00 - 18:00)
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setHoraDesde("06:00");
-                  setHoraHasta("22:00");
-                }}
-                className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
-              >
-                Horario Extendido (6:00 - 22:00)
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setHoraDesde("00:00");
-                  setHoraHasta("23:59");
-                }}
-                className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
-              >
-                Todo el Día
-              </button>
+        {/* Estado de validación en la parte inferior */}
+        {!estadoValidacion.valido && (
+          <div className="mt-4 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-600">
+            ⚠️ {estadoValidacion.mensaje}
+          </div>
+        )}
+
+        {/* Indicador de carga */}
+        {cargando && (
+          <div className="mt-4 text-center">
+            <div className="inline-flex items-center text-sm text-gray-500">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+              Aplicando filtros...
             </div>
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 };
 

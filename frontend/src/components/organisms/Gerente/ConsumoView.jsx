@@ -14,7 +14,8 @@ import {
   FaChevronRight,
 } from "react-icons/fa";
 import axios from "../../../lib/axios";
-import { UserContext } from "../../../context/userContext";
+import { UserContext } from "../../../context/userContext"
+import FiltrosComponent from '../../molecules/FiltrosComponent';;
 import Header from "../Gerente/Header";
 import UniversalHeader from "../Todos/UniversalHeader";
 
@@ -121,18 +122,50 @@ const Pagination = ({
   );
 };
 
-// Componente DateFilter con filtro de equipo agregado
 const DateFilter = ({
   onFilterChange,
   initialDateFrom = "",
   initialDateTo = "",
   initialEquipoFilter = "",
+  initialFaenaSeleccionada = "todas", // 🆕 Nueva prop para faena inicial
   showQuickFilters = true,
+  showFaenaFilter = true, // 🆕 Nueva prop para mostrar/ocultar filtro de faena
   className = "",
 }) => {
   const [dateFrom, setDateFrom] = useState(initialDateFrom);
   const [dateTo, setDateTo] = useState(initialDateTo);
   const [equipoFilter, setEquipoFilter] = useState(initialEquipoFilter);
+
+  // 🆕 Estados para faenas
+  const [faenas, setFaenas] = useState([]);
+  const [faenaSeleccionada, setFaenaSeleccionada] = useState(initialFaenaSeleccionada);
+
+  // 🆕 Cargar faenas disponibles
+  useEffect(() => {
+    const cargarFaenas = async () => {
+      if (!showFaenaFilter) return; // No cargar si no se va a mostrar
+      
+      try {
+        const response = await axios.get('/api/faenas');
+        const faenasData = response.data.data || response.data;
+
+        if (Array.isArray(faenasData)) {
+          const faenasFormateadas = faenasData.map(faena => ({
+            value: faena.id_faena.toString(),
+            label: faena.ubicacion || faena.nombre || `Faena ${faena.id_faena}`
+          }));
+          setFaenas(faenasFormateadas);
+        } else {
+          setFaenas([]);
+        }
+      } catch (error) {
+        console.error('Error al cargar faenas:', error);
+        setFaenas([]);
+      }
+    };
+
+    cargarFaenas();
+  }, [showFaenaFilter]);
 
   const getQuickDates = () => {
     const today = new Date();
@@ -158,29 +191,61 @@ const DateFilter = ({
 
   const quickDates = getQuickDates();
 
-  const notifyChange = (newDateFrom, newDateTo, newEquipoFilter) => {
+  // 🆕 Función actualizada para notificar cambios incluyendo faena y faenas disponibles
+  const notifyChange = (newDateFrom, newDateTo, newEquipoFilter, newFaenaSeleccionada) => {
     if (onFilterChange) {
       onFilterChange({
         dateFrom: newDateFrom,
         dateTo: newDateTo,
-        equipoFilter: newEquipoFilter
+        equipoFilter: newEquipoFilter,
+        faenas: faenas, // 🆕 Pasar las faenas disponibles
+        ...(showFaenaFilter && { faenaSeleccionada: newFaenaSeleccionada }) // Solo incluir si está habilitado
       });
     }
   };
 
   const handleDateFromChange = (value) => {
     setDateFrom(value);
-    notifyChange(value, dateTo, equipoFilter);
+    notifyChange(value, dateTo, equipoFilter, faenaSeleccionada);
   };
 
   const handleDateToChange = (value) => {
     setDateTo(value);
-    notifyChange(dateFrom, value, equipoFilter);
+    notifyChange(dateFrom, value, equipoFilter, faenaSeleccionada);
   };
 
   const handleEquipoFilterChange = (value) => {
     setEquipoFilter(value);
-    notifyChange(dateFrom, dateTo, value);
+    notifyChange(dateFrom, dateTo, value, faenaSeleccionada);
+  };
+
+  // 🆕 Manejador para cambios de faena
+  const handleFaenaChange = (value) => {
+    setFaenaSeleccionada(value);
+    notifyChange(dateFrom, dateTo, equipoFilter, value);
+  };
+
+  // 🆕 Manejador para FiltrosComponent actualizado v2
+  const handleFiltrosChange = ({
+    fechaDesde,
+    fechaHasta,
+    equipoFilter: newEquipoFilter,
+    faenaSeleccionada: newFaenaSeleccionada
+  }) => {
+    setDateFrom(fechaDesde || '');
+    setDateTo(fechaHasta || '');
+    setEquipoFilter(newEquipoFilter || '');
+    
+    if (showFaenaFilter) {
+      setFaenaSeleccionada(newFaenaSeleccionada || 'todas');
+    }
+    
+    notifyChange(
+      fechaDesde || '', 
+      fechaHasta || '', 
+      newEquipoFilter || '', 
+      showFaenaFilter ? (newFaenaSeleccionada || 'todas') : faenaSeleccionada
+    );
   };
 
   const applyQuickFilter = (period) => {
@@ -214,163 +279,160 @@ const DateFilter = ({
 
     setDateFrom(newDateFrom);
     setDateTo(newDateTo);
-    notifyChange(newDateFrom, newDateTo, equipoFilter);
+    notifyChange(newDateFrom, newDateTo, equipoFilter, faenaSeleccionada);
   };
 
+  // 🆕 Función actualizada para limpiar filtros incluyendo faena
   const clearFilters = () => {
     setDateFrom("");
     setDateTo("");
     setEquipoFilter("");
-    notifyChange("", "", "");
+    
+    if (showFaenaFilter) {
+      setFaenaSeleccionada("todas");
+      notifyChange("", "", "", "todas");
+    } else {
+      notifyChange("", "", "", faenaSeleccionada);
+    }
   };
 
-  const hasActiveFilters = dateFrom || dateTo || equipoFilter;
+  // 🆕 Actualizada para incluir faena en filtros activos
+  const hasActiveFilters = dateFrom || dateTo || equipoFilter || (showFaenaFilter && faenaSeleccionada !== "todas");
+
+  // 🆕 Función para obtener nombre de faena
+  const getNombreFaena = (idFaena) => {
+    if (idFaena === "todas") return "Todas las faenas";
+    const faena = faenas.find(f => f.value === idFaena);
+    return faena ? faena.label : `Faena ${idFaena}`;
+  };
 
   return (
-    <div
-      className={`bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-4 sm:p-6 mb-6 sm:mb-8 ${className}`}
-    >
-      <div className="flex items-center gap-3 mb-4 sm:mb-6">
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-2 sm:p-3 rounded-xl shadow-lg">
-          <FaCalendarAlt className="text-white text-base sm:text-lg" />
-        </div>
-        <div>
-          <h3 className="text-lg sm:text-xl font-bold text-gray-800">
-            🔍 Filtros de Búsqueda
-          </h3>
-          <p className="text-gray-600 text-xs sm:text-sm">
-            Filtra por fecha y nombre de equipo
-          </p>
-        </div>
-      </div>
-
-      {/* Filtro por nombre de equipo */}
-      <div className="mb-4 bg-gray-50 rounded-lg p-4">
-        <label className="text-xs sm:text-sm font-medium text-gray-700 mb-2 block flex items-center gap-2">
-          <FaTruck className="text-blue-600" />
-          Filtrar por Nombre de Equipo
-        </label>
-        <div className="relative">
-          <input
-            type="text"
-            value={equipoFilter}
-            onChange={(e) => handleEquipoFilterChange(e.target.value)}
-            placeholder="Ejemplo: Excavadora, Camión, patente, etc..."
-            className="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white shadow-sm text-sm sm:text-base"
-          />
-          <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-          {equipoFilter && (
-            <button
-              onClick={() => handleEquipoFilterChange("")}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            >
-              <FaTimes />
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
-        <div className="flex flex-col">
-          <label className="text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
-            Fecha Desde
-          </label>
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => handleDateFromChange(e.target.value)}
-            className="px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white shadow-sm text-sm sm:text-base"
-          />
-        </div>
-
-        <div className="flex flex-col">
-          <label className="text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
-            Fecha Hasta
-          </label>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => handleDateToChange(e.target.value)}
-            className="px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white shadow-sm text-sm sm:text-base"
-          />
-        </div>
-      </div>
-
-      {showQuickFilters && (
-        <div className="mb-3 sm:mb-4">
-          <label className="text-xs sm:text-sm font-medium text-gray-700 mb-2 sm:mb-3 block">
-            🚀 Filtros Rápidos de Fecha
-          </label>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => applyQuickFilter("today")}
-              className="px-2 sm:px-3 py-1 sm:py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs sm:text-sm font-medium"
-            >
-              Hoy
-            </button>
-            <button
-              onClick={() => applyQuickFilter("yesterday")}
-              className="px-2 sm:px-3 py-1 sm:py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs sm:text-sm font-medium"
-            >
-              Ayer
-            </button>
-            <button
-              onClick={() => applyQuickFilter("week")}
-              className="px-2 sm:px-3 py-1 sm:py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs sm:text-sm font-medium"
-            >
-              Esta Semana
-            </button>
-            <button
-              onClick={() => applyQuickFilter("month")}
-              className="px-2 sm:px-3 py-1 sm:py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs sm:text-sm font-medium"
-            >
-              Este Mes
-            </button>
-            <button
-              onClick={() => applyQuickFilter("lastMonth")}
-              className="px-2 sm:px-3 py-1 sm:py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs sm:text-sm font-medium"
-            >
-              Mes Anterior
-            </button>
+    <div className={`${className}`}>
+      {/* 🆕 USAR FiltrosComponent con estilo personalizado */}
+      <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-4 sm:p-6 mb-6 sm:mb-8">
+        {/* Header personalizado que mantiene el estilo original */}
+        <div className="flex items-center gap-3 mb-4 sm:mb-6">
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-2 sm:p-3 rounded-xl shadow-lg">
+            <FaCalendarAlt className="text-white text-base sm:text-lg" />
+          </div>
+          <div>
+            <h3 className="text-lg sm:text-xl font-bold text-gray-800">
+              🔍 Filtros de Búsqueda
+            </h3>
+            <p className="text-gray-600 text-xs sm:text-sm">
+              Filtra por fecha{showFaenaFilter ? ", faena" : ""} y nombre de equipo
+            </p>
           </div>
         </div>
-      )}
 
-      <div className="flex flex-wrap gap-3 pt-3 sm:pt-4 border-t border-gray-200">
-        <button
-          onClick={clearFilters}
-          className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-all duration-200 font-medium text-xs sm:text-sm"
-        >
-          <FaTimes />
-          Limpiar Filtros
-        </button>
-      </div>
+        {/* FiltrosComponent integrado */}
+        <FiltrosComponent
+          fechaDesde={dateFrom}
+          fechaHasta={dateTo}
+          faenaSeleccionada={faenaSeleccionada}
+          faenas={faenas}
+          onChange={handleFiltrosChange}
+          
+          // Props específicas para mostrar filtros
+          mostrarEquipoFilter={true}
+          equipoFilter={equipoFilter}
+          placeholderEquipo="Ejemplo: Excavadora, Camión, patente, etc..."
+          mostrarFaenas={showFaenaFilter} // 🆕 Controlar si mostrar faenas
+          
+          // Props de configuración para que se vea como DateFilter
+          incluirHoras={false}
+          mostrarTitulo={false} // No mostrar el título del FiltrosComponent
+          mostrarResumen={false} // No mostrar el resumen de filtros activos
+          
+          // Estilo compacto
+          compacto={true}
+        />
 
-      {hasActiveFilters && (
-        <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex flex-wrap items-center gap-2 text-blue-700 text-xs sm:text-sm">
-            <span className="font-medium">Filtros activos:</span>
-            {dateFrom && (
-              <span className="bg-blue-100 px-2 py-1 rounded">
-                Desde: <strong>{new Date(dateFrom).toLocaleDateString("es-CL")}</strong>
-              </span>
-            )}
-            {dateTo && (
-              <span className="bg-blue-100 px-2 py-1 rounded">
-                Hasta: <strong>{new Date(dateTo).toLocaleDateString("es-CL")}</strong>
-              </span>
-            )}
-            {equipoFilter && (
-              <span className="bg-blue-100 px-2 py-1 rounded">
-                Equipo: <strong>{equipoFilter}</strong>
-              </span>
-            )}
+        {/* Filtros rápidos originales */}
+        {showQuickFilters && (
+          <div className="mb-3 sm:mb-4">
+            <label className="text-xs sm:text-sm font-medium text-gray-700 mb-2 sm:mb-3 block">
+              🚀 Filtros Rápidos de Fecha
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => applyQuickFilter("today")}
+                className="px-2 sm:px-3 py-1 sm:py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs sm:text-sm font-medium"
+              >
+                Hoy
+              </button>
+              <button
+                onClick={() => applyQuickFilter("yesterday")}
+                className="px-2 sm:px-3 py-1 sm:py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs sm:text-sm font-medium"
+              >
+                Ayer
+              </button>
+              <button
+                onClick={() => applyQuickFilter("week")}
+                className="px-2 sm:px-3 py-1 sm:py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs sm:text-sm font-medium"
+              >
+                Esta Semana
+              </button>
+              <button
+                onClick={() => applyQuickFilter("month")}
+                className="px-2 sm:px-3 py-1 sm:py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs sm:text-sm font-medium"
+              >
+                Este Mes
+              </button>
+              <button
+                onClick={() => applyQuickFilter("lastMonth")}
+                className="px-2 sm:px-3 py-1 sm:py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs sm:text-sm font-medium"
+              >
+                Mes Anterior
+              </button>
+            </div>
           </div>
+        )}
+
+        {/* Botón de limpiar filtros original */}
+        <div className="flex flex-wrap gap-3 pt-3 sm:pt-4 border-t border-gray-200">
+          <button
+            onClick={clearFilters}
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-all duration-200 font-medium text-xs sm:text-sm"
+          >
+            <FaTimes />
+            Limpiar Filtros
+          </button>
         </div>
-      )}
+
+        {/* 🆕 Indicador de filtros activos actualizado */}
+        {hasActiveFilters && (
+          <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex flex-wrap items-center gap-2 text-blue-700 text-xs sm:text-sm">
+              <span className="font-medium">Filtros activos:</span>
+              {dateFrom && (
+                <span className="bg-blue-100 px-2 py-1 rounded">
+                  Desde: <strong>{new Date(dateFrom).toLocaleDateString("es-CL")}</strong>
+                </span>
+              )}
+              {dateTo && (
+                <span className="bg-blue-100 px-2 py-1 rounded">
+                  Hasta: <strong>{new Date(dateTo).toLocaleDateString("es-CL")}</strong>
+                </span>
+              )}
+              {showFaenaFilter && faenaSeleccionada !== "todas" && (
+                <span className="bg-blue-100 px-2 py-1 rounded">
+                  Faena: <strong>{getNombreFaena(faenaSeleccionada)}</strong>
+                </span>
+              )}
+              {equipoFilter && (
+                <span className="bg-blue-100 px-2 py-1 rounded">
+                  Equipo: <strong>{equipoFilter}</strong>
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
+
 
 // Componente Button
 const Button = ({
@@ -536,17 +598,20 @@ const ConsumosView = () => {
   const [consumos, setConsumos] = useState([]);
   const [loadingConsumos, setLoadingConsumos] = useState(false);
   const [error, setError] = useState(null);
+  
+  // 🔄 CAMBIO 1: Actualizar el estado de filtros para incluir faena
   const [filters, setFilters] = useState({
     dateFrom: "",
     dateTo: "",
-    equipoFilter: ""
+    equipoFilter: "",
+    faenaSeleccionada: "todas" // 🆕 Agregar faena al estado
   });
 
   // Estados de paginación
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
-  // 🆕 NUEVO: Estados para estadísticas de la API
+  // Estados para estadísticas de la API
   const [stats, setStats] = useState({
     total_consumos: 0,
     total_litros: 0,
@@ -558,13 +623,8 @@ const ConsumosView = () => {
     porcentaje_multiples: 0
   });
 
-  // 🔧 FUNCIÓN CORREGIDA para obtener consumos con paginación
+  // 🔄 CAMBIO 2: Actualizar fetchConsumos para incluir faena - CORREGIDO v2
   const fetchConsumos = async (filterParams = {}, page = 1) => {
-    if (!user?.id_faena) {
-      console.log("Usuario sin faena asignada:", user);
-      return;
-    }
-
     setLoadingConsumos(true);
     setError(null);
 
@@ -577,12 +637,45 @@ const ConsumosView = () => {
 
       // 🔧 CONSTRUCCIÓN CORRECTA de parámetros de consulta
       const params = new URLSearchParams({
-        faena: user.id_faena,
         page: page.toString(),
         per_page: ITEMS_PER_PAGE.toString(),
       });
 
-      // 🔧 AGREGAR FILTROS correctamente
+      // 🆕 LÓGICA CORREGIDA v2 para faenas
+      if (filterParams.faenaSeleccionada === 'todas') {
+        // Si es "todas", necesitamos obtener todas las faenas disponibles desde el DateFilter
+        // Como el DateFilter ya carga las faenas, podemos acceder a ellas
+        // Vamos a enviar todos los IDs de faenas separados por comas
+        const todasLasFaenas = filterParams.faenas || []; // Asegurarnos de tener las faenas
+        
+        if (todasLasFaenas.length > 0) {
+          const idsTodasFaenas = todasLasFaenas.map(f => f.value).join(',');
+          params.append('faenas', idsTodasFaenas); // Enviar como "faenas" (plural)
+          console.log("Buscando en todas las faenas:", idsTodasFaenas);
+        } else {
+          // Fallback: si no tenemos faenas cargadas, usar faena del usuario
+          if (!user?.id_faena) {
+            console.log("Usuario sin faena asignada:", user);
+            return;
+          }
+          params.append('faena', user.id_faena);
+          console.log("Fallback: usando faena del usuario:", user.id_faena);
+        }
+      } else if (filterParams.faenaSeleccionada && filterParams.faenaSeleccionada !== 'todas') {
+        // Si es una faena específica, enviar esa faena
+        params.append('faena', filterParams.faenaSeleccionada);
+        console.log("Buscando en faena específica:", filterParams.faenaSeleccionada);
+      } else {
+        // Si no hay filtro de faena, usar la faena del usuario por defecto
+        if (!user?.id_faena) {
+          console.log("Usuario sin faena asignada:", user);
+          return;
+        }
+        params.append('faena', user.id_faena);
+        console.log("Usando faena del usuario por defecto:", user.id_faena);
+      }
+
+      // 🔧 AGREGAR OTROS FILTROS
       if (filterParams.dateFrom) {
         params.append('dateFrom', filterParams.dateFrom);
       }
@@ -591,18 +684,13 @@ const ConsumosView = () => {
         params.append('dateTo', filterParams.dateTo);
       }
 
-      // 🆕 AGREGAR FILTRO POR EQUIPO
       if (filterParams.equipoFilter) {
         params.append('equipoFilter', filterParams.equipoFilter);
       }
 
       console.log(
-        "Obteniendo consumos para faena:",
-        user.id_faena,
-        "página:",
-        page,
-        "con filtros:",
-        filterParams
+        "Parámetros finales enviados al backend:",
+        Object.fromEntries(params)
       );
 
       const response = await axios.get(`/api/consumosFecha?${params}`, {
@@ -666,9 +754,7 @@ const ConsumosView = () => {
     }
   };
 
-  // Resto del código permanece igual...
-
-  // Manejar cambios en filtros
+  // 🔄 CAMBIO 3: Actualizar el manejador de filtros
   const handleFilterChange = (newFilters) => {
     console.log("Aplicando filtros:", newFilters);
     setFilters(newFilters);
@@ -758,15 +844,17 @@ const ConsumosView = () => {
       
         <UniversalHeader type="gerente" />
 
-        {/* Filtros de fecha y equipo */}
+        {/* 🔄 CAMBIO 4: Actualizar el componente DateFilter */}
         <DateFilter
           onFilterChange={handleFilterChange}
           initialDateFrom={filters.dateFrom}
           initialDateTo={filters.dateTo}
           initialEquipoFilter={filters.equipoFilter}
+          initialFaenaSeleccionada={filters.faenaSeleccionada} // 🆕 Nueva prop
+          showFaenaFilter={true} // 🆕 Habilitar filtro de faena
         />
 
-        {/* 🆕 TARJETAS DE ESTADÍSTICAS */}
+        {/* TARJETAS DE ESTADÍSTICAS */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 rounded-xl text-white">
             <div className="flex items-center justify-between">
@@ -820,13 +908,15 @@ const ConsumosView = () => {
                 <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-1">
                   Consumos de Combustible
                 </h3>
+                {/* 🔄 CAMBIO 5: Actualizar la verificación de filtros activos */}
                 <p className="text-gray-600 font-medium text-sm sm:text-base">
                   {totalItems} registros encontrados
-                  {(filters.dateFrom || filters.dateTo || filters.equipoFilter) &&
+                  {(filters.dateFrom || filters.dateTo || filters.equipoFilter || 
+                    (filters.faenaSeleccionada && filters.faenaSeleccionada !== 'todas')) &&
                     " con filtros aplicados"}
                 </p>
 
-                {/* 🆕 INFORMACIÓN ADICIONAL DE TIPOS DE CONSUMO */}
+                {/* INFORMACIÓN ADICIONAL DE TIPOS DE CONSUMO */}
                 {stats.consumos_multiples > 0 && (
                   <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                     <span>Simples: {stats.consumos_simples}</span>
@@ -845,7 +935,7 @@ const ConsumosView = () => {
                 filters={filters}
                 totalItems={totalItems}
                 currentPage={currentPage}
-                user={user}  // 👈 AGREGAR ESTA LÍNEA
+                user={user}
                 size="small"
                 disabled={loadingConsumos}
               />
@@ -896,8 +986,10 @@ const ConsumosView = () => {
                       <div className="text-gray-500 text-base sm:text-lg font-medium">
                         📭 No hay consumos para mostrar
                       </div>
+                      {/* 🔄 CAMBIO 6: Actualizar mensaje de "no hay consumos" */}
                       <p className="text-gray-400 text-sm mt-2">
-                        {filters.dateFrom || filters.dateTo || filters.equipoFilter
+                        {filters.dateFrom || filters.dateTo || filters.equipoFilter || 
+                         (filters.faenaSeleccionada && filters.faenaSeleccionada !== 'todas')
                           ? "Intenta ajustar los filtros de búsqueda"
                           : "No se han registrado consumos aún"}
                       </p>
@@ -965,7 +1057,7 @@ const ConsumosView = () => {
                                 <span className="font-bold text-lg bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
                                   {formatNumber(consumo.litros_consumidos)} L
                                 </span>
-                                {/* 🆕 MOSTRAR COSTO SI ESTÁ DISPONIBLE */}
+                                {/* MOSTRAR COSTO SI ESTÁ DISPONIBLE */}
                                 {consumo.costo_total && (
                                   <div className="text-xs text-gray-500">
                                     ${formatNumber(consumo.costo_total)}
@@ -979,7 +1071,7 @@ const ConsumosView = () => {
                                 <div className="text-xs text-gray-500">
                                   RUT: {consumo.id_dotacion || "N/A"}
                                 </div>
-                                {/* 🆕 MOSTRAR TIPO DE PERSONAL */}
+                                {/* MOSTRAR TIPO DE PERSONAL */}
                                 {consumo.solicitante_tipo && (
                                   <div className="text-xs text-blue-600">
                                     {consumo.solicitante_tipo}
@@ -988,7 +1080,7 @@ const ConsumosView = () => {
                               </td>
                               <td className="py-4 sm:py-5 px-4 sm:px-6 text-sm text-gray-600 font-medium">
                                 {consumo.estanque || "N/A"}
-                                {/* 🆕 MOSTRAR INDICADOR DE MÚLTIPLES ESTANQUES */}
+                                {/* MOSTRAR INDICADOR DE MÚLTIPLES ESTANQUES */}
                                 {consumo.cantidad_estanques > 1 && (
                                   <div className="text-xs text-purple-600 font-semibold">
                                     ({consumo.cantidad_estanques} estanques)
@@ -1019,8 +1111,10 @@ const ConsumosView = () => {
                             <div className="text-gray-500 text-lg font-medium">
                               📭 No hay consumos para mostrar
                             </div>
+                            {/* 🔄 CAMBIO 6: Actualizar mensaje de "no hay consumos" también en tabla */}
                             <p className="text-gray-400 text-sm mt-2">
-                              {filters.dateFrom || filters.dateTo || filters.equipoFilter
+                              {filters.dateFrom || filters.dateTo || filters.equipoFilter || 
+                               (filters.faenaSeleccionada && filters.faenaSeleccionada !== 'todas')
                                 ? "Intenta ajustar los filtros de búsqueda"
                                 : "No se han registrado consumos aún"}
                             </p>
@@ -1055,3 +1149,5 @@ const ConsumosView = () => {
   );
 };
 export default ConsumosView;
+
+    
