@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar } from 'recharts';
 import { 
   FiAlertTriangle, 
   FiRefreshCw, 
@@ -15,11 +15,915 @@ import {
   FiUser,
   FiChevronLeft,
   FiChevronRight,
-  FiDownload
+  FiDownload,
+  FiTrendingUp,
+  FiFilter,
+  FiEye,
+  FiEyeOff,
+  FiInfo
 } from "react-icons/fi";
 import axios from '../../lib/axios';
 
-// Componente Modal para mostrar detalles de consumos
+// Componente de Gráfico de Tendencias por Equipo
+const EquipmentTrendChart = ({ 
+  consumosData = [],
+  categoria,
+  fechaDesde,
+  fechaHasta,
+  isVisible = true 
+}) => {
+  // Estados para el componente
+  const [chartType, setChartType] = useState('line'); // 'line' o 'bar'
+  const [groupBy, setGroupBy] = useState('daily'); // 'daily', 'weekly', 'monthly'
+  const [selectedEquipments, setSelectedEquipments] = useState(new Set());
+  const [showAllEquipments, setShowAllEquipments] = useState(true);
+
+  // Paleta de colores para las líneas/barras
+  const COLORS = [
+    '#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#8dd1e1',
+    '#d084d0', '#ffb347', '#87ceeb', '#dda0dd', '#98fb98',
+    '#f0e68c', '#ff6347', '#40e0d0', '#ee82ee', '#90ee90'
+  ];
+
+  // 🔧 FUNCIÓN PARA FORMATEAR FECHAS (movida aquí para evitar hoisting error)
+  const formatDateForDisplay = (dateStr, groupType) => {
+    const date = new Date(dateStr);
+    
+    switch (groupType) {
+      case 'weekly':
+        return `Sem. ${date.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit' })}`;
+      case 'monthly':
+        return date.toLocaleDateString('es-CL', { month: 'short', year: 'numeric' });
+      default:
+        return date.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit' });
+    }
+  };
+
+  // Procesar datos para el gráfico
+  const chartData = React.useMemo(() => {
+    if (!consumosData || consumosData.length === 0) return [];
+
+    // Agrupar consumos por equipo y fecha
+    const equipmentData = {};
+    
+    consumosData.forEach(consumo => {
+      const equipmentKey = `${consumo.nombre_maquina || 'Sin nombre'} (${consumo.patente || 'S/P'})`;
+      const fecha = new Date(consumo.fecha_consumo);
+      let dateKey;
+
+      // Determinar la clave de agrupación según el período seleccionado
+      switch (groupBy) {
+        case 'weekly':
+          // Obtener el lunes de la semana
+          const mondayOfWeek = new Date(fecha);
+          mondayOfWeek.setDate(fecha.getDate() - fecha.getDay() + 1);
+          dateKey = mondayOfWeek.toISOString().split('T')[0];
+          break;
+        case 'monthly':
+          dateKey = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
+          break;
+        default: // daily
+          dateKey = fecha.toISOString().split('T')[0];
+      }
+
+      if (!equipmentData[dateKey]) {
+        equipmentData[dateKey] = { fecha: dateKey };
+      }
+
+      if (!equipmentData[dateKey][equipmentKey]) {
+        equipmentData[dateKey][equipmentKey] = 0;
+      }
+
+      equipmentData[dateKey][equipmentKey] += parseFloat(consumo.litros_consumidos || 0);
+    });
+
+    // Convertir a array y ordenar por fecha
+    const sortedData = Object.values(equipmentData).sort((a, b) => 
+      new Date(a.fecha) - new Date(b.fecha)
+    );
+
+    // Formatear fechas para mostrar
+    return sortedData.map(item => ({
+      ...item,
+      fechaDisplay: formatDateForDisplay(item.fecha, groupBy)
+    }));
+  }, [consumosData, groupBy]);
+
+  // Obtener lista única de equipos
+  const uniqueEquipments = React.useMemo(() => {
+    if (!chartData.length) return [];
+    
+    const equipmentSet = new Set();
+    chartData.forEach(item => {
+      Object.keys(item).forEach(key => {
+        if (key !== 'fecha' && key !== 'fechaDisplay') {
+          equipmentSet.add(key);
+        }
+      });
+    });
+    
+    return Array.from(equipmentSet).sort();
+  }, [chartData]);
+
+  // Calcular estadísticas por equipo
+  const equipmentStats = React.useMemo(() => {
+    const stats = {};
+    
+    uniqueEquipments.forEach(equipment => {
+      const values = chartData
+        .map(item => item[equipment] || 0)
+        .filter(val => val > 0);
+      
+      if (values.length > 0) {
+        const total = values.reduce((sum, val) => sum + val, 0);
+        const avg = total / values.length;
+        const max = Math.max(...values);
+        const min = Math.min(...values);
+        
+        stats[equipment] = {
+          total: Math.round(total * 100) / 100,
+          average: Math.round(avg * 100) / 100,
+          max: Math.round(max * 100) / 100,
+          min: Math.round(min * 100) / 100,
+          registros: values.length
+        };
+      }
+    });
+    
+    return stats;
+  }, [chartData, uniqueEquipments]);
+
+  // Inicializar equipos seleccionados
+  useEffect(() => {
+    if (uniqueEquipments.length > 0 && selectedEquipments.size === 0) {
+      // Seleccionar los primeros 5 equipos por defecto
+      const defaultEquipments = new Set(uniqueEquipments.slice(0, 5));
+      setSelectedEquipments(defaultEquipments);
+      setShowAllEquipments(uniqueEquipments.length <= 5);
+    }
+  }, [uniqueEquipments]);
+
+  // Manejar selección de equipos
+  const toggleEquipment = (equipment) => {
+    const newSelected = new Set(selectedEquipments);
+    if (newSelected.has(equipment)) {
+      newSelected.delete(equipment);
+    } else {
+      newSelected.add(equipment);
+    }
+    setSelectedEquipments(newSelected);
+    setShowAllEquipments(newSelected.size === uniqueEquipments.length);
+  };
+
+  const toggleAllEquipments = () => {
+    if (showAllEquipments) {
+      setSelectedEquipments(new Set());
+      setShowAllEquipments(false);
+    } else {
+      setSelectedEquipments(new Set(uniqueEquipments));
+      setShowAllEquipments(true);
+    }
+  };
+
+  // Tooltip personalizado
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-3 border border-gray-300 rounded-lg shadow-lg max-w-xs">
+          <p className="font-semibold text-gray-800 mb-2">{label}</p>
+          {payload
+            .filter(entry => entry.value > 0)
+            .sort((a, b) => b.value - a.value)
+            .map((entry, index) => (
+              <div key={index} className="flex items-center justify-between text-sm">
+                <div className="flex items-center">
+                  <div 
+                    className="w-3 h-3 rounded-full mr-2"
+                    style={{ backgroundColor: entry.color }}
+                  />
+                  <span className="text-gray-700 truncate max-w-32">
+                    {entry.dataKey}
+                  </span>
+                </div>
+                <span className="font-medium ml-2">
+                  {entry.value.toLocaleString('es-CL')} L
+                </span>
+              </div>
+            ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  if (!isVisible) return null;
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-4">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+            <FiTrendingUp className="mr-2 text-blue-600" />
+            Tendencia por Equipo
+          </h3>
+          {categoria && (
+            <p className="text-sm text-gray-600 mt-1">
+              Categoría: <span className="font-medium">{categoria.nombre}</span>
+            </p>
+          )}
+        </div>
+
+        {/* Controles */}
+        <div className="flex flex-wrap gap-2">
+          {/* Tipo de gráfico */}
+          <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+            <button
+              onClick={() => setChartType('line')}
+              className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                chartType === 'line'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <FiActivity className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setChartType('bar')}
+              className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                chartType === 'bar'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <FiBarChart2 className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Agrupación temporal */}
+          <select
+            value={groupBy}
+            onChange={(e) => setGroupBy(e.target.value)}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="daily">Diario</option>
+            <option value="weekly">Semanal</option>
+            <option value="monthly">Mensual</option>
+          </select>
+
+          {/* Toggle todos los equipos */}
+          <button
+            onClick={toggleAllEquipments}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors flex items-center"
+          >
+            {showAllEquipments ? <FiEyeOff className="w-4 h-4 mr-1" /> : <FiEye className="w-4 h-4 mr-1" />}
+            {showAllEquipments ? 'Ocultar' : 'Mostrar'} todos
+          </button>
+        </div>
+      </div>
+
+      {/* Información de datos */}
+      {chartData.length > 0 && (
+        <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="flex items-start">
+            <FiInfo className="text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
+            <div className="text-sm text-blue-800">
+              <p>
+                <strong>{uniqueEquipments.length}</strong> equipos encontrados, 
+                <strong> {chartData.length}</strong> puntos de datos temporales.
+              </p>
+              <p className="mt-1">
+                Período: {fechaDesde} al {fechaHasta} • 
+                Agrupación: {groupBy === 'daily' ? 'Diaria' : groupBy === 'weekly' ? 'Semanal' : 'Mensual'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Selector de equipos */}
+      {uniqueEquipments.length > 0 && (
+        <div className="mb-4">
+          <h4 className="text-sm font-medium text-gray-700 mb-2">
+            Equipos a mostrar ({selectedEquipments.size} de {uniqueEquipments.length}):
+          </h4>
+          <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1">
+              {uniqueEquipments.map((equipment, index) => (
+                <label
+                  key={equipment}
+                  className="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedEquipments.has(equipment)}
+                    onChange={() => toggleEquipment(equipment)}
+                    className="mr-2 text-blue-600 focus:ring-blue-500"
+                  />
+                  <div 
+                    className="w-3 h-3 rounded-full mr-2 flex-shrink-0"
+                    style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                  />
+                  <span className="truncate" title={equipment}>
+                    {equipment}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Gráfico */}
+      {chartData.length > 0 && selectedEquipments.size > 0 ? (
+        <div className="h-96 mb-4">
+          <ResponsiveContainer width="100%" height="100%">
+            {chartType === 'line' ? (
+              <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis 
+                  dataKey="fechaDisplay" 
+                  stroke="#666"
+                  tick={{ fontSize: 12 }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                />
+                <YAxis 
+                  stroke="#666"
+                  tick={{ fontSize: 12 }}
+                  label={{ value: 'Litros', angle: -90, position: 'insideLeft' }}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                
+                {uniqueEquipments
+                  .filter(equipment => selectedEquipments.has(equipment))
+                  .map((equipment, index) => (
+                    <Line
+                      key={equipment}
+                      type="monotone"
+                      dataKey={equipment}
+                      stroke={COLORS[uniqueEquipments.indexOf(equipment) % COLORS.length]}
+                      strokeWidth={2}
+                      dot={{ r: 4 }}
+                      connectNulls={false}
+                      name={equipment}
+                    />
+                  ))}
+              </LineChart>
+            ) : (
+              <BarChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis 
+                  dataKey="fechaDisplay" 
+                  stroke="#666"
+                  tick={{ fontSize: 12 }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                />
+                <YAxis 
+                  stroke="#666"
+                  tick={{ fontSize: 12 }}
+                  label={{ value: 'Litros', angle: -90, position: 'insideLeft' }}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                
+                {uniqueEquipments
+                  .filter(equipment => selectedEquipments.has(equipment))
+                  .map((equipment, index) => (
+                    <Bar
+                      key={equipment}
+                      dataKey={equipment}
+                      fill={COLORS[uniqueEquipments.indexOf(equipment) % COLORS.length]}
+                      name={equipment}
+                    />
+                  ))}
+              </BarChart>
+            )}
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <div className="h-96 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg">
+          <div className="text-center text-gray-500">
+            {chartData.length === 0 ? (
+              <>
+                <FiTrendingUp className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No hay datos de consumo disponibles</p>
+                <p className="text-sm">para el período seleccionado</p>
+              </>
+            ) : (
+              <>
+                <FiFilter className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>Seleccione al menos un equipo</p>
+                <p className="text-sm">para mostrar en el gráfico</p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Estadísticas por equipo */}
+      {Object.keys(equipmentStats).length > 0 && selectedEquipments.size > 0 && (
+        <div className="mt-4">
+          <h4 className="text-sm font-medium text-gray-700 mb-3">
+            Estadísticas de Equipos Seleccionados:
+          </h4>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">
+                    Equipo
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">
+                    Total (L)
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">
+                    Promedio (L)
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">
+                    Máximo (L)
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase tracking-wider">
+                    Registros
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {Array.from(selectedEquipments)
+                  .filter(equipment => equipmentStats[equipment])
+                  .sort((a, b) => equipmentStats[b].total - equipmentStats[a].total)
+                  .map((equipment, index) => (
+                    <tr key={equipment} className="hover:bg-gray-50">
+                      <td className="px-3 py-2">
+                        <div className="flex items-center">
+                          <div 
+                            className="w-3 h-3 rounded-full mr-2 flex-shrink-0"
+                            style={{ backgroundColor: COLORS[uniqueEquipments.indexOf(equipment) % COLORS.length] }}
+                          />
+                          <span className="font-medium text-gray-900 truncate" title={equipment}>
+                            {equipment}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-right text-gray-900 font-medium">
+                        {equipmentStats[equipment].total.toLocaleString('es-CL')}
+                      </td>
+                      <td className="px-3 py-2 text-right text-gray-500">
+                        {equipmentStats[equipment].average.toLocaleString('es-CL')}
+                      </td>
+                      <td className="px-3 py-2 text-right text-gray-500">
+                        {equipmentStats[equipment].max.toLocaleString('es-CL')}
+                      </td>
+                      <td className="px-3 py-2 text-right text-gray-500">
+                        {equipmentStats[equipment].registros}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Componente Modal Mejorado para mostrar detalles de consumos con pestañas
+const EnhancedConsumoDetailsModal = ({ 
+  isOpen, 
+  onClose, 
+  categoria,
+  fechaDesde,
+  fechaHasta,
+  faenaSeleccionada 
+}) => {
+  // Estados para datos
+  const [consumos, setConsumos] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [stats, setStats] = useState(null);
+  
+  // Estados para paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const itemsPerPage = 10;
+
+  // Estados para control de vista
+  const [activeTab, setActiveTab] = useState('list'); // 'list' o 'trend'
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Fetch de datos cuando se abre el modal o cambian los filtros
+  useEffect(() => {
+    if (isOpen && categoria) {
+      fetchConsumosDeCategoria(1);
+    }
+  }, [isOpen, categoria, fechaDesde, fechaHasta, faenaSeleccionada, refreshKey]);
+
+  // Función para obtener consumos de la categoría
+  const fetchConsumosDeCategoria = async (page = 1) => {
+    if (!categoria || !isOpen) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const token = JSON.parse(localStorage.getItem("authToken"))?.token;
+      
+      if (!token) {
+        throw new Error("No se encontró token de autenticación");
+      }
+
+      // Construir parámetros de la consulta
+      const params = new URLSearchParams({
+        page: page.toString(),
+        per_page: itemsPerPage.toString(),
+      });
+
+      // Agregar faena
+      if (faenaSeleccionada && faenaSeleccionada !== 'todas') {
+        params.append('faena', faenaSeleccionada);
+      } else {
+        params.append('faena', '1'); // Faena por defecto temporal
+      }
+
+      // Agregar filtros de fecha
+      if (fechaDesde) {
+        params.append('dateFrom', fechaDesde);
+      }
+      if (fechaHasta) {
+        params.append('dateTo', fechaHasta);
+      }
+
+      // Agregar ID de categoría
+      params.append('id_categoria', categoria.id.toString());
+      
+      console.log("🔍 Buscando consumos para categoría:", categoria.nombre, "ID:", categoria.id);
+
+      // Llamar a la API
+      const response = await axios.get(`/api/consumos-categoria?${params}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.data.success) {
+        const consumosData = response.data.data || [];
+        
+        setConsumos(consumosData);
+        setStats(response.data.stats);
+        setTotalItems(response.data.pagination?.total || 0);
+        setTotalPages(Math.ceil((response.data.pagination?.total || 0) / itemsPerPage));
+        setCurrentPage(page);
+        
+        console.log("✅ Consumos de categoría cargados:", {
+          categoria: categoria.nombre,
+          total_consumos: consumosData.length,
+          total_items: response.data.pagination?.total
+        });
+      } else {
+        throw new Error(response.data.message || 'Error al obtener consumos');
+      }
+
+    } catch (err) {
+      console.error("Error al cargar consumos de categoría:", err);
+      setError(err.message || "Error al cargar detalles de consumos");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Manejar cambio de página
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      fetchConsumosDeCategoria(newPage);
+    }
+  };
+
+  // Función para refrescar datos
+  const handleRefresh = () => {
+    setRefreshKey(prev => prev + 1);
+  };
+
+  // Función para formatear fechas
+  const formatearFecha = (fechaString) => {
+    const fecha = new Date(fechaString);
+    return {
+      fecha: fecha.toLocaleDateString("es-CL", {
+        day: "2-digit",
+        month: "2-digit", 
+        year: "numeric",
+      }),
+      hora: fecha.toLocaleTimeString("es-CL", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    };
+  };
+
+  const formatNumber = (num) => {
+    return parseFloat(num || 0).toLocaleString("es-CL", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl max-h-[90vh] flex flex-col">
+        {/* Header del Modal */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-800">
+              Detalles de Consumo - {categoria?.nombre}
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">
+              Período: {fechaDesde} al {fechaHasta}
+              {faenaSeleccionada && faenaSeleccionada !== 'todas' && (
+                <span> • Faena: {faenaSeleccionada}</span>
+              )}
+            </p>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            {/* Botón de refrescar */}
+            <button
+              onClick={handleRefresh}
+              disabled={loading}
+              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Refrescar datos"
+            >
+              <FiRefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+
+            {/* Botón de cerrar */}
+            <button
+              onClick={onClose}
+              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <FiX className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Pestañas de navegación */}
+        <div className="border-b border-gray-200">
+          <nav className="px-6 flex space-x-8">
+            <button
+              onClick={() => setActiveTab('list')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'list'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <FiList className="inline w-4 h-4 mr-2" />
+              Lista de Consumos
+              {stats && (
+                <span className="ml-2 bg-gray-100 text-gray-600 py-1 px-2 rounded-full text-xs">
+                  {totalItems}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setActiveTab('trend')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'trend'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <FiTrendingUp className="inline w-4 h-4 mr-2" />
+              Tendencia por Equipo
+              {consumos.length > 0 && (
+                <span className="ml-2 bg-gray-100 text-gray-600 py-1 px-2 rounded-full text-xs">
+                  {new Set(consumos.map(c => c.nombre_maquina)).size} equipos
+                </span>
+              )}
+            </button>
+          </nav>
+        </div>
+
+        {/* Contenido del Modal */}
+        <div className="flex-1 overflow-hidden">
+          {/* Pestaña de Lista de Consumos */}
+          {activeTab === 'list' && (
+            <div className="h-full flex flex-col">
+              {/* Estadísticas rápidas */}
+              {stats && (
+                <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="bg-white p-3 rounded-lg border border-gray-200">
+                      <div className="flex items-center">
+                        <FiDroplet className="text-blue-500 w-5 h-5 mr-2" />
+                        <div>
+                          <p className="text-xs text-gray-500">Total Litros</p>
+                          <p className="text-lg font-semibold text-gray-800">
+                            {stats.total_litros?.toLocaleString('es-CL') || '0'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-lg border border-gray-200">
+                      <div className="flex items-center">
+                        <FiTruck className="text-green-500 w-5 h-5 mr-2" />
+                        <div>
+                          <p className="text-xs text-gray-500">Equipos Únicos</p>
+                          <p className="text-lg font-semibold text-gray-800">
+                            {stats.equipos_unicos || new Set(consumos.map(c => c.id_equipo)).size}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-lg border border-gray-200">
+                      <div className="flex items-center">
+                        <FiCalendar className="text-purple-500 w-5 h-5 mr-2" />
+                        <div>
+                          <p className="text-xs text-gray-500">Promedio Diario</p>
+                          <p className="text-lg font-semibold text-gray-800">
+                            {stats.promedio_diario?.toLocaleString('es-CL') || '0'} L
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-lg border border-gray-200">
+                      <div className="flex items-center">
+                        <FiUser className="text-orange-500 w-5 h-5 mr-2" />
+                        <div>
+                          <p className="text-xs text-gray-500">Total Registros</p>
+                          <p className="text-lg font-semibold text-gray-800">
+                            {totalItems}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tabla de consumos */}
+              <div className="flex-1 overflow-auto px-6 py-4">
+                {loading ? (
+                  <div className="flex items-center justify-center h-64">
+                    <div className="flex items-center space-x-2 text-gray-500">
+                      <FiRefreshCw className="w-5 h-5 animate-spin" />
+                      <span>Cargando consumos...</span>
+                    </div>
+                  </div>
+                ) : error ? (
+                  <div className="flex items-center justify-center h-64">
+                    <div className="text-center text-red-500">
+                      <p className="font-medium">Error al cargar datos</p>
+                      <p className="text-sm mt-1">{error}</p>
+                      <button
+                        onClick={handleRefresh}
+                        className="mt-3 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                      >
+                        <FiRefreshCw className="w-4 h-4 inline mr-2" />
+                        Reintentar
+                      </button>
+                    </div>
+                  </div>
+                ) : consumos.length === 0 ? (
+                  <div className="flex items-center justify-center h-64">
+                    <div className="text-center text-gray-500">
+                      <FiList className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p className="font-medium">No se encontraron consumos</p>
+                      <p className="text-sm mt-1">para los filtros seleccionados</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Fecha
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Equipo
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Solicitante
+                          </th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Litros
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Observaciones
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {consumos.map((consumo, index) => {
+                          const { fecha, hora } = formatearFecha(consumo.fecha_consumo);
+                          return (
+                            <tr key={index} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                <div className="font-medium">{fecha}</div>
+                                <div className="text-gray-500">{hora}</div>
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-900">
+                                <div>
+                                  <p className="font-medium">
+                                    {consumo.nombre_maquina || 'Sin nombre'}
+                                  </p>
+                                  <p className="text-gray-500 text-xs">
+                                    {consumo.patente || 'S/P'}
+                                  </p>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-900">
+                                <div>
+                                  <p className="font-medium">
+                                    {consumo.solicitante_nombre || 'Sin nombre'}
+                                  </p>
+                                  <p className="text-gray-500 text-xs">
+                                    {consumo.id_dotacion || 'Sin RUT'}
+                                  </p>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900">
+                                {parseFloat(consumo.litros_consumidos || 0).toLocaleString('es-CL')} L
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                                {consumo.observacion || '-'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Paginación */}
+              {totalPages > 1 && (
+                <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-gray-700">
+                      Mostrando {((currentPage - 1) * itemsPerPage) + 1} a{' '}
+                      {Math.min(currentPage * itemsPerPage, totalItems)} de{' '}
+                      {totalItems} resultados
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1 || loading}
+                        className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <FiChevronLeft className="w-4 h-4" />
+                      </button>
+
+                      <span className="px-3 py-2 text-sm font-medium text-gray-700">
+                        Página {currentPage} de {totalPages}
+                      </span>
+
+                      <button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages || loading}
+                        className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <FiChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Pestaña de Tendencia por Equipo */}
+          {activeTab === 'trend' && (
+            <div className="h-full overflow-auto p-6">
+              <EquipmentTrendChart
+                consumosData={consumos}
+                categoria={categoria}
+                fechaDesde={fechaDesde}
+                fechaHasta={fechaHasta}
+                isVisible={true}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Componente Modal Original (mantenido sin cambios)
 const ConsumoDetailsModal = ({ 
   isOpen, 
   onClose, 
@@ -151,7 +1055,6 @@ const ConsumoDetailsModal = ({
 
   return (
     <div className="fixed inset-0 bg-transparent bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col">
         {/* Header del Modal */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
@@ -364,6 +1267,7 @@ const ConsumoDetailsModal = ({
   );
 };
 
+// Componente Principal ConsumptionPieChart (mantenido exactamente igual)
 const ConsumptionPieChart = ({ 
   faenaSeleccionada = 'todas',
   fechaDesde, 
@@ -381,9 +1285,10 @@ const ConsumptionPieChart = ({
   const [totalConsumo, setTotalConsumo] = useState(0);
   const [fechaActualizacion, setFechaActualizacion] = useState(null);
 
-  // 🆕 ESTADO PARA EL MODAL DE DETALLES
+  // 🆕 ESTADOS PARA MODALES
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedCategoriaForDetails, setSelectedCategoriaForDetails] = useState(null);
+  const [showEnhancedModal, setShowEnhancedModal] = useState(false);
 
   // 🔑 IGUAL QUE TopEquiposChart: useRef para filtros
   const isMounted = useRef(true);
@@ -731,10 +1636,15 @@ const ConsumptionPieChart = ({
     }
   };
 
-  // 🆕 FUNCIÓN PARA MOSTRAR DETALLES DE CONSUMOS
+  // 🆕 FUNCIONES PARA MOSTRAR MODALES
   const handleShowDetails = (categoria) => {
     setSelectedCategoriaForDetails(categoria);
     setShowDetailsModal(true);
+  };
+
+  const handleShowEnhancedDetails = (categoria) => {
+    setSelectedCategoriaForDetails(categoria);
+    setShowEnhancedModal(true);
   };
 
   // 🆕 TOOLTIP MEJORADO con información de internas/externas
@@ -829,10 +1739,20 @@ const ConsumptionPieChart = ({
 
   return (
     <>
-      {/* 🆕 MODAL DE DETALLES */}
+      {/* 🆕 MODAL DE DETALLES ORIGINAL */}
       <ConsumoDetailsModal
         isOpen={showDetailsModal}
         onClose={() => setShowDetailsModal(false)}
+        categoria={selectedCategoriaForDetails}
+        fechaDesde={fechaDesde}
+        fechaHasta={fechaHasta}
+        faenaSeleccionada={faenaSeleccionada}
+      />
+
+      {/* 🆕 MODAL MEJORADO CON TENDENCIAS */}
+      <EnhancedConsumoDetailsModal
+        isOpen={showEnhancedModal}
+        onClose={() => setShowEnhancedModal(false)}
         categoria={selectedCategoriaForDetails}
         fechaDesde={fechaDesde}
         fechaHasta={fechaHasta}
@@ -994,20 +1914,33 @@ const ConsumptionPieChart = ({
                             </div>
                           </td>
                         )}
-                        {/* 🆕 NUEVA COLUMNA DE ACCIONES PARA CATEGORÍAS */}
+                        {/* 🆕 NUEVA COLUMNA DE ACCIONES PARA CATEGORÍAS CON AMBOS BOTONES */}
                         {viewMode === 'categorias' && (
                           <td className="p-2 text-center">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation(); // Evitar que se active el click de la fila
-                                handleShowDetails(item);
-                              }}
-                              className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200 transition-colors flex items-center gap-1 mx-auto"
-                              title="Ver detalles de consumos"
-                            >
-                              <FiList className="text-xs" />
-                              Ver Detalles
-                            </button>
+                            <div className="flex flex-col gap-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation(); // Evitar que se active el click de la fila
+                                  handleShowDetails(item);
+                                }}
+                                className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200 transition-colors flex items-center gap-1 justify-center"
+                                title="Ver detalles de consumos"
+                              >
+                                <FiList className="text-xs" />
+                                Ver Detalles
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation(); // Evitar que se active el click de la fila
+                                  handleShowEnhancedDetails(item);
+                                }}
+                                className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs hover:bg-green-200 transition-colors flex items-center gap-1 justify-center"
+                                title="Ver detalles y tendencias por equipo"
+                              >
+                                <FiTrendingUp className="text-xs" />
+                                Tendencias
+                              </button>
+                            </div>
                           </td>
                         )}
                       </tr>
@@ -1025,7 +1958,8 @@ const ConsumptionPieChart = ({
             {viewMode === 'categorias' ? (
               <>
                 Haga clic en una categoría para ver el detalle por máquina • 
-                <span className="text-blue-600 font-medium"> Use "Ver Detalles" para consultar consumos específicos</span>
+                <span className="text-blue-600 font-medium"> Use "Ver Detalles" para consultas básicas</span> • 
+                <span className="text-green-600 font-medium"> Use "Tendencias" para análisis avanzado con gráficos</span>
               </>
             ) : (
               'Vista detallada por máquina'
