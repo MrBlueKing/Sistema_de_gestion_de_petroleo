@@ -19,134 +19,258 @@ import SelectorEstanque from "../../molecules/SelectorEstanque";
 import bomberoService from "../../../context/bomberoService";
 import axios from "../../../lib/axios";
 
-// 🎨 COMPONENTE MODAL BONITO
+
 // 🎨 COMPONENTE MODAL BONITO - VERSIÓN CORREGIDA
+// 📱 MODAL DE VALIDACIÓN OPTIMIZADO - CON BOTONES Y SIN SCROLL
 const ModalValidacion = ({ isOpen, onClose, onContinue, validacion }) => {
+  // 🔒 PREVENIR SCROLL DEL BODY CUANDO EL MODAL ESTÁ ABIERTO
+  React.useEffect(() => {
+    if (isOpen) {
+      // Guardar el scroll actual
+      const scrollY = window.scrollY;
+
+      // Prevenir scroll del body
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+
+      return () => {
+        // Restaurar scroll cuando se cierre el modal
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.width = '';
+        window.scrollTo(0, scrollY);
+      };
+    }
+  }, [isOpen]);
+
   if (!isOpen || !validacion) return null;
 
   const esError = validacion.severidad === 'error';
   const esWarning = validacion.severidad === 'warning';
 
+  // 🔒 PREVENIR CIERRE DEL MODAL AL HACER CLICK EN OVERLAY PARA ERRORES CRÍTICOS
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget && !esError) {
+      onClose();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      {/* Overlay */}
-      <div 
-        className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" 
-        onClick={onClose}
-      ></div>
+    <div className="fixed inset-0 z-[9999] overflow-hidden">
+      {/* 📱 OVERLAY MÓVIL OPTIMIZADO */}
+      <div
+        className={`fixed inset-0 transition-all duration-300 ease-in-out ${isOpen
+          ? 'bg-transparent bg-opacity-70 backdrop-blur-sm'
+          : 'bg-transparent'
+          }`}
+        onClick={handleOverlayClick}
+        style={{ touchAction: 'none' }}
+      />
 
-      {/* 🔧 CONTENEDOR FLEX PARA CENTRAR EL MODAL */}
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        
-        {/* 🔧 SPACER INVISIBLE PARA CENTRADO VERTICAL EN SM+ */}
-        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+      {/* 📱 CONTENEDOR MODAL CENTRADO */}
+      <div className="fixed inset-0 z-10 flex items-center justify-center p-4">
 
-        {/* Modal - MEJORADO */}
-        <div className="relative inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl sm:align-middle">
+        {/* 📱 MODAL SIN SCROLL INTERNO */}
+        <div
+          className={`relative w-full max-w-md transform transition-all duration-300 ease-out ${isOpen
+            ? 'scale-100 opacity-100 translate-y-0'
+            : 'scale-95 opacity-0 translate-y-4'
+            } 
+          bg-white rounded-2xl shadow-2xl overflow-hidden`}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-headline"
+        >
 
-          {/* Header */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center">
-              <div className={`flex items-center justify-center w-12 h-12 rounded-full ${
-                esError ? 'bg-red-100' : 'bg-yellow-100'
-              }`}>
+          {/* 🎨 BARRA SUPERIOR NARANJA */}
+          <div className={`h-1 ${esError ? 'bg-red-500' : 'bg-orange-400'}`} />
+
+          {/* 📱 CONTENIDO PRINCIPAL */}
+          <div className="px-4 py-5 sm:px-6">
+
+            {/* 🎨 HEADER */}
+            <div className="flex items-start space-x-3 mb-5">
+
+              {/* 🎨 ICONO NARANJA */}
+              <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${esError ? 'bg-red-100' : 'bg-orange-100'
+                }`}>
                 {esError ? (
                   <FaExclamationCircle className="w-6 h-6 text-red-600" />
                 ) : (
-                  <FaExclamationTriangle className="w-6 h-6 text-yellow-600" />
+                  <FaExclamationTriangle className="w-6 h-6 text-orange-600" />
                 )}
               </div>
-              <div className="ml-3">
-                <h3 className={`text-lg font-medium ${
-                  esError ? 'text-red-900' : 'text-yellow-900'
-                }`}>
-                  {esError ? 'Error en Medición' : 'Advertencia de Medición'}
+
+              <div className="flex-1 text-left min-w-0">
+                <h3
+                  id="modal-headline"
+                  className={`text-lg font-semibold leading-tight ${esError ? 'text-red-900' : 'text-orange-900'
+                    }`}
+                >
+                  {esError ? '🚫 Error en Medición' : ' Advertencia de Medición'}
                 </h3>
-                <p className="text-sm text-gray-500">
-                  {esError ? 'Se detectó un valor incorrecto' : 'Se detectó un valor sospechoso'}
+                <p className="text-sm text-gray-600 mt-1">
+                  {esError
+                    ? 'Se detectó un valor incorrecto'
+                    : 'Se detectó un valor anómalo, pero puedes continuar.'
+                  }
                 </p>
               </div>
+
+              {/* 🔒 BOTÓN CERRAR SOLO PARA WARNINGS */}
+              {!esError && (
+                <button
+                  onClick={onClose}
+                  className="flex-shrink-0 rounded-md p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors"
+                  aria-label="Cerrar modal"
+                >
+                  <FaTimes className="w-5 h-5" />
+                </button>
+              )}
             </div>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <FaTimes className="w-5 h-5" />
-            </button>
-          </div>
 
-          {/* Contenido */}
-          <div className={`p-4 rounded-lg ${
-            esError ? 'bg-red-50 border border-red-200' : 'bg-yellow-50 border border-yellow-200'
-          }`}>
-            <p className={`text-sm ${
-              esError ? 'text-red-800' : 'text-yellow-800'
-            } mb-3`}>
-              {validacion.mensaje}
-            </p>
+            {/* 📱 CONTENIDO PRINCIPAL CON COLORES NARANJAS */}
+            <div className={`p-4 mb-5 rounded-xl border border-l-4 ${esError
+              ? 'bg-red-50 border-red-200 border-l-red-400'
+              : 'bg-orange-50 border-orange-200 border-l-orange-400'
+              }`}>
 
-            {validacion.detalles && (
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <div className="bg-white/50 p-2 rounded border">
-                  <p className="text-xs font-semibold text-gray-600">Valor Ingresado</p>
-                  <p className="text-lg font-bold text-gray-900">
-                    {validacion.detalles.valorActual?.toLocaleString()}
-                    {validacion.tipo === 'horometro' ? ' hrs' : ' km'}
-                  </p>
-                </div>
-                <div className="bg-white/50 p-2 rounded border">
-                  <p className="text-xs font-semibold text-gray-600">Última Medición</p>
-                  <p className="text-lg font-bold text-gray-900">
-                    {(validacion.detalles.valorAnterior || validacion.detalles.valorMinimo)?.toLocaleString()}
-                    {validacion.tipo === 'horometro' ? ' hrs' : ' km'}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {validacion.detalles?.sugerencia && (
-              <div className="bg-blue-50 border border-blue-200 rounded p-2 mb-3">
-                <p className="text-xs text-blue-700">
-                  💡 <strong>Sugerencia:</strong> {validacion.detalles.sugerencia}
+              {/* 📱 MENSAJE PRINCIPAL */}
+              <div className="mb-4">
+                <p className={`text-sm font-medium ${esError ? 'text-red-800' : 'text-orange-800'
+                  }`}>
+                  {validacion.mensaje}
                 </p>
               </div>
+
+              {/* 📱 DETALLES NUMÉRICOS */}
+              {validacion.detalles && (
+                <div className="space-y-3 mb-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-white rounded-lg p-3 shadow-sm border">
+                      <div className="text-center">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                          {validacion.tipo === 'numeral_inicial' ? 'Numeral Ingresado' : 'Valor Ingresado'}
+                        </p>
+                        <p className={`text-xl font-bold ${esError ? 'text-red-600' : 'text-orange-600'
+                          }`}>
+                          {validacion.detalles.valorActual?.toLocaleString()}
+                          <span className="text-sm font-normal text-gray-500 ml-1">
+                            {validacion.tipo === 'horometro' ? 'hrs' : validacion.tipo === 'numeral_inicial' ? 'L' : 'km'}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg p-3 shadow-sm border">
+                      <div className="text-center">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                          {validacion.tipo === 'numeral_inicial' ? 'Numeral Sugerido' : 'Última Medición'}
+                        </p>
+                        <p className="text-xl font-bold text-gray-600">
+                          {(validacion.detalles.valorAnterior || validacion.detalles.valorMinimo)?.toLocaleString()}
+                          <span className="text-sm font-normal text-gray-500 ml-1">
+                            {validacion.tipo === 'horometro' ? 'hrs' : validacion.tipo === 'numeral_inicial' ? 'L' : 'km'}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 📱 DIFERENCIA CALCULADA */}
+                  {validacion.detalles.diferencia !== undefined && (
+                    <div className="bg-gray-50 rounded-lg p-3 border">
+                      <div className="text-center">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                          {validacion.tipo === 'horometro' ? 'Tiempo Transcurrido' : 'Distancia Recorrida'}
+                        </p>
+                        <p className={`text-lg font-bold ${validacion.detalles.diferencia > 0 ? 'text-blue-600' : 'text-red-600'
+                          }`}>
+                          {Math.abs(validacion.detalles.diferencia).toLocaleString()}
+                          <span className="text-sm font-normal text-gray-500 ml-1">
+                            {validacion.tipo === 'horometro' ? 'hrs' : validacion.tipo === 'numeral_inicial' ? 'L' : 'km'}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 📱 SUGERENCIA */}
+              {validacion.detalles?.sugerencia && (
+                <div className="p-3 border border-blue-200 rounded-lg bg-blue-50">
+                  <div className="flex items-start gap-2">
+                    <FaInfoCircle className="w-4 h-4 mt-0.5 text-blue-500 flex-shrink-0" />
+
+                    <div>
+                      <p className="mb-1 text-lg font-semibold text-blue-800">Sugerencia</p>
+                      <p className="text-sm text-blue-700">{validacion.detalles.sugerencia}</p>
+                    </div>
+                  </div>
+                </div>
+
+              )}
+            </div>
+
+            {/* 📱 NOTA PARA ERRORES CRÍTICOS */}
+            {esError && (
+              <div className="mb-5 p-3 bg-red-100 border border-red-300 rounded-lg">
+                <div className="flex items-center justify-center space-x-2">
+                  <FaExclamationCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                  <p className="text-xs text-red-700 font-medium text-center">
+                    <strong>Corrección requerida:</strong> Este valor debe ser corregido antes de continuar.
+                  </p>
+                </div>
+              </div>
             )}
-          </div>
 
-          {/* Botones */}
-          <div className="flex gap-3 mt-6">
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors"
-            >
-              📝 Corregir Valor
-            </button>
+            {/* 📱 BOTONES MÓVILES OPTIMIZADOS */}
+            <div className="flex gap-3">
 
-            {/* Solo mostrar "Continuar" si no es error crítico */}
-            {!esError && (
+              {/* 🚫 BOTÓN CANCELAR/CORREGIR */}
               <button
-                onClick={onContinue}
-                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-yellow-600 border border-transparent rounded-lg hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-colors"
+                onClick={onClose}
+                className="flex-1 inline-flex items-center justify-center px-4 py-3 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
+                style={{ minHeight: '48px' }}
               >
-                ⚠️ Continuar Igual
+                <span className="mr-2">✏️</span>
+                {esError ? 'Corregir Valor' : 'Cancelar'}
               </button>
-            )}
-          </div>
 
-          {/* Nota para errores críticos */}
-          {esError && (
-            <div className="mt-3 p-2 bg-red-100 border border-red-300 rounded">
-              <p className="text-xs text-red-700 text-center">
-                ❌ <strong>Error crítico:</strong> Este valor debe ser corregido antes de continuar.
-              </p>
+              {/* ✅ BOTÓN CONTINUAR - Solo para warnings CON COLORES NARANJAS */}
+              {!esError && (
+                <button
+                  onClick={onContinue}
+                  className="flex-1 inline-flex items-center justify-center px-4 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-orange-500 hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors"
+                  style={{ minHeight: '48px' }}
+                >
+                  <span className="mr-2">✅</span>
+                  Continuar Igual
+                </button>
+              )}
+
+              {/* ✅ BOTÓN PARA ERRORES CRÍTICOS */}
+              {esError && (
+                <button
+                  onClick={onClose}
+                  className="flex-1 inline-flex items-center justify-center px-4 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+                  style={{ minHeight: '48px' }}
+                >
+                  <span className="mr-2">🔧</span>
+                  Entendido
+                </button>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
   );
 };
-
 const FormConsumo = ({
   formData,
   handleChange,
@@ -207,29 +331,21 @@ const FormConsumo = ({
     validacion: null
   });
 
-  // 🆕 EFECTO PARA ESTABLECER EL NUMERAL INICIAL SUGERIDO
+  // 🎯 ESTABLECER NUMERAL INICIAL INMEDIATAMENTE (backend ya maneja la lógica)
   useEffect(() => {
-    // Solo establecer si:
-    // 1. Hay un numeral sugerido
-    // 2. El campo está vacío o no se ha establecido antes
-    // 3. No está en modo de guardado
-    if (
-      numeralInicialSugerido &&
-      !formData.numeralInicial &&
-      !numeralInicialEstablecido &&
-      !isSaving &&
-      !isSaved
-    ) {
-      console.log('🎯 Estableciendo numeral inicial sugerido:', numeralInicialSugerido);
-      handleChange('numeralInicial', numeralInicialSugerido);
+    if (!formData.numeralInicial && !numeralInicialEstablecido && !isSaving && !isSaved && numeralInicialSugerido) {
+      console.log('🎯 Estableciendo numeral inicial sugerido desde backend:', numeralInicialSugerido);
+      handleChange("numeralInicial", numeralInicialSugerido);
       setNumeralInicialEstablecido(true);
     }
-  }, [numeralInicialSugerido, formData.numeralInicial, numeralInicialEstablecido, isSaving, isSaved, handleChange]);
-
-  // 🆕 RESETEAR el flag cuando cambie la máquina
-  useEffect(() => {
-    setNumeralInicialEstablecido(false);
-  }, [patenteSeleccionada?.id_maquina]);
+  }, [
+    numeralInicialSugerido, // 🎯 PRINCIPAL DEPENDENCIA
+    formData.numeralInicial,
+    numeralInicialEstablecido,
+    isSaving,
+    isSaved,
+    handleChange
+  ]);
 
   // 🆕 FUNCIÓN PARA VALIDAR MEDICIONES (KILOMETRAJE Y HORÓMETRO)
   const validarMedicion = useCallback((valor, tipo) => {
@@ -289,7 +405,7 @@ const FormConsumo = ({
       }
 
       // ⚠️ ADVERTENCIA: Valor alto - necesita confirmación
-      const limiteCuidado = ultimaMedicion + 6;
+      const limiteCuidado = ultimaMedicion + 12;
       if (valorActual > limiteCuidado) {
         return {
           valido: false,
@@ -312,6 +428,14 @@ const FormConsumo = ({
       }));
     }
   }, [formData.kilometraje, showKilometraje, validarMedicion]);
+
+  // 🆕 ESTABLECER AUTOMÁTICAMENTE VALORES SEGÚN TIPO DE ESTANQUE
+  useEffect(() => {
+    if (estanqueSeleccionado?.tipo_estanque === "movil" && formData.numeralInicial !== "0") {
+      console.log('🚛 Estableciendo numeral inicial en 0 para estanque móvil');
+      handleChange("numeralInicial", "0");
+    } 
+  }, [estanqueSeleccionado?.tipo_estanque, numeralInicialSugerido, formData.numeralInicial, handleChange]);
 
   useEffect(() => {
     if (showHorometro && formData.horometro) {
@@ -744,7 +868,7 @@ const FormConsumo = ({
         }
 
         // ⚠️ WARNING: Horómetro alto pero razonable (6-12 horas)
-        const limiteCuidado = ultimaMedicion + 6;
+        const limiteCuidado = ultimaMedicion + 12;
         if (horasActual > limiteCuidado) {
           console.log("⚠️ Horómetro en rango alto - WARNING");
           return {
@@ -756,7 +880,7 @@ const FormConsumo = ({
               valorActual: horasActual,
               valorAnterior: ultimaMedicion,
               diferencia: horasActual - ultimaMedicion,
-              sugerencia: `Se detectaron más de 6 horas de trabajo. Confirme si es correcto.`
+              sugerencia: `Se detectaron más de 12 horas de trabajo. Confirme si es correcto.`
             }
           };
         }
@@ -837,7 +961,27 @@ const FormConsumo = ({
           };
         }
       }
+      // 🆕 VALIDACIÓN PARA NUMERAL INICIAL MODIFICADO
+      if (estanqueSeleccionado?.tipo_estanque === "fijo" && numeralInicialSugerido && formData.numeralInicial) {
+        const numeralIngresado = parseFloat(formData.numeralInicial);
+        const numeralSugerido = parseFloat(numeralInicialSugerido);
 
+        if (numeralIngresado !== numeralSugerido) {
+          console.log("⚠️ Numeral inicial modificado - WARNING");
+          return {
+            valido: false,
+            severidad: 'warning',
+            tipo: 'numeral_inicial',
+            mensaje: `Has modificado el numeral inicial de ${numeralSugerido.toLocaleString()} a ${numeralIngresado.toLocaleString()}. ¿Confirmas continuar?`,
+            detalles: {
+              valorActual: numeralIngresado,
+              valorSugerido: numeralSugerido,
+              diferencia: numeralIngresado - numeralSugerido,
+              sugerencia: `El sistema sugiere ${numeralSugerido.toLocaleString()} basado en el último registro de la faena.`
+            }
+          };
+        }
+      }
       console.log("✅ Validación pasó correctamente");
       return { valido: true, mensaje: '', severidad: 'success' };
     };
@@ -1083,9 +1227,24 @@ const FormConsumo = ({
               <p className="font-medium">
                 Última medición registrada: <span className="font-bold">{medicionFormateada}</span>
               </p>
-              {numeralInicialSugerido && (
-                <p className="text-xs mt-1">
-                  Se sugiere usar <strong>{parseFloat(numeralInicialSugerido).toLocaleString()}</strong> como numeral inicial
+              {/* 🎯 MENSAJES CONDICIONALES SEGÚN TIPO DE ESTANQUE */}
+              {estanqueSeleccionado?.tipo_estanque === "movil" && formData.numeralInicial === "0" && (
+                <p className="text-left text-xs text-amber-600 mt-1 flex items-center">
+                  <FaTruck className="mr-1" size={10} />
+                  🚛 Extracción desde Estanque Móvil - Contador reinicia en 0
+                </p>
+              )}
+
+              {estanqueSeleccionado?.tipo_estanque === "fijo" && numeralInicialSugerido && formData.numeralInicial === numeralInicialSugerido && (
+                <p className="text-left text-xs text-green-600 mt-1 flex items-center">
+                  <FaGasPump className="mr-1" size={10} />
+                  ✓ Valor Extraído de Estanque Fijo: {parseFloat(numeralInicialSugerido).toLocaleString()}
+                </p>
+              )}
+
+              {!estanqueSeleccionado && (
+                <p className="text-left text-xs text-gray-500 mt-1">
+                  💡 Seleccione un estanque para establecer el numeral inicial
                 </p>
               )}
             </div>
@@ -1298,23 +1457,66 @@ const FormConsumo = ({
                   }
                 }}
                 disabled={isSaving || isSaved}
-                className={`w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${numeralInicialSugerido && formData.numeralInicial === numeralInicialSugerido
-                  ? "border-green-300 bg-green-50"
-                  : "border-gray-300"
+                className={`w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${estanqueSeleccionado?.tipo_estanque === "movil"
+                  ? "border-amber-300 bg-amber-50"  // 🚛 Estilo para móvil
+                  : estanqueSeleccionado?.tipo_estanque === "fijo" && numeralInicialSugerido && formData.numeralInicial === numeralInicialSugerido
+                    ? "border-green-300 bg-green-50"  // 🏗️ Estilo para fijo con sugerencia aplicada
+                    : numeralInicialSugerido && !estanqueSeleccionado
+                      ? "border-blue-300 bg-blue-50"   // 💡 Estilo cuando hay sugerencia pero no estanque
+                      : "border-gray-300"              // 📝 Estilo normal
                   }`}
                 placeholder="Ej: 100.5"
               />
-              {numeralInicialSugerido && formData.numeralInicial === numeralInicialSugerido && (
+
+              {/* 🎯 ICONOS CONDICIONALES MEJORADOS */}
+              {estanqueSeleccionado?.tipo_estanque === "movil" && (
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                  <FaTruck className="text-amber-500" size={14} />
+                </div>
+              )}
+
+              {estanqueSeleccionado?.tipo_estanque === "fijo" && numeralInicialSugerido && formData.numeralInicial === numeralInicialSugerido && (
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                   <FaCheckCircle className="text-green-500" size={14} />
                 </div>
               )}
+
+              {numeralInicialSugerido && !estanqueSeleccionado && (
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                  <FaInfoCircle className="text-blue-500" size={14} />
+                </div>
+              )}
             </div>
-            {numeralInicialSugerido && (
-              <p className="text-left text-xs text-green-600 mt-1">
-                ✓ Valor sugerido basado en el último registro: {parseFloat(numeralInicialSugerido).toLocaleString()}
+
+            {/* 🎯 MENSAJES INFORMATIVOS MEJORADOS */}
+            {/* Mensaje cuando hay sugerencia pero no hay estanque seleccionado */}
+            {numeralInicialSugerido && !estanqueSeleccionado && (
+              <p className="text-left text-xs text-blue-600 mt-1 flex items-center">
+                <FaInfoCircle className="mr-1" size={10} />
+                💡 Último consumo de la faena: {parseFloat(numeralInicialSugerido).toLocaleString()}L (se aplicará al seleccionar estanque fijo)
               </p>
             )}
+
+            {/* Mensaje para estanque fijo con valor aplicado */}
+            {estanqueSeleccionado?.tipo_estanque === "fijo" && numeralInicialSugerido && (
+              <p className="text-left text-xs text-green-600 mt-1 flex items-center">
+                <FaGasPump className="mr-1" size={10} />
+                ✓ Valor aplicado del último registro de faena: {parseFloat(numeralInicialSugerido).toLocaleString()}L
+                {formData.numeralInicial === numeralInicialSugerido && (
+                  <span className="ml-2 text-green-700 font-medium">(Sugerido)</span>
+                )}
+              </p>
+            )}
+
+            {/* Mensaje para estanque móvil */}
+            {estanqueSeleccionado?.tipo_estanque === "movil" && (
+              <p className="text-left text-xs text-amber-600 mt-1 flex items-center">
+                <FaTruck className="mr-1" size={10} />
+                🚛 Estanque móvil - Contador automático en 0
+              </p>
+            )}
+
+            {/* Error si existe */}
             {errorNumeralSugerido && (
               <p className="text-left text-xs text-red-500 mt-1">
                 {errorNumeralSugerido}

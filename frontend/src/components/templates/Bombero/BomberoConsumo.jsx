@@ -48,15 +48,15 @@ const Consumo = ({
   const [estanqueSeleccionado, setEstanqueSeleccionado] = useState(null);
 
   // 🆕 HOOK PARA ÚLTIMA MEDICIÓN (reemplaza los estados manuales anteriores)
-const {
-  loading: loadingUltimaMedicion,
-  error: errorUltimaMedicion,
-  data, // <-- AGREGAR ESTA LÍNEA
-  medicionFormateada,
-  tieneConsumo,
-  numeralInicialSugerido,
-  cargarUltimaMedicion
-} = useUltimaMedicionNumeralFinal();
+  const {
+    loading: loadingUltimaMedicion,
+    error: errorUltimaMedicion,
+    data, // <-- AGREGAR ESTA LÍNEA
+    medicionFormateada,
+    tieneConsumo,
+    numeralInicialSugerido,
+    cargarUltimaMedicion
+  } = useUltimaMedicionNumeralFinal();
 
   // Constantes
   const totalPages = 4;
@@ -102,11 +102,11 @@ const {
 
   // 🆕 NUEVO useEffect: Cargar información de la última medición usando el hook
   useEffect(() => {
-    if (patenteSeleccionada?.id_maquina) {
-      console.log('🎯 Cargando datos para máquina:', patenteSeleccionada.id_maquina);
-      cargarUltimaMedicion(patenteSeleccionada.id_maquina);
+    if (patenteSeleccionada?.id_maquina && userInfo?.id_faena) {
+      console.log('🎯 Cargando datos para máquina:', patenteSeleccionada.id_maquina, 'faena:', userInfo.id_faena);
+      cargarUltimaMedicion(patenteSeleccionada.id_maquina, userInfo.id_faena);
     }
-  }, [patenteSeleccionada?.id_maquina, cargarUltimaMedicion]);
+  }, [patenteSeleccionada?.id_maquina, userInfo?.id_faena, cargarUltimaMedicion]);
 
   useEffect(() => {
     const inicial = parseFloat(formData.numeralInicial) || 0;

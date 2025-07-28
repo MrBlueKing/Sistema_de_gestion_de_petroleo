@@ -6,15 +6,20 @@ export const useUltimaMedicionNumeralFinal = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
-  
+
   // Para evitar llamadas duplicadas
   const currentRequestRef = useRef(null);
   const lastMaquinaIdRef = useRef(null);
 
   // 🎯 Función principal para cargar datos
-  const cargarUltimaMedicion = useCallback(async (idMaquina) => {
+  const cargarUltimaMedicion = useCallback(async (idMaquina, idFaena) => {
     if (!idMaquina) {
       setError('ID de máquina requerido');
+      return null;
+    }
+
+    if (!idFaena) {
+      setError('ID de faena requerido');
       return null;
     }
 
@@ -33,9 +38,12 @@ export const useUltimaMedicionNumeralFinal = () => {
 
       // Crear la promesa y guardarla para evitar duplicados
       const requestPromise = axios.get('/api/consumos/ultima-medicion', {
-        params: { id_maquina: idMaquina }
+        params: {
+          id_maquina: idMaquina,
+          id_faena: idFaena
+        }
       });
-      
+
       currentRequestRef.current = requestPromise;
       const response = await requestPromise;
 
@@ -81,12 +89,12 @@ export const useUltimaMedicionNumeralFinal = () => {
     loading,
     error,
     data,
-    
+
     // Funciones
     cargarUltimaMedicion,
     limpiarDatos,
     recargarDatos,
-    
+
     // Datos específicos (para fácil acceso)
     tieneConsumo: data?.tiene_consumo || false,
     medicionFormateada: data?.medicion_formateada || '0 km',
