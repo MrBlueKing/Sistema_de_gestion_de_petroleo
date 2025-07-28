@@ -41,7 +41,7 @@ const EnhancedConsumoDetailsModal = ({
   const itemsPerPage = 10;
 
   // Estados para control de vista
-  const [activeTab, setActiveTab] = useState('list'); // 'list' o 'trend'
+  const [activeTab, setActiveTab] = useState('trend'); // 'list' o 'trend'
   const [refreshKey, setRefreshKey] = useState(0);
 
   // 🆕 ESTADO PARA CONSUMOS COMPLETOS (para tendencias)
@@ -276,22 +276,7 @@ const EnhancedConsumoDetailsModal = ({
           {/* Pestañas de navegación */}
           <div className="border-b border-gray-200 flex-shrink-0">
             <nav className="px-4 flex space-x-8">
-              <button
-                onClick={() => setActiveTab('list')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === 'list'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <FiList className="inline w-4 h-4 mr-2" />
-                Lista de Consumos
-                {stats && (
-                  <span className="ml-2 bg-gray-100 text-gray-600 py-1 px-2 rounded-full text-xs">
-                    {totalItems}
-                  </span>
-                )}
-              </button>
+             
 
               <button
                 onClick={() => setActiveTab('trend')}
@@ -306,6 +291,23 @@ const EnhancedConsumoDetailsModal = ({
                 {(activeTab === 'trend' ? allConsumos : consumos).length > 0 && (
                   <span className="ml-2 bg-gray-100 text-gray-600 py-1 px-2 rounded-full text-xs">
                     {new Set((activeTab === 'trend' ? allConsumos : consumos).map(c => c.nombre_maquina)).size} equipos
+                  </span>
+                )}
+              </button>
+
+               <button
+                onClick={() => setActiveTab('list')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'list'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <FiList className="inline w-4 h-4 mr-2" />
+                Lista de Consumos
+                {stats && (
+                  <span className="ml-2 bg-gray-100 text-gray-600 py-1 px-2 rounded-full text-xs">
+                    {totalItems}
                   </span>
                 )}
               </button>

@@ -1,5 +1,7 @@
 import jsPDF from 'jspdf';
 import logoEmpresa from '../../assets/logo.png'
+import logoFaenaTilTil from '../../assets/procesos.png'
+import axios from '../../lib/axios';
 
 class PDFService {
   constructor() {
@@ -27,7 +29,7 @@ class PDFService {
       blue: [59, 130, 246] // Para acentos
     };
 
-    // 🆕 SISTEMA DE PAGINACIÓN MEJORADO
+    // Sistema de paginación mejorado
     this.paginationTracker = {
       totalItems: 0,
       currentPage: 1,
@@ -38,33 +40,91 @@ class PDFService {
     };
   }
 
+  // 🆕 FUNCIÓN PARA OBTENER NOMBRE DE FAENA
+  async obtenerNombreFaena(user, filters) {
+    try {
+      // CASO 1: Si es "todas las faenas"
+      if (filters?.faenaSeleccionada === 'todas') {
+        if (filters?.faenas && filters.faenas.length > 1) {
+          return `Todas las faenas (${filters.faenas.length} faenas)`;
+        }
+      }
+
+      // CASO 2: Si hay filtro de faena específica (Gerente)
+      if (filters?.faenaSeleccionada && filters.faenaSeleccionada !== 'todas') {
+        // Buscar en las faenas disponibles del filtro
+        if (filters?.faenas && filters.faenas.length > 0) {
+          const faenaEncontrada = filters.faenas.find(f => 
+            f.value == filters.faenaSeleccionada || f.id == filters.faenaSeleccionada
+          );
+          if (faenaEncontrada) {
+            return faenaEncontrada.label || faenaEncontrada.nombre || faenaEncontrada.ubicacion;
+          }
+        }
+        
+        // Si no se encuentra en filtros, consultar API
+        try {
+          const response = await axios.get(`/api/faenasDisponibles`);
+          if (response.data?.success && response.data.faenas) {
+            const faenaEncontrada = response.data.faenas.find(f => f.id == filters.faenaSeleccionada);
+            if (faenaEncontrada) {
+              return faenaEncontrada.ubicacion || faenaEncontrada.nombre || `Faena ${filters.faenaSeleccionada}`;
+            }
+          }
+        } catch (error) {
+          console.warn('Error consultando faenas:', error);
+        }
+        
+        return `Faena ${filters.faenaSeleccionada}`;
+      }
+
+      // CASO 3: Usar faena del usuario (Bombero o fallback)
+      if (user?.faena?.ubicacion) {
+        return user.faena.ubicacion;
+      }
+      
+      if (user?.nombre_faena) {
+        return user.nombre_faena;
+      }
+
+      return 'Sistema de Gestión de Petróleo';
+    } catch (error) {
+      console.warn('Error obteniendo nombre de faena:', error);
+      return 'Sistema de Gestión de Petróleo';
+    }
+  }
+
   // Función principal para generar PDF
   async generateConsumptionPDF(data) {
     try {
-      const { consumos, stats, filters, totalItems, currentPage } = data;
+      const { consumos, stats, filters, totalItems, currentPage, user } = data;
 
       const doc = new jsPDF(this.defaultConfig);
       let yPosition = 15;
 
-      // 🆕 INICIALIZAR TRACKER DE PAGINACIÓN
+      // Inicializar tracker de paginación
       this.initializePaginationTracker(totalItems, currentPage, consumos);
 
-      // === HEADER MEJORADO ===
-      yPosition = this.addProfessionalHeader(doc, yPosition);
+      // 🆕 OBTENER NOMBRE DE FAENA
+      const nombreFaena = await this.obtenerNombreFaena(user, filters);
 
-      // === FILTROS CON MEJOR DISEÑO ===
+      // Header mejorado con nombre de faena
+      yPosition = this.addProfessionalHeader(doc, yPosition, nombreFaena);
+
+      // Filtros con mejor diseño
       yPosition = this.addImprovedFiltersInfo(doc, filters, yPosition);
 
-      // === ESTADÍSTICAS REDISEÑADAS ===
+      // Estadísticas rediseñadas
       yPosition = this.addEnhancedStatistics(doc, stats, yPosition);
 
-      // === TABLA ARMONIOSA Y EQUILIBRADA ===
+      // Tabla armoniosa y equilibrada
       this.addHarmoniousTableWithPagination(doc, consumos, yPosition);
 
-      // === FOOTER MEJORADO ===
+      // Footer mejorado
       this.addProfessionalFooter(doc);
 
-      const fileName = this.generateFileName(filters);
+      // 🆕 GENERAR NOMBRE DE ARCHIVO CON FAENA
+      const fileName = this.generateFileName(filters, nombreFaena);
       doc.save(fileName);
 
       return { success: true, fileName };
@@ -75,7 +135,7 @@ class PDFService {
     }
   }
 
-  // 🆕 INICIALIZAR TRACKER DE PAGINACIÓN
+  // Inicializar tracker de paginación
   initializePaginationTracker(totalItems, currentPage, consumos) {
     this.paginationTracker = {
       totalItems: totalItems || 0,
@@ -86,8 +146,8 @@ class PDFService {
     };
   }
 
-  // 🔧 HEADER CON ESPACIADO CORREGIDO
-  addProfessionalHeader(doc, yPosition) {
+  // 🔧 HEADER CON ESPACIADO CORREGIDO Y NOMBRE DE FAENA
+  addProfessionalHeader(doc, yPosition, nombreFaena = 'Sistema de Gestión de Petróleo') {
     // Fondo principal con degradado visual
     doc.setFillColor(...this.colors.primary);
     doc.rect(0, 0, 297, 30, 'F');
@@ -96,16 +156,16 @@ class PDFService {
     doc.setFillColor(...this.colors.primaryDark);
     doc.rect(0, 28, 297, 3, 'F');
 
-    // Logo y marca 3H COPPER con mejor tipografía
-    doc.setTextColor(...this.colors.white);
-    doc.setFontSize(28);
-    doc.setFont(undefined, 'bold');
+    // 🆕 LÓGICA PARA LOGO SEGÚN FAENA
+    const esFaenaTilTil = nombreFaena && (
+      nombreFaena.toLowerCase().includes('til til') || 
+      nombreFaena.toLowerCase().includes('tiltil') ||
+      nombreFaena.toLowerCase().includes('til-til')
+    );
 
-    doc.setFontSize(14);
-    doc.setFont(undefined, 'normal');
-
-    //Logo empresa
-    doc.addImage(logoEmpresa, 'PNG', 20, 0, 28, 28);
+    // Usar logo específico o logo empresa por defecto
+    const logoAUsar = esFaenaTilTil ? logoFaenaTilTil : logoEmpresa;
+    doc.addImage(logoAUsar, 'PNG', 20, 0, 28, 28);
 
     // Línea separadora elegante
     doc.setDrawColor(...this.colors.white);
@@ -113,6 +173,7 @@ class PDFService {
     doc.line(75, 10, 75, 22);
 
     // Título principal centrado y destacado
+    doc.setTextColor(...this.colors.white);
     doc.setFontSize(18);
     doc.setFont(undefined, 'bold');
     const titleText = 'REPORTE DE CONSUMOS DE COMBUSTIBLE';
@@ -120,10 +181,10 @@ class PDFService {
     const centerX = (297 - titleWidth) / 2;
     doc.text(titleText, centerX, 14);
 
-    // Subtítulo elegante
+    // 🆕 SUBTÍTULO CON NOMBRE DE FAENA
     doc.setFontSize(12);
     doc.setFont(undefined, 'normal');
-    const subtitleText = 'Sistema de Gestión de Petróleo';
+    const subtitleText = nombreFaena;
     const subtitleWidth = doc.getTextWidth(subtitleText);
     const subtitleCenterX = (297 - subtitleWidth) / 2;
     doc.text(subtitleText, subtitleCenterX, 20);
@@ -133,7 +194,7 @@ class PDFService {
     doc.setLineWidth(0.8);
     doc.line(230, 10, 230, 22);
 
-    // 🔧 Info corporativa MÁS ALEJADA hacia la derecha
+    // Info corporativa más alejada hacia la derecha
     doc.setFontSize(9);
     doc.setTextColor(255, 255, 255);
     doc.text(`Generado: ${new Date().toLocaleDateString('es-CL')} ${new Date().toLocaleTimeString('es-CL')}`, 235, 12);
@@ -143,7 +204,7 @@ class PDFService {
     return 40; // Más espacio después del header
   }
 
-  // 🆕 FILTROS CON DISEÑO MEJORADO
+  // Filtros con diseño mejorado
   addImprovedFiltersInfo(doc, filters, yPosition) {
     const hasFilters = filters.dateFrom || filters.dateTo || filters.equipoFilter;
 
@@ -216,9 +277,9 @@ class PDFService {
     return yPosition;
   }
 
-  // 🆕 ESTADÍSTICAS CON DISEÑO PROFESIONAL CORREGIDO
+  // Estadísticas con diseño profesional corregido
   addEnhancedStatistics(doc, stats, yPosition) {
-    // 🔧 CALCULAR ALTURA DINÁMICA según contenido
+    // Calcular altura dinámica según contenido
     let boxHeight = 15; // Altura base
     if (stats.equipo_mas_usado && stats.equipo_mas_usado !== 'N/A') {
       boxHeight += 8; // Espacio adicional para equipo más usado
@@ -264,7 +325,7 @@ class PDFService {
       const x = startX + (index % 2) * colWidth;
       const y = yPosition + Math.floor(index / 2) * rowHeight;
 
-      // 🔧 TODO EN NEGRO - UN SOLO COLOR
+      // Todo en negro - un solo color
       doc.setTextColor(0, 0, 0); // Negro para etiquetas
       doc.setFontSize(8);
       doc.setFont(undefined, 'normal');
@@ -281,7 +342,7 @@ class PDFService {
     return yPosition;
   }
 
-  // 🆕 TABLA ARMONIOSA CON DISEÑO EQUILIBRADO - ¡MEJORADO!
+  // Tabla armoniosa con diseño equilibrado - mejorado
   addHarmoniousTableWithPagination(doc, consumos, startY) {
     if (!consumos || consumos.length === 0) {
       // Estado vacío elegante
@@ -297,7 +358,7 @@ class PDFService {
       doc.setFont(undefined, 'normal');
       doc.text('Intenta ajustar los filtros de búsqueda', 125, startY + 22);
       
-      // 🆕 PAGINACIÓN PARA ESTADO VACÍO
+      // Paginación para estado vacío
       this.addPagePaginationInfo(doc, 0, 0, 180);
       return;
     }
@@ -306,7 +367,7 @@ class PDFService {
     let recordsOnCurrentPage = 0;
     let pageStartRecord = 1;
 
-    // 🔧 DISTRIBUCIÓN OPTIMIZADA - MEDICIÓN MÁS ANGOSTA Y ESPACIO REDISTRIBUIDO
+    // Distribución optimizada - medición más angosta y espacio redistribuido
     const cols = {
       fechaHora: 18,       // 28mm - Fecha/Hora (+4mm)
       equipo: 48,          // 45mm - Equipo (+5mm)
@@ -316,24 +377,24 @@ class PDFService {
       medicion: 248        // 25mm - Medición (más angosta)
     };
 
-    // 🆕 DEFINIR ANCHOS DE COLUMNA PARA ALINEACIÓN CORRECTA
+    // Definir anchos de columna para alineación correcta
     const colWidths = {
       fechaHora: 28,       // +4mm redistribuido
       equipo: 45,          // +5mm redistribuido
       litros: 32,          // +4mm redistribuido
       solicitante: 60,     // +5mm redistribuido
       estanque: 55,        // +5mm redistribuido
-      medicion: 25         // 🔧 CAMBIO: Más angosta (de 35 a 25, -10mm total)
+      medicion: 25         // Cambio: Más angosta (de 35 a 25, -10mm total)
     };
 
     // Header de tabla armonioso
     this.addCleanTableHeader(doc, cols, colWidths, yPosition);
     yPosition += 12;
 
-    // 🔧 CONFIGURACIÓN DE TABLA - LETRA MÁS GRANDE
+    // Configuración de tabla - letra más grande
     doc.setFont(undefined, 'normal');
     doc.setTextColor(...this.colors.darkGray);
-    doc.setFontSize(9); // 🔧 CAMBIO: De 8 a 9 (letra más grande)
+    doc.setFontSize(9); // Cambio: De 8 a 9 (letra más grande)
 
     consumos.forEach((consumo, index) => {
       // Control de página mejorado
@@ -353,7 +414,7 @@ class PDFService {
 
         doc.setFont(undefined, 'normal');
         doc.setTextColor(...this.colors.darkGray);
-        doc.setFontSize(9); // 🔧 CAMBIO: Letra más grande
+        doc.setFontSize(9); // Cambio: Letra más grande
       }
 
       recordsOnCurrentPage++;
@@ -383,7 +444,7 @@ class PDFService {
     this.addPagePaginationInfo(doc, pageStartRecord, pageEndRecord, yPosition + 10);
   }
 
-  // 🆕 HEADER DE TABLA LIMPIO Y PROFESIONAL - CON LETRA MÁS GRANDE
+  // Header de tabla limpio y profesional - con letra más grande
   addCleanTableHeader(doc, cols, colWidths, yPosition) {
     // Fondo del header
     doc.setFillColor(...this.colors.primary);
@@ -407,7 +468,7 @@ class PDFService {
 
     // Textos del header centrados
     doc.setTextColor(...this.colors.white);
-    doc.setFontSize(10); // 🔧 CAMBIO: De 9 a 10 (letra más grande)
+    doc.setFontSize(10); // Cambio: De 9 a 10 (letra más grande)
     doc.setFont(undefined, 'bold');
 
     const headers = [
@@ -421,7 +482,7 @@ class PDFService {
 
     headers.forEach(header => {
       if (header.col === 'medicion') {
-        // 🔧 NUEVO: Medición alineada a la derecha
+        // Medición alineada a la derecha
         const textWidth = doc.getTextWidth(header.text);
         const rightAlignX = cols[header.col] + colWidths[header.col] - textWidth - 2;
         doc.text(header.text, rightAlignX, yPosition + 4);
@@ -434,7 +495,7 @@ class PDFService {
     });
   }
 
-  // 🆕 RENDERIZADO OPTIMIZADO DE FILAS CON LETRA MÁS GRANDE Y MEDICIÓN A LA DERECHA
+  // Renderizado optimizado de filas con letra más grande y medición a la derecha
   renderCleanTableRow(doc, consumo, cols, colWidths, yPosition, isMultipleStanques) {
     const centerY = yPosition + (isMultipleStanques ? 8 : 4);
 
@@ -442,7 +503,7 @@ class PDFService {
     const fechaCompacta = this.formatDateCompact(consumo.fecha_consumo);
     const horaCompacta = this.formatTimeCompact(consumo.fecha_consumo);
 
-    doc.setFontSize(9); // 🔧 CAMBIO: De 8 a 9 (letra más grande)
+    doc.setFontSize(9); // Cambio: De 8 a 9 (letra más grande)
     doc.setFont(undefined, 'bold');
     doc.setTextColor(...this.colors.darkGray);
     
@@ -451,35 +512,35 @@ class PDFService {
     doc.text(fechaCompacta, fechaCenterX, centerY - 1);
     
     doc.setFont(undefined, 'normal');
-    doc.setFontSize(8); // 🔧 CAMBIO: De 7 a 8 (letra más grande)
+    doc.setFontSize(8); // Cambio: De 7 a 8 (letra más grande)
     doc.setTextColor(...this.colors.gray);
     const horaWidth = doc.getTextWidth(horaCompacta);
     const horaCenterX = cols.fechaHora + (colWidths.fechaHora - horaWidth) / 2;
     doc.text(horaCompacta, horaCenterX, centerY + 2);
 
     // === EQUIPO ALINEADO A LA IZQUIERDA ===
-    doc.setTextColor(...this.colors.darkGray); // 🔧 CAMBIO: Color plomo en lugar de naranja
-    doc.setFontSize(9); // 🔧 CAMBIO: De 8 a 9 (letra más grande)
+    doc.setTextColor(...this.colors.darkGray); // Cambio: Color plomo en lugar de naranja
+    doc.setFontSize(9); // Cambio: De 8 a 9 (letra más grande)
     doc.setFont(undefined, 'bold');
     const equipoNombre = consumo.nombre_maquina || 'N/A';
-    const equipoDisplay = this.smartTruncate(equipoNombre, 32); // 🔧 CAMBIO: Ajustado para nuevo ancho
+    const equipoDisplay = this.smartTruncate(equipoNombre, 32); // Cambio: Ajustado para nuevo ancho
     doc.text(equipoDisplay, cols.equipo + 2, centerY);
 
     // === LITROS DESTACADOS Y CENTRADOS ===
-    doc.setTextColor(...this.colors.primary); // 🔧 MANTENER: Color naranja
+    doc.setTextColor(...this.colors.primary); // Mantener: Color naranja
     doc.setFont(undefined, 'bold');
-    doc.setFontSize(10); // 🔧 CAMBIO: De 9 a 10 (letra más grande)
+    doc.setFontSize(10); // Cambio: De 9 a 10 (letra más grande)
     const litrosText = `${this.formatNumber(consumo.litros_consumidos)} L`;
     const litrosWidth = doc.getTextWidth(litrosText);
     const litrosCenterX = cols.litros + (colWidths.litros - litrosWidth) / 2;
     doc.text(litrosText, litrosCenterX, centerY);
 
     // === SOLICITANTE ALINEADO A LA IZQUIERDA ===
-    doc.setTextColor(...this.colors.darkGray); // 🔧 MANTENER: Color plomo
+    doc.setTextColor(...this.colors.darkGray); // Mantener: Color plomo
     doc.setFont(undefined, 'normal');
-    doc.setFontSize(9); // 🔧 CAMBIO: De 8 a 9 (letra más grande)
+    doc.setFontSize(9); // Cambio: De 8 a 9 (letra más grande)
     const solicitanteNombre = consumo.solicitante_nombre || 'N/A';
-    const solicitanteDisplay = this.smartTruncate(solicitanteNombre, 40); // 🔧 CAMBIO: Ajustado para nuevo ancho
+    const solicitanteDisplay = this.smartTruncate(solicitanteNombre, 40); // Cambio: Ajustado para nuevo ancho
     doc.text(solicitanteDisplay, cols.solicitante + 2, centerY);
 
     // === ESTANQUE CON MÚLTIPLES LÍNEAS Y MÁS ESPACIO ===
@@ -487,16 +548,16 @@ class PDFService {
 
     // === MEDICIÓN ALINEADA A LA DERECHA ===
     const medicionText = this.formatMedicion(consumo);
-    doc.setFontSize(9); // 🔧 CAMBIO: De 8 a 9 (letra más grande)
-    doc.setTextColor(...this.colors.primary); // 🔧 CAMBIO: Color naranja
-    doc.setFont(undefined, 'bold'); // 🔧 NUEVO: Bold para destacar como litros
+    doc.setFontSize(9); // Cambio: De 8 a 9 (letra más grande)
+    doc.setTextColor(...this.colors.primary); // Cambio: Color naranja
+    doc.setFont(undefined, 'bold'); // Nuevo: Bold para destacar como litros
     const medicionWidth = doc.getTextWidth(medicionText);
-    // 🔧 NUEVO: Alinear a la derecha de la columna
+    // Nuevo: Alinear a la derecha de la columna
     const rightAlignX = cols.medicion + colWidths.medicion - medicionWidth - 2;
     doc.text(medicionText, rightAlignX, centerY);
   }
 
-  // 🆕 RENDERIZADO DE ESTANQUES CON MÁS ESPACIO VERTICAL - LETRA MÁS GRANDE
+  // Renderizado de estanques con más espacio vertical - letra más grande
   renderMultiLineEstanqueInfo(doc, consumo, x, colWidth, yPosition, isMultiple) {
     const cantidad = consumo.cantidad_estanques || 1;
 
@@ -512,10 +573,10 @@ class PDFService {
           
           doc.setTextColor(...this.colors.darkGray);
           doc.setFont(undefined, 'normal');
-          doc.setFontSize(8); // 🔧 CAMBIO: De 7 a 8 (letra más grande)
+          doc.setFontSize(8); // Cambio: De 7 a 8 (letra más grande)
           
           const nombreLimpio = this.cleanEstanqueName(nombreEstanque);
-          const nombreTruncado = this.smartTruncate(nombreLimpio, 35); // 🔧 CAMBIO: Ajustado para nuevo ancho de estanque
+          const nombreTruncado = this.smartTruncate(nombreLimpio, 35); // Cambio: Ajustado para nuevo ancho de estanque
           const nombreWidth = doc.getTextWidth(nombreTruncado);
           const nombreCenterX = x + (colWidth - nombreWidth) / 2;
           
@@ -527,9 +588,9 @@ class PDFService {
       // === ESTANQUE ÚNICO CENTRADO ===
       const estanqueNombre = consumo.estanque || 'N/A';
       const nombreLimpio = this.cleanEstanqueName(estanqueNombre);
-      const nombreFinal = this.smartTruncate(nombreLimpio, 37); // 🔧 CAMBIO: Ajustado para nuevo ancho de estanque
+      const nombreFinal = this.smartTruncate(nombreLimpio, 37); // Cambio: Ajustado para nuevo ancho de estanque
       doc.setFont(undefined, 'normal');
-      doc.setFontSize(8); // 🔧 CAMBIO: De 7 a 8 (letra más grande)
+      doc.setFontSize(8); // Cambio: De 7 a 8 (letra más grande)
       doc.setTextColor(...this.colors.darkGray);
       const nombreWidth = doc.getTextWidth(nombreFinal);
       const nombreCenterX = x + (colWidth - nombreWidth) / 2;
@@ -537,7 +598,7 @@ class PDFService {
     }
   }
 
-  // 🆕 FUNCIÓN PARA OBTENER LISTA REAL DE ESTANQUES - CON LIMPIEZA INDIVIDUAL
+  // Función para obtener lista real de estanques - con limpieza individual
   getEstanquesList(consumo) {
     const estanqueNombre = consumo.estanque || 'N/A';
     const cantidad = consumo.cantidad_estanques || 1;
@@ -546,7 +607,7 @@ class PDFService {
       return [this.cleanEstanqueName(estanqueNombre)];
     }
     
-    // 🔧 DIVIDIR ESTANQUES POR SEPARADORES COMUNES
+    // Dividir estanques por separadores comunes
     let estanques = [];
     
     // Buscar separadores comunes: " / ", " - ", " | ", " y ", " Y "
@@ -568,17 +629,17 @@ class PDFService {
       }
     }
     
-    // 🆕 LIMPIAR CADA ESTANQUE INDIVIDUALMENTE
+    // Limpiar cada estanque individualmente
     estanques = estanques
       .map(est => est.trim()) // Quitar espacios
       .filter(est => est && est !== '') // Filtrar vacíos
-      .map(est => this.cleanEstanqueName(est)) // 🔧 LIMPIAR CADA UNO
+      .map(est => this.cleanEstanqueName(est)) // Limpiar cada uno
       .slice(0, 4); // Máximo 4 estanques
     
     return estanques;
   }
 
-  // 🆕 NUEVA FUNCIÓN: INFORMACIÓN DE PAGINACIÓN POR PÁGINA
+  // Nueva función: información de paginación por página
   addPagePaginationInfo(doc, startRecord, endRecord, yPosition) {
     // Fondo elegante
     doc.setFillColor(...this.colors.mediumGray);
@@ -679,11 +740,11 @@ class PDFService {
     if (!nombre) return 'N/A';
     return nombre
       .replace(/Cabildo\s*(esta?\.?\.\.)?\s*/gi, 'Cabildo ')
-      .replace(/\s*\(\d+\s*estanq?\.*\.*\)/gi, '') // 🆕 QUITAR "(2 estanq..)" con puntos extra
-      .replace(/\s*\(\d+\s*est\.*\.*\)/gi, '')     // 🆕 QUITAR "(2 est..)" con puntos extra
-      .replace(/\s*\d+\s*estanq?\.*\.*$/gi, '')    // 🆕 QUITAR "2 estanq.." al final
-      .replace(/\s*\d+\s*est\.*\.*$/gi, '')        // 🆕 QUITAR "2 est.." al final
-      .replace(/\s*\(\d+\s*estanques?\)/gi, '')    // 🆕 QUITAR "(2 estanques)"
+      .replace(/\s*\(\d+\s*estanq?\.*\.*\)/gi, '') // Quitar "(2 estanq..)" con puntos extra
+      .replace(/\s*\(\d+\s*est\.*\.*\)/gi, '')     // Quitar "(2 est..)" con puntos extra
+      .replace(/\s*\d+\s*estanq?\.*\.*$/gi, '')    // Quitar "2 estanq.." al final
+      .replace(/\s*\d+\s*est\.*\.*$/gi, '')        // Quitar "2 est.." al final
+      .replace(/\s*\(\d+\s*estanques?\)/gi, '')    // Quitar "(2 estanques)"
       .replace(/\s+/g, ' ')
       .trim();
   }
@@ -736,9 +797,18 @@ class PDFService {
     });
   }
 
-  generateFileName(filters) {
+  // 🆕 GENERAR NOMBRE DE ARCHIVO CON FAENA
+  generateFileName(filters, nombreFaena) {
     const timestamp = new Date().toISOString().slice(0, 10);
-    let fileName = `3H-Copper-Consumos-${timestamp}`;
+    let fileName = `3H-Copper-Consumos`;
+
+    // Incluir faena si no es "todas"
+    if (nombreFaena && !nombreFaena.includes('Todas las faenas') && nombreFaena !== 'Sistema de Gestión de Petróleo') {
+      const faenaSafe = nombreFaena.replace(/[^a-zA-Z0-9]/g, '-').substring(0, 15);
+      fileName += `-${faenaSafe}`;
+    }
+
+    fileName += `-${timestamp}`;
 
     if (filters.dateFrom || filters.dateTo) {
       fileName += '-Filtrado';
