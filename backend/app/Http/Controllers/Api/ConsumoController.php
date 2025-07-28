@@ -1572,11 +1572,19 @@ class ConsumoController extends Controller
     {
         try {
             $idMaquina = $request->query('id_maquina');
+            $idFaena = $request->query('id_faena'); // 🆕 NUEVO PARÁMETRO
 
             if (!$idMaquina) {
                 return response()->json([
                     'success' => false,
                     'message' => 'ID de máquina es requerido'
+                ], 400);
+            }
+
+            if (!$idFaena) { // 🆕 VALIDACIÓN
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ID de faena es requerido'
                 ], 400);
             }
 
@@ -1593,32 +1601,36 @@ class ConsumoController extends Controller
                     'message' => "La máquina con ID {$idMaquina} no existe"
                 ], 404);
             }
-
-            // 🔍 Último consumo DE ESTA MÁQUINA (para medición actual)
+            // 🔍 Último consumo DE ESTA MÁQUINA EN LA FAENA ESPECÍFICA (para medición)
             $ultimoConsumoMaquina = DB::table('consumos')
                 ->where('id_equipo', $idMaquina)
+                ->where('id_faena', $idFaena) // ✅ CORRECTO
                 ->orderBy('fecha_consumo', 'desc')
-                ->orderBy('id_consumo', 'desc') // En caso de empate en fecha
+                ->orderBy('id_consumo', 'desc')
                 ->select('medicion', 'fecha_consumo', 'id_consumo')
                 ->first();
-
-            // 🆕 Numeral final MÁS RECIENTE de TODOS los consumos (no solo de esta máquina)
+            // 🔍 Último numeral_final de CUALQUIER MÁQUINA en esta faena (para numeral inicial)
+            // 🆕 Numeral final MÁS RECIENTE de TODOS los consumos CON TIPO DE OPERACIÓN
             $numeralMasReciente = DB::table('consumos')
+                ->where('id_faena', $idFaena)
                 ->orderBy('fecha_consumo', 'desc')
-                ->orderBy('id_consumo', 'desc') // Por si hay empate en fecha
-                ->select('numeral_final', 'fecha_consumo')
+                ->orderBy('id_consumo', 'desc')
+                ->select('numeral_final', 'fecha_consumo', 'tipo_operacion')
                 ->first();
-
-            // 🎯 Formatear numeral inicial sugerido (sin decimales innecesarios)
+            // 🎯 Formatear numeral inicial sugerido INTELIGENTE
             $numeralInicialSugerido = null;
             if ($numeralMasReciente) {
-                $numeral = floatval($numeralMasReciente->numeral_final);
-                // Si es un número entero, mostrarlo sin decimales
-                if (floor($numeral) == $numeral) {
-                    $numeralInicialSugerido = (string) intval($numeral); // 🔧 FIX: Sin formato, solo el número
+                // 🔍 Si el último consumo fue de estanque móvil, sugerir 0
+                if ($numeralMasReciente->tipo_operacion === 'estanque_movil') {
+                    $numeralInicialSugerido = "0";
                 } else {
-                    // Si tiene decimales, mostrar hasta 3 decimales sin ceros innecesarios
-                    $numeralInicialSugerido = rtrim(rtrim(sprintf('%.3f', $numeral), '0'), '.'); // 🔧 FIX: Usar punto como decimal
+                    // 🔍 Si fue de estanque fijo, usar el numeral final
+                    $numeral = floatval($numeralMasReciente->numeral_final);
+                    if (floor($numeral) == $numeral) {
+                        $numeralInicialSugerido = (string) intval($numeral);
+                    } else {
+                        $numeralInicialSugerido = rtrim(rtrim(sprintf('%.3f', $numeral), '0'), '.');
+                    }
                 }
             }
 
