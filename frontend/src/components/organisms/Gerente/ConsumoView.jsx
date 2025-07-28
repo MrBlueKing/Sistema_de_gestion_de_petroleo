@@ -140,6 +140,14 @@ const DateFilter = ({
   const [faenas, setFaenas] = useState([]);
   const [faenaSeleccionada, setFaenaSeleccionada] = useState(initialFaenaSeleccionada);
 
+  // 🆕 AGREGAR ESTE useEffect EN EL DateFilter:
+useEffect(() => {
+  // Notificar al padre cuando las faenas se carguen
+  if (faenas.length > 0 && showFaenaFilter) {
+    console.log('📢 DateFilter: Faenas cargadas, notificando al padre...', faenas.length);
+    notifyChange(dateFrom, dateTo, equipoFilter, faenaSeleccionada);
+  }
+}, [faenas]); // Se ejecuta cuando 'faenas' cambia
   // 🆕 Cargar faenas disponibles
   useEffect(() => {
     const cargarFaenas = async () => {
@@ -188,6 +196,8 @@ const DateFilter = ({
       ),
     };
   };
+
+  
 
   const quickDates = getQuickDates();
 
@@ -610,6 +620,9 @@ const ConsumosView = () => {
   // Estados de paginación
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  
+  // 🆕 NUEVO: Estado para controlar si es la primera carga
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
 
   // Estados para estadísticas de la API
   const [stats, setStats] = useState({
@@ -623,7 +636,7 @@ const ConsumosView = () => {
     porcentaje_multiples: 0
   });
 
-  // 🔄 CAMBIO 2: Actualizar fetchConsumos para incluir faena - CORREGIDO v2
+  // 🔄 CAMBIO 2: Actualizar fetchConsumos para incluir faena - CORREGIDO v4 SIMPLIFICADO
   const fetchConsumos = async (filterParams = {}, page = 1) => {
     setLoadingConsumos(true);
     setError(null);
@@ -641,38 +654,31 @@ const ConsumosView = () => {
         per_page: ITEMS_PER_PAGE.toString(),
       });
 
-      // 🆕 LÓGICA CORREGIDA v2 para faenas
+      // 🆕 LÓGICA SIMPLIFICADA v4 para faenas
       if (filterParams.faenaSeleccionada === 'todas') {
-        // Si es "todas", necesitamos obtener todas las faenas disponibles desde el DateFilter
-        // Como el DateFilter ya carga las faenas, podemos acceder a ellas
-        // Vamos a enviar todos los IDs de faenas separados por comas
-        const todasLasFaenas = filterParams.faenas || []; // Asegurarnos de tener las faenas
+        // Si es "todas", enviar todas las faenas disponibles
+        const todasLasFaenas = filterParams.faenas || [];
         
         if (todasLasFaenas.length > 0) {
           const idsTodasFaenas = todasLasFaenas.map(f => f.value).join(',');
           params.append('faenas', idsTodasFaenas); // Enviar como "faenas" (plural)
-          console.log("Buscando en todas las faenas:", idsTodasFaenas);
-        } else {
-          // Fallback: si no tenemos faenas cargadas, usar faena del usuario
-          if (!user?.id_faena) {
-            console.log("Usuario sin faena asignada:", user);
-            return;
-          }
-          params.append('faena', user.id_faena);
-          console.log("Fallback: usando faena del usuario:", user.id_faena);
-        }
+          console.log("🌍 Buscando en todas las faenas:", idsTodasFaenas);
+        } 
+        
       } else if (filterParams.faenaSeleccionada && filterParams.faenaSeleccionada !== 'todas') {
         // Si es una faena específica, enviar esa faena
         params.append('faena', filterParams.faenaSeleccionada);
-        console.log("Buscando en faena específica:", filterParams.faenaSeleccionada);
+        console.log("🎯 Buscando en faena específica:", filterParams.faenaSeleccionada);
       } else {
-        // Si no hay filtro de faena, usar la faena del usuario por defecto
-        if (!user?.id_faena) {
-          console.log("Usuario sin faena asignada:", user);
+        // Caso por defecto: usar faena del usuario
+        if (user?.id_faena) {
+          params.append('faena', user.id_faena);
+          console.log("👤 Usando faena del usuario:", user.id_faena);
+        } else {
+          console.log("❌ No hay usuario disponible");
+          setLoadingConsumos(false);
           return;
         }
-        params.append('faena', user.id_faena);
-        console.log("Usando faena del usuario por defecto:", user.id_faena);
       }
 
       // 🔧 AGREGAR OTROS FILTROS
@@ -689,7 +695,7 @@ const ConsumosView = () => {
       }
 
       console.log(
-        "Parámetros finales enviados al backend:",
+        "📤 Parámetros finales enviados al backend:",
         Object.fromEntries(params)
       );
 
@@ -699,7 +705,7 @@ const ConsumosView = () => {
         },
       });
 
-      console.log("Consumos recibidos:", response.data);
+      console.log("📥 Consumos recibidos:", response.data);
 
       // 🔧 MANEJO CORRECTO de la respuesta según la estructura de tu API modificada
       if (response.data.success) {
@@ -718,24 +724,23 @@ const ConsumosView = () => {
 
         setTotalItems(total);
 
-        console.log("🔍 DEBUG - Valores exactos:", {
-          "response.data.pagination": response.data.pagination,
-          "response.data.stats": response.data.stats,
-          "total_calculado": total,
-          "consumos_en_pagina": consumosData.length
-        });
+        // 🆕 MARCAR QUE YA NO ES LA PRIMERA CARGA
+        if (isFirstLoad) {
+          setIsFirstLoad(false);
+          console.log("✅ Primera carga completada");
+        }
 
-        // 🆕 AGREGAR ESTOS LOGS ADICIONALES:
-        console.log("🔍 PAGINATION COMPLETA:", JSON.stringify(response.data.pagination, null, 2));
-        console.log("🔍 STATS COMPLETAS:", JSON.stringify(response.data.stats, null, 2));
-        console.log("🔍 RESPUESTA COMPLETA:", JSON.stringify(response.data, null, 2));
+        console.log("✅ Datos cargados correctamente:", {
+          total,
+          consumos: consumosData.length
+        });
 
       } else {
         throw new Error(response.data.message || 'Error en la respuesta del servidor');
       }
 
     } catch (error) {
-      console.error("Error al cargar consumos:", error);
+      console.error("❌ Error al cargar consumos:", error);
 
       let errorMessage = "Error al cargar consumos";
       if (error.response?.status === 401) {
@@ -756,10 +761,14 @@ const ConsumosView = () => {
 
   // 🔄 CAMBIO 3: Actualizar el manejador de filtros
   const handleFilterChange = (newFilters) => {
-    console.log("Aplicando filtros:", newFilters);
+    console.log("🔄 Aplicando filtros:", newFilters);
     setFilters(newFilters);
     setCurrentPage(1); // Resetear a la primera página
-    fetchConsumos(newFilters, 1);
+    
+    // 🆕 NUEVO: Si tenemos faenas disponibles en los filtros, cargar datos inmediatamente
+    if (newFilters.faenas && newFilters.faenas.length > 0) {
+      fetchConsumos(newFilters, 1);
+    }
   };
 
   // Manejar cambio de página
@@ -770,13 +779,43 @@ const ConsumosView = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // useEffect para cargar datos cuando el usuario esté disponible
+  // 🆕 CAMBIO 4: useEffect mejorado para cargar datos - CORREGIDO
   useEffect(() => {
-    if (!loading && user?.id_faena) {
-      console.log("Usuario disponible, cargando consumos...", user);
-      fetchConsumos();
+    // Cargar datos cuando el usuario esté disponible (sin esperar faenas)
+    if (!loading && user) {
+      console.log("🚀 Usuario disponible, iniciando carga...", {
+        user: user.id_faena,
+        isFirstLoad,
+        hasFaenas: filters.faenas?.length > 0
+      });
+      
+      // Si es primera carga y no tenemos faenas aún, usar faena del usuario como fallback
+      if (isFirstLoad && (!filters.faenas || filters.faenas.length === 0)) {
+        console.log("⚡ Primera carga sin faenas, usando faena del usuario como inicio...");
+        fetchConsumos(filters, 1);
+      } else if (filters.faenas && filters.faenas.length > 0) {
+        console.log("🌍 Faenas disponibles, cargando todas las faenas...");
+        fetchConsumos(filters, 1);
+      }
     }
-  }, [user, loading]);
+  }, [user, loading, filters.faenas]);
+
+  // 🆕 NUEVO: useEffect separado para cuando las faenas se cargan después de la primera carga
+  useEffect(() => {
+    // Si ya no es primera carga pero acabamos de recibir las faenas, recargar
+    if (!isFirstLoad && filters.faenas && filters.faenas.length > 0 && filters.faenaSeleccionada === 'todas') {
+      console.log("🔄 Faenas recibidas después de primera carga, recargando con todas...");
+      fetchConsumos(filters, currentPage);
+    }
+  }, [filters.faenas]);
+
+  // useEffect para cambios del usuario (mantener el que ya tenías)
+  useEffect(() => {
+    if (!loading && user && !isFirstLoad) {
+      console.log("👤 Usuario cambió, recargando datos...");
+      fetchConsumos(filters, currentPage);
+    }
+  }, [user?.id_faena]);
 
   // Función para formatear fecha
   const formatearFecha = (fechaString) => {
@@ -844,13 +883,13 @@ const ConsumosView = () => {
       
         <UniversalHeader type="gerente" />
 
-        {/* 🔄 CAMBIO 4: Actualizar el componente DateFilter */}
+        {/* 🔄 CAMBIO 5: Actualizar el componente DateFilter - mantener configuración */}
         <DateFilter
           onFilterChange={handleFilterChange}
           initialDateFrom={filters.dateFrom}
           initialDateTo={filters.dateTo}
           initialEquipoFilter={filters.equipoFilter}
-          initialFaenaSeleccionada={filters.faenaSeleccionada} // 🆕 Nueva prop
+          initialFaenaSeleccionada={filters.faenaSeleccionada} // 🆕 Mantiene "todas"
           showFaenaFilter={true} // 🆕 Habilitar filtro de faena
         />
 
@@ -908,7 +947,7 @@ const ConsumosView = () => {
                 <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-1">
                   Consumos de Combustible
                 </h3>
-                {/* 🔄 CAMBIO 5: Actualizar la verificación de filtros activos */}
+                {/* 🔄 CAMBIO 6: Actualizar la verificación de filtros activos */}
                 <p className="text-gray-600 font-medium text-sm sm:text-base">
                   {totalItems} registros encontrados
                   {(filters.dateFrom || filters.dateTo || filters.equipoFilter || 
@@ -922,6 +961,15 @@ const ConsumosView = () => {
                     <span>Simples: {stats.consumos_simples}</span>
                     <span>Múltiples: {stats.consumos_multiples}</span>
                     <span>({stats.porcentaje_multiples}% múltiples)</span>
+                  </div>
+                )}
+                
+                {/* 🆕 NUEVO: Indicador de que se están mostrando todas las faenas */}
+                {filters.faenaSeleccionada === 'todas' && filters.faenas && filters.faenas.length > 1 && (
+                  <div className="flex items-center gap-2 mt-2 text-xs text-blue-600">
+                    <span className="bg-blue-100 px-2 py-1 rounded-full">
+                      🌍 Mostrando todas las faenas ({filters.faenas.length} faenas)
+                    </span>
                   </div>
                 )}
               </div>
@@ -943,14 +991,19 @@ const ConsumosView = () => {
                 color="blue"
                 text="🔄 Actualizar"
                 onClick={() => fetchConsumos(filters, currentPage)}
-                disabled={loadingConsumos || !user?.id_faena}
+                disabled={loadingConsumos}
                 size="small"
               />
             </div>
           </div>
 
-          {loadingConsumos ? (
-            <LoadingSpinner message="Cargando consumos..." />
+          {/* 🆕 NUEVO: Mostrar loading mientras se cargan las faenas en la primera carga */}
+          {(loadingConsumos || (isFirstLoad && (!filters.faenas || filters.faenas.length === 0))) ? (
+            <LoadingSpinner message={
+              isFirstLoad && (!filters.faenas || filters.faenas.length === 0) 
+                ? "Cargando faenas disponibles..." 
+                : "Cargando consumos..."
+            } />
           ) : error ? (
             <div className="text-center py-12 sm:py-16">
               <div className="text-red-500 text-3xl sm:text-4xl mb-4">
@@ -986,19 +1039,19 @@ const ConsumosView = () => {
                       <div className="text-gray-500 text-base sm:text-lg font-medium">
                         📭 No hay consumos para mostrar
                       </div>
-                      {/* 🔄 CAMBIO 6: Actualizar mensaje de "no hay consumos" */}
+                      {/* 🔄 CAMBIO 7: Actualizar mensaje de "no hay consumos" */}
                       <p className="text-gray-400 text-sm mt-2">
                         {filters.dateFrom || filters.dateTo || filters.equipoFilter || 
                          (filters.faenaSeleccionada && filters.faenaSeleccionada !== 'todas')
                           ? "Intenta ajustar los filtros de búsqueda"
-                          : "No se han registrado consumos aún"}
+                          : "No se han registrado consumos aún en ninguna faena"}
                       </p>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Vista escritorio - Tabla con columnas reorganizadas */}
+              {/* Vista escritorio - Tabla */}
               <div className="hidden lg:block">
                 <div className="overflow-x-auto rounded-2xl shadow-inner">
                   <table className="w-full">
@@ -1022,7 +1075,6 @@ const ConsumosView = () => {
                         <th className="text-left py-4 sm:py-5 px-4 sm:px-6 font-bold text-gray-700 text-sm sm:text-base">
                           📊 Medición
                         </th>
-
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -1057,7 +1109,6 @@ const ConsumosView = () => {
                                 <span className="font-bold text-lg bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
                                   {formatNumber(consumo.litros_consumidos)} L
                                 </span>
-                                {/* MOSTRAR COSTO SI ESTÁ DISPONIBLE */}
                                 {consumo.costo_total && (
                                   <div className="text-xs text-gray-500">
                                     ${formatNumber(consumo.costo_total)}
@@ -1071,7 +1122,6 @@ const ConsumosView = () => {
                                 <div className="text-xs text-gray-500">
                                   RUT: {consumo.id_dotacion || "N/A"}
                                 </div>
-                                {/* MOSTRAR TIPO DE PERSONAL */}
                                 {consumo.solicitante_tipo && (
                                   <div className="text-xs text-blue-600">
                                     {consumo.solicitante_tipo}
@@ -1080,7 +1130,6 @@ const ConsumosView = () => {
                               </td>
                               <td className="py-4 sm:py-5 px-4 sm:px-6 text-sm text-gray-600 font-medium">
                                 {consumo.estanque || "N/A"}
-                                {/* MOSTRAR INDICADOR DE MÚLTIPLES ESTANQUES */}
                                 {consumo.cantidad_estanques > 1 && (
                                   <div className="text-xs text-purple-600 font-semibold">
                                     ({consumo.cantidad_estanques} estanques)
@@ -1101,22 +1150,20 @@ const ConsumosView = () => {
                                   <span className="text-gray-400">N/A</span>
                                 )}
                               </td>
-
                             </tr>
                           );
                         })
                       ) : (
                         <tr>
-                          <td colSpan="7" className="py-12 text-center">
+                          <td colSpan="6" className="py-12 text-center">
                             <div className="text-gray-500 text-lg font-medium">
                               📭 No hay consumos para mostrar
                             </div>
-                            {/* 🔄 CAMBIO 6: Actualizar mensaje de "no hay consumos" también en tabla */}
                             <p className="text-gray-400 text-sm mt-2">
                               {filters.dateFrom || filters.dateTo || filters.equipoFilter || 
                                (filters.faenaSeleccionada && filters.faenaSeleccionada !== 'todas')
                                 ? "Intenta ajustar los filtros de búsqueda"
-                                : "No se han registrado consumos aún"}
+                                : "No se han registrado consumos aún en ninguna faena"}
                             </p>
                           </td>
                         </tr>

@@ -62,19 +62,47 @@ const PDFGenerator = ({
     }
   };
 
-  // Obtener todos los consumos
+  // 🆕 FUNCIÓN MEJORADA PARA OBTENER TODOS LOS CONSUMOS CON LÓGICA DE FAENAS
   const getAllConsumos = async () => {
-    if (!user?.id_faena) throw new Error('Sin faena');
-    
     const token = JSON.parse(localStorage.getItem("authToken"))?.token;
     if (!token) throw new Error('Sin token');
 
     const params = new URLSearchParams({
-      faena: user.id_faena,
       page: 1,
       per_page: 9999,
     });
 
+    // 🔧 LÓGICA DE FAENAS COPIADA DE ConsumosView
+    if (filters?.faenaSeleccionada === 'todas') {
+      // Si es "todas", necesitamos obtener todas las faenas disponibles desde el filtro
+      const todasLasFaenas = filters.faenas || [];
+      
+      if (todasLasFaenas.length > 0) {
+        const idsTodasFaenas = todasLasFaenas.map(f => f.value).join(',');
+        params.append('faenas', idsTodasFaenas); // Enviar como "faenas" (plural)
+        console.log("PDF: Buscando en todas las faenas:", idsTodasFaenas);
+      } else {
+        // Fallback: si no tenemos faenas cargadas, usar faena del usuario
+        if (!user?.id_faena) {
+          throw new Error('Usuario sin faena asignada');
+        }
+        params.append('faena', user.id_faena);
+        console.log("PDF: Fallback usando faena del usuario:", user.id_faena);
+      }
+    } else if (filters?.faenaSeleccionada && filters.faenaSeleccionada !== 'todas') {
+      // Si es una faena específica, enviar esa faena
+      params.append('faena', filters.faenaSeleccionada);
+      console.log("PDF: Buscando en faena específica:", filters.faenaSeleccionada);
+    } else {
+      // Si no hay filtro de faena, usar la faena del usuario por defecto (perfil bombero)
+      if (!user?.id_faena) {
+        throw new Error('Usuario sin faena asignada');
+      }
+      params.append('faena', user.id_faena);
+      console.log("PDF: Usando faena del usuario por defecto:", user.id_faena);
+    }
+
+    // Agregar otros filtros
     if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
     if (filters.dateTo) params.append('dateTo', filters.dateTo);
     if (filters.equipoFilter) params.append('equipoFilter', filters.equipoFilter);
@@ -106,13 +134,17 @@ const PDFGenerator = ({
         stats: allData.stats,
         filters,
         totalItems: allData.totalReal,
-        currentPage: 1
+        currentPage: 1,
+        // 🆕 PASAR USER Y FILTERS AL PDF SERVICE
+        user,
+        filters
       };
 
       const result = await pdfService.generateConsumptionPDF(pdfData);
       showSuccessModal(allData.totalReal, result.fileName);
 
     } catch (error) {
+      console.error('Error generando PDF:', error);
       if (error.message.includes('token') || error.message.includes('faena')) {
         showErrorModal('auth');
       } else {
