@@ -1390,7 +1390,6 @@ const FormConsumo = ({
             <div className="col-span-1">
               <label className="block text-left text-gray-700 text-xs sm:text-sm font-medium mb-1">
                 <span className="flex items-center">
-                  <FaTachometerAlt className="text-gray-500 mr-1" size={14} />
                   Kilometraje Actual <span className="text-red-500">*</span>
                 </span>
               </label>
@@ -1493,7 +1492,7 @@ const FormConsumo = ({
             {numeralInicialSugerido && !estanqueSeleccionado && (
               <p className="text-left text-xs text-blue-600 mt-1 flex items-center">
                 <FaInfoCircle className="mr-1" size={10} />
-                💡 Último consumo de la faena: {parseFloat(numeralInicialSugerido).toLocaleString()}L (se aplicará al seleccionar estanque fijo)
+                Último consumo de la faena: {parseFloat(numeralInicialSugerido).toLocaleString()}L (se aplicará al seleccionar estanque fijo)
               </p>
             )}
 
@@ -1512,7 +1511,7 @@ const FormConsumo = ({
             {estanqueSeleccionado?.tipo_estanque === "movil" && (
               <p className="text-left text-xs text-amber-600 mt-1 flex items-center">
                 <FaTruck className="mr-1" size={10} />
-                🚛 Estanque móvil - Contador automático en 0
+                Estanque móvil - Contador automático en 0
               </p>
             )}
 

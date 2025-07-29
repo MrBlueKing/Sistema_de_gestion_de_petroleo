@@ -1604,7 +1604,6 @@ class ConsumoController extends Controller
             // 🔍 Último consumo DE ESTA MÁQUINA EN LA FAENA ESPECÍFICA (para medición)
             $ultimoConsumoMaquina = DB::table('consumos')
                 ->where('id_equipo', $idMaquina)
-                ->where('id_faena', $idFaena) // ✅ CORRECTO
                 ->orderBy('fecha_consumo', 'desc')
                 ->orderBy('id_consumo', 'desc')
                 ->select('medicion', 'fecha_consumo', 'id_consumo')
