@@ -136,8 +136,7 @@ const PDFGenerator = ({
         totalItems: allData.totalReal,
         currentPage: 1,
         // 🆕 PASAR USER Y FILTERS AL PDF SERVICE
-        user,
-        filters
+        user
       };
 
       const result = await pdfService.generateConsumptionPDF(pdfData);
