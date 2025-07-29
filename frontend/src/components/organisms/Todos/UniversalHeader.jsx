@@ -52,7 +52,7 @@ const UniversalHeader = ({
 
   // Configuración de faenas para el header bombero
   const FAENAS = {
-    1: { ubicacion: "Cabildo", detalle: "Región de Valparaíso", color: "blue-600" },
+    1: { ubicacion: "Cabildo", detalle: "Región de Valparaíso", color: "orange-600" },
     2: { ubicacion: "Catemu", detalle: "Región de Valparaíso", color: "green-600" },
     3: { ubicacion: "Chincolco", detalle: "Región de Valparaíso", color: "purple-600" },
     4: { ubicacion: "Tiltil", detalle: "Región Metropolitana", color: "orange-500" },
@@ -184,7 +184,7 @@ const UniversalHeader = ({
           title: "Gerente",
           hasTopBar: false,
           hasSidebar: false,
-          isFixed: false,
+          isFixed: true,
           showHomeButton: true,
           homeRoute: "/gerente",
           showNotifications: false,
@@ -241,7 +241,7 @@ const UniversalHeader = ({
         {/* Botón home */}
         {config.showHomeButton && (
           <IconButton
-            icono={<FaHome size={18} className="text-blue-600 md:w-5 md:h-5" />}
+            icono={<FaHome size={18} className="text-orange-600 md:w-5 md:h-5" />}
             onClick={() => navigate(config.homeRoute || homeRoute)}
             className="flex-shrink-0"
           />

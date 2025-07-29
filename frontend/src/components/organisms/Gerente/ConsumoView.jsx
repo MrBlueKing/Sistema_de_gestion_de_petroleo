@@ -83,7 +83,7 @@ const Pagination = ({
           disabled={currentPage === 1}
           className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === 1
             ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-            : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
+            : "bg-white text-gray-700 hover:bg-orange-50 hover:text-orange-600 border border-gray-300"
             }`}
         >
           <FaChevronLeft className="w-3 h-3" />
@@ -96,10 +96,10 @@ const Pagination = ({
             onClick={() => typeof page === 'number' && onPageChange(page)}
             disabled={page === '...'}
             className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${page === currentPage
-              ? "bg-blue-600 text-white"
+              ? "bg-orange-600 text-white"
               : page === '...'
                 ? "text-gray-400 cursor-default"
-                : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
+                : "bg-white text-gray-700 hover:bg-orange-50 hover:text-orange-600 border border-gray-300"
               }`}
           >
             {page}
@@ -112,7 +112,7 @@ const Pagination = ({
           disabled={currentPage === totalPages}
           className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === totalPages
             ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-            : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
+            : "bg-white text-gray-700 hover:bg-orange-50 hover:text-orange-600 border border-gray-300"
             }`}
         >
           <FaChevronRight className="w-3 h-3" />
@@ -319,10 +319,10 @@ useEffect(() => {
   return (
     <div className={`${className}`}>
       {/* 🆕 USAR FiltrosComponent con estilo personalizado */}
-      <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-4 sm:p-6 mb-6 sm:mb-8 mt-4">
+      <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-4 sm:p-6 mb-6 sm:mb-8 mt-18">
         {/* Header personalizado que mantiene el estilo original */}
         <div className="flex items-center gap-3 mb-4 sm:mb-6">
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-2 sm:p-3 rounded-xl shadow-lg">
+          <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-2 sm:p-3 rounded-xl shadow-lg">
             <FaCalendarAlt className="text-white text-base sm:text-lg" />
           </div>
           <div>
@@ -367,31 +367,31 @@ useEffect(() => {
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => applyQuickFilter("today")}
-                className="px-2 sm:px-3 py-1 sm:py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs sm:text-sm font-medium"
+                className="px-2 sm:px-3 py-1 sm:py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors text-xs sm:text-sm font-medium"
               >
                 Hoy
               </button>
               <button
                 onClick={() => applyQuickFilter("yesterday")}
-                className="px-2 sm:px-3 py-1 sm:py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs sm:text-sm font-medium"
+                className="px-2 sm:px-3 py-1 sm:py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors text-xs sm:text-sm font-medium"
               >
                 Ayer
               </button>
               <button
                 onClick={() => applyQuickFilter("week")}
-                className="px-2 sm:px-3 py-1 sm:py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs sm:text-sm font-medium"
+                className="px-2 sm:px-3 py-1 sm:py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors text-xs sm:text-sm font-medium"
               >
                 Esta Semana
               </button>
               <button
                 onClick={() => applyQuickFilter("month")}
-                className="px-2 sm:px-3 py-1 sm:py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs sm:text-sm font-medium"
+                className="px-2 sm:px-3 py-1 sm:py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors text-xs sm:text-sm font-medium"
               >
                 Este Mes
               </button>
               <button
                 onClick={() => applyQuickFilter("lastMonth")}
-                className="px-2 sm:px-3 py-1 sm:py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs sm:text-sm font-medium"
+                className="px-2 sm:px-3 py-1 sm:py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors text-xs sm:text-sm font-medium"
               >
                 Mes Anterior
               </button>
@@ -412,26 +412,26 @@ useEffect(() => {
 
         {/* 🆕 Indicador de filtros activos actualizado */}
         {hasActiveFilters && (
-          <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex flex-wrap items-center gap-2 text-blue-700 text-xs sm:text-sm">
+          <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-orange-50 border border-orange-200 rounded-lg">
+            <div className="flex flex-wrap items-center gap-2 text-orange-700 text-xs sm:text-sm">
               <span className="font-medium">Filtros activos:</span>
               {dateFrom && (
-                <span className="bg-blue-100 px-2 py-1 rounded">
+                <span className="bg-orange-100 px-2 py-1 rounded">
                   Desde: <strong>{new Date(dateFrom).toLocaleDateString("es-CL")}</strong>
                 </span>
               )}
               {dateTo && (
-                <span className="bg-blue-100 px-2 py-1 rounded">
+                <span className="bg-orange-100 px-2 py-1 rounded">
                   Hasta: <strong>{new Date(dateTo).toLocaleDateString("es-CL")}</strong>
                 </span>
               )}
               {showFaenaFilter && faenaSeleccionada !== "todas" && (
-                <span className="bg-blue-100 px-2 py-1 rounded">
+                <span className="bg-orange-100 px-2 py-1 rounded">
                   Faena: <strong>{getNombreFaena(faenaSeleccionada)}</strong>
                 </span>
               )}
               {equipoFilter && (
-                <span className="bg-blue-100 px-2 py-1 rounded">
+                <span className="bg-orange-100 px-2 py-1 rounded">
                   Equipo: <strong>{equipoFilter}</strong>
                 </span>
               )}
@@ -467,7 +467,7 @@ const Button = ({
   const colorClasses = {
     orange:
       "bg-gradient-to-r from-orange-500 via-orange-600 to-orange-700 hover:from-orange-600 hover:via-orange-700 hover:to-orange-800 text-white shadow-lg hover:shadow-xl hover:shadow-orange-200/50 hover:scale-105",
-    blue: "bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 hover:from-blue-600 hover:via-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl hover:shadow-blue-200/50 hover:scale-105",
+    orange: "bg-gradient-to-r from-orange-500 via-orange-600 to-orange-700 hover:from-orange-600 hover:via-orange-700 hover:to-orange-800 text-white shadow-lg hover:shadow-xl hover:shadow-orange-200/50 hover:scale-105",
     green:
       "bg-gradient-to-r from-green-500 via-green-600 to-green-700 hover:from-green-600 hover:via-green-700 hover:to-green-800 text-white shadow-lg hover:shadow-xl hover:shadow-green-200/50 hover:scale-105",
     gray: "bg-gray-500 text-white cursor-not-allowed opacity-50",
@@ -521,7 +521,7 @@ const LoadingSpinner = ({ message = "Cargando..." }) => (
     <div className="relative">
       <FaSpinner className="animate-spin text-gray-400 text-3xl sm:text-4xl" />
       <div className="absolute inset-0 animate-ping">
-        <FaSpinner className="text-blue-400 text-3xl sm:text-4xl opacity-20" />
+        <FaSpinner className="text-orange-400 text-3xl sm:text-4xl opacity-20" />
       </div>
     </div>
     <span className="ml-3 sm:ml-4 text-gray-600 font-medium text-base sm:text-lg">{message}</span>
@@ -537,7 +537,7 @@ const ConsumoCard = ({ consumo, formatearFecha, formatNumber }) => {
       {/* Header con fecha y litros */}
       <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
         <div className="flex items-center gap-2">
-          <FaCalendarAlt className="text-blue-600 text-sm" />
+          <FaCalendarAlt className="text-orange-600 text-sm" />
           <div>
             <div className="font-bold text-gray-800 text-sm">{fecha}</div>
             <div className="text-xs text-gray-500">{hora}</div>
@@ -578,7 +578,7 @@ const ConsumoCard = ({ consumo, formatearFecha, formatNumber }) => {
 
         <div>
           <div className="flex items-center gap-1 mb-1">
-            <FaGasPump className="text-blue-600 text-xs" />
+            <FaGasPump className="text-orange-600 text-xs" />
             <span className="text-xs font-medium text-gray-600 uppercase">Estanque</span>
           </div>
           <div className="font-medium text-gray-800 text-xs">
@@ -817,7 +817,7 @@ const fetchConsumos = async (filterParams = {}, page = 1) => {
   // Loading state del usuario
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-orange-50/30 to-gray-100 flex items-center justify-center p-4">
         <div className="text-center bg-white rounded-3xl shadow-2xl p-8 sm:p-12 max-w-md mx-4">
           <LoadingSpinner message="Obteniendo información del usuario..." />
         </div>
@@ -850,7 +850,7 @@ const fetchConsumos = async (filterParams = {}, page = 1) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-100 mb-2 ">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-orange-50/30 to-gray-100 mb-2 ">
       
         <UniversalHeader type="gerente" />
 
@@ -866,13 +866,13 @@ const fetchConsumos = async (filterParams = {}, page = 1) => {
 
         {/* TARJETAS DE ESTADÍSTICAS */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 rounded-xl text-white">
+          <div className="bg-gradient-to-r from-blue-500 to-blue-700 p-4 rounded-xl text-white">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-100 text-sm">Total Consumos</p>
+                <p className="text-orange-100 text-sm">Total Consumos</p>
                 <p className="text-2xl font-bold">{stats.total_consumos.toLocaleString()}</p>
               </div>
-              <FaGasPump className="text-3xl text-blue-200" />
+              <FaGasPump className="text-3xl text-orange-200" />
             </div>
           </div>
 
@@ -937,8 +937,8 @@ const fetchConsumos = async (filterParams = {}, page = 1) => {
                 
                 {/* 🆕 NUEVO: Indicador de que se están mostrando todas las faenas */}
                 {filters.faenaSeleccionada === 'todas' && filters.faenas && filters.faenas.length > 1 && (
-                  <div className="flex items-center gap-2 mt-2 text-xs text-blue-600">
-                    <span className="bg-blue-100 px-2 py-1 rounded-full">
+                  <div className="flex items-center gap-2 mt-2 text-xs text-orange-600">
+                    <span className="bg-orange-100 px-2 py-1 rounded-full">
                       🌍 Mostrando todas las faenas ({filters.faenas.length} faenas)
                     </span>
                   </div>
@@ -959,7 +959,7 @@ const fetchConsumos = async (filterParams = {}, page = 1) => {
                 disabled={loadingConsumos}
               />
               <Button
-                color="blue"
+                color="orange"
                 text="🔄 Actualizar"
                 onClick={() => fetchConsumos(filters, currentPage)}
                 disabled={loadingConsumos}
@@ -985,7 +985,7 @@ const fetchConsumos = async (filterParams = {}, page = 1) => {
               </h3>
               <p className="text-gray-600 mb-4 text-sm sm:text-base">{error}</p>
               <Button
-                color="blue"
+                color="orange"
                 text="🔄 Reintentar"
                 onClick={() => fetchConsumos(filters, currentPage)}
               />
@@ -1058,7 +1058,7 @@ const fetchConsumos = async (filterParams = {}, page = 1) => {
                           return (
                             <tr
                               key={consumo.id_consumo || index}
-                              className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-300"
+                              className="hover:bg-gradient-to-r hover:from-orange-50 hover:to-purple-50 transition-all duration-300"
                             >
                               <td className="py-4 sm:py-5 px-4 sm:px-6 text-sm">
                                 <div className="font-bold text-gray-800">
@@ -1094,7 +1094,7 @@ const fetchConsumos = async (filterParams = {}, page = 1) => {
                                   RUT: {consumo.id_dotacion || "N/A"}
                                 </div>
                                 {consumo.solicitante_tipo && (
-                                  <div className="text-xs text-blue-600">
+                                  <div className="text-xs text-orange-600">
                                     {consumo.solicitante_tipo}
                                   </div>
                                 )}

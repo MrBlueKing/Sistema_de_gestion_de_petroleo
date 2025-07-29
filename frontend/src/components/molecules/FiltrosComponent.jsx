@@ -203,12 +203,12 @@ const FiltrosComponent = ({
     <div className={`space-y-4 ${className}`}>
       {/* Título e información de filtros activos */}
       {mostrarTitulo && hayFiltrosActivos && mostrarResumen && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-          <div className="flex items-center text-sm text-blue-800">
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+          <div className="flex items-center text-sm text-orange-800">
             {incluirHoras ? (
-              <FiClock className="mr-2 text-blue-500" />
+              <FiClock className="mr-2 text-orange-500" />
             ) : (
-              <FiCalendar className="mr-2 text-blue-500" />
+              <FiCalendar className="mr-2 text-orange-500" />
             )}
             {tituloPersonalizado || "Mostrando datos para"}:{" "}
             <span className="font-medium text-gray-700 ml-1">
@@ -234,7 +234,7 @@ const FiltrosComponent = ({
 
           {/* ✅ INDICADOR de modo con horas */}
           {incluirHoras && (
-            <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded mt-2">
+            <div className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded mt-2">
               🕐 Filtro con precisión horaria activado
             </div>
           )}
@@ -271,14 +271,14 @@ const FiltrosComponent = ({
           {mostrarFaenas && (
             <div className={incluirHoras ? "" : "md:col-span-1"}>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                <FaBuilding className="inline mr-2 text-blue-500" />
+                <FaBuilding className="inline mr-2 text-orange-500" />
                 Faena
               </label>
               <select
                 value={faenaSeleccionada}
                 onChange={(e) => handleFaenaChange(e.target.value)}
                 disabled={cargando}
-                className={`w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
                   cargando ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >
@@ -332,7 +332,7 @@ const FiltrosComponent = ({
           {/* Fecha Desde */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              <FiCalendar className="inline mr-2 text-blue-500" />
+              <FiCalendar className="inline mr-2 text-orange-500" />
               Fecha Desde
             </label>
             <input
@@ -340,7 +340,7 @@ const FiltrosComponent = ({
               value={fechaDesde}
               onChange={(e) => handleFechaDesdeChange(e.target.value)}
               disabled={cargando}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+              className={`w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
                 cargando ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             />
@@ -349,7 +349,7 @@ const FiltrosComponent = ({
           {/* Fecha Hasta */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              <FiCalendar className="inline mr-2 text-blue-500" />
+              <FiCalendar className="inline mr-2 text-orange-500" />
               Fecha Hasta
             </label>
             <input
@@ -357,7 +357,7 @@ const FiltrosComponent = ({
               value={fechaHasta}
               onChange={(e) => handleFechaHastaChange(e.target.value)}
               disabled={cargando}
-              className={`w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+              className={`w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
                 cargando ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             />
@@ -414,7 +414,7 @@ const FiltrosComponent = ({
         {cargando && (
           <div className="mt-4 text-center">
             <div className="inline-flex items-center text-sm text-gray-500">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-600 mr-2"></div>
               Aplicando filtros...
             </div>
           </div>

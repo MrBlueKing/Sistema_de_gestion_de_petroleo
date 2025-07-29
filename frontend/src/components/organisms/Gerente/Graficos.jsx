@@ -121,7 +121,7 @@ const Graficos = ({ children }) => {
   }, [fechaDesde, fechaHasta, horaDesde, horaHasta]);
 
   return (
-    <div className="flex-1 overflow-auto bg-gray-50">
+    <div className="flex-1 overflow-auto bg-gray-50 mt-12">
       <UniversalHeader type="gerente" />
       <div className=" py-6">
         {/* Mensajes de estado */}
