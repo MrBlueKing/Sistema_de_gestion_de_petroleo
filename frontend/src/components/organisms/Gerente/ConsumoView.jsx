@@ -67,7 +67,7 @@ const Pagination = ({
   if (totalPages <= 1) return null;
 
   return (
-    <div className="flex items-center justify-between flex-col sm:flex-row gap-4 mt-6 pt-4 border-t border-gray-200">
+    <div className="flex items-center justify-between flex-col sm:flex-row gap-4  pt-4 border-t border-gray-200">
       {/* Información de elementos */}
       <div className="text-sm text-gray-600">
         Mostrando <span className="font-medium">{startItem}</span> a{" "}
@@ -319,7 +319,7 @@ useEffect(() => {
   return (
     <div className={`${className}`}>
       {/* 🆕 USAR FiltrosComponent con estilo personalizado */}
-      <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-4 sm:p-6 mb-6 sm:mb-8">
+      <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-4 sm:p-6 mb-6 sm:mb-8 mt-4">
         {/* Header personalizado que mantiene el estilo original */}
         <div className="flex items-center gap-3 mb-4 sm:mb-6">
           <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-2 sm:p-3 rounded-xl shadow-lg">
@@ -636,128 +636,105 @@ const ConsumosView = () => {
     porcentaje_multiples: 0
   });
 
-  // 🔄 CAMBIO 2: Actualizar fetchConsumos para incluir faena - CORREGIDO v4 SIMPLIFICADO
-  const fetchConsumos = async (filterParams = {}, page = 1) => {
-    setLoadingConsumos(true);
-    setError(null);
+// 🚀 fetchConsumos CORREGIDO - VERSIÓN FINAL
+const fetchConsumos = async (filterParams = {}, page = 1) => {
+  setLoadingConsumos(true);
+  setError(null);
 
-    try {
-      const token = JSON.parse(localStorage.getItem("authToken"))?.token;
-
-      if (!token) {
-        throw new Error("No se encontró token de autenticación");
-      }
-
-      // 🔧 CONSTRUCCIÓN CORRECTA de parámetros de consulta
-      const params = new URLSearchParams({
-        page: page.toString(),
-        per_page: ITEMS_PER_PAGE.toString(),
-      });
-
-      // 🆕 LÓGICA SIMPLIFICADA v4 para faenas
-      if (filterParams.faenaSeleccionada === 'todas') {
-        // Si es "todas", enviar todas las faenas disponibles
-        const todasLasFaenas = filterParams.faenas || [];
-        
-        if (todasLasFaenas.length > 0) {
-          const idsTodasFaenas = todasLasFaenas.map(f => f.value).join(',');
-          params.append('faenas', idsTodasFaenas); // Enviar como "faenas" (plural)
-          console.log("🌍 Buscando en todas las faenas:", idsTodasFaenas);
-        } 
-        
-      } else if (filterParams.faenaSeleccionada && filterParams.faenaSeleccionada !== 'todas') {
-        // Si es una faena específica, enviar esa faena
-        params.append('faena', filterParams.faenaSeleccionada);
-        console.log("🎯 Buscando en faena específica:", filterParams.faenaSeleccionada);
-      } else {
-        // Caso por defecto: usar faena del usuario
-        if (user?.id_faena) {
-          params.append('faena', user.id_faena);
-          console.log("👤 Usando faena del usuario:", user.id_faena);
-        } else {
-          console.log("❌ No hay usuario disponible");
-          setLoadingConsumos(false);
-          return;
-        }
-      }
-
-      // 🔧 AGREGAR OTROS FILTROS
-      if (filterParams.dateFrom) {
-        params.append('dateFrom', filterParams.dateFrom);
-      }
-
-      if (filterParams.dateTo) {
-        params.append('dateTo', filterParams.dateTo);
-      }
-
-      if (filterParams.equipoFilter) {
-        params.append('equipoFilter', filterParams.equipoFilter);
-      }
-
-      console.log(
-        "📤 Parámetros finales enviados al backend:",
-        Object.fromEntries(params)
-      );
-
-      const response = await axios.get(`/api/consumosFecha?${params}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      console.log("📥 Consumos recibidos:", response.data);
-
-      // 🔧 MANEJO CORRECTO de la respuesta según la estructura de tu API modificada
-      if (response.data.success) {
-        const consumosData = response.data.data || [];
-        setConsumos(consumosData);
-
-        // 🆕 MANEJAR ESTADÍSTICAS de la API
-        if (response.data.stats) {
-          setStats(response.data.stats);
-        }
-
-        // 🔧 CAMBIAR POR ESTO (priorizar pagination.total):
-        const total = response.data.pagination?.total ||
-          response.data.stats?.total_consumos ||
-          0;
-
-        setTotalItems(total);
-
-        // 🆕 MARCAR QUE YA NO ES LA PRIMERA CARGA
-        if (isFirstLoad) {
-          setIsFirstLoad(false);
-          console.log("✅ Primera carga completada");
-        }
-
-        console.log("✅ Datos cargados correctamente:", {
-          total,
-          consumos: consumosData.length
-        });
-
-      } else {
-        throw new Error(response.data.message || 'Error en la respuesta del servidor');
-      }
-
-    } catch (error) {
-      console.error("❌ Error al cargar consumos:", error);
-
-      let errorMessage = "Error al cargar consumos";
-      if (error.response?.status === 401) {
-        errorMessage = "Sesión expirada. Por favor, inicie sesión nuevamente.";
-      } else if (error.response?.status === 403) {
-        errorMessage = "No tiene permisos para acceder a esta información.";
-      } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      setError(errorMessage);
-    } finally {
-      setLoadingConsumos(false);
+  try {
+    const token = JSON.parse(localStorage.getItem("authToken"))?.token;
+    if (!token) {
+      throw new Error("No se encontró token de autenticación");
     }
-  };
+
+    const params = new URLSearchParams({
+      page: page.toString(),
+      per_page: ITEMS_PER_PAGE.toString(),
+    });
+
+    // 🎯 VALIDACIÓN CRÍTICA: Solo continuar si hay faenas válidas
+    if (filterParams.faenaSeleccionada === 'todas') {
+      const todasLasFaenas = filterParams.faenas || [];
+      
+      if (todasLasFaenas.length === 0) {
+        console.log("❌ [FETCH] No hay faenas disponibles - cancelando consulta");
+        setLoadingConsumos(false);
+        return; // SALIR sin hacer consulta
+      }
+      
+      const idsTodasFaenas = todasLasFaenas.map(f => f.value).join(',');
+      params.append('faenas', idsTodasFaenas);
+      console.log("🌍 [FETCH] Consultando todas las faenas:", idsTodasFaenas);
+      
+    } else if (filterParams.faenaSeleccionada && filterParams.faenaSeleccionada !== 'todas') {
+      params.append('faena', filterParams.faenaSeleccionada);
+      console.log("🎯 [FETCH] Consultando faena específica:", filterParams.faenaSeleccionada);
+      
+    } else {
+      console.log("❌ [FETCH] No hay configuración válida de faenas - cancelando consulta");
+      setLoadingConsumos(false);
+      return; // SALIR sin hacer consulta
+    }
+
+    // Agregar otros filtros
+    if (filterParams.dateFrom) {
+      params.append('dateFrom', filterParams.dateFrom);
+    }
+    if (filterParams.dateTo) {
+      params.append('dateTo', filterParams.dateTo);
+    }
+    if (filterParams.equipoFilter) {
+      params.append('equipoFilter', filterParams.equipoFilter);
+    }
+
+    console.log("📤 [FETCH] URL final:", `/api/consumos?${params.toString()}`);
+
+    const response = await axios.get(`/api/consumos?${params.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      }
+    });
+
+    if (response.data && response.data.success) {
+      const { data: consumosData, stats, pagination } = response.data;
+      
+      setConsumos(Array.isArray(consumosData) ? consumosData : []);
+      setStats(stats || {
+        total_consumos: 0,
+        total_litros: 0,
+        promedio_consumo: 0,
+        costo_total: 0,
+        equipo_mas_usado: "N/A",
+        consumos_simples: 0,
+        consumos_multiples: 0,
+        porcentaje_multiples: 0
+      });
+      setTotalItems(pagination?.total || 0);
+
+      if (isFirstLoad) {
+        setIsFirstLoad(false);
+        console.log("✅ [FETCH] Primera carga completada");
+      }
+
+      console.log("✅ [FETCH] Éxito:", consumosData.length, "consumos cargados");
+
+    } else {
+      throw new Error(response.data?.message || 'Error en respuesta');
+    }
+
+  } catch (error) {
+    console.error("❌ [FETCH] Error:", error.message);
+    setError(error.response?.data?.message || error.message);
+    setConsumos([]);
+    setTotalItems(0);
+  } finally {
+    setLoadingConsumos(false);
+  }
+};
+
+
+
 
   // 🔄 CAMBIO 3: Actualizar el manejador de filtros
   const handleFilterChange = (newFilters) => {
@@ -809,13 +786,7 @@ const ConsumosView = () => {
     }
   }, [filters.faenas]);
 
-  // useEffect para cambios del usuario (mantener el que ya tenías)
-  useEffect(() => {
-    if (!loading && user && !isFirstLoad) {
-      console.log("👤 Usuario cambió, recargando datos...");
-      fetchConsumos(filters, currentPage);
-    }
-  }, [user?.id_faena]);
+  
 
   // Función para formatear fecha
   const formatearFecha = (fechaString) => {
@@ -879,7 +850,7 @@ const ConsumosView = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-100 py-4 sm:py-6 px-3 sm:px-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-100 mb-2 ">
       
         <UniversalHeader type="gerente" />
 
