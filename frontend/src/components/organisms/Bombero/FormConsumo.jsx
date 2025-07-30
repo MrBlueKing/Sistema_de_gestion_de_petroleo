@@ -376,7 +376,7 @@ const FormConsumo = ({
       }
 
       // ⚠️ ADVERTENCIA: Valor alto - necesita confirmación
-      const limiteCuidadoKm = ultimaMedicion + 1000;
+      const limiteCuidadoKm = ultimaMedicion + 500;
       if (valorActual > limiteCuidadoKm) {
         return {
           valido: false,
@@ -944,7 +944,7 @@ const FormConsumo = ({
         }
 
         // ⚠️ WARNING: Kilometraje alto pero razonable (1,000-10,000 km)
-        const limiteCuidadoKm = ultimaMedicion + 1000;
+        const limiteCuidadoKm = ultimaMedicion + 500;
         if (kmActual > limiteCuidadoKm) {
           console.log("⚠️ Kilometraje en rango alto - WARNING");
           return {
@@ -956,7 +956,7 @@ const FormConsumo = ({
               valorActual: kmActual,
               valorAnterior: ultimaMedicion,
               diferencia: kmActual - ultimaMedicion,
-              sugerencia: `Se detectó un recorrido superior a 1,000 km. Confirme si es correcto.`
+              sugerencia: `Se detectó un recorrido superior a 500 km. Confirme si es correcto.`
             }
           };
         }
