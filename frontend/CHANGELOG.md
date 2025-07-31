@@ -20,10 +20,34 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 ## [Unreleased]
 
 ### Added
-- [Testing] Medición visible: Ahora, en el registro de consumo, la etiqueta de la máquina mostrará su última medición registrada.
-- [Testing] Numeral inicial preestablecido: El numeral inicial ahora se sugiere automáticamente como valor preestablecido (no definitivo) para facilitar el ingreso del consumo. En consumos desde estanques móviles, este valor será 0 por defecto.
-- [Testing] Validación de medición actual: Se ha implementado una nueva restricción: la medición actual no puede ser menor que la última registrada, evitando así inconsistencias en los datos.
-- [Testing] Mensaje de confirmación por diferencia de medición: Si la medición actual supera la anterior por más de 12 horas (en horómetro) o 1000 km (en kilometraje), se mostrará un mensaje de advertencia que solicita confirmar o cancelar el ingreso.
+- [WIP] Encargado de Operaciones de Combustible: Se añadira un nuevo boton en el panel de control inicial, este boton tendra la funcionalidad de poder visualizar los consumos o trayectoria de las maquinas filtradas.
+
+- [Planned] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
+- [Planned] Rol de jefe de mina, bombero 2 y operador vehiculo.
+
+-[PRUEBA] 
+
+### Changed
+- [WIP] Encargado de Operaciones de Combustible: Anteriormente solo se mostraba la última medición registrada. Ahora se implementará un mini historial que muestre los dos últimos consumos, incluyendo la siguiente información: quién realizó el consumo, en qué lugar, cuánta cantidad se utilizó y cuándo ocurrió.
+### Depecrated
+- Ninguno 
+
+### Removed
+- Ninguno 
+
+### Fixed
+- [Ready] nada por hacer.
+### Security
+- Ninguno
+
+---
+
+## [2.1.0] - 2025-07-30
+### Added   
+- [Ready] Medición visible: Ahora, en el registro de consumo, la etiqueta de la máquina mostrará su última medición registrada.
+- [Ready] Numeral inicial preestablecido: El numeral inicial ahora se sugiere automáticamente como valor preestablecido (no definitivo) para facilitar el ingreso del consumo. En consumos desde estanques móviles, este valor será 0 por defecto.
+- [Ready] Validación de medición actual: Se ha implementado una nueva restricción: la medición actual no puede ser menor que la última registrada, evitando así inconsistencias en los datos.
+- [Ready] Mensaje de confirmación por diferencia de medición: Si la medición actual supera la anterior por más de 12 horas (en horómetro) o 1000 km (en kilometraje), se mostrará un mensaje de advertencia que solicita confirmar o cancelar el ingreso.
 - [Ready] Se mejoró la generación de PDF, añadiendo la opción de filtrado por faenas y la adaptación dinámica del ícono según la ubicación seleccionada.
 
 - [WIP] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
