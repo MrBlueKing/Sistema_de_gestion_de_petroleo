@@ -1634,14 +1634,25 @@ class ConsumoController extends Controller
             }
 
             // 📊 Formatear medición si existe
+            // 📊 Formatear medición si existe
             $medicionFormateada = null;
             if ($ultimoConsumoMaquina) {
-                $unidad = $maquinaInfo->tipo_medicion === 'Horometro' ? 'hrs' : 'km';
-                $medicionFormateada = number_format($ultimoConsumoMaquina->medicion, 0, ',', '.') . ' ' . $unidad;
+                $medicion = floatval($ultimoConsumoMaquina->medicion);
+
+                if ($maquinaInfo->tipo_medicion === 'Horometro') {
+                    // ⏰ HORÓMETRO: Siempre 1 decimal
+                    $medicionFormateada = number_format($medicion, 1, ',', '.') . ' hrs';
+                } else {
+                    // 🚗 KILOMETRAJE: Sin decimales (redondeado)
+                    $medicionFormateada = number_format($medicion, 0, ',', '.') . ' km';
+                }
             } else {
                 // Si no hay consumo previo, mostrar 0
-                $unidad = $maquinaInfo->tipo_medicion === 'Horometro' ? 'hrs' : 'km';
-                $medicionFormateada = '0 ' . $unidad;
+                if ($maquinaInfo->tipo_medicion === 'Horometro') {
+                    $medicionFormateada = '0.0 hrs';
+                } else {
+                    $medicionFormateada = '0 km';
+                }
             }
 
             // 🔍 Log para debugging (opcional, puedes removerlo en producción)
@@ -1688,6 +1699,79 @@ class ConsumoController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error al obtener el último consumo: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    /**
+     * Obtener los últimos N consumos de una máquina específica - VERSIÓN MEJORADA
+     */
+    public function getUltimosConsumosMaquina($id_maquina, Request $request)
+    {
+        try {
+            $limit = $request->input('limit', 2); // Por defecto 2 registros
+
+            $consumos = DB::table('consumos as c')
+                ->leftJoin('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
+                ->leftJoin('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
+                ->leftJoin('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria')
+                // ✅ JOIN CORREGIDO para obtener faena.ubicacion
+                ->leftJoin('faenas as f', 'c.id_faena', '=', 'f.id_faena')
+                ->where('c.id_equipo', $id_maquina)
+                ->select([
+                    'c.id_consumo',
+                    'c.id_dotacion',
+                    'c.id_equipo',
+                    'c.id_usuario',
+                    'c.fecha_consumo',
+                    'c.litros_consumidos',
+                    'c.tipo_consumo',
+                    'c.tipo_operacion',
+                    'c.id_faena',
+                    'c.id_estanque',
+                    'c.medicion',
+                    'c.numeral_inicial',
+                    'c.numeral_final',
+                    'c.precio_litro',
+                    'c.observacion',
+                    'c.created_at',
+                    'c.updated_at',
+
+                    // Datos de la máquina
+                    'm.id_maquina',
+                    'm.id_categoria',
+                    'm.nombre_maquina',
+                    'm.tipo_maquina',
+                    'm.estado',
+                    'm.chc_maquina',
+                    'mi.patente',
+
+                    // ✅ DATOS DE LA FAENA MEJORADOS
+                    'f.ubicacion as faena_ubicacion',
+                    'f.detalle as faena_detalle',
+
+                    // Datos de categoría para tipo de medición
+                    'cm.tipo_medicion'
+                ])
+                ->orderBy('c.fecha_consumo', 'desc')
+                ->orderBy('c.id_consumo', 'desc') // Desempate por ID
+                ->limit($limit)
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $consumos,
+                'total' => $consumos->count(),
+                'machine_info' => [
+                    'id_maquina' => $id_maquina,
+                    'nombre_maquina' => $consumos->first()->nombre_maquina ?? null,
+                    'patente' => $consumos->first()->patente ?? null,
+                    'tipo_medicion' => $consumos->first()->tipo_medicion ?? null
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener consumos: ' . $e->getMessage()
             ], 500);
         }
     }

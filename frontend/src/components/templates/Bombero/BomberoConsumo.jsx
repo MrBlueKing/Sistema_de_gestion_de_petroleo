@@ -7,11 +7,20 @@ import UniversalHeader from "../../organisms/Todos/UniversalHeader";
 import PageControl from "../../molecules/PageControl";
 import TabProgressBar from "../../molecules/TabProgressBar";
 import ConsumoForm from "../../organisms/Bombero/FormConsumo";
-import { FaArrowLeft, FaCarSide, FaUserAlt, FaCheck, FaHome, FaPlus, FaInfoCircle } from "react-icons/fa";
+import {
+  FaArrowLeft, FaCarSide, FaUserAlt, FaCheck, FaHome, FaPlus, FaInfoCircle, FaClipboardList, FaClock, FaHistory,
+  FaMapMarkerAlt,
+  FaCalendarAlt,
+  FaGasPump,
+  FaTachometerAlt,
+  FaTruck,
+  FaExclamationTriangle
+} from "react-icons/fa";
 import StepHeader from "../../molecules/StepHeader";
 import Button from "../../atoms/Button/Button";
 import { format } from "date-fns";
-import { useUltimaMedicionNumeralFinal } from "../../../hook/Bombero/useUltimaMedicionNumeralFinal"; // 🆕 NUEVO IMPORT
+import { useUltimaMedicionNumeralFinal } from "../../../hook/Bombero/useUltimaMedicionNumeralFinal";
+import { useHistorialConsumos } from "../../../hook/Bombero/useHistorialConsumos";
 
 const Consumo = ({
   onPrevious,
@@ -23,7 +32,7 @@ const Consumo = ({
   resetFlow = null,
   preloadedEstanques = null
 }) => {
-  const DEBUG = true; // o true si estás depurando
+  const DEBUG = true;
   const { user, loading } = useContext(UserContext);
   const navigate = useNavigate();
 
@@ -47,21 +56,45 @@ const Consumo = ({
   const [successData, setSuccessData] = useState(null);
   const [estanqueSeleccionado, setEstanqueSeleccionado] = useState(null);
 
-  // 🆕 HOOK PARA ÚLTIMA MEDICIÓN (reemplaza los estados manuales anteriores)
+  // HOOKS
   const {
     loading: loadingUltimaMedicion,
     error: errorUltimaMedicion,
-    data, // <-- AGREGAR ESTA LÍNEA
+    data,
     medicionFormateada,
     tieneConsumo,
     numeralInicialSugerido,
     cargarUltimaMedicion
   } = useUltimaMedicionNumeralFinal();
 
+  const {
+    loadingHistorial,
+    errorHistorial,
+    historialConsumos,
+    tieneHistorial,
+    ultimoConsumo,
+    penultimoConsumo,
+    cantidadConsumos,
+    cargarHistorialConsumos
+  } = useHistorialConsumos();
+
   // Constantes
   const totalPages = 4;
 
-  // TODOS los useEffect juntos al inicio para mantener el orden
+  // ✅ SOLO UN useEffect para cargar ambos datos
+  useEffect(() => {
+    if (patenteSeleccionada?.id_maquina && userInfo?.id_faena) {
+      console.log('🎯 Cargando datos para máquina:', patenteSeleccionada.id_maquina, 'faena:', userInfo.id_faena);
+
+      // Cargar última medición (necesita faena)
+      cargarUltimaMedicion(patenteSeleccionada.id_maquina, userInfo.id_faena);
+
+      // Cargar historial (independiente de faena)
+      cargarHistorialConsumos(patenteSeleccionada.id_maquina, 2);
+    }
+  }, [patenteSeleccionada?.id_maquina, userInfo?.id_faena, cargarUltimaMedicion, cargarHistorialConsumos]);
+
+  // Resto de useEffects...
   useEffect(() => {
     DEBUG && console.log('DEBUG CONSUMO - Props recibidas:', {
       onPrevious: typeof onPrevious,
@@ -100,14 +133,6 @@ const Consumo = ({
     }
   }, [user, loading]);
 
-  // 🆕 NUEVO useEffect: Cargar información de la última medición usando el hook
-  useEffect(() => {
-    if (patenteSeleccionada?.id_maquina && userInfo?.id_faena) {
-      console.log('🎯 Cargando datos para máquina:', patenteSeleccionada.id_maquina, 'faena:', userInfo.id_faena);
-      cargarUltimaMedicion(patenteSeleccionada.id_maquina, userInfo.id_faena);
-    }
-  }, [patenteSeleccionada?.id_maquina, userInfo?.id_faena, cargarUltimaMedicion]);
-
   useEffect(() => {
     const inicial = parseFloat(formData.numeralInicial) || 0;
     const final = parseFloat(formData.numeralFinal) || 0;
@@ -120,7 +145,7 @@ const Consumo = ({
     }
   }, [formData.numeralInicial, formData.numeralFinal]);
 
-  // Funciones
+  // Funciones (sin cambios)
   const getFaenaId = () => {
     if (idFaena) {
       return idFaena;
@@ -152,7 +177,7 @@ const Consumo = ({
   };
 
   const handleConsumoComplete = (response = null) => {
-    DEBUG && console.log('DEBUG CONSUMO - Consumo completado desde ConsumoFormMultiEstanque', response);
+    DEBUG && console.log('DEBUG CONSUMO - Consumo completado', response);
 
     setIsSaved(true);
     setIsSaving(false);
@@ -243,7 +268,6 @@ const Consumo = ({
     return true;
   };
 
-  // 🆕 FUNCIÓN ACTUALIZADA para mostrar el kilometraje actual usando el hook
   const renderKilometrajeActual = () => {
     if (loadingUltimaMedicion) {
       return (
@@ -317,7 +341,6 @@ const Consumo = ({
 
       const response = await axios.post('/api/consumos', apiData);
       DEBUG && console.log("datos: ", response.data);
-      DEBUG && console.log("datos: ", response.data.data);
 
       if (response.data.success) {
         setIsSaved(true);
@@ -388,6 +411,139 @@ const Consumo = ({
       : patenteSeleccionada;
   };
 
+  // ✅ Componente EXACTO como la imagen - PROFESIONAL
+  const renderHistorialConsumos = () => {
+    if (loadingHistorial) {
+      return (
+        <div className="flex items-center justify-center p-4">
+          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-500"></div>
+          <span className="ml-2 text-sm text-gray-600">Cargando historial...</span>
+        </div>
+      );
+    }
+
+    if (errorHistorial) {
+      return (
+        <div className="text-center p-4">
+          <p className="text-sm text-red-600">Error: {errorHistorial}</p>
+        </div>
+      );
+    }
+
+    if (!tieneHistorial) {
+      return (
+        <div className="text-center p-4">
+          <p className="text-sm text-gray-500">No se encontraron consumos previos</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        {historialConsumos.map((consumo, index) => {
+          const esReciente = index === 0;
+
+          return (
+            <div
+              key={consumo.id_consumo}
+              className={`rounded-lg p-4 ${esReciente
+                  ? 'bg-blue-50 border border-blue-200'
+                  : 'bg-gray-50 border border-gray-200'
+                }`}
+            >
+              {/* BADGE */}
+              <div className="mb-3">
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${esReciente
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-500 text-white'
+                  }`}>
+                  <span className="mr-1">
+                    {esReciente ? '🕐' : '🕑'}
+                  </span>
+                  {esReciente ? 'Última Medición' : 'Anterior'}
+                </span>
+              </div>
+
+              {/* UBICACIÓN */}
+              <div className="mb-4">
+                <div className="flex items-center text-gray-600">
+                  <span className="mr-1">📍</span>
+                  <span className="font-medium">{consumo.faena_ubicacion}</span>
+                </div>
+              </div>
+
+              {/* FECHA Y COMBUSTIBLE */}
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <div className="flex items-center text-gray-500 text-xs font-medium mb-1">
+                    <span className="mr-1">📅</span>
+                    FECHA
+                  </div>
+                  <div className="text-blue-600 font-semibold">
+                    {consumo.fecha_formateada}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center text-gray-500 text-xs font-medium mb-1">
+                    <span className="mr-1">⛽</span>
+                    COMBUSTIBLE
+                  </div>
+                  <div className="text-green-600 font-bold">
+                    {consumo.litros_consumidos.toFixed(1)} L
+                  </div>
+                </div>
+              </div>
+
+              {/* MEDICIÓN */}
+              <div className="border-t border-gray-200 pt-3">
+                <div className="flex items-center text-gray-500 text-xs font-medium mb-1">
+                  <span className="mr-1">🔶</span>
+                  {data?.maquina?.tipo_medicion === 'Horometro' ? 'HORÓMETRO' : 'KILOMETRAJE'}
+                </div>
+                <div className={`font-bold ${esReciente ? 'text-orange-600' : 'text-gray-700'
+                  }`}>
+                  {data?.maquina?.tipo_medicion === 'Horometro'
+                    ? `${consumo.medicion.toFixed(1)} hrs`
+                    : `${Math.round(consumo.medicion).toLocaleString()} km`
+                  }
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderSuccessScreen = () => {
+    return (
+      <div className="flex flex-col items-center justify-center py-6 px-4 text-center space-y-6">
+        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
+          <FaCheck className="text-green-600 w-10 h-10" />
+        </div>
+        <h2 className="text-2xl font-bold text-gray-800">¡Consumo registrado exitosamente!</h2>
+        {/* Resto del success screen... */}
+        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md mt-4">
+          <button
+            onClick={handleBackToStart}
+            className="w-full sm:w-1/2 bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg flex items-center justify-center"
+          >
+            <FaPlus className="mr-2" />
+            <span>Nuevo registro</span>
+          </button>
+          <button
+            onClick={() => navigate('/bombero')}
+            className="w-full sm:w-1/2 bg-gray-100 hover:bg-gray-200 text-gray-800 py-3 px-4 rounded-lg flex items-center justify-center"
+          >
+            <FaHome className="mr-2" />
+            <span>Volver al inicio</span>
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   // Variables derivadas
   const tipoMedicion = categoriaSeleccionada &&
     typeof categoriaSeleccionada === 'object' &&
@@ -438,69 +594,6 @@ const Consumo = ({
     );
   }
 
-  const renderSuccessScreen = () => {
-    return (
-      <div className="flex flex-col items-center justify-center py-6 px-4 text-center space-y-6">
-        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
-          <FaCheck className="text-green-600 w-10 h-10" />
-        </div>
-
-        <h2 className="text-2xl font-bold text-gray-800">¡Consumo registrado exitosamente!</h2>
-
-        <div className="bg-white rounded-lg shadow-md p-4 w-full max-w-md">
-          <div className="grid grid-cols-2 gap-4 text-left">
-            <div className="col-span-2 border-b pb-2 mb-2">
-              <p className="text-sm text-gray-500">Número de registro</p>
-              <p className="font-semibold">{successData?.id || 'N/A'}</p>
-            </div>
-
-            <div>
-              <p className="text-sm text-gray-500">Litros consumidos</p>
-              <p className="font-semibold">{successData?.litros || 'N/A'} L</p>
-            </div>
-
-            <div>
-              <p className="text-sm text-gray-500">Fecha y hora</p>
-              <p className="font-semibold">{successData?.fecha || 'N/A'}</p>
-            </div>
-
-            <div className="col-span-2 mt-2">
-              <p className="text-sm text-gray-500">Solicitante</p>
-              <p className="font-semibold">{successData?.solicitante || 'N/A'}</p>
-            </div>
-
-            <div className="col-span-2">
-              <p className="text-sm text-gray-500">Equipo/Vehículo</p>
-              <p className="font-semibold">{successData?.equipo || 'N/A'}</p>
-            </div>
-            <div className="col-span-2">
-              <p className="text-sm text-gray-500">Observación</p>
-              <p className="font-semibold">{successData?.observacion || 'N/A'}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md mt-4">
-          <button
-            onClick={handleBackToStart}
-            className="w-full sm:w-1/2 bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg flex items-center justify-center"
-          >
-            <FaPlus className="mr-2" />
-            <span>Nuevo registro</span>
-          </button>
-
-          <button
-            onClick={() => navigate('/bombero')}
-            className="w-full sm:w-1/2 bg-gray-100 hover:bg-gray-200 text-gray-800 py-3 px-4 rounded-lg flex items-center justify-center"
-          >
-            <FaHome className="mr-2" />
-            <span>Volver al inicio</span>
-          </button>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 pt-6">
       <main className="flex-1 w-full p-2 sm:p-3 md:p-4 text-center">
@@ -513,7 +606,6 @@ const Consumo = ({
             <TabProgressBar activeTab="consumo" />
 
             <div className="bg-white rounded-xl sm:rounded-2xl md:rounded-3xl p-2 sm:p-3 md:p-4 flex-grow flex flex-col">
-
               {isSaved ? (
                 renderSuccessScreen()
               ) : (
@@ -524,6 +616,7 @@ const Consumo = ({
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                    {/* Solicitante */}
                     <div className="bg-blue-50 rounded-lg p-2 border-l-4 border-blue-500 hover:bg-blue-100 transition-all duration-300">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-blue-100 text-blue-600">
@@ -548,6 +641,7 @@ const Consumo = ({
                       </div>
                     </div>
 
+                    {/* Máquina */}
                     <div className="bg-amber-50 rounded-lg p-2 border-l-4 border-amber-500 hover:bg-amber-100 transition-all duration-300">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-amber-100 text-amber-600">
@@ -567,12 +661,28 @@ const Consumo = ({
                               </span>
                             )}
                           </div>
-                          {/* 🆕 AQUÍ SE MUESTRA EL KILOMETRAJE ACTUAL usando el hook */}
-                          <div className="mt-1">
-                            <span className="text-xs text-gray-600 font-medium">Ultima Medición: </span>
-                            {renderKilometrajeActual()}
-                          </div>
                         </div>
+                      </div>
+                    </div>
+
+                    {/* ✅ HISTORIAL - NUEVA SECCIÓN */}
+                    <div className="col-span-1 sm:col-span-2 bg-green-50 rounded-lg p-3 border-l-4 border-green-500 hover:bg-green-100 transition-all duration-300">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-green-100 text-green-600">
+                          <FaClipboardList />
+                        </div>
+                        <div className="flex flex-col text-left flex-1">
+                          <span className="text-gray-700 font-semibold text-sm">
+                            Historial últimos dos consumos de la máquina
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {tieneHistorial ? `${cantidadConsumos} registro(s) encontrado(s)` : 'Sin registros previos'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-2">
+                        {renderHistorialConsumos()}
                       </div>
                     </div>
                   </div>
@@ -597,13 +707,10 @@ const Consumo = ({
                       userInfo={userInfo}
                       onComplete={handleConsumoComplete}
                       resetFlow={resetFlow}
-
-                      // 🆕 NUEVAS PROPS: Pasar datos del hook a FormConsumo
                       numeralInicialSugerido={numeralInicialSugerido}
                       loadingNumeralSugerido={loadingUltimaMedicion}
                       errorNumeralSugerido={errorUltimaMedicion}
-                      // 🎯 ESTA ES LA PROP QUE FALTA - los datos completos
-                      datosUltimaMedicion={data}  // <-- AGREGAR ESTA LÍNEA
+                      datosUltimaMedicion={data}
                     />
                   </div>
                 </>

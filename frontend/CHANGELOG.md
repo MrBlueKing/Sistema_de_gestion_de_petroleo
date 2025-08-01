@@ -8,13 +8,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and 
 
 Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
-- `[WIP]` = *Work In Progress*: ya se está desarrollando, aún no está terminado.
-- `[Planned]` = Planificado para una futura versión.
-- `[Idea]` = Propuesta aún no aprobada.
-- `[Blocked]` = En pausa, depende de otro cambio.
-- `[Testing]` = En fase de pruebas, pendiente de validación.
-- `[Refactor]` = Cambios internos que no afectan la funcionalidad.
-- `[Ready]` = Completado, probado y listo para entrar en la próxima versión estable
+- [WIP] = Work In Progress: ya se está desarrollando, aún no está terminado.
+- [Planned] = Planificado para una futura versión.
+- [Idea] = Propuesta aún no aprobada.
+- [Blocked] = En pausa, depende de otro cambio.
+- [Testing] = En fase de pruebas, pendiente de validación.
+- [Refactor] = Cambios internos que no afectan la funcionalidad.
+- [Ready] = Completado, probado y listo para entrar en la próxima versión estable
 ---
 
 ## [Unreleased]
@@ -25,10 +25,12 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 - [Planned] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
 - [Planned] Rol de jefe de mina, bombero 2 y operador vehiculo.
 
--[PRUEBA] 
-
 ### Changed
 - [WIP] Encargado de Operaciones de Combustible: Anteriormente solo se mostraba la última medición registrada. Ahora se implementará un mini historial que muestre los dos últimos consumos, incluyendo la siguiente información: quién realizó el consumo, en qué lugar, cuánta cantidad se utilizó y cuándo ocurrió.
+- [WIP] Encargado de Operaciones de Combustible: Antes se visualizaba solo la ultima medicion, ahora es necesario poder mostrar un "mini historial" de los ultimos dos consumos donde se obtenga la siguiente iformación: quién, dónde, cuanto, cuando. 
+
+- [Planned] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
+- [Planned] Rol de jefe de mina, bombero 2 y operador vehiculo.
 ### Depecrated
 - Ninguno 
 
@@ -37,6 +39,8 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 ### Fixed
 - [Ready] nada por hacer.
+- [WiP] Gerente : Graficos.jsx --> Consumo_PieChart --> Se filtra mal cuando uno selecciona todas las faenas, Se modificara el metodo para que entienda como se debe filtrar si se selecciona todas las faenas. 
+
 ### Security
 - Ninguno
 
@@ -75,4 +79,4 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 ## [2.0.0] - 2025-07-01
 
 ### Added
-- Versión Oficial En Producción. 
+- Versión Oficial En Producción.

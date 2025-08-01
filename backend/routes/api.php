@@ -296,6 +296,9 @@ Route::middleware('auth:sanctum')->group(function () {
         // Otras rutas de consumos
         Route::get('/recientes', [ConsumoController::class, 'getConsumosRecientes']);
         Route::get('/', [ConsumoController::class, 'getConsumos']);
+
+        //Rutas para obtener los ultimos dos consumos de una maquina especifica independientemente de la faena
+        Route::get('/ultimos/{id_maquina}', [ConsumoController::class, 'getUltimosConsumosMaquina']);
     });
 
 

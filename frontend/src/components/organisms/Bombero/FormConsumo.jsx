@@ -1536,7 +1536,7 @@ const FormConsumo = ({
               disabled={isSaving || isSaved}
               className={`w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${hasNumeralError ? "border-red-500 bg-red-50" : "border-gray-300"
                 }`}
-              placeholder="Ej: 150.5"
+              placeholder="Ej: 150"
             />
             {hasNumeralError && (
               <p className="text-left text-xs text-red-500 mt-1">
