@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import logoEmpresa from '../../assets/logo.png'
+import logoEmpresa from '../../assets/Syc.png'
 import logoFaenaTilTil from '../../assets/procesos.png'
 import axios from '../../lib/axios';
 

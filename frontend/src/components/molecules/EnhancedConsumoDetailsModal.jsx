@@ -74,55 +74,58 @@ const EnhancedConsumoDetailsModal = ({
     }
   }, [isOpen, categoria, fechaDesde, fechaHasta, faenaSeleccionada, refreshKey]);
 
-  // 🆕 TAMBIÉN RECARGAR TODOS LOS DATOS (no solo página 1) PARA TENDENCIAS
-  const fetchAllConsumosForTrends = async () => {
-    if (!categoria || !isOpen) return [];
+// En EnhancedConsumoDetailsModal.jsx
+const fetchAllConsumosForTrends = async () => {
+  if (!categoria || !isOpen) return [];
 
-    try {
-      const token = JSON.parse(localStorage.getItem("authToken"))?.token;
-      
-      if (!token) {
-        throw new Error("No se encontró token de autenticación");
-      }
-
-      const params = new URLSearchParams({
-        page: '1',
-        per_page: '1000',
-      });
-
-      if (faenaSeleccionada && faenaSeleccionada !== 'todas') {
-        params.append('faena', faenaSeleccionada);
-      } else {
-        params.append('faena', '1');
-      }
-
-      if (fechaDesde) {
-        params.append('dateFrom', fechaDesde);
-      }
-      if (fechaHasta) {
-        params.append('dateTo', fechaHasta);
-      }
-
-      params.append('id_categoria', categoria.id.toString());
-      
-      const response = await axios.get(`/api/consumos-categoria?${params}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.data.success) {
-        const allConsumosData = response.data.data || [];
-        return allConsumosData;
-      } else {
-        throw new Error(response.data.message || 'Error al obtener consumos para tendencias');
-      }
-
-    } catch (err) {
-      console.error("❌ [TENDENCIAS] Error al cargar consumos:", err);
-      return [];
+  try {
+    const token = JSON.parse(localStorage.getItem("authToken"))?.token;
+    
+    if (!token) {
+      throw new Error("No se encontró token de autenticación");
     }
-  };
+
+    const params = new URLSearchParams({
+      fecha_inicio: fechaDesde,
+      fecha_fin: fechaHasta,
+      per_page: '1000' // Obtener muchos registros para el gráfico
+    });
+
+    // 🔑 LÓGICA CORRECTA PARA FAENAS
+    if (faenaSeleccionada && faenaSeleccionada !== 'todas') {
+      params.append('id_faena', faenaSeleccionada);
+    }
+    // Si es 'todas', NO enviar id_faena
+
+    console.log("📊 [TENDENCIAS] Usando nueva API de consumos individuales:", params.toString());
+
+ // En tu frontend, verifica que estés enviando:
+const response = await axios.get(`/api/categorias-chart/categorias/${categoria.id}/consumos-individuales`, {
+  params: {
+    fecha_inicio: fechaDesde,  // ← Asegúrate de que estas variables
+    fecha_fin: fechaHasta,     // ← tengan los valores correctos
+    id_faena: faenaSeleccionada
+  }
+});
+
+    if (response.data && response.data.success) {
+      const consumosIndividuales = response.data.data || [];
+      
+      console.log("✅ [TENDENCIAS] Consumos individuales obtenidos:", {
+        total: consumosIndividuales.length,
+        equipos: [...new Set(consumosIndividuales.map(c => c.nombre_maquina))]
+      });
+
+      return consumosIndividuales;
+    } else {
+      throw new Error(response.data.message || 'Error al obtener consumos individuales');
+    }
+
+  } catch (err) {
+    console.error("❌ [TENDENCIAS] Error:", err);
+    return [];
+  }
+};
 
   // 🆕 CARGAR TODOS LOS CONSUMOS cuando sea necesario para tendencias
   useEffect(() => {
@@ -138,66 +141,120 @@ const EnhancedConsumoDetailsModal = ({
     loadAllConsumos();
   }, [isOpen, categoria, activeTab, fechaDesde, fechaHasta, faenaSeleccionada, refreshKey]);
 
-  // Función para obtener consumos de la categoría (para tabla paginada)
   const fetchConsumosDeCategoria = async (page = 1) => {
-    if (!categoria || !isOpen) return;
+  if (!categoria || !isOpen) return;
 
-    setLoading(true);
-    setError(null);
+  setLoading(true);
+  setError(null);
 
-    try {
-      const token = JSON.parse(localStorage.getItem("authToken"))?.token;
-      
-      if (!token) {
-        throw new Error("No se encontró token de autenticación");
-      }
-
-      const params = new URLSearchParams({
-        page: page.toString(),
-        per_page: itemsPerPage.toString(),
-      });
-
-      if (faenaSeleccionada && faenaSeleccionada !== 'todas') {
-        params.append('faena', faenaSeleccionada);
-      } else {
-        params.append('faena', '1');
-      }
-
-      if (fechaDesde) {
-        params.append('dateFrom', fechaDesde);
-      }
-      if (fechaHasta) {
-        params.append('dateTo', fechaHasta);
-      }
-
-      params.append('id_categoria', categoria.id.toString());
-      
-      const response = await axios.get(`/api/consumos-categoria?${params}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.data.success) {
-        const consumosData = response.data.data || [];
-        
-        setConsumos(consumosData);
-        setStats(response.data.stats);
-        setTotalItems(response.data.pagination?.total || 0);
-        setTotalPages(Math.ceil((response.data.pagination?.total || 0) / itemsPerPage));
-        setCurrentPage(page);
-      } else {
-        throw new Error(response.data.message || 'Error al obtener consumos');
-      }
-
-    } catch (err) {
-      console.error("Error al cargar consumos de categoría:", err);
-      setError(err.message || "Error al cargar detalles de consumos");
-    } finally {
-      setLoading(false);
+  try {
+    const token = JSON.parse(localStorage.getItem("authToken"))?.token;
+    
+    if (!token) {
+      throw new Error("No se encontró token de autenticación");
     }
-  };
 
+    // 🚀 OPCIÓN 1: Usar la API especializada y paginar en frontend
+    const requestBody = {
+      fecha_inicio: fechaDesde,
+      fecha_fin: fechaHasta,
+      id_categoria: categoria.id,
+      modo: 'maquinas'
+    };
+
+    // 🔑 LÓGICA IGUAL QUE EL PIECHART
+    if (faenaSeleccionada && faenaSeleccionada !== 'todas') {
+      requestBody.id_faena = faenaSeleccionada;
+    }
+
+    console.log("📊 [TABLA MODAL] Request para datos paginados:", requestBody);
+
+    const response = await axios.post('/api/categorias-chart/datos', requestBody, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      }
+    });
+
+    if (response.data && response.data.success) {
+      const allData = response.data.data || [];
+      
+      // 🔄 SIMULAR PAGINACIÓN en frontend
+      const startIndex = (page - 1) * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage;
+      const paginatedData = allData.slice(startIndex, endIndex);
+      
+      // 🔄 TRANSFORMAR DATOS para la tabla
+      const transformedData = paginatedData.map(item => ({
+        id_consumo: item.id,
+        fecha_consumo: new Date().toISOString(),
+        litros_consumidos: item.value || 0,
+        nombre_maquina: item.name || item.nombre || 'Sin nombre',
+        patente: item.patente || 'S/P',
+        solicitante_nombre: `Resumen ${item.tipo_maquina || 'N/A'}`,
+        id_dotacion: 'RESUMEN',
+        observacion: `${item.total_registros || 0} registros de consumo`,
+        tipo_maquina: item.tipo_maquina || 'N/A',
+        estado: item.estado,
+        estanque: 'Múltiples estanques',
+        categoria_nombre: categoria.nombre
+      }));
+
+      // 📊 CALCULAR ESTADÍSTICAS
+      const totalConsumo = allData.reduce((sum, item) => sum + (item.value || 0), 0);
+      const promedioConsumo = allData.length > 0 ? totalConsumo / allData.length : 0;
+      const equipoMasUsado = allData.length > 0 
+        ? allData.sort((a, b) => (b.value || 0) - (a.value || 0))[0]?.name || 'N/A'
+        : 'N/A';
+
+      const calculatedStats = {
+        total_consumos: allData.length,
+        total_litros: totalConsumo,
+        promedio_consumo: promedioConsumo,
+        costo_total: 0, // No disponible en esta API
+        equipo_mas_usado: equipoMasUsado,
+        consumos_simples: allData.length, // Aproximación
+        consumos_multiples: 0,
+        porcentaje_multiples: 0
+      };
+
+      // 📊 USAR METADATA de la respuesta si está disponible
+      const metadata = response.data.metadata;
+      const finalStats = metadata?.resumen ? {
+        total_consumos: metadata.resumen.total_maquinas || allData.length,
+        total_litros: metadata.resumen.total_consumo_litros || totalConsumo,
+        promedio_consumo: metadata.resumen.promedio_por_maquina || promedioConsumo,
+        costo_total: 0,
+        equipo_mas_usado: metadata.resumen.maquina_mayor_consumo || equipoMasUsado,
+        consumos_simples: allData.length,
+        consumos_multiples: 0,
+        porcentaje_multiples: 0
+      } : calculatedStats;
+
+      // ✅ ACTUALIZAR ESTADOS
+      setConsumos(transformedData);
+      setStats(finalStats);
+      setTotalItems(allData.length);
+      setTotalPages(Math.ceil(allData.length / itemsPerPage));
+      setCurrentPage(page);
+
+      console.log("✅ [TABLA MODAL] Datos procesados:", {
+        totalItems: allData.length,
+        paginatedItems: transformedData.length,
+        stats: finalStats
+      });
+
+    } else {
+      throw new Error(response.data.message || 'Error al obtener consumos');
+    }
+
+  } catch (err) {
+    console.error("❌ [TABLA MODAL] Error:", err);
+    setError(err.message || "Error al cargar detalles de consumos");
+  } finally {
+    setLoading(false);
+  }
+};
   // Manejar cambio de página
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) {

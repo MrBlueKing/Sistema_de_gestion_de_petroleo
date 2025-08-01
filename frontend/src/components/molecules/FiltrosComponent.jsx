@@ -202,45 +202,8 @@ const FiltrosComponent = ({
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Título e información de filtros activos */}
-      {mostrarTitulo && hayFiltrosActivos && mostrarResumen && (
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-          <div className="flex items-center text-sm text-orange-800">
-            {incluirHoras ? (
-              <FiClock className="mr-2 text-orange-500" />
-            ) : (
-              <FiCalendar className="mr-2 text-orange-500" />
-            )}
-            {tituloPersonalizado || "Mostrando datos para"}:{" "}
-            <span className="font-medium text-gray-700 ml-1">
-              {formatearFechaHora(fechaDesde, horaDesde)} hasta {formatearFechaHora(fechaHasta, horaHasta)}
-            </span>
-            {mostrarFaenas && faenaSeleccionada !== "todas" && (
-              <span className="ml-2">
-                | Faena:{" "}
-                <span className="font-medium text-gray-700 ml-1">
-                  {getNombreFaena(faenaSeleccionada)}
-                </span>
-              </span>
-            )}
-            {mostrarEquipoFilter && equipoFilterInterno && (
-              <span className="ml-2">
-                | Equipo:{" "}
-                <span className="font-medium text-gray-700 ml-1">
-                  "{equipoFilterInterno}"
-                </span>
-              </span>
-            )}
-          </div>
-
-          {/* ✅ INDICADOR de modo con horas */}
-          {incluirHoras && (
-            <div className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded mt-2">
-              🕐 Filtro con precisión horaria activado
-            </div>
-          )}
-        </div>
-      )}
-
+      
+    
       {/* ✅ Warning de validación */}
       {!estadoValidacion.valido && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3">

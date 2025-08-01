@@ -384,5 +384,199 @@ class CategoriasChartController extends Controller
         $faena = DB::table('faenas')->where('id_faena', $idFaena)->first();
         return $faena ? $faena->ubicacion : "Faena ID: $idFaena";
     }
-    
+
+    public function obtenerConsumosIndividualesCategoria(Request $request, $idCategoria)
+{
+    try {
+        $fechaInicio = $request->fecha_inicio ?? Carbon::now()->startOfMonth()->format('Y-m-d');
+        $fechaFin = $request->fecha_fin ?? Carbon::now()->format('Y-m-d');
+        $idFaena = $request->id_faena;
+        $limit = $request->limit ?? 1000; // Límite para evitar sobrecarga
+        $page = $request->page ?? 1;
+        $perPage = $request->per_page ?? 100;
+
+        // 🔑 Convertir fechas con Carbon
+        $fechaInicio = Carbon::parse($fechaInicio)->startOfDay();
+        $fechaFin = Carbon::parse($fechaFin)->endOfDay();
+
+        // Validar fechas
+        if (!$this->validarFechas($fechaInicio, $fechaFin)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Fechas inválidas. La fecha de inicio debe ser menor o igual a la fecha fin.'
+            ], 400);
+        }
+
+        // Obtener información de la categoría
+        $categoria = DB::table('categorias_maquinas')
+            ->where('id_categoria', $idCategoria)
+            ->first();
+
+        if (!$categoria) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Categoría no encontrada'
+            ], 400);
+        }
+
+        // 🆕 QUERY PARA CONSUMOS INDIVIDUALES (NO AGRUPADOS)
+        $query = DB::table('consumos as c')
+            ->join('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
+            ->leftJoin('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
+            ->leftJoin('faenas as f', 'c.id_faena', '=', 'f.id_faena')
+            ->leftJoin('users as u', 'c.id_usuario', '=', 'u.id')
+            ->leftJoin('solicitantes as s', 'c.id_dotacion', '=', 's.rut')
+            ->leftJoin('personal_interno as pi', function ($join) {
+                $join->on('s.rut', '=', 'pi.rut')
+                    ->where('s.tipo_personal', '=', 'Interno');
+            })
+            ->leftJoin('personal_externo as pe', function ($join) {
+                $join->on('s.rut', '=', 'pe.rut')
+                    ->where('s.tipo_personal', '=', 'Externo');
+            })
+            ->leftJoin('empresas_externas as ee', 'pe.id_empresa', '=', 'ee.id_empresa')
+            ->where('m.id_categoria', $idCategoria)
+            ->whereBetween('c.fecha_consumo', [$fechaInicio, $fechaFin])
+            ->whereNotNull('c.litros_consumidos')
+            ->where('c.litros_consumidos', '>', 0)
+            ->when($idFaena && $idFaena !== 'todas', function($q) use ($idFaena) {
+                return $q->where('c.id_faena', $idFaena);
+            })
+            ->select([
+                // Información del consumo
+                'c.id_consumo',
+                'c.fecha_consumo',
+                'c.litros_consumidos',
+                'c.medicion',
+                'c.numeral_inicial',
+                'c.numeral_final',
+                'c.precio_litro',
+                'c.observacion',
+                'c.tipo_consumo',
+                
+                // Información de la máquina
+                'm.id_maquina',
+                DB::raw('COALESCE(mi.nombre, m.nombre_maquina) as nombre_maquina'),
+                DB::raw('COALESCE(mi.patente, m.patente) as patente'),
+                'm.estado',
+                DB::raw('CASE WHEN mi.id_maquina IS NOT NULL THEN "Interna" ELSE "Externa" END as tipo_maquina'),
+                
+                // Información de la faena
+                'f.ubicacion as faena_nombre',
+                'c.id_faena',
+                
+                // Información del solicitante
+                'c.id_dotacion',
+                's.tipo_personal',
+                'pi.nombre as interno_nombre',
+                'pi.apellido as interno_apellido',
+                'pe.nombre as externo_nombre',
+                'ee.nombre as empresa_nombre',
+                
+                // Información del usuario
+                'u.nombre as usuario_nombre',
+                'u.apellido as usuario_apellido'
+            ])
+            ->orderBy('c.fecha_consumo', 'desc')
+            ->orderBy('c.id_consumo', 'desc');
+
+        // Contar total de registros para paginación
+        $totalRecords = $query->count();
+        $totalPages = ceil($totalRecords / $perPage);
+
+        // Aplicar paginación
+        $consumos = $query
+            ->skip(($page - 1) * $perPage)
+            ->take($perPage)
+            ->get();
+
+        // 🔄 TRANSFORMAR DATOS para compatibilidad con frontend
+        $data = $consumos->map(function ($item) {
+            // Determinar nombre del solicitante
+            $solicitanteNombre = 'N/A';
+            if ($item->tipo_personal === 'Interno' && $item->interno_nombre) {
+                $solicitanteNombre = trim($item->interno_nombre . ' ' . ($item->interno_apellido ?? ''));
+            } elseif ($item->tipo_personal === 'Externo' && $item->externo_nombre) {
+                $empresaNombre = $item->empresa_nombre ? ' (' . $item->empresa_nombre . ')' : '';
+                $solicitanteNombre = $item->externo_nombre . $empresaNombre;
+            }
+
+            return [
+                'id_consumo' => $item->id_consumo,
+                'fecha_consumo' => $item->fecha_consumo,
+                'litros_consumidos' => round($item->litros_consumidos, 2),
+                'nombre_maquina' => $item->nombre_maquina,
+                'patente' => $item->patente ?? 'S/P',
+                'tipo_maquina' => $item->tipo_maquina,
+                'estado' => $item->estado,
+                'id_faena' => $item->id_faena,
+                'faena_nombre' => $item->faena_nombre,
+                'solicitante_nombre' => $solicitanteNombre,
+                'id_dotacion' => $item->id_dotacion,
+                'observacion' => $item->observacion,
+                'medicion' => $item->medicion,
+                'numeral_inicial' => $item->numeral_inicial,
+                'numeral_final' => $item->numeral_final,
+                'precio_litro' => $item->precio_litro,
+                'tipo_consumo' => $item->tipo_consumo,
+                'usuario' => trim(($item->usuario_nombre ?? '') . ' ' . ($item->usuario_apellido ?? ''))
+            ];
+        });
+
+        // 📊 CALCULAR ESTADÍSTICAS
+        $totalConsumo = $data->sum('litros_consumidos');
+        $equiposUnicos = $data->unique('nombre_maquina')->count();
+        $promedioConsumo = $data->count() > 0 ? $totalConsumo / $data->count() : 0;
+
+        $metadata = [
+            'categoria' => [
+                'id' => $categoria->id_categoria,
+                'nombre' => $categoria->nombre_categoria,
+                'tipo_medicion' => $categoria->tipo_medicion
+            ],
+            'periodo' => [
+                'fecha_inicio' => $fechaInicio->toDateString(),
+                'fecha_fin' => $fechaFin->toDateString(),
+                'dias_periodo' => $fechaInicio->diffInDays($fechaFin) + 1
+            ],
+            'resumen' => [
+                'total_consumos_individuales' => $data->count(),
+                'total_registros_bd' => $totalRecords,
+                'equipos_unicos' => $equiposUnicos,
+                'total_consumo_litros' => round($totalConsumo, 2),
+                'promedio_por_consumo' => round($promedioConsumo, 2),
+                'consumos_internos' => $data->where('tipo_maquina', 'Interna')->count(),
+                'consumos_externos' => $data->where('tipo_maquina', 'Externa')->count()
+            ],
+            'paginacion' => [
+                'pagina_actual' => $page,
+                'por_pagina' => $perPage,
+                'total_registros' => $totalRecords,
+                'total_paginas' => $totalPages,
+                'desde' => ($page - 1) * $perPage + 1,
+                'hasta' => min($page * $perPage, $totalRecords)
+            ],
+            'filtros_aplicados' => [
+                'faena_especifica' => $idFaena ? $this->obtenerNombreFaena($idFaena) : 'Todas las faenas'
+            ]
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => $data->values(),
+            'metadata' => $metadata,
+            'consumos_individuales' => $data->values(), // Alias para claridad
+            'categoria_info' => $metadata['categoria'],
+            'message' => "Consumos individuales de la categoría '{$categoria->nombre_categoria}' obtenidos exitosamente"
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Error al obtener consumos individuales: ' . $e->getMessage()
+        ], 500);
+    }
 }
+
+}
+

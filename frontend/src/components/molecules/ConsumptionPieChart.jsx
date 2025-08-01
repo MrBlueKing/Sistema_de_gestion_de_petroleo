@@ -37,7 +37,7 @@ import {
   FiInfo,
 } from "react-icons/fi";
 import axios from "../../lib/axios";
-import EquipmentTrendChart from "../molecules/EquipmentTrendChart";
+
 import EnhancedConsumoDetailsModal from "./EnhancedConsumoDetailsModal";
 
 // Componente Modal Original (mantenido sin cambios)
