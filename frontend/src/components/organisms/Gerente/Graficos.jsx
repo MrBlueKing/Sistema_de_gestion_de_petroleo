@@ -21,7 +21,7 @@ import IngresosPorFaenaTable from "../../molecules/IngresosPorFaenaTable";
 
 // Importación de componentes moleculares para gráficos
 import TopEquiposChart from "../../molecules/TopEquiposChart";
-import FaenasChart from "../../molecules/FaenasChart";
+
 import ConsumoTendenciaChart from "../../molecules/ConsumoTendenciaChart";
 // 🆕 IMPORTAR EL NUEVO ConsumptionPieChart conectado al backend
 import ConsumptionPieChart from "../../molecules/ConsumptionPieChart";
@@ -260,7 +260,7 @@ const Graficos = ({ children }) => {
               setHoraDesde={setHoraDesde}
               horaHasta={horaHasta}
               setHoraHasta={setHoraHasta}
-              tituloPersonalizado="Análisis con precisión horaria"
+              
             />
           </div>
 

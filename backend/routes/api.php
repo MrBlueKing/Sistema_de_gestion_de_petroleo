@@ -602,6 +602,12 @@ Route::middleware('auth:sanctum')->group(function () {
         // Endpoint auxiliar: lista de todas las categorías disponibles
         Route::get('/lista-categorias', [CategoriasChartController::class, 'obtenerListaCategorias'])
             ->name('api.categorias-chart.lista');
+
+          // 🆕 AGREGAR ESTA RUTA FALTANTE:
+    Route::get('/categorias/{idCategoria}/consumos-individuales', [CategoriasChartController::class, 'obtenerConsumosIndividualesCategoria'])
+        ->name('api.categorias-chart.consumos-individuales');
+
+
     });
 
     // Rutas alternativas con nombres más cortos (opcional)

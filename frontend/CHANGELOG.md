@@ -35,11 +35,14 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 - Ninguno 
 
 ### Removed
-- Ninguno 
+- [WiP] Gerente : Graficos.jsx --> Tabla --> Análisis por Máquina - ConsumoCategoriasController  --> La columna Valor Total, muestra abajo un valor de precio / l promedio, el cual es un valor repetido en la columna Precio Específico, por lo que se decide eliminar.
+
 
 ### Fixed
-- [Ready] nada por hacer.
-- [WiP] Gerente : Graficos.jsx --> Consumo_PieChart --> Se filtra mal cuando uno selecciona todas las faenas, Se modificara el metodo para que entienda como se debe filtrar si se selecciona todas las faenas. 
+- [Testing] Gerente : Graficos.jsx --> Consumo_PieChart --> Se filtra mal cuando uno selecciona todas las faenas, Se modificara el metodo para que entienda como se debe filtrar si se selecciona todas las faenas. 
+
+- [WiP] Gerente : Graficos.jsx --> Tabla --> Análisis por Máquina - ConsumoCategoriasController  --> La columna Precio Específico se calcula en base al valor promedio de los precios, y debiese calcularse de forma ponderada entre el precio y el valor de cada consumo, dividido en el total de listros consumidos.
+
 
 ### Security
 - Ninguno
