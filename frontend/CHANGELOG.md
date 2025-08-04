@@ -8,6 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and 
 
 Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
+- [Queued]= Aprobado y en espera de ser desarrollado.
 - [WIP] = Work In Progress: ya se está desarrollando, aún no está terminado.
 - [Planned] = Planificado para una futura versión.
 - [Idea] = Propuesta aún no aprobada.
@@ -21,22 +22,24 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 ### Added
 - [WIP] Encargado de Operaciones de Combustible: Se añadira un nuevo boton en el panel de control inicial, este boton tendra la funcionalidad de poder visualizar los consumos o trayectoria de las maquinas filtradas.
+- [Queued] ADMINISTRADOR: Se añadirá una nueva funcionalidad que permitirá una gestión más eficiente de los permisos asociados a las máquinas.
 
-- [Planned] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
-- [Planned] Rol de jefe de mina, bombero 2 y operador vehiculo.
+- [Queued] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
+- [Queued] Rol de jefe de mina, bombero 2 y operador vehiculo.
+
+- [WIP] Encargado de Operaciones de Combustible: A traves de la solicitud de gerencia, ahora el rol "Encargado de Operaciones de Combustible" debe ser dividio en dos roles, manteniendo el rol "bombero" como rol principal y que tendra privilegios como realizar la recepcion de petroleo. mientras que el nuevo rol "asistente_bombero" sera restringido, solo pudiendo hacer ingresos de consumos.
 
 ### Changed
-- [WIP] Encargado de Operaciones de Combustible: Anteriormente solo se mostraba la última medición registrada. Ahora se implementará un mini historial que muestre los dos últimos consumos, incluyendo la siguiente información: quién realizó el consumo, en qué lugar, cuánta cantidad se utilizó y cuándo ocurrió.
-- [WIP] Encargado de Operaciones de Combustible: Antes se visualizaba solo la ultima medicion, ahora es necesario poder mostrar un "mini historial" de los ultimos dos consumos donde se obtenga la siguiente iformación: quién, dónde, cuanto, cuando. 
+- [Testing] Encargado de Operaciones de Combustible: Anteriormente solo se mostraba la última medición registrada. Ahora se implementará un mini historial que muestre los dos últimos consumos, incluyendo la siguiente información: quién realizó el consumo, en qué lugar, cuánta cantidad se utilizó y cuándo ocurrió.
 
 - [Planned] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
-- [Planned] Rol de jefe de mina, bombero 2 y operador vehiculo.
+
+
 ### Depecrated
 - Ninguno 
 
 ### Removed
 - [WiP] Gerente : Graficos.jsx --> Tabla --> Análisis por Máquina - ConsumoCategoriasController  --> La columna Valor Total, muestra abajo un valor de precio / l promedio, el cual es un valor repetido en la columna Precio Específico, por lo que se decide eliminar.
-
 
 ### Fixed
 - [Testing] Gerente : Graficos.jsx --> Consumo_PieChart --> Se filtra mal cuando uno selecciona todas las faenas, Se modificara el metodo para que entienda como se debe filtrar si se selecciona todas las faenas. 

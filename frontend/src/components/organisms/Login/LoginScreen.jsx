@@ -1,4 +1,4 @@
-// ✅ SOLUCION: LoginScreen.jsx con manejo correcto del rol
+// ✅ LoginScreen.jsx usando tu UserContext mejorado
 import React, { useState, useContext, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import axios from "../../../lib/axios";
@@ -9,7 +9,7 @@ import Button from "../../atoms/Button/Button";
 import LoadingOverlay from "../../atoms/FeedBack/Loading";
 import ErrorMessage from "../../atoms/FeedBack/ErrorMessage";
 import icono from "../../../assets/logo.png";
-import { FaUser, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
+import { FaUser, FaLock } from "react-icons/fa";
 import { UserContext } from "../../../context/userContext";
 
 const LoginScreen = () => {
@@ -23,63 +23,63 @@ const LoginScreen = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { setUser } = useContext(UserContext);
+  
+  // 🎯 USAR TUS FUNCIONES DEL CONTEXTO
+  const { setUser, clearUserContext, forceRefresh } = useContext(UserContext);
 
-  // ✅ FIX: Función para extraer el rol correctamente
   const extractRole = (roleData) => {
-    console.log("🔍 Datos de rol recibidos:", roleData);
-
-    // Si es un string, devolverlo directamente
-    if (typeof roleData === 'string') {
-      return roleData;
-    }
-
-    // Si es un objeto con propiedad 'rol'
-    if (roleData && typeof roleData === 'object' && roleData.rol) {
-      return roleData.rol;
-    }
-
-    // Si es un objeto con propiedad 'role'
-    if (roleData && typeof roleData === 'object' && roleData.role) {
-      return roleData.role;
-    }
-
-    console.warn("⚠️ No se pudo extraer el rol de:", roleData);
+    if (typeof roleData === 'string') return roleData;
+    if (roleData?.rol) return roleData.rol;
+    if (roleData?.role) return roleData.role;
     return null;
   };
 
-  // ✅ FIX: Función de redirección corregida
-  const redirectByRole = (roleData) => {
+  // 🎯 REDIRECCIÓN PROFESIONAL CON TU CONTEXTO
+  const redirectByRole = async (roleData) => {
     const rol = extractRole(roleData);
-    console.log("🎯 Redirigiendo usuario con rol extraído:", rol);
+    console.log("🎯 Redirigiendo usuario con rol:", rol);
 
     const roleRoutes = {
       admin: "/administrador",
-      bombero: "/bombero",
+      bombero: "/bombero", 
       gerente: "/gerente",
       toneladas: "/IngresoToneladas",
       planificador: "/Mantenimiento",
       OperadorVehiculo: "/OperadorVehiculo",
+      asistente_bombero: "/bombero",
     };
 
-    const targetRoute = roleRoutes[rol];
+    const targetRoute = roleRoutes[rol] || "/";
 
-    if (targetRoute) {
+    try {
       console.log("✅ Redirigiendo a:", targetRoute);
-      navigate(targetRoute, { replace: true });
-    } else {
-      console.warn("⚠️ Rol no reconocido:", rol, "- redirigiendo a home");
-      navigate("/", { replace: true });
+      
+      // 🔄 USANDO TU FUNCIÓN DE FORZAR REFRESH
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Navegación React Router con estado
+      navigate(targetRoute, { 
+        replace: true,
+        state: { 
+          loginSuccess: true,
+          timestamp: Date.now()
+        }
+      });
+
+    } catch (error) {
+      console.error("❌ Error en redirección:", error);
+      // Fallback solo si algo falla
+      window.location.href = targetRoute;
     }
   };
 
-  // Verificar si ya está autenticado al cargar el componente
+  // Verificar sesión existente
   useEffect(() => {
     if (isSessionValid()) {
       try {
         const sessionData = JSON.parse(localStorage.getItem("authToken"));
         if (sessionData?.role) {
-          console.log("👤 Usuario ya autenticado, rol:", sessionData.role);
+          console.log("👤 Usuario ya autenticado, redirigiendo...");
           redirectByRole(sessionData.role);
         }
       } catch (error) {
@@ -94,7 +94,6 @@ const LoginScreen = () => {
       ...prev,
       [field]: value
     }));
-
     if (error) setError("");
   };
 
@@ -103,134 +102,94 @@ const LoginScreen = () => {
       setError("El RUT es obligatorio");
       return false;
     }
-
     if (!formData.password.trim()) {
       setError("La contraseña es obligatoria");
       return false;
     }
-
     if (formData.password.length < 4) {
       setError("La contraseña debe tener al menos 4 caracteres");
       return false;
     }
-
     return true;
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
-
     if (!validateForm()) return;
 
     setError("");
     setIsLoading(true);
 
     try {
-      console.log("🔐 Iniciando proceso de login para RUT:", formData.rut);
+      console.log("🔐 Iniciando login para:", formData.rut);
+
+      // 🧹 PASO 1: Limpiar estado previo usando TU FUNCIÓN
+      clearUserContext();
+      clearSession();
 
       const response = await axios.post("/api/login", {
         rut: formData.rut.trim(),
         password: formData.password
       });
 
-      console.log("✅ Login exitoso:", response.data);
-
       const { token, user, expires_at } = response.data;
-
-      // ✅ FIX: Extraer rol correctamente antes de guardar sesión
       const userRole = extractRole(user.rol);
-      console.log("🔍 Rol extraído del usuario básico:", userRole);
 
-      // Guardar sesión con el rol extraído
+      // 🔐 PASO 2: Guardar nueva sesión
       storeSession({
         token,
-        user: {
-          ...user,
-          rol: userRole // Asegurar que se guarde como string
-        },
+        user: { ...user, rol: userRole },
         expiresAt: expires_at
       });
 
+      console.log("✅ Login exitoso, actualizando contexto...");
+
       try {
-        console.log("📡 Obteniendo datos completos del usuario...");
-        const userResponse = await axios.get("/api/user");
-
-        console.log("✅ Datos completos obtenidos:", userResponse.data);
-
-        setUser(userResponse.data);
-
-        // ✅ FIX: Extraer rol de los datos completos
-        const completeUserRole = extractRole(userResponse.data.rol);
-        console.log("🎯 Rol detectado para redirección:", completeUserRole);
-
-        if (completeUserRole) {
-          redirectByRole(completeUserRole);
-        } else {
-          console.error("❌ No se pudo determinar el rol del usuario completo");
-          // Usar el rol básico como fallback
-          if (userRole) {
-            console.log("🔄 Usando rol básico como fallback:", userRole);
-            redirectByRole(userRole);
-          } else {
-            setError("Error: No se pudo determinar el rol del usuario");
+        // 📡 PASO 3: Usar TU LÓGICA de obtener datos completos
+        const userResponse = await axios.get("/api/user", {
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
           }
-        }
+        });
+
+        console.log("✅ Datos completos obtenidos");
+        const userData = userResponse.data;
+
+        // 🎯 PASO 4: Actualizar contexto usando TU SETTER
+        setUser(userData);
+
+        // 🚀 PASO 5: Redirección
+        const completeUserRole = extractRole(userData.rol);
+        await redirectByRole(completeUserRole || userRole);
 
       } catch (userDataError) {
-        console.warn("⚠️ Error al obtener datos completos:", userDataError);
-
+        console.warn("⚠️ Error obteniendo datos completos, usando básicos");
         setUser(user);
-        console.log("🎯 Usando rol básico para redirección:", userRole);
-
-        if (userRole) {
-          redirectByRole(userRole);
-        } else {
-          console.error("❌ No hay rol en datos básicos");
-          setError("Error: No se pudo determinar el rol del usuario");
-        }
+        await redirectByRole(userRole);
       }
 
     } catch (err) {
       console.error("❌ Error en login:", err);
-
+      
       let errorMessage = "Error al iniciar sesión.";
-
-      if (err.response) {
-        switch (err.response.status) {
-          case 401:
-            errorMessage = "RUT o contraseña incorrectos.";
-            break;
-          case 403:
-            errorMessage = err.response.data?.message || "Cuenta inactiva.";
-            break;
-          case 422:
-            errorMessage = "Datos de entrada inválidos.";
-            if (err.response.data?.errors) {
-              const errors = Object.values(err.response.data.errors).flat();
-              errorMessage = errors.join(", ");
-            }
-            break;
-          case 429:
-            errorMessage = "Demasiados intentos. Intenta más tarde.";
-            break;
-          case 500:
-            errorMessage = "Error del servidor. Intenta más tarde.";
-            break;
-          default:
-            errorMessage = err.response.data?.message || "Error del servidor.";
-        }
-      } else if (err.request) {
-        errorMessage = "Sin conexión al servidor.";
-      } else {
-        errorMessage = err.message || "Error inesperado.";
-      }
-
-      setError(errorMessage);
-
+      
       if (err.response?.status === 401) {
+        errorMessage = "RUT o contraseña incorrectos.";
         setFormData(prev => ({ ...prev, password: "" }));
+      } else if (err.response?.status === 403) {
+        errorMessage = err.response.data?.message || "Cuenta inactiva.";
+      } else if (err.response?.status === 422) {
+        errorMessage = "Datos de entrada inválidos.";
+      } else if (err.response?.status === 429) {
+        errorMessage = "Demasiados intentos. Intenta más tarde.";
+      } else if (err.response?.status >= 500) {
+        errorMessage = "Error del servidor. Intenta más tarde.";
+      } else if (!err.response) {
+        errorMessage = "Sin conexión al servidor.";
       }
-
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -267,7 +226,7 @@ const LoginScreen = () => {
               icon={<FaUser className="text-gray-400" />}
               disabled={isLoading}
               maxLength={12}
-              autoComplete="username" // ✅ YA ESTABA CORRECTO
+              autoComplete="username"
               className="w-full"
             />
           </div>
@@ -276,21 +235,19 @@ const LoginScreen = () => {
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
               Contraseña
             </label>
-            <div className="relative">
-              <InputField
-                id="password"
-                type={showPassword ? "text" : "password"}
-                placeholder="Ingresa tu contraseña"
-                value={formData.password}
-                onChange={(e) => handleInputChange('password', e.target.value)}
-                icon={<FaLock className="text-gray-400" />}
-                disabled={isLoading}
-                autoComplete="current-password" // ✅ AGREGADO - Esto solucionará la advertencia
-                className="w-full pr-12"
-                showPassword={showPassword} // ✅ AGREGADO
-                setShowPassword={setShowPassword} // ✅ AGREGADO
-              />
-            </div>
+            <InputField
+              id="password"
+              type={showPassword ? "text" : "password"}
+              placeholder="Ingresa tu contraseña"
+              value={formData.password}
+              onChange={(e) => handleInputChange('password', e.target.value)}
+              icon={<FaLock className="text-gray-400" />}
+              disabled={isLoading}
+              autoComplete="current-password"
+              className="w-full"
+              showPassword={showPassword}
+              setShowPassword={setShowPassword}
+            />
           </div>
 
           <div className="flex items-center justify-between">
@@ -298,9 +255,7 @@ const LoginScreen = () => {
               type="button"
               className="text-sm text-orange-600 hover:text-orange-500 focus:outline-none focus:underline"
               disabled={isLoading}
-              onClick={() => {
-                alert("Contacta al administrador para recuperar tu contraseña");
-              }}
+              onClick={() => alert("Contacta al administrador para recuperar tu contraseña")}
             >
               ¿Olvidaste tu contraseña?
             </button>
@@ -316,6 +271,7 @@ const LoginScreen = () => {
             loading={isLoading}
           />
         </form>
+        
         <div className="absolute top-4 right-4">
           <div className="flex items-center space-x-1">
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>

@@ -672,5 +672,4 @@ const ConsumoPorMaquinaPureTable = ({
     </div>
   );
 };
-
 export default ConsumoPorMaquinaPureTable;

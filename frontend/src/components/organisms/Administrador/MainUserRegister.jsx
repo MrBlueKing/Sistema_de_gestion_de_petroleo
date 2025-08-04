@@ -235,7 +235,8 @@
           { label: "Administrador", value: 3 },
           { label: "Distpach", value: 4 },
           { label: "Planificador", value: 5 },
-          { label: "Operador de Vehículos", value: 6 }
+          { label: "Operador de Vehículos", value: 6 },
+          { label: "Asistente de Abastecimiento", value: 6 }
         ]
       },
       {

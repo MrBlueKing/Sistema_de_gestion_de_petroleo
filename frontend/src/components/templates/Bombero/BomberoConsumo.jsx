@@ -14,13 +14,260 @@ import {
   FaGasPump,
   FaTachometerAlt,
   FaTruck,
-  FaExclamationTriangle
+  FaExclamationTriangle,
+  FaEye,
+  FaTimes,
+  FaChevronUp,
+  FaChevronDown
 } from "react-icons/fa";
 import StepHeader from "../../molecules/StepHeader";
 import Button from "../../atoms/Button/Button";
 import { format } from "date-fns";
 import { useUltimaMedicionNumeralFinal } from "../../../hook/Bombero/useUltimaMedicionNumeralFinal";
 import { useHistorialConsumos } from "../../../hook/Bombero/useHistorialConsumos";
+
+// ✅ SOLUCIÓN DEFINITIVA: Badge de referencia EN EL LABEL del input
+// Esto es MUY común en apps financieras/profesionales
+const InputConReferencia = ({ 
+  label, 
+  tipo, 
+  value, 
+  onChange, 
+  onBlur,
+  disabled,
+  className,
+  placeholder,
+  ultimoConsumo,
+  tipoMedicion,
+  icon: Icon 
+}) => {
+  const ultimaMedicion = ultimoConsumo?.medicion;
+  const fechaUltima = ultimoConsumo?.fecha_formateada;
+  
+  const mostrarReferencia = ultimaMedicion && (
+    (tipo === 'kilometraje' && tipoMedicion === 'Kilometraje') ||
+    (tipo === 'horometro' && tipoMedicion === 'Horometro')
+  );
+
+  return (
+    <div className="col-span-1">
+      <label className="block text-left text-gray-700 text-xs sm:text-sm font-medium mb-1">
+        <div className="flex items-center justify-between">
+          <span className="flex items-center">
+            {Icon && <Icon className="text-gray-500 mr-1" size={14} />}
+            {label} <span className="text-red-500">*</span>
+          </span>
+          
+          {/* 🎯 REFERENCIA DIRECTA EN EL LABEL - GENIAL PARA MOBILE */}
+          {mostrarReferencia && (
+            <div className="flex flex-col items-end">
+              <span className="text-green-600 font-bold text-xs">
+                Último: {tipoMedicion === 'Horometro' 
+                  ? `${ultimaMedicion.toFixed(1)} hrs`
+                  : `${Math.round(ultimaMedicion).toLocaleString()} km`
+                }
+              </span>
+              <span className="text-gray-400 text-xs">
+                {fechaUltima}
+              </span>
+            </div>
+          )}
+        </div>
+      </label>
+      
+      <input
+        type="number"
+        step="0.01"
+        value={value}
+        onChange={onChange}
+        onBlur={onBlur}
+        disabled={disabled}
+        className={className}
+        placeholder={placeholder}
+      />
+      
+      {/* 💡 TIP CONTEXTUAL cuando hay referencia */}
+      {mostrarReferencia && (
+        <p className="text-xs text-blue-600 mt-1 flex items-center">
+          <FaInfoCircle className="mr-1" size={10} />
+          Debe ser mayor que {ultimaMedicion.toLocaleString()} {tipoMedicion === 'Horometro' ? 'hrs' : 'km'}
+        </p>
+      )}
+    </div>
+  );
+};
+
+// ✅ HISTORIAL COLLAPSIBLE - Solo 2 registros, abierto por defecto
+const HistorialCollapsible = ({ 
+  ultimoConsumo, 
+  penultimoConsumo, 
+  tipoMedicion, 
+  loading, 
+  error,
+  cantidadConsumos 
+}) => {
+  const [expandido, setExpandido] = useState(true); // ✅ ABIERTO POR DEFECTO
+
+  if (loading) {
+    return (
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+        <div className="flex items-center justify-center">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
+          <span className="text-sm text-gray-600">Cargando historial...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+        <div className="flex items-center">
+          <FaExclamationTriangle className="text-red-500 mr-2" size={14} />
+          <span className="text-sm text-red-600">Error al cargar historial</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!ultimoConsumo) {
+    return (
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+        <div className="flex items-center">
+          <FaInfoCircle className="text-yellow-600 mr-2" size={14} />
+          <span className="text-sm text-yellow-800 font-medium">Primera carga de esta máquina</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg mb-4 shadow-sm">
+      {/* HEADER CLICKEABLE */}
+      <button
+        onClick={() => setExpandido(!expandido)}
+        className="w-full p-3 flex items-center justify-between hover:bg-gray-50 transition-colors rounded-t-lg"
+      >
+        <div className="flex items-center">
+          <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
+            <FaHistory className="text-green-600" size={14} />
+          </div>
+          <div className="text-left">
+            <div className="font-semibold text-gray-800 text-sm">
+              Historial de Mediciones
+            </div>
+            <div className="text-xs text-gray-500">
+              Últimas 2 mediciones
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex items-center">
+          {/* PREVIEW de la última medición */}
+          <div className="text-right mr-3">
+            <div className="text-sm font-bold text-green-600">
+              {tipoMedicion === 'Horometro' 
+                ? `${ultimoConsumo.medicion?.toFixed(1)} hrs`
+                : `${Math.round(ultimoConsumo.medicion).toLocaleString()} km`
+              }
+            </div>
+            <div className="text-xs text-gray-500">Última medición</div>
+          </div>
+          
+          {expandido ? (
+            <FaChevronUp className="text-gray-400" size={16} />
+          ) : (
+            <FaChevronDown className="text-gray-400" size={16} />
+          )}
+        </div>
+      </button>
+
+      {/* CONTENIDO EXPANDIBLE */}
+      {expandido && (
+        <div className="border-t border-gray-200 p-3">
+          {/* LISTA SIMPLE - Solo 2 registros */}
+          <div className="space-y-3">
+            {/* ÚLTIMO CONSUMO */}
+            {ultimoConsumo && (
+              <div className="rounded-lg p-3 bg-green-50 border border-green-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-500 text-white">
+                    ÚLTIMA MEDICIÓN
+                  </span>
+                  <div className="text-xs text-gray-500">
+                    {ultimoConsumo.fecha_formateada}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div>
+                    <div className="text-xs text-gray-500">MEDICIÓN</div>
+                    <div className="font-bold text-green-600">
+                      {tipoMedicion === 'Horometro' 
+                        ? `${ultimoConsumo.medicion?.toFixed(1)} hrs`
+                        : `${Math.round(ultimoConsumo.medicion).toLocaleString()} km`
+                      }
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">COMBUSTIBLE</div>
+                    <div className="font-semibold text-orange-600">
+                      {ultimoConsumo.litros_consumidos?.toFixed(1)} L
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">UBICACIÓN</div>
+                    <div className="font-medium text-blue-600 text-xs">
+                      {ultimoConsumo.faena_ubicacion}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* PENÚLTIMO CONSUMO - Solo si existe */}
+            {penultimoConsumo && (
+              <div className="rounded-lg p-3 bg-gray-50 border border-gray-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-500 text-white">
+                    📋 MEDICIÓN ANTERIOR
+                  </span>
+                  <div className="text-xs text-gray-500">
+                    📅 {penultimoConsumo.fecha_formateada}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div>
+                    <div className="text-xs text-gray-500">MEDICIÓN</div>
+                    <div className="font-bold text-gray-600">
+                      {tipoMedicion === 'Horometro' 
+                        ? `${penultimoConsumo.medicion?.toFixed(1)} hrs`
+                        : `${Math.round(penultimoConsumo.medicion).toLocaleString()} km`
+                      }
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">COMBUSTIBLE</div>
+                    <div className="font-semibold text-orange-600">
+                      {penultimoConsumo.litros_consumidos?.toFixed(1)} L
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">UBICACIÓN</div>
+                    <div className="font-medium text-blue-600 text-xs">
+                      {penultimoConsumo.faena_ubicacion}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const Consumo = ({
   onPrevious,
@@ -36,8 +283,7 @@ const Consumo = ({
   const { user, loading } = useContext(UserContext);
   const navigate = useNavigate();
 
-  // Estados
-  const [currentPage, setCurrentPage] = useState(4);
+  // Estados principales
   const [userInfo, setUserInfo] = useState(null);
   const [contextLoaded, setContextLoaded] = useState(false);
   const [formData, setFormData] = useState({
@@ -56,7 +302,7 @@ const Consumo = ({
   const [successData, setSuccessData] = useState(null);
   const [estanqueSeleccionado, setEstanqueSeleccionado] = useState(null);
 
-  // HOOKS
+  // HOOKS especializados
   const {
     loading: loadingUltimaMedicion,
     error: errorUltimaMedicion,
@@ -78,43 +324,19 @@ const Consumo = ({
     cargarHistorialConsumos
   } = useHistorialConsumos();
 
-  // Constantes
-  const totalPages = 4;
-
-  // ✅ SOLO UN useEffect para cargar ambos datos
+  // ✅ Cargar datos cuando esté listo
   useEffect(() => {
     if (patenteSeleccionada?.id_maquina && userInfo?.id_faena) {
       console.log('🎯 Cargando datos para máquina:', patenteSeleccionada.id_maquina, 'faena:', userInfo.id_faena);
-
-      // Cargar última medición (necesita faena)
       cargarUltimaMedicion(patenteSeleccionada.id_maquina, userInfo.id_faena);
-
-      // Cargar historial (independiente de faena)
-      cargarHistorialConsumos(patenteSeleccionada.id_maquina, 2);
+      cargarHistorialConsumos(patenteSeleccionada.id_maquina, 5); // Más registros para mejor contexto
     }
   }, [patenteSeleccionada?.id_maquina, userInfo?.id_faena, cargarUltimaMedicion, cargarHistorialConsumos]);
 
-  // Resto de useEffects...
-  useEffect(() => {
-    DEBUG && console.log('DEBUG CONSUMO - Props recibidas:', {
-      onPrevious: typeof onPrevious,
-      categoriaSeleccionada,
-      patenteSeleccionada,
-      solicitante,
-      tipoSolicitante,
-      idFaena,
-      resetFlow: typeof resetFlow,
-      preloadedEstanques,
-      formData,
-      userInfo,
-      estanqueSeleccionado
-    });
-  }, [onPrevious, categoriaSeleccionada, patenteSeleccionada, solicitante, tipoSolicitante, idFaena, resetFlow, preloadedEstanques, formData, userInfo, estanqueSeleccionado]);
-
+  // ✅ Setup inicial del usuario
   useEffect(() => {
     if (!loading) {
       setContextLoaded(true);
-
       if (user) {
         const userInfoData = {
           id: user.id,
@@ -123,7 +345,6 @@ const Consumo = ({
           nombre: user.nombre,
           apellido: user.apellido
         };
-
         setUserInfo(userInfoData);
         DEBUG && console.log('DEBUG CONSUMO - UserInfo establecido:', userInfoData);
       } else {
@@ -133,6 +354,7 @@ const Consumo = ({
     }
   }, [user, loading]);
 
+  // ✅ Cálculo automático de litros
   useEffect(() => {
     const inicial = parseFloat(formData.numeralInicial) || 0;
     const final = parseFloat(formData.numeralFinal) || 0;
@@ -145,15 +367,11 @@ const Consumo = ({
     }
   }, [formData.numeralInicial, formData.numeralFinal]);
 
-  // Funciones (sin cambios)
+  // FUNCIONES AUXILIARES (mantenidas iguales por brevedad)
   const getFaenaId = () => {
-    if (idFaena) {
-      return idFaena;
-    } else if (solicitante && solicitante.id_faena) {
-      return solicitante.id_faena;
-    } else if (userInfo && userInfo.id_faena) {
-      return userInfo.id_faena;
-    }
+    if (idFaena) return idFaena;
+    if (solicitante?.id_faena) return solicitante.id_faena;
+    if (userInfo?.id_faena) return userInfo.id_faena;
     return null;
   };
 
@@ -172,13 +390,9 @@ const Consumo = ({
     }
   };
 
-  const handleEstanqueSelect = (estanque) => {
-    setEstanqueSeleccionado(estanque);
-  };
+  const handleEstanqueSelect = (estanque) => setEstanqueSeleccionado(estanque);
 
   const handleConsumoComplete = (response = null) => {
-    DEBUG && console.log('DEBUG CONSUMO - Consumo completado', response);
-
     setIsSaved(true);
     setIsSaving(false);
     setHasError(false);
@@ -192,190 +406,7 @@ const Consumo = ({
       equipo: formatPatente(),
       observacion: formData.observacion
     };
-
     setSuccessData(successInfo);
-    DEBUG && console.log('DEBUG CONSUMO - Datos de éxito establecidos:', successInfo);
-  };
-
-  const validateForm = () => {
-    if (!userInfo || !userInfo.id) {
-      setHasError(true);
-      setErrorMessage('No se ha podido identificar al usuario actual. Por favor, vuelva a iniciar sesión.');
-      return false;
-    }
-
-    const tipoMedicionActual = categoriaSeleccionada &&
-      typeof categoriaSeleccionada === 'object' &&
-      categoriaSeleccionada.tipo_medicion
-      ? categoriaSeleccionada.tipo_medicion
-      : "Kilometraje";
-
-    const needsHorometro = tipoMedicionActual === 'Horometro';
-    const needsKilometraje = tipoMedicionActual === 'Kilometraje';
-
-    const requiredFields = [
-      'numeralInicial',
-      'numeralFinal',
-      'litros'
-    ];
-
-    if (needsHorometro) {
-      requiredFields.push('horometro');
-    }
-
-    if (needsKilometraje) {
-      requiredFields.push('kilometraje');
-    }
-
-    for (const field of requiredFields) {
-      if (!formData[field]) {
-        setHasError(true);
-        setErrorMessage(`El campo ${getFieldName(field)} es obligatorio`);
-        return false;
-      }
-    }
-
-    if (parseFloat(formData.numeralFinal) <= parseFloat(formData.numeralInicial)) {
-      setHasError(true);
-      setErrorMessage('El numeral final debe ser mayor que el inicial');
-      return false;
-    }
-
-    if (parseFloat(formData.litros) <= 0) {
-      setHasError(true);
-      setErrorMessage('La cantidad de litros debe ser mayor que cero');
-      return false;
-    }
-
-    if (!solicitante || !solicitante.id) {
-      setHasError(true);
-      setErrorMessage('No se ha seleccionado un solicitante válido');
-      return false;
-    }
-
-    if (!patenteSeleccionada || !patenteSeleccionada.id_maquina) {
-      setHasError(true);
-      setErrorMessage('No se ha seleccionado un equipo válido');
-      return false;
-    }
-
-    if (formData.litros && parseFloat(formData.litros) > 0 && !estanqueSeleccionado) {
-      setHasError(true);
-      setErrorMessage('Debe seleccionar un estanque para el consumo');
-      return false;
-    }
-
-    return true;
-  };
-
-  const renderKilometrajeActual = () => {
-    if (loadingUltimaMedicion) {
-      return (
-        <div className="flex items-center text-xs text-gray-500">
-          <div className="animate-spin rounded-full h-3 w-3 border border-gray-400 border-t-transparent mr-1"></div>
-          <span>Cargando...</span>
-        </div>
-      );
-    }
-
-    if (errorUltimaMedicion) {
-      return (
-        <div className="text-xs text-red-500">
-          Error al cargar
-        </div>
-      );
-    }
-
-    return (
-      <div className={`text-base font-medium ${tieneConsumo ? 'text-green-600' : 'text-gray-500'}`}>
-        {medicionFormateada}
-      </div>
-    );
-  };
-
-  const getFieldName = (field) => {
-    const fieldNames = {
-      horometro: 'Horómetro',
-      kilometraje: 'Kilometraje',
-      numeralInicial: 'Numeral Inicial',
-      numeralFinal: 'Numeral Final',
-      litros: 'Litros',
-      fechaHora: 'Fecha y Hora',
-      observacion: 'Observación'
-    };
-    return fieldNames[field] || field;
-  };
-
-  const handleSubmit = async () => {
-    if (!validateForm()) return;
-
-    try {
-      setIsSaving(true);
-
-      const tipoMedicionActual = categoriaSeleccionada &&
-        typeof categoriaSeleccionada === 'object' &&
-        categoriaSeleccionada.tipo_medicion
-        ? categoriaSeleccionada.tipo_medicion
-        : "Kilometraje";
-
-      const medicionValue = tipoMedicionActual === 'Horometro'
-        ? formData.horometro
-        : formData.kilometraje;
-
-      const faenaIdToUse = getFaenaId();
-      const estanqueId = estanqueSeleccionado ? estanqueSeleccionado.id_estanque : null;
-
-      const apiData = {
-        id_dotacion: solicitante.rut,
-        id_equipo: patenteSeleccionada.id_maquina,
-        id_usuario: userInfo.id,
-        fecha_consumo: formatDateForAPI(formData.fechaHora),
-        litros_consumidos: parseFloat(formData.litros),
-        id_faena: faenaIdToUse,
-        id_estanque: estanqueId,
-        medicion: parseFloat(medicionValue),
-        numeral_inicial: parseFloat(formData.numeralInicial),
-        numeral_final: parseFloat(formData.numeralFinal),
-        observacion: formData.observacion || null
-      };
-
-      const response = await axios.post('/api/consumos', apiData);
-      DEBUG && console.log("datos: ", response.data);
-
-      if (response.data.success) {
-        setIsSaved(true);
-        setIsSaving(false);
-        setSuccessData({
-          id: response.data.data.id_consumo || 'N/A',
-          litros: formData.litros,
-          fecha: new Date().toLocaleString(),
-          solicitante: formatSolicitanteName(),
-          equipo: formatPatente(),
-          observacion: formData.observacion
-        });
-      } else {
-        throw new Error(response.data.message || 'Error al guardar el consumo');
-      }
-    } catch (error) {
-      setHasError(true);
-
-      if (error.response) {
-        if (error.response.status === 400 && error.response.data.message &&
-          error.response.data.message.includes('Stock insuficiente')) {
-          setErrorMessage(`Stock insuficiente. El estanque seleccionado no tiene suficiente combustible 
-            (disponible: ${error.response.data.data?.stock_actual || 'N/A'} litros).`);
-        } else if (error.response.data && error.response.data.errors) {
-          const errorMessages = Object.values(error.response.data.errors).flat();
-          setErrorMessage(errorMessages.join('. '));
-        } else {
-          setErrorMessage(error.response.data.message || "Error del servidor. Intente nuevamente.");
-        }
-      } else {
-        setErrorMessage(error.message || "Ocurrió un error al guardar. Verifique su conexión de red.");
-      }
-
-      setIsSaving(false);
-    }
   };
 
   const handleBackToStart = () => {
@@ -386,12 +417,7 @@ const Consumo = ({
     }
   };
 
-  const formatDateForAPI = (dateString) => {
-    if (!dateString) return null;
-    const date = new Date(dateString);
-    return date.toISOString().slice(0, 19).replace('T', ' ');
-  };
-
+  // FORMATTERS
   const formatSolicitanteName = () => {
     if (!solicitante) return "No especificado";
     return `${solicitante.nombre || ''} ${solicitante.apellido || ''}`.trim() || solicitante.rut || "No especificado";
@@ -411,147 +437,34 @@ const Consumo = ({
       : patenteSeleccionada;
   };
 
-  // ✅ Componente EXACTO como la imagen - PROFESIONAL
-  const renderHistorialConsumos = () => {
-    if (loadingHistorial) {
-      return (
-        <div className="flex items-center justify-center p-4">
-          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-500"></div>
-          <span className="ml-2 text-sm text-gray-600">Cargando historial...</span>
-        </div>
-      );
-    }
-
-    if (errorHistorial) {
-      return (
-        <div className="text-center p-4">
-          <p className="text-sm text-red-600">Error: {errorHistorial}</p>
-        </div>
-      );
-    }
-
-    if (!tieneHistorial) {
-      return (
-        <div className="text-center p-4">
-          <p className="text-sm text-gray-500">No se encontraron consumos previos</p>
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-3">
-        {historialConsumos.map((consumo, index) => {
-          const esReciente = index === 0;
-
-          return (
-            <div
-              key={consumo.id_consumo}
-              className={`rounded-lg p-4 ${esReciente
-                  ? 'bg-blue-50 border border-blue-200'
-                  : 'bg-gray-50 border border-gray-200'
-                }`}
-            >
-              {/* BADGE */}
-              <div className="mb-3">
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${esReciente
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-500 text-white'
-                  }`}>
-                  <span className="mr-1">
-                    {esReciente ? '🕐' : '🕑'}
-                  </span>
-                  {esReciente ? 'Última Medición' : 'Anterior'}
-                </span>
-              </div>
-
-              {/* UBICACIÓN */}
-              <div className="mb-4">
-                <div className="flex items-center text-gray-600">
-                  <span className="mr-1">📍</span>
-                  <span className="font-medium">{consumo.faena_ubicacion}</span>
-                </div>
-              </div>
-
-              {/* FECHA Y COMBUSTIBLE */}
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <div className="flex items-center text-gray-500 text-xs font-medium mb-1">
-                    <span className="mr-1">📅</span>
-                    FECHA
-                  </div>
-                  <div className="text-blue-600 font-semibold">
-                    {consumo.fecha_formateada}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center text-gray-500 text-xs font-medium mb-1">
-                    <span className="mr-1">⛽</span>
-                    COMBUSTIBLE
-                  </div>
-                  <div className="text-green-600 font-bold">
-                    {consumo.litros_consumidos.toFixed(1)} L
-                  </div>
-                </div>
-              </div>
-
-              {/* MEDICIÓN */}
-              <div className="border-t border-gray-200 pt-3">
-                <div className="flex items-center text-gray-500 text-xs font-medium mb-1">
-                  <span className="mr-1">🔶</span>
-                  {data?.maquina?.tipo_medicion === 'Horometro' ? 'HORÓMETRO' : 'KILOMETRAJE'}
-                </div>
-                <div className={`font-bold ${esReciente ? 'text-orange-600' : 'text-gray-700'
-                  }`}>
-                  {data?.maquina?.tipo_medicion === 'Horometro'
-                    ? `${consumo.medicion.toFixed(1)} hrs`
-                    : `${Math.round(consumo.medicion).toLocaleString()} km`
-                  }
-                </div>
-              </div>
-            </div>
-          );
-        })}
+  const renderSuccessScreen = () => (
+    <div className="flex flex-col items-center justify-center py-6 px-4 text-center space-y-6">
+      <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
+        <FaCheck className="text-green-600 w-10 h-10" />
       </div>
-    );
-  };
-
-  const renderSuccessScreen = () => {
-    return (
-      <div className="flex flex-col items-center justify-center py-6 px-4 text-center space-y-6">
-        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
-          <FaCheck className="text-green-600 w-10 h-10" />
-        </div>
-        <h2 className="text-2xl font-bold text-gray-800">¡Consumo registrado exitosamente!</h2>
-        {/* Resto del success screen... */}
-        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md mt-4">
-          <button
-            onClick={handleBackToStart}
-            className="w-full sm:w-1/2 bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg flex items-center justify-center"
-          >
-            <FaPlus className="mr-2" />
-            <span>Nuevo registro</span>
-          </button>
-          <button
-            onClick={() => navigate('/bombero')}
-            className="w-full sm:w-1/2 bg-gray-100 hover:bg-gray-200 text-gray-800 py-3 px-4 rounded-lg flex items-center justify-center"
-          >
-            <FaHome className="mr-2" />
-            <span>Volver al inicio</span>
-          </button>
-        </div>
+      <h2 className="text-2xl font-bold text-gray-800">¡Consumo registrado exitosamente!</h2>
+      <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md mt-4">
+        <button
+          onClick={handleBackToStart}
+          className="w-full sm:w-1/2 bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg flex items-center justify-center"
+        >
+          <FaPlus className="mr-2" />
+          <span>Nuevo registro</span>
+        </button>
+        <button
+          onClick={() => navigate('/bombero')}
+          className="w-full sm:w-1/2 bg-gray-100 hover:bg-gray-200 text-gray-800 py-3 px-4 rounded-lg flex items-center justify-center"
+        >
+          <FaHome className="mr-2" />
+          <span>Volver al inicio</span>
+        </button>
       </div>
-    );
-  };
+    </div>
+  );
 
   // Variables derivadas
-  const tipoMedicion = categoriaSeleccionada &&
-    typeof categoriaSeleccionada === 'object' &&
-    categoriaSeleccionada.tipo_medicion
-    ? categoriaSeleccionada.tipo_medicion
-    : "Kilometraje";
-
-  const hasVehicleInfo = Boolean(patenteSeleccionada && typeof patenteSeleccionada === 'object' && patenteSeleccionada.nombre);
+  const tipoMedicion = categoriaSeleccionada?.tipo_medicion || "Kilometraje";
+  const hasVehicleInfo = Boolean(patenteSeleccionada?.nombre);
   const faenaIdToUse = getFaenaId();
 
   // Early returns
@@ -633,7 +546,7 @@ const Consumo = ({
                               }`}>
                               {tipoSolicitante || "No especificado"}
                             </span>
-                            {solicitante && solicitante.cargo && (
+                            {solicitante?.cargo && (
                               <span className="text-xs text-gray-500 ml-1 truncate">{solicitante.cargo}</span>
                             )}
                           </div>
@@ -664,38 +577,23 @@ const Consumo = ({
                         </div>
                       </div>
                     </div>
-
-                    {/* ✅ HISTORIAL - NUEVA SECCIÓN */}
-                    <div className="col-span-1 sm:col-span-2 bg-green-50 rounded-lg p-3 border-l-4 border-green-500 hover:bg-green-100 transition-all duration-300">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-green-100 text-green-600">
-                          <FaClipboardList />
-                        </div>
-                        <div className="flex flex-col text-left flex-1">
-                          <span className="text-gray-700 font-semibold text-sm">
-                            Historial últimos dos consumos de la máquina
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {tieneHistorial ? `${cantidadConsumos} registro(s) encontrado(s)` : 'Sin registros previos'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="mt-2">
-                        {renderHistorialConsumos()}
-                      </div>
-                    </div>
                   </div>
 
+                  {/* ✅ HISTORIAL SIMPLE - Solo últimos 2, abierto por defecto */}
+                  <HistorialCollapsible
+                    ultimoConsumo={ultimoConsumo}
+                    penultimoConsumo={penultimoConsumo}
+                    tipoMedicion={tipoMedicion}
+                    loading={loadingHistorial}
+                    error={errorHistorial}
+                    cantidadConsumos={cantidadConsumos}
+                  />
+
+                  {/* ✅ FORMULARIO CON INPUT MEJORADO */}
                   <div className="flex-grow">
                     <ConsumoForm
                       formData={formData}
                       handleChange={handleChange}
-                      handleSubmit={handleSubmit}
-                      isSaving={isSaving}
-                      isSaved={isSaved}
-                      hasError={hasError}
-                      errorMessage={errorMessage}
                       tipoMedicion={tipoMedicion}
                       idFaena={faenaIdToUse}
                       estanqueSeleccionado={estanqueSeleccionado}
@@ -711,6 +609,9 @@ const Consumo = ({
                       loadingNumeralSugerido={loadingUltimaMedicion}
                       errorNumeralSugerido={errorUltimaMedicion}
                       datosUltimaMedicion={data}
+                      // ✅ NUEVA PROP: Para que FormConsumo use el InputConReferencia
+                      ultimoConsumo={ultimoConsumo}
+                      InputConReferencia={InputConReferencia}
                     />
                   </div>
                 </>

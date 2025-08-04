@@ -270,7 +270,7 @@ const AppRoutes = () => {
       <Route
         path="/bombero"
         element={
-          <PrivateRoute requiredRole="bombero">
+          <PrivateRoute requiredRoles={["bombero", "asistente_bombero"]}>
             <BomberoPage />
           </PrivateRoute>
         }
@@ -279,7 +279,7 @@ const AppRoutes = () => {
       <Route
         path="/bombero/recepcion"
         element={
-          <PrivateRoute requiredRole="bombero">
+          <PrivateRoute requiredRoles={["bombero"]}>
             <BomberoRecepcionPage />
           </PrivateRoute>
         }
@@ -289,7 +289,7 @@ const AppRoutes = () => {
       <Route
         path="/bomberoRecepcion"
         element={
-          <PrivateRoute requiredRole="bombero">
+          <PrivateRoute requiredRoles={["bombero", "asistente_bombero"]}>
             <BomberoRecepcionPage />
           </PrivateRoute>
         }
@@ -298,7 +298,7 @@ const AppRoutes = () => {
       <Route
         path="/bombero/navegacion"
         element={
-          <PrivateRoute requiredRole="bombero">
+          <PrivateRoute requiredRoles={["bombero", "asistente_bombero"]}>
             <BomberoNavigation />
           </PrivateRoute>
         }
@@ -308,7 +308,7 @@ const AppRoutes = () => {
       <Route
         path="/BomberoNavigation"
         element={
-          <PrivateRoute requiredRole="bombero">
+          <PrivateRoute requiredRoles={["bombero", "asistente_bombero"]}>
             <BomberoNavigation />
           </PrivateRoute>
         }
@@ -317,17 +317,7 @@ const AppRoutes = () => {
       <Route
         path="/bombero/ingreso-externo"
         element={
-          <PrivateRoute requiredRole="bombero">
-            <BomberoIngresoExterno />
-          </PrivateRoute>
-        }
-      />
-
-      {/* Mantener ruta antigua */}
-      <Route
-        path="/IngresoExterno"
-        element={
-          <PrivateRoute requiredRole="bombero">
+          <PrivateRoute requiredRoles={["bombero", "asistente_bombero"]}>
             <BomberoIngresoExterno />
           </PrivateRoute>
         }
@@ -336,7 +326,7 @@ const AppRoutes = () => {
       <Route
         path="/bombero/recepciones"
         element={
-          <PrivateRoute requiredRole="bombero">
+          <PrivateRoute requiredRoles={["bombero", "asistente_bombero"]}>
             <BomberoRecepciones />
           </PrivateRoute>
         }
@@ -345,7 +335,7 @@ const AppRoutes = () => {
       <Route
         path="/bombero/consumos"
         element={
-          <PrivateRoute requiredRole="bombero">
+          <PrivateRoute requiredRoles={["bombero", "asistente_bombero"]}>
             <BomberoConsumoPage />
           </PrivateRoute>
         }

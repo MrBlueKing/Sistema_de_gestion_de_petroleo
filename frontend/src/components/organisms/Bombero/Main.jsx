@@ -158,6 +158,12 @@ const Main = () => {
   const [loadingConsumos, setLoadingConsumos] = useState(false);
   const [error, setError] = useState(null);
 
+  // 🆕 FUNCIÓN PARA VERIFICAR PERMISOS
+  const tienePermisoRecepciones = () => {
+    // Si el usuario tiene rol id_rol = 7 (asistente_bombero), NO puede ver recepciones
+    return user?.rol?.id_rol !== 7;
+  };
+
   // Función para obtener consumos recientes
   const fetchConsumosRecientes = async () => {
     if (!user?.id_faena) {
@@ -272,12 +278,10 @@ const Main = () => {
             <h3 className="text-2xl sm:text-2xl font-bold bg-gradient-to-r from-gray-800 via-gray-900 to-gray-800 bg-clip-text text-transparent mb-2 sm:mb-4">
               Sistema de Gestión de Combustible
             </h3>
-
           </div>
 
           {/* Cards de acciones principales - Responsive */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
-
             {/* Card de Registros */}
             <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-4 sm:mb-6">
@@ -291,15 +295,19 @@ const Main = () => {
               </div>
 
               <div className="space-y-3 sm:space-y-4">
-                <Button
-                  to="/BomberoRecepcion"
-                  color="orange"
-                  icon={<FaArrowCircleDown />}
-                  text="Registrar Recepción"
-                  className="w-full"
-                  disabled={!user?.id_faena}
-                />
+                {/* 🆕 BOTÓN DE RECEPCIÓN - SOLO VISIBLE PARA ROLES PERMITIDOS */}
+                {tienePermisoRecepciones() && (
+                  <Button
+                    to="/BomberoRecepcion"
+                    color="orange"
+                    icon={<FaArrowCircleDown />}
+                    text="Registrar Recepción"
+                    className="w-full"
+                    disabled={!user?.id_faena}
+                  />
+                )}
 
+                {/* BOTÓN DE CONSUMO - SIEMPRE VISIBLE */}
                 <Button
                   to="/BomberoNavigation"
                   color="orange"
@@ -324,14 +332,18 @@ const Main = () => {
               </div>
 
               <div className="space-y-3 sm:space-y-4">
-                <Button
-                  to="/bombero/recepciones"
-                  color="green"
-                  icon={<FaHistory />}
-                  text="Historial Recepciones"
-                  className="w-full"
-                />
+                {/* 🆕 BOTÓN DE HISTORIAL RECEPCIONES - SOLO VISIBLE PARA ROLES PERMITIDOS */}
+                {tienePermisoRecepciones() && (
+                  <Button
+                    to="/bombero/recepciones"
+                    color="green"
+                    icon={<FaHistory />}
+                    text="Historial Recepciones"
+                    className="w-full"
+                  />
+                )}
 
+                {/* BOTÓN DE HISTORIAL CONSUMOS - SIEMPRE VISIBLE */}
                 <Button
                   to="/bombero/consumos"
                   color="green"
@@ -471,8 +483,20 @@ const Main = () => {
           {/* Footer integrado */}
           <div className="text-center pt-4 sm:pt-6 border-t border-gray-200">
             <p className="text-gray-600 text-xs sm:text-sm">
-              Sistema de Gestión de Combustible v2.0 | Usuario: {user?.nombre} {user?.apellido}
+              Sistema de Gestión de Combustible v2.1 | Usuario: {user?.nombre} {user?.apellido}
             </p>
+            
+            {/* 🆕 INDICADOR DE ROL PARA DEBUG (puedes quitarlo después) */}
+            <div className="mt-2">
+              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                user?.rol?.id_rol === 7 
+                  ? 'bg-blue-100 text-blue-800' 
+                  : 'bg-green-100 text-green-800'
+              }`}>
+                Rol ID: {user?.rol?.id_rol} 
+                {user?.rol?.id_rol === 7 && ' (Asistente - Permisos limitados)'}
+              </span>
+            </div>
           </div>
         </div>
       </div>
