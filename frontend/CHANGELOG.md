@@ -39,7 +39,7 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 - Ninguno 
 
 ### Removed
-- [WiP] Gerente : Graficos.jsx --> Tabla --> Análisis por Máquina - ConsumoCategoriasController  --> La columna Valor Total, muestra abajo un valor de precio / l promedio, el cual es un valor repetido en la columna Precio Específico, por lo que se decide eliminar.
+- [Testing] Gerente : Graficos.jsx --> Tabla --> Análisis por Máquina - ConsumoCategoriasController  --> La columna Valor Total, muestra abajo un valor de precio / l promedio, el cual es un valor repetido en la columna Precio Específico, por lo que se decide eliminar.
 
 ### Fixed
 - [Testing] Gerente : Graficos.jsx --> Consumo_PieChart --> Se filtra mal cuando uno selecciona todas las faenas, Se modificara el metodo para que entienda como se debe filtrar si se selecciona todas las faenas. 
