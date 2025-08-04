@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import axios from "../../lib/axios";
 import {
   FiLoader,
@@ -10,8 +10,136 @@ import {
   FiClock,
   FiChevronUp,
   FiChevronDown,
+  FiFilter,
+  FiX,
 } from "react-icons/fi";
 
+// Componente de filtro simple para las columnas
+const ColumnFilter = ({ 
+  titulo, 
+  opciones = [], 
+  valor = "", 
+  onChange, 
+  tipo = "select", // "select" o "text" 
+  onSort,
+  ordenColumna,
+  direccionOrden,
+  columna
+}) => {
+  const [mostrarFiltro, setMostrarFiltro] = useState(false);
+
+  const renderIconoOrdenamiento = () => {
+    if (ordenColumna !== columna) {
+      return <span className="text-gray-400 ml-1">↕</span>;
+    }
+    return direccionOrden === "asc" ? (
+      <FiChevronUp className="inline ml-1 text-blue-600" />
+    ) : (
+      <FiChevronDown className="inline ml-1 text-blue-600" />
+    );
+  };
+
+  return (
+    <div className="relative">
+      <div className="flex items-center justify-between">
+        <div 
+          className="flex items-center cursor-pointer hover:text-blue-600"
+          onClick={onSort}
+        >
+          {titulo}
+          {renderIconoOrdenamiento()}
+        </div>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setMostrarFiltro(!mostrarFiltro);
+          }}
+          className={`ml-2 p-1 rounded hover:bg-gray-200 ${
+            valor ? "text-blue-600" : "text-gray-400"
+          }`}
+        >
+          <FiFilter size={12} />
+        </button>
+      </div>
+
+      {mostrarFiltro && (
+        <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 z-50 min-w-48">
+          <div className="p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-700">
+                Filtrar {titulo}
+              </span>
+              <button
+                onClick={() => setMostrarFiltro(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <FiX size={12} />
+              </button>
+            </div>
+
+            {tipo === "select" ? (
+              <div className="max-h-48 overflow-y-auto">
+                <div 
+                  className={`p-2 text-sm cursor-pointer hover:bg-gray-100 rounded ${
+                    valor === "" ? "bg-blue-50 text-blue-600" : ""
+                  }`}
+                  onClick={() => {
+                    onChange("");
+                    setMostrarFiltro(false);
+                  }}
+                >
+                  Todos
+                </div>
+                {opciones.map((opcion, index) => (
+                  <div
+                    key={index}
+                    className={`p-2 text-sm cursor-pointer hover:bg-gray-100 rounded ${
+                      valor === opcion ? "bg-blue-50 text-blue-600" : ""
+                    }`}
+                    onClick={() => {
+                      onChange(opcion);
+                      setMostrarFiltro(false);
+                    }}
+                  >
+                    {opcion}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div>
+                <input
+                  type="text"
+                  value={valor}
+                  onChange={(e) => onChange(e.target.value)}
+                  placeholder={`Buscar ${titulo.toLowerCase()}...`}
+                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                  autoFocus
+                />
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={() => {
+                      onChange("");
+                      setMostrarFiltro(false);
+                    }}
+                    className="px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded hover:bg-gray-200"
+                  >
+                    Limpiar
+                  </button>
+                  <button
+                    onClick={() => setMostrarFiltro(false)}
+                    className="px-2 py-1 text-xs text-white bg-blue-500 rounded hover:bg-blue-600"
+                  >
+                    Aplicar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ConsumoPorMaquinaPureTable = ({
   fechaDesde,
@@ -26,52 +154,54 @@ const ConsumoPorMaquinaPureTable = ({
   const [error, setError] = useState(null);
   const [resumenGeneral, setResumenGeneral] = useState(null);
 
-  // 🆕 ESTADOS PARA ORDENAMIENTO
-  const [ordenColumna, setOrdenColumna] = useState("litros_totales"); // Por defecto ordenar por Consumo Total
-  const [direccionOrden, setDireccionOrden] = useState("desc"); // Por defecto descendente (mayor a menor)
+  // Estados para ordenamiento (mantener igual)
+  const [ordenColumna, setOrdenColumna] = useState("litros_totales");
+  const [direccionOrden, setDireccionOrden] = useState("desc");
 
-   // ✅ FUNCIÓN: Formatear fecha con hora en formato dd-mm-yyyy
+  // 🆕 Estados para filtros
+  const [filtros, setFiltros] = useState({
+    maquina: "",
+    categoria: "",
+    faena: "",
+    patente: ""
+  });
+
+  // Función para formatear fecha con hora (mantener igual)
   const formatearFechaHora = (fecha, hora) => {
     if (!fecha) return fecha;
     if (!hora) return fecha;
     
-    // Convertir fecha de yyyy-mm-dd a dd-mm-yyyy
     const fechaFormateada = formatearFecha(fecha);
     return `${fechaFormateada} ${hora}:00`;
   };
 
-  // 🆕 FUNCIÓN AUXILIAR: Convertir fecha a formato dd-mm-yyyy
   const formatearFecha = (fecha) => {
     if (!fecha) return fecha;
     
-    // Si la fecha ya está en formato dd-mm-yyyy, devolverla tal como está
     if (fecha.includes('-') && fecha.split('-')[0].length === 2) {
       return fecha;
     }
     
-    // Si está en formato yyyy-mm-dd, convertirla
     const partes = fecha.split('-');
     if (partes.length === 3) {
       const [año, mes, dia] = partes;
       return `${dia}-${mes}-${año}`;
     }
     
-    return fecha; // Si no es un formato reconocido, devolver tal como está
+    return fecha;
   };
 
-  // 🆕 FUNCIÓN PARA MANEJAR EL ORDENAMIENTO
+  // Función para manejar ordenamiento (mantener igual)
   const manejarOrdenamiento = (columna) => {
     if (ordenColumna === columna) {
-      // Si es la misma columna, cambiar dirección
       setDireccionOrden(direccionOrden === "asc" ? "desc" : "asc");
     } else {
-      // Si es nueva columna, ordenar descendente por defecto
       setOrdenColumna(columna);
       setDireccionOrden("desc");
     }
   };
 
-  // 🆕 FUNCIÓN PARA ORDENAR LOS DATOS
+  // Función para ordenar los datos (mantener igual)
   const ordenarDatos = (datos) => {
     return [...datos].sort((a, b) => {
       let valorA, valorB;
@@ -113,7 +243,6 @@ const ConsumoPorMaquinaPureTable = ({
           return 0;
       }
 
-      // Comparación
       if (typeof valorA === "string") {
         const resultado = valorA.localeCompare(valorB);
         return direccionOrden === "asc" ? resultado : -resultado;
@@ -124,19 +253,59 @@ const ConsumoPorMaquinaPureTable = ({
     });
   };
 
-  // 🆕 COMPONENTE PARA ICONO DE ORDENAMIENTO
-  const IconoOrdenamiento = ({ columna }) => {
-    if (ordenColumna !== columna) {
-      return <span className="text-gray-400 ml-1">↕</span>;
-    }
-    return direccionOrden === "asc" ? (
-      <FiChevronUp className="inline ml-1 text-blue-600" />
-    ) : (
-      <FiChevronDown className="inline ml-1 text-blue-600" />
-    );
+  // 🆕 Función para filtrar datos
+  const filtrarDatos = (datos) => {
+    return datos.filter(maquina => {
+      const cumpleMaquina = !filtros.maquina || 
+        maquina.nombre_maquina?.toLowerCase().includes(filtros.maquina.toLowerCase());
+      
+      const cumpleCategoria = !filtros.categoria || 
+        maquina.categoria === filtros.categoria;
+      
+      const cumpleFaena = !filtros.faena || 
+        maquina.faena === filtros.faena;
+        
+      const cumplePatente = !filtros.patente || 
+        maquina.patente?.toLowerCase().includes(filtros.patente.toLowerCase());
+
+      return cumpleMaquina && cumpleCategoria && cumpleFaena && cumplePatente;
+    });
   };
 
-  // Cargar datos del ConsumoCategoriasController
+  // 🆕 Generar opciones únicas para los filtros select
+  const opcionesFiltros = useMemo(() => {
+    const maquinas = [...new Set(datosConsumo.map(m => m.nombre_maquina).filter(Boolean))].sort();
+    const categorias = [...new Set(datosConsumo.map(m => m.categoria).filter(Boolean))].sort();
+    const faenas = [...new Set(datosConsumo.map(m => m.faena).filter(Boolean))].sort();
+
+    return { maquinas, categorias, faenas };
+  }, [datosConsumo]);
+
+  // 🆕 Aplicar filtros y ordenamiento
+  const datosProcesados = useMemo(() => {
+    const datosFiltrados = filtrarDatos(datosConsumo);
+    return ordenarDatos(datosFiltrados);
+  }, [datosConsumo, filtros, ordenColumna, direccionOrden]);
+
+  // 🆕 Función para manejar cambios de filtro
+  const manejarCambioFiltro = (tipoFiltro, valor) => {
+    setFiltros(prev => ({
+      ...prev,
+      [tipoFiltro]: valor
+    }));
+  };
+
+  // 🆕 Función para limpiar todos los filtros
+  const limpiarFiltros = () => {
+    setFiltros({
+      maquina: "",
+      categoria: "",
+      faena: "",
+      patente: ""
+    });
+  };
+
+  // Cargar datos del ConsumoCategoriasController (mantener igual)
   const cargarDatosConsumoCategoria = async () => {
     try {
       setLoading(true);
@@ -157,8 +326,7 @@ const ConsumoPorMaquinaPureTable = ({
       const response = await axios.post("/api/consumo-categorias/calcular", {
         fecha_inicio: fechaInicioFormateada,
         fecha_fin: fechaFinFormateada,
-        id_faena:
-          faenaSeleccionada !== "todas" ? parseInt(faenaSeleccionada) : null,
+        id_faena: faenaSeleccionada !== "todas" ? parseInt(faenaSeleccionada) : null,
         incluir_simulacion: true,
         usar_fechas_automaticas: false,
         incluir_sabados: true,
@@ -206,16 +374,14 @@ const ConsumoPorMaquinaPureTable = ({
                 // Datos de rendimiento
                 rendimiento: {
                   valor: rendimiento.rendimiento_valor || 0,
-                  unidad:
-                    rendimiento.tipo_medicion === "Horometro" ? "hr" : "km",
+                  unidad: rendimiento.tipo_medicion === "Horometro" ? "hr" : "km",
                   formateado: rendimiento.rendimiento_formateado || "N/A",
                   interpretacion: rendimiento.interpretacion || "No disponible",
                 },
 
                 // Estadísticas
                 estadisticas: maquinaAnalisis.estadisticas || null,
-                periodos_confirmados:
-                  maquinaAnalisis.periodos_confirmados || [],
+                periodos_confirmados: maquinaAnalisis.periodos_confirmados || [],
                 simulacion: maquinaAnalisis.simulacion || null,
 
                 // Metadata
@@ -230,14 +396,11 @@ const ConsumoPorMaquinaPureTable = ({
       setDatosConsumo(maquinasData);
       setResumenGeneral(response.data.resumen_ejecutivo);
 
-      console.log(
-        "✅ Datos ConsumoCategoriasController cargados con horarios:",
-        {
-          maquinas: maquinasData.length,
-          periodo: `${fechaInicioFormateada} - ${fechaFinFormateada}`,
-          resumen: response.data.resumen_ejecutivo,
-        }
-      );
+      console.log("✅ Datos ConsumoCategoriasController cargados con horarios:", {
+        maquinas: maquinasData.length,
+        periodo: `${fechaInicioFormateada} - ${fechaFinFormateada}`,
+        resumen: response.data.resumen_ejecutivo,
+      });
     } catch (err) {
       console.error("Error al cargar datos ConsumoCategoriasController:", err);
       setError("Error al cargar datos: " + err.message);
@@ -250,16 +413,9 @@ const ConsumoPorMaquinaPureTable = ({
     if (fechaDesde && fechaHasta && horaDesde && horaHasta) {
       cargarDatosConsumoCategoria();
     }
-  }, [
-    fechaDesde,
-    fechaHasta,
-    horaDesde,
-    horaHasta,
-    faenaSeleccionada,
-    refreshKey,
-  ]);
+  }, [fechaDesde, fechaHasta, horaDesde, horaHasta, faenaSeleccionada, refreshKey]);
 
-  // Funciones auxiliares para colores
+  // Funciones auxiliares para colores (mantener igual)
   const getColorPrecision = (precision) => {
     if (precision >= 80) return "text-green-600 bg-green-50";
     if (precision >= 60) return "text-yellow-600 bg-yellow-50";
@@ -271,10 +427,7 @@ const ConsumoPorMaquinaPureTable = ({
       return "text-gray-500";
     if (interpretacion.includes("eficiente") || interpretacion.includes("bajo"))
       return "text-green-600";
-    if (
-      interpretacion.includes("moderado") ||
-      interpretacion.includes("normal")
-    )
+    if (interpretacion.includes("moderado") || interpretacion.includes("normal"))
       return "text-yellow-600";
     return "text-red-600";
   };
@@ -284,24 +437,19 @@ const ConsumoPorMaquinaPureTable = ({
       return "bg-gray-100 text-gray-600";
     if (interpretacion.includes("eficiente") || interpretacion.includes("bajo"))
       return "bg-green-100 text-green-800";
-    if (
-      interpretacion.includes("moderado") ||
-      interpretacion.includes("normal")
-    )
+    if (interpretacion.includes("moderado") || interpretacion.includes("normal"))
       return "bg-yellow-100 text-yellow-800";
     return "bg-red-100 text-red-800";
   };
 
-  // 🆕 APLICAR ORDENAMIENTO A LOS DATOS
-  const datosOrdenados = ordenarDatos(datosConsumo);
+  // Contadores para filtros activos
+  const filtrosActivos = Object.values(filtros).filter(f => f !== "").length;
 
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow-sm p-8 text-center">
         <FiLoader className="animate-spin h-8 w-8 text-blue-500 mx-auto mb-4" />
-        <p className="text-gray-600">
-          Cargando análisis de consumo por máquina...
-        </p>
+        <p className="text-gray-600">Cargando análisis de consumo por máquina...</p>
       </div>
     );
   }
@@ -340,36 +488,30 @@ const ConsumoPorMaquinaPureTable = ({
             <h3 className="text-lg font-semibold text-gray-800 flex items-center">
               <FiDollarSign className="h-5 w-5 mr-2 text-purple-500" />
               Análisis por Máquina - ConsumoCategoriasController
-<span className="ml-2 text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-              Ordenado por:{" "}
-              {ordenColumna === "litros_totales"
-                ? "Consumo Total"
-                : ordenColumna === "nombre_maquina"
-                ? "Máquina"
-                : ordenColumna === "categoria"
-                ? "Categoría"
-                : ordenColumna === "faena"
-                ? "Faena"
-                : ordenColumna === "precio_promedio_litro"
-                ? "Precio específico"
-                : ordenColumna === "valor_total"
-                ? "Valor Total"
-                : ordenColumna === "rendimiento"
-                ? "Rendimiento"
-                : ordenColumna === "porcentaje_confirmado"
-                ? "Precisión"
-                : ordenColumna}
-              {direccionOrden === "desc" ? " ↓" : " ↑"}
-            </span>
-
+              <span className="ml-2 text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                Ordenado por:{" "}
+                {ordenColumna === "litros_totales" ? "Consumo Total"
+                  : ordenColumna === "nombre_maquina" ? "Máquina"
+                  : ordenColumna === "categoria" ? "Categoría"
+                  : ordenColumna === "faena" ? "Faena"
+                  : ordenColumna === "precio_promedio_litro" ? "Precio específico"
+                  : ordenColumna === "valor_total" ? "Valor Total"
+                  : ordenColumna === "rendimiento" ? "Rendimiento"
+                  : ordenColumna === "porcentaje_confirmado" ? "Precisión"
+                  : ordenColumna}
+                {direccionOrden === "desc" ? " ↓" : " ↑"}
+              </span>
+              {filtrosActivos > 0 && (
+                <span className="ml-2 text-sm bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
+                  {filtrosActivos} filtro{filtrosActivos !== 1 ? 's' : ''} activo{filtrosActivos !== 1 ? 's' : ''}
+                </span>
+              )}
             </h3>
             
-
             <p className="text-sm text-gray-600 mt-1 flex items-center">
               <FiClock className="h-4 w-4 mr-1 text-blue-500" />
               Filtrado con precisión horaria:{" "}
               {formatearFechaHora(fechaDesde, horaDesde)} hasta {formatearFechaHora(fechaHasta, horaHasta)}
-
             </p>
           </div>
 
@@ -390,10 +532,7 @@ const ConsumoPorMaquinaPureTable = ({
               </div>
               <div className="bg-white rounded-lg p-3 shadow-sm">
                 <div className="text-lg font-bold text-purple-600">
-                  $
-                  {Math.round(
-                    resumenGeneral.costo_estimado.total
-                  ).toLocaleString("es-CL")}
+                  ${Math.round(resumenGeneral.costo_estimado.total).toLocaleString("es-CL")}
                 </div>
                 <div className="text-xs text-gray-500">Costo Total</div>
               </div>
@@ -408,89 +547,199 @@ const ConsumoPorMaquinaPureTable = ({
         </div>
       </div>
 
-      {/* Tabla */}
+      {/* 🆕 Barra de filtros activos */}
+      {filtrosActivos > 0 && (
+        <div className="bg-blue-50 border-b border-blue-200 p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-blue-700">Filtros activos:</span>
+            {filtros.maquina && (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
+                Máquina: {filtros.maquina}
+                <button
+                  onClick={() => manejarCambioFiltro("maquina", "")}
+                  className="ml-1 text-blue-600 hover:text-blue-800"
+                >
+                  <FiX size={12} />
+                </button>
+              </span>
+            )}
+            {filtros.categoria && (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
+                Categoría: {filtros.categoria}
+                <button
+                  onClick={() => manejarCambioFiltro("categoria", "")}
+                  className="ml-1 text-blue-600 hover:text-blue-800"
+                >
+                  <FiX size={12} />
+                </button>
+              </span>
+            )}
+            {filtros.faena && (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
+                Faena: {filtros.faena}
+                <button
+                  onClick={() => manejarCambioFiltro("faena", "")}
+                  className="ml-1 text-blue-600 hover:text-blue-800"
+                >
+                  <FiX size={12} />
+                </button>
+              </span>
+            )}
+            {filtros.patente && (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
+                Patente: {filtros.patente}
+                <button
+                  onClick={() => manejarCambioFiltro("patente", "")}
+                  className="ml-1 text-blue-600 hover:text-blue-800"
+                >
+                  <FiX size={12} />
+                </button>
+              </span>
+            )}
+            <button
+              onClick={limpiarFiltros}
+              className="text-sm text-red-600 hover:text-red-800 font-medium"
+            >
+              Limpiar todos
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tabla con filtros en headers */}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              {/* 🆕 HEADERS CLICKEABLES CON ICONOS DE ORDENAMIENTO */}
-              <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                onClick={() => manejarOrdenamiento("nombre_maquina")}
-              >
-                <div className="flex items-center">
-                  Máquina
-                  <IconoOrdenamiento columna="nombre_maquina" />
-                </div>
+              {/* 🆕 Header con filtro para Máquina */}
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <ColumnFilter
+                  titulo="Máquina"
+                  tipo="text"
+                  valor={filtros.maquina}
+                  onChange={(valor) => manejarCambioFiltro("maquina", valor)}
+                  onSort={() => manejarOrdenamiento("nombre_maquina")}
+                  ordenColumna={ordenColumna}
+                  direccionOrden={direccionOrden}
+                  columna="nombre_maquina"
+                />
               </th>
-              <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                onClick={() => manejarOrdenamiento("categoria")}
-              >
-                <div className="flex items-center">
-                  Categoría
-                  <IconoOrdenamiento columna="categoria" />
-                </div>
+
+              {/* 🆕 Header con filtro para Categoría */}
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <ColumnFilter
+                  titulo="Categoría"
+                  tipo="select"
+                  opciones={opcionesFiltros.categorias}
+                  valor={filtros.categoria}
+                  onChange={(valor) => manejarCambioFiltro("categoria", valor)}
+                  onSort={() => manejarOrdenamiento("categoria")}
+                  ordenColumna={ordenColumna}
+                  direccionOrden={direccionOrden}
+                  columna="categoria"
+                />
               </th>
-              <th
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                onClick={() => manejarOrdenamiento("faena")}
-              >
-                <div className="flex items-center">
-                  Faena
-                  <IconoOrdenamiento columna="faena" />
-                </div>
+
+              {/* 🆕 Header con filtro para Faena */}
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <ColumnFilter
+                  titulo="Faena"
+                  tipo="select"
+                  opciones={opcionesFiltros.faenas}
+                  valor={filtros.faena}
+                  onChange={(valor) => manejarCambioFiltro("faena", valor)}
+                  onSort={() => manejarOrdenamiento("faena")}
+                  ordenColumna={ordenColumna}
+                  direccionOrden={direccionOrden}
+                  columna="faena"
+                />
               </th>
-              <th
-                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                onClick={() => manejarOrdenamiento("litros_totales")}
-              >
+
+              {/* Headers sin filtro pero con ordenamiento */}
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => manejarOrdenamiento("litros_totales")}>
                 <div className="flex items-center justify-end">
                   Consumo Total
-                  <IconoOrdenamiento columna="litros_totales" />
+                  {ordenColumna === "litros_totales" ? (
+                    direccionOrden === "asc" ? (
+                      <FiChevronUp className="inline ml-1 text-blue-600" />
+                    ) : (
+                      <FiChevronDown className="inline ml-1 text-blue-600" />
+                    )
+                  ) : (
+                    <span className="text-gray-400 ml-1">↕</span>
+                  )}
                 </div>
               </th>
-              <th
-                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                onClick={() => manejarOrdenamiento("precio_promedio_litro")}
-              >
+
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => manejarOrdenamiento("precio_promedio_litro")}>
                 <div className="flex items-center justify-end">
                   Precio Específico
-                  <IconoOrdenamiento columna="precio_promedio_litro" />
+                  {ordenColumna === "precio_promedio_litro" ? (
+                    direccionOrden === "asc" ? (
+                      <FiChevronUp className="inline ml-1 text-blue-600" />
+                    ) : (
+                      <FiChevronDown className="inline ml-1 text-blue-600" />
+                    )
+                  ) : (
+                    <span className="text-gray-400 ml-1">↕</span>
+                  )}
                 </div>
               </th>
-              <th
-                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                onClick={() => manejarOrdenamiento("valor_total")}
-              >
+
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => manejarOrdenamiento("valor_total")}>
                 <div className="flex items-center justify-end">
                   Valor Total
-                  <IconoOrdenamiento columna="valor_total" />
+                  {ordenColumna === "valor_total" ? (
+                    direccionOrden === "asc" ? (
+                      <FiChevronUp className="inline ml-1 text-blue-600" />
+                    ) : (
+                      <FiChevronDown className="inline ml-1 text-blue-600" />
+                    )
+                  ) : (
+                    <span className="text-gray-400 ml-1">↕</span>
+                  )}
                 </div>
               </th>
-              <th
-                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                onClick={() => manejarOrdenamiento("rendimiento")}
-              >
+
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => manejarOrdenamiento("rendimiento")}>
                 <div className="flex items-center justify-end">
                   Rendimiento
-                  <IconoOrdenamiento columna="rendimiento" />
+                  {ordenColumna === "rendimiento" ? (
+                    direccionOrden === "asc" ? (
+                      <FiChevronUp className="inline ml-1 text-blue-600" />
+                    ) : (
+                      <FiChevronDown className="inline ml-1 text-blue-600" />
+                    )
+                  ) : (
+                    <span className="text-gray-400 ml-1">↕</span>
+                  )}
                 </div>
               </th>
-              <th
-                className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                onClick={() => manejarOrdenamiento("porcentaje_confirmado")}
-              >
+
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => manejarOrdenamiento("porcentaje_confirmado")}>
                 <div className="flex items-center justify-center">
                   Precisión
-                  <IconoOrdenamiento columna="porcentaje_confirmado" />
+                  {ordenColumna === "porcentaje_confirmado" ? (
+                    direccionOrden === "asc" ? (
+                      <FiChevronUp className="inline ml-1 text-blue-600" />
+                    ) : (
+                      <FiChevronDown className="inline ml-1 text-blue-600" />
+                    )
+                  ) : (
+                    <span className="text-gray-400 ml-1">↕</span>
+                  )}
                 </div>
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {/* 🆕 USAR DATOS ORDENADOS */}
-            {datosOrdenados.map((maquina, index) => (
+            {/* Usar datos procesados (filtrados y ordenados) */}
+            {datosProcesados.map((maquina, index) => (
               <tr
                 key={`${maquina.id_maquina}-${index}`}
                 className="hover:bg-gray-50 transition-colors"
@@ -633,7 +882,7 @@ const ConsumoPorMaquinaPureTable = ({
         </table>
       </div>
 
-      {/* Footer con información */}
+      {/* Footer con información actualizada */}
       <div className="bg-gray-50 px-6 py-4 border-t">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-2 md:space-y-0">
           <div className="text-sm text-gray-600">
@@ -649,20 +898,28 @@ const ConsumoPorMaquinaPureTable = ({
           </div>
           <div className="flex items-center space-x-4 text-sm text-gray-500">
             <span>
-              <strong>{datosConsumo.length}</strong> máquina
-              {datosConsumo.length !== 1 ? "s" : ""} analizadas
+              <strong>{datosProcesados.length}</strong> de <strong>{datosConsumo.length}</strong> máquina
+              {datosConsumo.length !== 1 ? "s" : ""} mostrada{datosProcesados.length !== 1 ? "s" : ""}
             </span>
+            {filtrosActivos > 0 && (
+              <>
+                <span>•</span>
+                <span className="text-orange-600">
+                  <strong>{filtrosActivos}</strong> filtro{filtrosActivos !== 1 ? "s" : ""} activo{filtrosActivos !== 1 ? "s" : ""}
+                </span>
+              </>
+            )}
             <span>•</span>
             <span>
               <strong>
-                {datosConsumo.filter((m) => m.porcentaje_confirmado > 0).length}
+                {datosProcesados.filter((m) => m.porcentaje_confirmado > 0).length}
               </strong>{" "}
               con datos confirmados
             </span>
             <span>•</span>
             <span>
               <strong>
-                {datosConsumo.filter((m) => m.litros_simulados > 0).length}
+                {datosProcesados.filter((m) => m.litros_simulados > 0).length}
               </strong>{" "}
               con simulación
             </span>
