@@ -22,6 +22,7 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 ### Added
 - [WIP] Encargado de Operaciones de Combustible: Se añadira un nuevo boton en el panel de control inicial, este boton tendra la funcionalidad de poder visualizar los consumos o trayectoria de las maquinas filtradas.
+
 - [Queued] ADMINISTRADOR: Se añadirá una nueva funcionalidad que permitirá una gestión más eficiente de los permisos asociados a las máquinas.
 
 - [Queued] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.

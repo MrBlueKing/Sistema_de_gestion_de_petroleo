@@ -29,6 +29,7 @@ import BomberoNavigation from "../pages/Bombero/BomberoNavigation";
 import BomberoIngresoExterno from "../pages/Bombero/BomberoIngresoExterno";
 import BomberoConsumoPage from "../components/organisms/Bombero/ConsumoView"
 import BomberoRecepciones from "../components/organisms/Bombero/RecepcionesView"
+import HistorialMaquinasView from "../components/organisms/Bombero/HistorialMaquinasView";
 
 // ⚖️ Importaciones Distpach (Toneladas)
 import Distpach from "../pages/Distpach/MenuPrincipalDistpach";
@@ -337,6 +338,15 @@ const AppRoutes = () => {
         element={
           <PrivateRoute requiredRoles={["bombero", "asistente_bombero"]}>
             <BomberoConsumoPage />
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/bombero/historial-maquinas"
+        element={
+          <PrivateRoute requiredRoles={["bombero"]}>
+            <HistorialMaquinasView />
           </PrivateRoute>
         }
       />

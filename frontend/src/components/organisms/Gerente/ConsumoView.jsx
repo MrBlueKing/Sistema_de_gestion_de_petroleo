@@ -731,10 +731,6 @@ const fetchConsumos = async (filterParams = {}, page = 1) => {
     setLoadingConsumos(false);
   }
 };
-
-
-
-
   // 🔄 CAMBIO 3: Actualizar el manejador de filtros
   const handleFilterChange = (newFilters) => {
     console.log("🔄 Aplicando filtros:", newFilters);
