@@ -181,6 +181,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::prefix('ingresos')->group(function () {
             Route::get('/', [IngresoPetroleoController::class, 'index']);
             Route::post('/', [IngresoPetroleoController::class, 'store']);
+            Route::get('/ingresos-petroleo/resumen-faenas', [IngresoPetroleoController::class, 'getResumenPorFaenas']);
+
         });
 
         // Estanques

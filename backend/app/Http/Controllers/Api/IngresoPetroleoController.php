@@ -12,30 +12,125 @@ use App\Models\TrasvasijeDestino;
 use App\Models\VerificacionAltura;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\DB;  // ✅ ESTE ES IMPORTANTE
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 class IngresoPetroleoController extends Controller
 {
-    public function index()
-    {
-        try {
-            $ingresos = IngresoPetroleo::all();
+ public function index(Request $request)
+{
+    try {
+        // Obtener parámetros de filtro
+        $fechaInicio = $request->input('fecha_inicio');
+        $fechaFin = $request->input('fecha_fin');
+        $faenaId = $request->input('faena');
 
-            return response()->json([
-                'success' => true,
-                'data' => $ingresos
-            ], 200);
-        } catch (\Exception $e) {
-            Log::error('Error al obtener ingresos de petróleo', ['error' => $e->getMessage()]);
+        Log::info('🔍 Consultando ingresos de petróleo', [
+            'fecha_inicio' => $fechaInicio,
+            'fecha_fin' => $fechaFin,
+            'faena_id' => $faenaId
+        ]);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Error al obtener los ingresos.'
-            ], 500);
+        // Query base - SIMPLIFICADO para evitar errores de relación
+        $query = IngresoPetroleo::select([
+            'id_ingreso',
+            'numero_guia',
+            'litros_documentados',
+            'litros_recibidos', 
+            'precio',
+            'precio_total',
+            'diferencia',
+            'id_faena',
+            'id_usuario',
+            'observacion',
+            'recibo_conforme',
+            'created_at'
+        ]);
+
+        // Aplicar filtros de fecha
+        if ($fechaInicio) {
+            $query->whereDate('created_at', '>=', $fechaInicio);
         }
+
+        if ($fechaFin) {
+            $query->whereDate('created_at', '<=', $fechaFin);
+        }
+
+        // Aplicar filtro de faena
+        if ($faenaId && $faenaId !== 'todas') {
+            $query->where('id_faena', $faenaId);
+        }
+
+        // Obtener los datos ordenados por fecha descendente
+        $ingresos = $query->orderBy('created_at', 'desc')->get();
+
+        Log::info('✅ Consulta exitosa', ['total_registros' => $ingresos->count()]);
+
+        // Formatear los datos manualmente para evitar errores de relación
+        $ingresosFormateados = $ingresos->map(function ($ingreso) {
+            
+            // Obtener datos de faena manualmente
+            $faena = DB::table('faenas')->where('id_faena', $ingreso->id_faena)->first();
+            $usuario = DB::table('users')->where('id', $ingreso->id_usuario)->first();
+            
+            return [
+                'id_ingreso' => $ingreso->id_ingreso,
+                'numero_guia' => $ingreso->numero_guia,
+                'litros_documentados' => (float) $ingreso->litros_documentados,
+                'litros_recibidos' => (float) $ingreso->litros_recibidos,
+                'precio' => (float) $ingreso->precio,
+                'precio_total' => (float) $ingreso->precio_total,
+                'diferencia' => (float) ($ingreso->diferencia ?? 0),
+                'observacion' => $ingreso->observacion,
+                'recibo_conforme' => (bool) $ingreso->recibo_conforme,
+                'fecha_ingreso' => $ingreso->created_at->format('Y-m-d'),
+                'hora_ingreso' => $ingreso->created_at->format('H:i:s'),
+                'timestamp' => $ingreso->created_at->toISOString(),
+                
+                // Datos de la faena
+                'id_faena' => $ingreso->id_faena,
+                'nombre_faena' => $faena ? ($faena->ubicacion ?? $faena->nombre ?? 'Sin Faena') : 'Sin Faena',
+                'faena' => [
+                    'id_faena' => $ingreso->id_faena,
+                    'ubicacion' => $faena ? ($faena->ubicacion ?? 'Sin Ubicación') : 'Sin Ubicación',
+                    'nombre' => $faena ? ($faena->nombre ?? 'Sin Nombre') : 'Sin Nombre'
+                ],
+                
+                // Datos del usuario
+                'usuario' => $usuario ? ($usuario->name ?? $usuario->nombre ?? 'Usuario Desconocido') : 'Usuario Desconocido',
+                'id_usuario' => $ingreso->id_usuario
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $ingresosFormateados,
+            'metadata' => [
+                'total_registros' => $ingresosFormateados->count(),
+                'filtros_aplicados' => [
+                    'fecha_inicio' => $fechaInicio,
+                    'fecha_fin' => $fechaFin,
+                    'faena_id' => $faenaId
+                ],
+                'fecha_consulta' => now()->toISOString()
+            ]
+        ], 200);
+
+    } catch (\Exception $e) {
+        Log::error('❌ Error al obtener ingresos de petróleo', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'parametros' => $request->all()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Error al obtener los ingresos de petróleo',
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 
     public function store(Request $request)
     {
