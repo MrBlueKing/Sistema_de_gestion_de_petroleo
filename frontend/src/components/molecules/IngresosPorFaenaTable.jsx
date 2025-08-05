@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import axios from '../../lib/axios';
-import { FiLoader, FiAlertCircle, FiInfo, FiTrendingUp } from "react-icons/fi";
+import { FiLoader, FiAlertCircle, FiInfo, FiTrendingUp, FiRefreshCw } from "react-icons/fi";
 
 const IngresosPorFaenaTable = ({ 
   fechaDesde, 
@@ -11,34 +11,55 @@ const IngresosPorFaenaTable = ({
   const [datosIngresos, setDatosIngresos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [ultimaActualizacion, setUltimaActualizacion] = useState(null);
 
-  // Cargar datos de ingresos por faena
+  // 🚀 FUNCIÓN PRINCIPAL: Cargar datos de ingresos por faena
   const cargarDatosIngresosFaena = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Llamar al endpoint de ingresos de petróleo
+      console.log('🔍 Consultando ingresos con parámetros:', {
+        fecha_inicio: fechaDesde,
+        fecha_fin: fechaHasta,
+        faena: faenaSeleccionada !== 'todas' ? faenaSeleccionada : null
+      });
+
+      // 📡 Llamada al endpoint principal
       const response = await axios.get('/api/ingresos-petroleo', {
         params: {
           fecha_inicio: fechaDesde,
-          fecha_fin: fechaHasta + ' 23:59:59',
+          fecha_fin: fechaHasta,
           faena: faenaSeleccionada !== 'todas' ? faenaSeleccionada : null
-        }
+        },
+        timeout: 15000 // Timeout de 15 segundos
       });
 
+      console.log('📊 Respuesta del servidor:', response.data);
+
+      // ✅ Validar respuesta
       if (!response.data?.success) {
-        throw new Error('Error en respuesta del endpoint de ingresos');
+        throw new Error(response.data?.message || 'Respuesta inválida del servidor');
       }
 
-      // Procesar datos por faena
-      const faenasMap = new Map();
       const ingresos = response.data.data || [];
+      console.log(`✅ Se obtuvieron ${ingresos.length} registros de ingresos`);
+
+      // 📈 PROCESAR DATOS POR FAENA
+      const faenasMap = new Map();
       
       ingresos.forEach(ingreso => {
-        const faenaNombre = ingreso.faena?.ubicacion || ingreso.nombre_faena || 'Sin Faena';
-        const faenaId = ingreso.faena?.id_faena || ingreso.id_faena || 0;
+        // Obtener nombre de faena de diferentes posibles ubicaciones
+        const faenaNombre = ingreso.faena?.ubicacion || 
+                           ingreso.nombre_faena || 
+                           ingreso.faena?.nombre || 
+                           'Faena Sin Nombre';
         
+        const faenaId = ingreso.faena?.id_faena || 
+                       ingreso.id_faena || 
+                       0;
+        
+        // Inicializar faena si no existe
         if (!faenasMap.has(faenaNombre)) {
           faenasMap.set(faenaNombre, {
             id_faena: faenaId,
@@ -47,70 +68,119 @@ const IngresosPorFaenaTable = ({
             litros_recibidos: 0,
             valor_total: 0,
             total_ingresos: 0,
-            suma_precio_litros: 0,
+            suma_precio_litros: 0, // Para precio ponderado
             diferencia_total: 0
           });
         }
         
         const faenaData = faenasMap.get(faenaNombre);
         
-        // Acumular datos
+        // 🧮 ACUMULAR DATOS
         faenaData.litros_documentados += parseFloat(ingreso.litros_documentados || 0);
         faenaData.litros_recibidos += parseFloat(ingreso.litros_recibidos || 0);
         faenaData.valor_total += parseFloat(ingreso.precio_total || 0);
         faenaData.total_ingresos += 1;
         faenaData.diferencia_total += parseFloat(ingreso.diferencia || 0);
         
-        // Para precio promedio ponderado
-        if (ingreso.precio && ingreso.litros_recibidos) {
-          faenaData.suma_precio_litros += (parseFloat(ingreso.precio) * parseFloat(ingreso.litros_recibidos));
+        // Para cálculo de precio promedio ponderado
+        const precio = parseFloat(ingreso.precio || 0);
+        const litrosRecibidos = parseFloat(ingreso.litros_recibidos || 0);
+        
+        if (precio > 0 && litrosRecibidos > 0) {
+          faenaData.suma_precio_litros += (precio * litrosRecibidos);
         }
       });
 
-      // Convertir Map a Array y calcular promedios
-      const faenasArray = Array.from(faenasMap.values()).map(faena => ({
-        ...faena,
-        precio_promedio: faena.litros_recibidos > 0 
+      // 🎯 CONVERTIR MAP A ARRAY Y CALCULAR MÉTRICAS
+      const faenasArray = Array.from(faenasMap.values()).map(faena => {
+        const precioPonderado = faena.litros_recibidos > 0 
           ? Math.round(faena.suma_precio_litros / faena.litros_recibidos)
-          : 0,
-        porcentaje_diferencia: faena.litros_documentados > 0
+          : 0;
+          
+        const porcentajeDiferencia = faena.litros_documentados > 0
           ? ((faena.diferencia_total / faena.litros_documentados) * 100).toFixed(1)
-          : 0,
-        // Remover campo auxiliar
-        suma_precio_litros: undefined
-      }));
+          : '0.0';
 
-      // Ordenar por litros recibidos descendente
+        return {
+          id_faena: faena.id_faena,
+          nombre_faena: faena.nombre_faena,
+          litros_documentados: Math.round(faena.litros_documentados * 100) / 100,
+          litros_recibidos: Math.round(faena.litros_recibidos * 100) / 100,
+          valor_total: Math.round(faena.valor_total * 100) / 100,
+          total_ingresos: faena.total_ingresos,
+          diferencia_total: Math.round(faena.diferencia_total * 100) / 100,
+          precio_promedio: precioPonderado,
+          porcentaje_diferencia: porcentajeDiferencia
+        };
+      });
+
+      // 📊 Ordenar por litros recibidos (descendente)
       faenasArray.sort((a, b) => b.litros_recibidos - a.litros_recibidos);
 
+      console.log('📈 Datos procesados por faena:', faenasArray);
+      
       setDatosIngresos(faenasArray);
+      setUltimaActualizacion(new Date());
 
     } catch (err) {
-      console.error('Error al cargar datos de ingresos por faena:', err);
-      setError('Error al cargar datos: ' + err.message);
+      console.error('❌ Error al cargar datos de ingresos por faena:', err);
+      
+      let mensajeError = 'Error desconocido';
+      
+      if (err.code === 'ECONNABORTED') {
+        mensajeError = '⏱️ Tiempo de espera agotado. Intente nuevamente.';
+      } else if (err.response?.status === 404) {
+        mensajeError = '🔍 Endpoint no encontrado. Verifique la configuración.';
+      } else if (err.response?.status === 500) {
+        mensajeError = '⚠️ Error interno del servidor.';
+      } else {
+        mensajeError = err.message || '❌ Error al cargar datos';
+      }
+      
+      setError(mensajeError);
+      setDatosIngresos([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Filtrar datos si hay faena seleccionada
+  // 🔍 DATOS FILTRADOS (si hay faena específica seleccionada)
   const datosFiltrados = useMemo(() => {
     if (!faenaSeleccionada || faenaSeleccionada === 'todas') {
       return datosIngresos;
     }
+    
     return datosIngresos.filter(faena => 
       faena.id_faena === parseInt(faenaSeleccionada)
     );
   }, [datosIngresos, faenaSeleccionada]);
 
-  // Effect para cargar datos
+  // 🔄 EFFECT: Cargar datos cuando cambien los filtros
   useEffect(() => {
     if (fechaDesde && fechaHasta) {
+      console.log('🔄 Recargando datos por cambio en filtros...');
       cargarDatosIngresosFaena();
     }
-  }, [fechaDesde, fechaHasta, refreshKey]);
+  }, [fechaDesde, fechaHasta, faenaSeleccionada, refreshKey]);
 
-  // Estados de carga y error
+  // 🔢 CALCULAR TOTALES
+  const totales = useMemo(() => {
+    return datosFiltrados.reduce((acc, faena) => ({
+      litros_documentados: acc.litros_documentados + faena.litros_documentados,
+      litros_recibidos: acc.litros_recibidos + faena.litros_recibidos,
+      valor: acc.valor + faena.valor_total,
+      ingresos: acc.ingresos + faena.total_ingresos,
+      diferencia: acc.diferencia + faena.diferencia_total
+    }), { 
+      litros_documentados: 0, 
+      litros_recibidos: 0, 
+      valor: 0, 
+      ingresos: 0, 
+      diferencia: 0 
+    });
+  }, [datosFiltrados]);
+
+  // 🔄 LOADING STATE
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -122,20 +192,31 @@ const IngresosPorFaenaTable = ({
     );
   }
 
+  // ❌ ERROR STATE
   if (error) {
     return (
       <div className="bg-white rounded-lg shadow-md p-4 border-l-4" style={{borderColor: '#AB201A'}}>
-        <div className="flex items-center" style={{color: '#AB201A'}}>
-          <FiAlertCircle className="h-4 w-4 mr-2" />
-          <div>
-            <h4 className="font-medium text-sm">Error al cargar datos</h4>
-            <p className="text-xs mt-1">{error}</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center" style={{color: '#AB201A'}}>
+            <FiAlertCircle className="h-4 w-4 mr-2" />
+            <div>
+              <h4 className="font-medium text-sm">Error al cargar datos</h4>
+              <p className="text-xs mt-1">{error}</p>
+            </div>
           </div>
+          <button
+            onClick={cargarDatosIngresosFaena}
+            className="flex items-center px-3 py-1 bg-orange-500 text-white rounded text-xs hover:bg-orange-600 transition-colors"
+          >
+            <FiRefreshCw className="h-3 w-3 mr-1" />
+            Reintentar
+          </button>
         </div>
       </div>
     );
   }
 
+  // 📭 EMPTY STATE
   if (!datosFiltrados || datosFiltrados.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -143,39 +224,48 @@ const IngresosPorFaenaTable = ({
           <FiTrendingUp className="h-4 w-4 mr-2" style={{color: '#F67029'}} />
           Ingresos por Faena
         </h3>
-        <div className="text-center text-gray-500 py-4">
+        <div className="text-center text-gray-500 py-8">
           <FiInfo className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-          <p className="text-sm">No hay datos disponibles</p>
+          <p className="text-sm">No hay datos disponibles para el período seleccionado</p>
+          {fechaDesde && fechaHasta && (
+            <p className="text-xs text-gray-400 mt-1">
+              Período: {fechaDesde} a {fechaHasta}
+            </p>
+          )}
         </div>
       </div>
     );
   }
 
-  // Calcular totales
-  const totales = datosFiltrados.reduce((acc, faena) => ({
-    litros_documentados: acc.litros_documentados + faena.litros_documentados,
-    litros_recibidos: acc.litros_recibidos + faena.litros_recibidos,
-    valor: acc.valor + faena.valor_total,
-    ingresos: acc.ingresos + faena.total_ingresos,
-    diferencia: acc.diferencia + faena.diferencia_total
-  }), { litros_documentados: 0, litros_recibidos: 0, valor: 0, ingresos: 0, diferencia: 0 });
-
+  // 🎨 RENDER PRINCIPAL
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
-      {/* Header */}
+      {/* 📋 HEADER */}
       <div className="p-4 border-b" style={{background: 'linear-gradient(135deg, #FFF5F2 0%, #FEF2F2 100%)'}}>
-        <h3 className="text-md font-medium text-gray-800 flex items-center justify-between">
-          <div className="flex items-center">
-            <FiTrendingUp className="h-4 w-4 mr-2" style={{color: '#F67029'}} />
-            Ingresos por Faena
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-md font-medium text-gray-800 flex items-center">
+              <FiTrendingUp className="h-4 w-4 mr-2" style={{color: '#F67029'}} />
+              Ingresos por Faena
+            </h3>
+            {ultimaActualizacion && (
+              <p className="text-xs text-gray-500 mt-1">
+                Última actualización: {ultimaActualizacion.toLocaleTimeString('es-ES')}
+              </p>
+            )}
           </div>
-          <div className="text-xs text-gray-600">
-            {datosFiltrados.length} faena{datosFiltrados.length !== 1 ? 's' : ''} • {totales.ingresos} ingresos
+          <div className="text-right">
+            <div className="text-xs text-gray-600">
+              {datosFiltrados.length} faena{datosFiltrados.length !== 1 ? 's' : ''} • {totales.ingresos} ingresos
+            </div>
+            <div className="text-xs text-gray-500">
+              Total: {Math.round(totales.litros_recibidos).toLocaleString('es-CL')}L
+            </div>
           </div>
-        </h3>
+        </div>
       </div>
 
-      {/* Tabla */}
+      {/* 📊 TABLA */}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -202,10 +292,10 @@ const IngresosPorFaenaTable = ({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {datosFiltrados.map((faena, index) => (
-              <tr key={index} className="hover:bg-gray-50 transition-colors">
+              <tr key={`${faena.id_faena}-${index}`} className="hover:bg-gray-50 transition-colors">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex flex-col">
-                    <div className="font-medium text-gray-900">
+                    <div className="font-medium text-gray-900 text-sm">
                       {faena.nombre_faena}
                     </div>
                     <div className="text-xs text-gray-500">
@@ -246,9 +336,12 @@ const IngresosPorFaenaTable = ({
                   <div className="text-xs text-gray-500">ponderado</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right">
-                  <div className={`text-sm font-medium ${faena.diferencia_total === 0 ? 'text-gray-500' : faena.diferencia_total > 0 ? '' : ''}`}
-                       style={faena.diferencia_total === 0 ? {} : faena.diferencia_total > 0 ? {color: '#9A0000'} : {color: '#AB201A'}}>
-                    {faena.diferencia_total > 0 ? '+' : ''}{Math.round(faena.diferencia_total).toLocaleString("es-CL")}L
+                  <div className={`text-sm font-medium ${
+                    faena.diferencia_total === 0 ? 'text-gray-500' : 
+                    faena.diferencia_total > 0 ? 'text-red-600' : 'text-red-700'
+                  }`}>
+                    {faena.diferencia_total > 0 ? '+' : ''}
+                    {Math.round(faena.diferencia_total).toLocaleString("es-CL")}L
                   </div>
                   <div className="text-xs text-gray-500">
                     {faena.porcentaje_diferencia !== '0.0' ? `${faena.porcentaje_diferencia}%` : 'Sin diferencia'}
@@ -264,7 +357,7 @@ const IngresosPorFaenaTable = ({
             ))}
           </tbody>
           
-          {/* Fila de totales */}
+          {/* 🧮 FILA DE TOTALES */}
           {datosFiltrados.length > 1 && (
             <tfoot className="bg-gray-50 border-t-2 border-gray-200">
               <tr>
@@ -281,7 +374,7 @@ const IngresosPorFaenaTable = ({
                   ${totales.litros_recibidos > 0 ? Math.round(totales.valor / totales.litros_recibidos).toLocaleString("es-CL") : 0}
                 </td>
                 <td className="px-6 py-3 text-right font-bold">
-                  <span style={{color: totales.diferencia === 0 ? '#6B7280' : totales.diferencia > 0 ? '#9A0000' : '#AB201A'}}>
+                  <span style={{color: totales.diferencia === 0 ? '#6B7280' : totales.diferencia > 0 ? '#DC2626' : '#B91C1C'}}>
                     {totales.diferencia > 0 ? '+' : ''}{Math.round(totales.diferencia).toLocaleString("es-CL")}L
                   </span>
                 </td>
@@ -294,11 +387,15 @@ const IngresosPorFaenaTable = ({
         </table>
       </div>
 
-      {/* Footer */}
+      {/* 📝 FOOTER */}
       <div className="bg-gray-50 px-6 py-3 border-t">
         <div className="flex justify-between items-center text-sm text-gray-600">
-          <span>🎯 Fuente: Endpoint ingresos-petroleo</span>
-          <span>📊 Agregación por faena con diferencias documentadas vs recibidas</span>
+          <span className="flex items-center">
+            🎯 <span className="ml-1">Fuente: /api/ingresos-petroleo</span>
+          </span>
+          <span className="flex items-center">
+            📊 <span className="ml-1">Agregación por faena con diferencias documentadas vs recibidas</span>
+          </span>
         </div>
       </div>
     </div>
