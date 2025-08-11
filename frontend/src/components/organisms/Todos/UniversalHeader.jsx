@@ -50,16 +50,80 @@ const UniversalHeader = ({
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
 
-  // Configuración de faenas para el header bombero
+  // 🎨 CONFIGURACIÓN DE COLORES POR FAENA - ACTUALIZADA
   const FAENAS = {
-    1: { ubicacion: "Cabildo", detalle: "Región de Valparaíso", color: "orange-600" },
-    2: { ubicacion: "Catemu", detalle: "Región de Valparaíso", color: "green-600" },
-    3: { ubicacion: "Chincolco", detalle: "Región de Valparaíso", color: "purple-600" },
-    4: { ubicacion: "Tiltil", detalle: "Región Metropolitana", color: "orange-500" },
+    1: { 
+      ubicacion: "Cabildo", 
+      detalle: "Región de Valparaíso", 
+      color: "text-green-700",         // Para iconos de ubicación
+      bgColor: "bg-green-700",         // Para fondos del perfil
+      lightBg: "bg-green-100",         // Para fondos claros
+      hex: "#708238"                   // Verde Oliva
+    },
+    2: { 
+      ubicacion: "Catemu", 
+      detalle: "Región de Valparaíso", 
+      color: "text-yellow-600",        // Amarillo Mostaza
+      bgColor: "bg-yellow-600", 
+      lightBg: "bg-yellow-100",
+      hex: "#D4A017"
+    },
+    3: { 
+      ubicacion: "Chincolco", 
+      detalle: "Región de Valparaíso", 
+      color: "text-blue-700",          // Azul Piedra
+      bgColor: "bg-blue-700",
+      lightBg: "bg-blue-100", 
+      hex: "#336699"
+    },
+    4: { 
+      ubicacion: "Tiltil", 
+      detalle: "Región Metropolitana", 
+      color: "text-red-700",           // Rojo Arcilla
+      bgColor: "bg-red-700",
+      lightBg: "bg-red-100",
+      hex: "#A23E2A"
+    },
   };
 
   // Obtener información de faena si existe
   const faena = user?.id_faena ? FAENAS[user.id_faena] : null;
+
+  // 🎨 FUNCIÓN PARA OBTENER COLORES DINÁMICOS
+  const getFaenaColors = () => {
+    if (!faena) {
+      return {
+        iconColor: "text-gray-600",
+        bgColor: "bg-blue-500",    // Color por defecto para perfil
+        lightBg: "bg-gray-100",
+        hex: "#6B7280"
+      };
+    }
+    
+    return {
+      iconColor: faena.color,
+      bgColor: faena.bgColor,
+      lightBg: faena.lightBg,
+      hex: faena.hex
+    };
+  };
+
+  const colors = getFaenaColors();
+
+  // 🎨 OBTENER COLOR PARA EL ÍCONO DE LA CASITA
+  const getHomeIconColor = () => {
+    // Si es bombero/operador y tiene faena, usar color de faena
+    if ((type === "bombero" || type === "operador") && user && (user.id_rol === 1 || user.id_rol === 7) && faena) {
+      return colors.iconColor.replace('-700', '-600'); // Un poco más claro para mejor contraste
+    }
+    return 'text-orange-600'; // Color por defecto
+  };
+
+  // 🎨 FUNCIÓN PARA DETERMINAR SI DEBE USAR COLORES PERSONALIZADOS
+  const shouldUseCustomColors = () => {
+    if (!user || !user.id_rol || !faena) return false;
+    return user.id_rol === 1 || user.id_rol === 7; // bombero y asistente_bombero
+  };
 
   // Actualizar reloj
   useEffect(() => {
@@ -238,10 +302,15 @@ const UniversalHeader = ({
           />
         )}
 
-        {/* Botón home */}
+        {/* 🏠 BOTÓN HOME CON COLOR DINÁMICO SEGÚN LA FAENA */}
         {config.showHomeButton && (
           <IconButton
-            icono={<FaHome size={18} className="text-orange-600 md:w-5 md:h-5" />}
+            icono={
+              <FaHome 
+                size={18} 
+                className={`${getHomeIconColor()} md:w-5 md:h-5`} 
+              />
+            }
             onClick={() => navigate(config.homeRoute || homeRoute)}
             className="flex-shrink-0"
           />
@@ -268,10 +337,13 @@ const UniversalHeader = ({
               )}
             </h1>
 
-            {/* Ubicación para bombero y operador */}
+            {/* 🎨 UBICACIÓN CON COLOR DINÁMICO - SOLO PARA BOMBERO Y OPERADOR */}
             {(type === "bombero" || type === "operador") && faena && (
               <div className="flex items-center text-xs md:text-sm mt-0.5 md:mt-0">
-                <FaMapMarkerAlt className={`text-${faena.color} mr-1 flex-shrink-0`} size={10} />
+                <FaMapMarkerAlt 
+                  className={`${colors.iconColor} mr-1 flex-shrink-0`} 
+                  size={10} 
+                />
                 <span className="font-medium truncate">{faena.ubicacion}</span>
                 <span className="hidden md:inline text-gray-500 ml-1">• {faena.detalle}</span>
               </div>
@@ -310,12 +382,13 @@ const UniversalHeader = ({
           <NotificationDropdown notifications={notifications} />
         )}
 
-        {/* Perfil de usuario */}
+        {/* 🎨 PERFIL DE USUARIO CON COLORES DINÁMICOS */}
         {(config.showUserProfile ?? showUserProfile) && (
           <UserProfileDropdown
             userMenuOpen={userMenuOpen}
             setUserMenuOpen={setUserMenuOpen}
             handleLogout={handleLogout}
+            faenaColors={colors} // 🎨 PASAMOS LOS COLORES AL DROPDOWN
           />
         )}
       </div>
@@ -341,7 +414,7 @@ const UniversalHeader = ({
     let classes = "transition-all duration-300";
 
     if (config.isFixed) {
-      classes += " fixed top-0 left-0 right-0 z-50"; // ✅ Cambiar z-10 a z-50
+      classes += " fixed top-0 left-0 right-0 z-50"; // ✅ z-50 para modal compatibility
       if ((type === "bombero" || type === "operador") && scrolled) {
         classes += " bg-white shadow-lg";
       } else {

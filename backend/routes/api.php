@@ -49,13 +49,6 @@ use App\Http\Controllers\ApiPdf\ConsumosPdfController;
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 
-Route::get('/test', function () {
-    return response()->json([
-        'message' => 'API Choferes funcionando correctamente',
-        'timestamp' => now(),
-        'version' => '1.0'
-    ]);
-});
 
 Route::get('/faenasDisponibles', [FaenaController::class, 'getFaenasDisponibles']);
 // Rutas para verificación de ingresos
@@ -282,8 +275,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/balance-combustible', [InformesController::class, 'getBalanceCombustible']);
     });
 
-
-
     // Rutas para Consumos
     Route::prefix('consumos')->group(function () {
         // Ruta original para consumos
@@ -302,8 +293,6 @@ Route::middleware('auth:sanctum')->group(function () {
         //Rutas para obtener los ultimos dos consumos de una maquina especifica independientemente de la faena
         Route::get('/ultimos/{id_maquina}', [ConsumoController::class, 'getUltimosConsumosMaquina']);
     });
-
-
 
     /*
     |--------------------------------------------------------------------------

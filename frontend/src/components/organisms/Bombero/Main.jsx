@@ -351,6 +351,17 @@ const Main = () => {
                   text="Historial Consumos"
                   className="w-full"
                 />
+
+                {/* BOTÓN DE HISTORIAL CONSUMOS - SIEMPRE VISIBLE */}
+                {tienePermisoRecepciones() && (
+                  <Button
+                    to="/bombero/historial-maquinas"
+                    color="green"
+                    icon={<FaTruck />}
+                    text="Historial De Máquinas"
+                    className="w-full"
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -485,15 +496,14 @@ const Main = () => {
             <p className="text-gray-600 text-xs sm:text-sm">
               Sistema de Gestión de Combustible v2.1 | Usuario: {user?.nombre} {user?.apellido}
             </p>
-            
+
             {/* 🆕 INDICADOR DE ROL PARA DEBUG (puedes quitarlo después) */}
             <div className="mt-2">
-              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                user?.rol?.id_rol === 7 
-                  ? 'bg-blue-100 text-blue-800' 
-                  : 'bg-green-100 text-green-800'
-              }`}>
-                Rol ID: {user?.rol?.id_rol} 
+              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${user?.rol?.id_rol === 7
+                ? 'bg-blue-100 text-blue-800'
+                : 'bg-green-100 text-green-800'
+                }`}>
+                Rol ID: {user?.rol?.id_rol}
                 {user?.rol?.id_rol === 7 && ' (Asistente - Permisos limitados)'}
               </span>
             </div>
