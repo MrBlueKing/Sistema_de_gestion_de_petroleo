@@ -160,9 +160,9 @@ const EstanquesModal = ({
   onDistribucionChange,
   esTrasvasije = false // true para trasvasije (1 estanque), false para recepción (múltiples)
 }) => {
-
+  const activo = false;
   // 🔍 AGREGAR ESTO PARA DEPURAR:
-  console.log("🔍 EstanquesModal recibió:", {
+  activo && console.log("🔍 EstanquesModal recibió:", {
     esTrasvasije,
     litrosRecibidos,
     distribucionLitros
@@ -297,7 +297,7 @@ const EstanquesModal = ({
       onDistribucionChange(nuevaDistribucion);
     }
 
-    console.log(`✅ Estanque seleccionado: ${estanqueSeleccionado.nombre} recibirá ${litrosTotal} L`);
+    activo && console.log(`✅ Estanque seleccionado: ${estanqueSeleccionado.nombre} recibirá ${litrosTotal} L`);
   };
 
   // Función para toggle del estado expandido
@@ -801,7 +801,7 @@ const EstanquesModal = ({
         }
       }
     } catch (error) {
-      console.error("Error al calcular los litros de petróleo:", error);
+      activo && console.log("Error al calcular los litros de petróleo:", error);
       setErrorValidacion({
         show: true,
         message: "Error al calcular los litros de petróleo. Por favor, verifique los datos ingresados.",
@@ -1767,7 +1767,7 @@ const EstanquesModal = ({
                                               <span>Después del trasvasije:</span>
                                               <span className="font-bold">
                                                 {(parseFloat(estanque.stock_actual) + parseFloat(distribucionLitros[estanque.id_estanque] || 0)).toFixed(2)} L
-                                                {console.log(
+                                                {activo && console.log(
                                                   "Capacidad total:", estanque.capacidad,
                                                   "Stock actual:", estanque.stock_actual,
                                                   "Distribución:", distribucionLitros[estanque.id_estanque]

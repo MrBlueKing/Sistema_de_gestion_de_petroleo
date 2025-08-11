@@ -21,6 +21,7 @@ import GestionarMaquinaCategoria from "../pages/Administrador/GestionarMaquinCat
 import GestionarPersonal from "../pages/Administrador/GestionarPersonalPage";
 import GestionarPermisoPersonalInterno from "../pages/Administrador/GestionarPermisoPersonalPage";
 import GestionarPersonalExternoPersonalPage from "../pages/Administrador/GestionarPersonalExternoPage";
+import GestionarMaquinasPermiso from "../pages/Administrador/GestionarMaquinasPermisoPage";
 
 // 🚒 Importaciones Bombero
 import BomberoPage from "../pages/Bombero/BomberoPage";
@@ -259,6 +260,16 @@ const AppRoutes = () => {
         element={
           <PrivateRoute requiredRole="admin">
             <GestionarMaquinaCategoria />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Ruta para gestionar permisos de maquinas. */}
+      <Route
+        path="/GestionarPermisoMaquinas"
+        element={
+          <PrivateRoute requiredRole="admin">
+            <GestionarMaquinasPermiso />
           </PrivateRoute>
         }
       />

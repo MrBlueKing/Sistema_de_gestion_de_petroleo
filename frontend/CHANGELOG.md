@@ -21,14 +21,14 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 ## [Unreleased]
 
 ### Added
-- [WIP] Encargado de Operaciones de Combustible: Se añadira un nuevo boton en el panel de control inicial, este boton tendra la funcionalidad de poder visualizar los consumos o trayectoria de las maquinas filtradas.
+- [Testing] Encargado de Operaciones de Combustible: Se añadira un nuevo boton en el panel de control inicial, este boton tendra la funcionalidad de poder visualizar los consumos o trayectoria de las maquinas filtradas.
 
 - [Queued] ADMINISTRADOR: Se añadirá una nueva funcionalidad que permitirá una gestión más eficiente de los permisos asociados a las máquinas.
 
 - [Queued] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
 - [Queued] Rol de jefe de mina, bombero 2 y operador vehiculo.
 
-- [WIP] Encargado de Operaciones de Combustible: A traves de la solicitud de gerencia, ahora el rol "Encargado de Operaciones de Combustible" debe ser dividio en dos roles, manteniendo el rol "bombero" como rol principal y que tendra privilegios como realizar la recepcion de petroleo. mientras que el nuevo rol "asistente_bombero" sera restringido, solo pudiendo hacer ingresos de consumos.
+- [Testing] Encargado de Operaciones de Combustible: A traves de la solicitud de gerencia, ahora el rol "Encargado de Operaciones de Combustible" debe ser dividio en dos roles, manteniendo el rol "bombero" como rol principal y que tendra privilegios como realizar la recepcion de petroleo. mientras que el nuevo rol "asistente_bombero" sera restringido, solo pudiendo hacer ingresos de consumos.
 
 ### Changed
 - [Testing] Encargado de Operaciones de Combustible: Anteriormente solo se mostraba la última medición registrada. Ahora se implementará un mini historial que muestre los dos últimos consumos, incluyendo la siguiente información: quién realizó el consumo, en qué lugar, cuánta cantidad se utilizó y cuándo ocurrió.

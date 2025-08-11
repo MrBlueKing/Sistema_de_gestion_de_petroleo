@@ -3,6 +3,7 @@ import { useState, useCallback, useRef } from 'react';
 import axios from '../../lib/axios';
 
 export const useUltimaMedicionNumeralFinal = () => {
+  const DEBUG = false;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
@@ -25,7 +26,7 @@ export const useUltimaMedicionNumeralFinal = () => {
 
     // Si ya estamos cargando la misma máquina, no hacer otra petición
     if (currentRequestRef.current && lastMaquinaIdRef.current === idMaquina) {
-      console.log('⏸️ Petición en curso para la misma máquina, esperando...');
+      DEBUG && console.log('⏸️ Petición en curso para la misma máquina, esperando...');
       return currentRequestRef.current;
     }
 
@@ -34,7 +35,7 @@ export const useUltimaMedicionNumeralFinal = () => {
       setError(null);
       lastMaquinaIdRef.current = idMaquina;
 
-      console.log(`🔍 Cargando última medición para máquina: ${idMaquina}`);
+      DEBUG && console.log(`🔍 Cargando última medición para máquina: ${idMaquina}`);
 
       // Crear la promesa y guardarla para evitar duplicados
       const requestPromise = axios.get('/api/consumos/ultima-medicion', {
@@ -50,7 +51,7 @@ export const useUltimaMedicionNumeralFinal = () => {
       if (response.data.success) {
         const responseData = response.data.data;
         setData(responseData);
-        console.log('✅ Datos cargados:', responseData);
+        DEBUG && console.log('✅ Datos cargados:', responseData);
         return responseData;
       } else {
         throw new Error(response.data.message || 'Error al cargar datos');
@@ -59,7 +60,7 @@ export const useUltimaMedicionNumeralFinal = () => {
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.message || 'Error al cargar última medición';
       setError(errorMessage);
-      console.error('❌ Error cargando última medición:', errorMessage);
+      DEBUG && console.error('❌ Error cargando última medición:', errorMessage);
       return null;
     } finally {
       setLoading(false);

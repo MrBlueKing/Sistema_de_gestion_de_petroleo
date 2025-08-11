@@ -36,6 +36,7 @@ use App\Http\Controllers\Api\VerificacionIngresosController;
 use App\Http\Controllers\Api\MaquinasExternasController;
 use App\Http\Controllers\Api\SolicitantesOptimizadoController;
 use App\Http\Controllers\Api\ConsumoCategoriasController;
+use App\Http\Controllers\Api\MaquinaPermisosController;
 use App\Http\Controllers\Api\TrasvasijeController;
 use App\Http\Controllers\ApiPdf\ConsumosPdfController;
 
@@ -182,7 +183,6 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/', [IngresoPetroleoController::class, 'index']);
             Route::post('/', [IngresoPetroleoController::class, 'store']);
             Route::get('/ingresos-petroleo/resumen-faenas', [IngresoPetroleoController::class, 'getResumenPorFaenas']);
-
         });
 
         // Estanques
@@ -594,17 +594,50 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/lista-categorias', [CategoriasChartController::class, 'obtenerListaCategorias'])
             ->name('api.categorias-chart.lista');
 
-          // 🆕 AGREGAR ESTA RUTA FALTANTE:
-    Route::get('/categorias/{idCategoria}/consumos-individuales', [CategoriasChartController::class, 'obtenerConsumosIndividualesCategoria'])
-        ->name('api.categorias-chart.consumos-individuales');
-
-
+        // 🆕 AGREGAR ESTA RUTA FALTANTE:
+        Route::get('/categorias/{idCategoria}/consumos-individuales', [CategoriasChartController::class, 'obtenerConsumosIndividualesCategoria'])
+            ->name('api.categorias-chart.consumos-individuales');
     });
 
     // Rutas alternativas con nombres más cortos (opcional)
     Route::prefix('chart')->group(function () {
         Route::post('/categorias', [CategoriasChartController::class, 'obtenerCategoriasResumen']);
         Route::post('/maquinas/{idCategoria}', [CategoriasChartController::class, 'obtenerMaquinasCategoria']);
+    });
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | 🚜 MÁQUINAS Y PERMISOS EN FAENAS
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('maquinas-permisos')->group(function () {
+        // Obtener todas las máquinas (con y sin permisos) - LEFT JOIN
+        Route::get('/', [MaquinaPermisosController::class, 'index']);
+
+        // Obtener solo máquinas que tienen permisos - INNER JOIN
+        Route::get('/con-permisos', [MaquinaPermisosController::class, 'indexConPermisos']);
+
+        // Obtener máquinas de una faena específica
+        Route::get('/faena/{idFaena}', [MaquinaPermisosController::class, 'maquinasPorFaena']);
+
+        // Estadísticas de máquinas y permisos
+        Route::get('/estadisticas', [MaquinaPermisosController::class, 'estadisticas']);
+        
+        // Obtener todas las faenas disponibles
+        Route::get('/faenas', [MaquinaPermisosController::class, 'getFaenas']);
+
+        // Asignar permiso individual
+        Route::post('/asignar', [MaquinaPermisosController::class, 'asignarPermiso']);
+
+        // Remover permiso individual
+        Route::delete('/remover', [MaquinaPermisosController::class, 'removerPermiso']);
+
+        // Actualizar todos los permisos de una máquina (para el selector múltiple)
+        Route::put('/actualizar', [MaquinaPermisosController::class, 'actualizarPermisos']);
+
+        // Transferir máquina entre faenas (para drag & drop)
+        Route::post('/transferir', [MaquinaPermisosController::class, 'transferirMaquina']);
     });
 });
 

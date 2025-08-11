@@ -8,10 +8,11 @@ export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const activo = false;
 
   // 🆕 FUNCIÓN PARA LIMPIAR CONTEXTO COMPLETAMENTE
   const clearUserContext = useCallback(() => {
-    console.log("🧹 Limpiando contexto de usuario");
+    activo && activo && console.log("🧹 Limpiando contexto de usuario");
     setUser(null);
     setError(null);
     setLoading(false);
@@ -31,14 +32,14 @@ export const UserProvider = ({ children }) => {
     try {
       // 🔄 USAR TU LÓGICA EXISTENTE PERO MEJORADA
       const response = await axios.get("/api/user", {
-        headers: { 
+        headers: {
           Authorization: `Bearer ${token}`,
           'Cache-Control': 'no-cache', // 🆕 Anti-caché
           'Pragma': 'no-cache'
         },
       });
 
-      console.log("Datos del usuario obtenidos:", response.data);
+      activo && activo && console.log("Datos del usuario obtenidos:", response.data);
       const userData = response.data;
 
       if (!userData.id_faena) {
@@ -57,7 +58,7 @@ export const UserProvider = ({ children }) => {
           const fetchData = await fetchResponse.json();
 
           if (fetchData.id_faena) {
-            console.log("✅ Fetch trajo id_faena, usando datos de fetch.");
+            activo && activo && console.log("✅ Fetch trajo id_faena, usando datos de fetch.");
             setUser(fetchData);
           } else {
             console.warn("⚠️ Fetch también carece de id_faena, usando datos de axios.");
@@ -72,10 +73,10 @@ export const UserProvider = ({ children }) => {
       }
     } catch (error) {
       console.error("❌ Error al obtener datos del usuario:", error);
-      
+
       // 🔍 MEJOR MANEJO DE ERRORES
       if (error.response?.status === 401) {
-        console.log("🔐 Token expirado, limpiando sesión");
+        activo && activo && console.log("🔐 Token expirado, limpiando sesión");
         clearSession();
         clearUserContext();
       } else {
@@ -94,7 +95,7 @@ export const UserProvider = ({ children }) => {
 
   // 🆕 FUNCIÓN PARA FORZAR ACTUALIZACIÓN (útil post-login)
   const forceRefresh = useCallback(() => {
-    console.log("🔄 Forzando actualización del contexto");
+    activo && activo && console.log("🔄 Forzando actualización del contexto");
     setUser(null); // Limpiar primero
     setTimeout(() => {
       refreshUser(); // Luego refrescar
@@ -113,14 +114,14 @@ export const UserProvider = ({ children }) => {
       try {
         // 🆕 USAR HEADERS ANTI-CACHÉ
         const response = await axios.get("/api/user", {
-          headers: { 
+          headers: {
             Authorization: `Bearer ${token}`,
             'Cache-Control': 'no-cache',
             'Pragma': 'no-cache'
           },
         });
 
-        console.log("Datos del usuario obtenidos:", response.data);
+        activo && activo && console.log("Datos del usuario obtenidos:", response.data);
         const userData = response.data;
 
         if (!userData.id_faena) {
@@ -139,7 +140,7 @@ export const UserProvider = ({ children }) => {
             const fetchData = await fetchResponse.json();
 
             if (fetchData.id_faena) {
-              console.log("✅ Fetch trajo id_faena, usando datos de fetch.");
+              activo && activo && console.log("✅ Fetch trajo id_faena, usando datos de fetch.");
               setUser(fetchData);
             } else {
               console.warn("⚠️ Fetch también carece de id_faena, usando datos de axios.");
@@ -154,10 +155,10 @@ export const UserProvider = ({ children }) => {
         }
       } catch (error) {
         console.error("❌ Error al obtener datos del usuario:", error);
-        
+
         // 🔍 MEJOR MANEJO DE ERRORES
         if (error.response?.status === 401) {
-          console.log("🔐 Token expirado en carga inicial");
+          activo && activo && console.log("🔐 Token expirado en carga inicial");
           clearSession();
           clearUserContext();
         } else {
@@ -177,11 +178,11 @@ export const UserProvider = ({ children }) => {
       if (e.key === 'authToken') {
         if (!e.newValue) {
           // Token eliminado en otra pestaña
-          console.log("🔐 Token eliminado en otra pestaña");
+          activo && activo && console.log("🔐 Token eliminado en otra pestaña");
           clearUserContext();
         } else {
           // Token actualizado en otra pestaña
-          console.log("🔄 Token actualizado en otra pestaña");
+          activo && activo && console.log("🔄 Token actualizado en otra pestaña");
           setTimeout(() => refreshUser(), 100);
         }
       }
@@ -194,11 +195,11 @@ export const UserProvider = ({ children }) => {
   // 🎯 VALOR DEL CONTEXTO - TUS PROPS ORIGINALES + NUEVAS FUNCIONES
   const value = {
     // ✅ TUS PROPS ORIGINALES
-    user, 
-    setUser, 
-    loading, 
+    user,
+    setUser,
+    loading,
     error,
-    
+
     // 🆕 NUEVAS FUNCIONES ÚTILES
     clearUserContext,  // Para limpiar estado
     refreshUser,       // Para refrescar datos

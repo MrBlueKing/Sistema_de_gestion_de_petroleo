@@ -334,7 +334,7 @@ const FormConsumo = ({
   // 🎯 ESTABLECER NUMERAL INICIAL INMEDIATAMENTE (backend ya maneja la lógica)
   useEffect(() => {
     if (!formData.numeralInicial && !numeralInicialEstablecido && !isSaving && !isSaved && numeralInicialSugerido) {
-      console.log('🎯 Estableciendo numeral inicial sugerido desde backend:', numeralInicialSugerido);
+      DEBUG && console.log('🎯 Estableciendo numeral inicial sugerido desde backend:', numeralInicialSugerido);
       handleChange("numeralInicial", numeralInicialSugerido);
       setNumeralInicialEstablecido(true);
     }
@@ -432,7 +432,7 @@ const FormConsumo = ({
   // 🆕 ESTABLECER AUTOMÁTICAMENTE VALORES SEGÚN TIPO DE ESTANQUE
   useEffect(() => {
     if (estanqueSeleccionado?.tipo_estanque === "movil" && formData.numeralInicial !== "0") {
-      console.log('🚛 Estableciendo numeral inicial en 0 para estanque móvil');
+      DEBUG && console.log('🚛 Estableciendo numeral inicial en 0 para estanque móvil');
       handleChange("numeralInicial", "0");
     } 
   }, [estanqueSeleccionado?.tipo_estanque, numeralInicialSugerido, formData.numeralInicial, handleChange]);
@@ -459,7 +459,7 @@ const FormConsumo = ({
   // HANDLERS PARA EL SELECTOR EXTENDIDO
   // ===================================
   const handleModoChange = useCallback((nuevoModo) => {
-    console.log("🔄 Cambiando modo a:", nuevoModo);
+    DEBUG && console.log("🔄 Cambiando modo a:", nuevoModo);
     setModoMultiEstanque(nuevoModo);
     if (nuevoModo) {
       setDistribucionLitros({});
@@ -467,7 +467,7 @@ const FormConsumo = ({
   }, []);
 
   const handleDistribucionChange = useCallback((nuevaDistribucion) => {
-    console.log("📊 Nueva distribución:", nuevaDistribucion);
+    DEBUG && console.log("📊 Nueva distribución:", nuevaDistribucion);
     setDistribucionLitros(nuevaDistribucion);
   }, []);
 
@@ -489,7 +489,7 @@ const FormConsumo = ({
 
         tipoOperacion = tieneEstanqueMovil ? "estanque_movil" : "normal";
 
-        console.log("🔍 Determinando tipo_operacion (MÚLTIPLE):", {
+        DEBUG && console.log("🔍 Determinando tipo_operacion (MÚLTIPLE):", {
           estanques_con_litros: estanquesConLitros.map((e) => ({
             nombre: e.nombre,
             tipo: e.tipo_estanque,
@@ -505,7 +505,7 @@ const FormConsumo = ({
               ? "estanque_movil"
               : "normal";
 
-          console.log("🔍 Determinando tipo_operacion (SIMPLE):", {
+          DEBUG && console.log("🔍 Determinando tipo_operacion (SIMPLE):", {
             estanque: estanqueSeleccionado.nombre,
             tipo_estanque: estanqueSeleccionado.tipo_estanque,
             tipo_operacion: tipoOperacion,
@@ -528,7 +528,7 @@ const FormConsumo = ({
   // ===================================
   const enviarConsumoAlBackend = async (datosConsumo, modoMultiEstanque) => {
     try {
-      console.log("📤 Enviando consumo al backend...", datosConsumo);
+      DEBUG && console.log("📤 Enviando consumo al backend...", datosConsumo);
 
       const id_dotacion = datosConsumo.id_dotacion || solicitante?.rut;
       const id_equipo =
@@ -587,13 +587,13 @@ const FormConsumo = ({
           }),
       };
 
-      console.log("📦 Datos preparados para envío:", consumoData);
+      DEBUG && console.log("📦 Datos preparados para envío:", consumoData);
 
       const endpoint = "/api/consumos/multi";
       const response = await axios.post(endpoint, consumoData);
 
       if (response.data.success) {
-        console.log("✅ Consumo creado exitosamente:", response.data.data);
+        DEBUG && console.log("✅ Consumo creado exitosamente:", response.data.data);
         return {
           success: true,
           data: response.data.data,
@@ -603,7 +603,7 @@ const FormConsumo = ({
         throw new Error(response.data.message || "Error desconocido");
       }
     } catch (error) {
-      console.error("❌ Error enviando consumo:", error);
+      DEBUG && console.error("❌ Error enviando consumo:", error);
 
       let errorMessage = "Error al guardar el consumo";
 
@@ -630,7 +630,7 @@ const FormConsumo = ({
     if (!idFaena) return;
 
     try {
-      console.log("🔄 Cargando estanques...");
+      DEBUG && console.log("🔄 Cargando estanques...");
 
       const response = await bomberoService.getEstanques(idFaena);
 
@@ -644,15 +644,15 @@ const FormConsumo = ({
         estanques = response.data;
       }
 
-      console.log("✅ Estanques procesados:", estanques);
+      DEBUG && console.log("✅ Estanques procesados:", estanques);
 
       estanques.forEach((estanque) => {
-        DEBUG && console.log(`🏷️ Estanque: ${estanque.nombre} - Tipo: ${estanque.tipo_estanque || "no definido"}`);
+        DEBUG && DEBUG && console.log(`🏷️ Estanque: ${estanque.nombre} - Tipo: ${estanque.tipo_estanque || "no definido"}`);
       });
 
       setEstanquesDisponibles(estanques);
     } catch (error) {
-      console.error("❌ Error cargando estanques:", error);
+      DEBUG && console.error("❌ Error cargando estanques:", error);
       setEstanquesDisponibles([]);
     }
   }, [idFaena]);
@@ -748,7 +748,7 @@ const FormConsumo = ({
   // FUNCIÓN PRINCIPAL DE ENVÍO
   // ===================================
   const handleSubmitWrapper = useCallback(async () => {
-    console.log("🚀 Iniciando envío de consumo...");
+    DEBUG && console.log("🚀 Iniciando envío de consumo...");
 
     // 🔧 VALIDACIONES PREVIAS (sin setear isSaving todavía)
     if (!solicitante?.rut) {
@@ -793,7 +793,7 @@ const FormConsumo = ({
 
     // 🔧 FUNCIÓN DE VALIDACIÓN MEJORADA
     const validarMedicion = (datosUltimaMedicion, tipoMedicion, formData) => {
-      console.log("🔍 Ejecutando validarMedicion con datos:", {
+      DEBUG && console.log("🔍 Ejecutando validarMedicion con datos:", {
         datosUltimaMedicion,
         tipoMedicion,
         horometro: formData.horometro,
@@ -802,22 +802,22 @@ const FormConsumo = ({
 
       // ✅ Verificar si hay datos de última medición
       if (!datosUltimaMedicion || !datosUltimaMedicion.tiene_consumo) {
-        console.log("ℹ️ No hay datos de última medición para validar");
+        DEBUG && console.log("ℹ️ No hay datos de última medición para validar");
         return { valido: true, mensaje: '', severidad: 'info' };
       }
 
       // ✅ Extraer la medición numérica del último consumo
       const ultimaMedicion = datosUltimaMedicion.ultimo_consumo_maquina?.medicion || 0;
-      console.log("📊 Última medición extraída:", ultimaMedicion);
+      DEBUG && console.log("📊 Última medición extraída:", ultimaMedicion);
 
       // 🔧 VALIDACIÓN PARA HORÓMETRO
       if (tipoMedicion === "Horometro" && formData.horometro) {
         const horasActual = parseFloat(formData.horometro);
-        console.log("⏰ Validando horómetro:", { horasActual, ultimaMedicion });
+        DEBUG && console.log("⏰ Validando horómetro:", { horasActual, ultimaMedicion });
 
         // ❌ ERROR CRÍTICO: Horómetro menor que última medición
         if (horasActual < ultimaMedicion) {
-          console.log("❌ Horómetro menor que última medición - ERROR CRÍTICO");
+          DEBUG && console.log("❌ Horómetro menor que última medición - ERROR CRÍTICO");
           return {
             valido: false,
             severidad: 'error',
@@ -834,7 +834,7 @@ const FormConsumo = ({
 
         // ❌ ERROR CRÍTICO: Horómetro igual que última medición
         if (horasActual === ultimaMedicion) {
-          console.log("❌ Horómetro igual que última medición - ERROR CRÍTICO");
+          DEBUG && console.log("❌ Horómetro igual que última medición - ERROR CRÍTICO");
           return {
             valido: false,
             severidad: 'error',
@@ -852,7 +852,7 @@ const FormConsumo = ({
         // ⚠️ WARNING: Horómetro excesivo (MÁS DE 12 horas)
         const maximoEsperado = ultimaMedicion + 12;
         if (horasActual > maximoEsperado) {
-          console.log("⚠️ Horómetro mayor que límite esperado - WARNING");
+          DEBUG && console.log("⚠️ Horómetro mayor que límite esperado - WARNING");
           return {
             valido: false,
             severidad: 'warning',
@@ -870,7 +870,7 @@ const FormConsumo = ({
         // ⚠️ WARNING: Horómetro alto pero razonable (6-12 horas)
         const limiteCuidado = ultimaMedicion + 12;
         if (horasActual > limiteCuidado) {
-          console.log("⚠️ Horómetro en rango alto - WARNING");
+          DEBUG && console.log("⚠️ Horómetro en rango alto - WARNING");
           return {
             valido: false,
             severidad: 'warning',
@@ -889,11 +889,11 @@ const FormConsumo = ({
       // 🔧 VALIDACIÓN PARA KILOMETRAJE
       if (tipoMedicion === "Kilometraje" && formData.kilometraje) {
         const kmActual = parseFloat(formData.kilometraje);
-        console.log("🚗 Validando kilometraje:", { kmActual, ultimaMedicion });
+        DEBUG && console.log("🚗 Validando kilometraje:", { kmActual, ultimaMedicion });
 
         // ❌ ERROR CRÍTICO: Kilometraje menor que última medición
         if (kmActual < ultimaMedicion) {
-          console.log("❌ Kilometraje menor que última medición - ERROR CRÍTICO");
+          DEBUG && console.log("❌ Kilometraje menor que última medición - ERROR CRÍTICO");
           return {
             valido: false,
             severidad: 'error',
@@ -910,7 +910,7 @@ const FormConsumo = ({
 
         // ❌ ERROR CRÍTICO: Kilometraje igual que última medición
         if (kmActual === ultimaMedicion) {
-          console.log("❌ Kilometraje igual que última medición - ERROR CRÍTICO");
+          DEBUG && console.log("❌ Kilometraje igual que última medición - ERROR CRÍTICO");
           return {
             valido: false,
             severidad: 'error',
@@ -928,7 +928,7 @@ const FormConsumo = ({
         // ⚠️ WARNING: Kilometraje muy alto (+10,000 km)
         const limiteMuyAlto = ultimaMedicion + 10000;
         if (kmActual > limiteMuyAlto) {
-          console.log("⚠️ Kilometraje muy alto - WARNING");
+          DEBUG && console.log("⚠️ Kilometraje muy alto - WARNING");
           return {
             valido: false,
             severidad: 'warning',
@@ -946,7 +946,7 @@ const FormConsumo = ({
         // ⚠️ WARNING: Kilometraje alto pero razonable (1,000-10,000 km)
         const limiteCuidadoKm = ultimaMedicion + 500;
         if (kmActual > limiteCuidadoKm) {
-          console.log("⚠️ Kilometraje en rango alto - WARNING");
+          DEBUG && console.log("⚠️ Kilometraje en rango alto - WARNING");
           return {
             valido: false,
             severidad: 'warning',
@@ -967,7 +967,7 @@ const FormConsumo = ({
         const numeralSugerido = parseFloat(numeralInicialSugerido);
 
         if (numeralIngresado !== numeralSugerido) {
-          console.log("⚠️ Numeral inicial modificado - WARNING");
+          DEBUG && console.log("⚠️ Numeral inicial modificado - WARNING");
           return {
             valido: false,
             severidad: 'warning',
@@ -982,7 +982,7 @@ const FormConsumo = ({
           };
         }
       }
-      console.log("✅ Validación pasó correctamente");
+      DEBUG && console.log("✅ Validación pasó correctamente");
       return { valido: true, mensaje: '', severidad: 'success' };
     };
 
@@ -991,12 +991,12 @@ const FormConsumo = ({
     setErrorMessage("");
 
     // Ejecutar validación
-    console.log("🎯 A punto de ejecutar validación...");
+    DEBUG && console.log("🎯 A punto de ejecutar validación...");
     const validacion = validarMedicion(datosUltimaMedicion, tipoMedicion, formData);
-    console.log("🎯 Resultado de validación:", validacion);
+    DEBUG && console.log("🎯 Resultado de validación:", validacion);
 
     if (!validacion.valido) {
-      console.log("⚠️ Validación falló, mostrando modal...");
+      DEBUG && console.log("⚠️ Validación falló, mostrando modal...");
 
       // 🎨 MOSTRAR MODAL EN LUGAR DE CONFIRM
       setModalValidacion({
@@ -1072,12 +1072,12 @@ const FormConsumo = ({
         };
       }
 
-      console.log("📋 Datos finales a enviar:", datosParaEnvio);
+      DEBUG && console.log("📋 Datos finales a enviar:", datosParaEnvio);
 
       const resultado = await enviarConsumoAlBackend(datosParaEnvio, modoMultiEstanque);
 
       if (resultado.success) {
-        console.log("🎉 Consumo guardado exitosamente");
+        DEBUG && console.log("🎉 Consumo guardado exitosamente");
         setIsSaved(true);
         setHasError(false);
 
@@ -1085,13 +1085,13 @@ const FormConsumo = ({
           onComplete(resultado);
         }
       } else {
-        console.error("💥 Error al guardar consumo:", resultado.message);
+        DEBUG && console.error("💥 Error al guardar consumo:", resultado.message);
         setHasError(true);
         setErrorMessage(resultado.message);
         setIsSaved(false);
       }
     } catch (error) {
-      console.error("💥 Error inesperado:", error);
+      DEBUG && console.error("💥 Error inesperado:", error);
       setHasError(true);
       setErrorMessage(error.message || "Error inesperado al guardar el consumo");
       setIsSaved(false);
@@ -1116,7 +1116,7 @@ const FormConsumo = ({
 
   // 🎯 FUNCIONES PARA MANEJAR EL MODAL - CORREGIDAS
   const handleModalClose = () => {
-    console.log("🚪 Cerrando modal");
+    DEBUG && console.log("🚪 Cerrando modal");
     setModalValidacion({
       isOpen: false,
       validacion: null
@@ -1126,7 +1126,7 @@ const FormConsumo = ({
 
   // 🎯 SOLUCIÓN DEFINITIVA - handleModalContinue SIN setear isSaving
   const handleModalContinue = async () => {
-    console.log("✅ Usuario decidió continuar desde modal");
+    DEBUG && console.log("✅ Usuario decidió continuar desde modal");
 
     // 🔧 CERRAR EL MODAL PRIMERO
     setModalValidacion({
@@ -1185,7 +1185,7 @@ const FormConsumo = ({
     (!showKilometraje || validacionesMedicion.kilometraje.valido || validacionesMedicion.kilometraje.puedeIgnorar) &&
     (!showHorometro || validacionesMedicion.horometro.valido || validacionesMedicion.horometro.puedeIgnorar);
 
-  console.log("🔍 DEBUG Validaciones del formulario:", {
+  DEBUG && console.log("🔍 DEBUG Validaciones del formulario:", {
     estanqueSeleccionado: !!estanqueSeleccionado,
     numeralInicial: !!formData.numeralInicial,
     numeralFinal: !!formData.numeralFinal,
