@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import axios from "../../lib/axios";
+
 import {
   FiLoader,
   FiTrendingUp,
@@ -14,133 +15,62 @@ import {
   FiX,
 } from "react-icons/fi";
 
-// Componente de filtro simple para las columnas
-const ColumnFilter = ({
-  titulo,
-  opciones = [],
-  valor = "",
-  onChange,
-  tipo = "select", // "select" o "text"
-  onSort,
-  ordenColumna,
-  direccionOrden,
-  columna,
-}) => {
-  const [mostrarFiltro, setMostrarFiltro] = useState(false);
+import UniversalTableFilter from "../../components/molecules/UniversalTableFilter";
 
-  const renderIconoOrdenamiento = () => {
-    if (ordenColumna !== columna) {
-      return <span className="text-gray-400 ml-1">↕</span>;
-    }
-    return direccionOrden === "asc" ? (
-      <FiChevronUp className="inline ml-1 text-blue-600" />
-    ) : (
-      <FiChevronDown className="inline ml-1 text-blue-600" />
-    );
-  };
+  // 🆕 DEFINIR COMPONENTE DENTRO DEL COMPONENTE PRINCIPAL
+  const ColumnaValorTotal = ({ maquina }) => {
+    const datosMenuales = maquina.datos_mensuales;
+    const esMultiMes = datosMenuales?.es_multi_mes;
 
-  return (
-    <div className="relative">
-      <div className="flex items-center justify-between">
-        <div
-          className="flex items-center cursor-pointer hover:text-blue-600"
-          onClick={onSort}
-        >
-          {titulo}
-          {renderIconoOrdenamiento()}
-        </div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setMostrarFiltro(!mostrarFiltro);
-          }}
-          className={`ml-2 p-1 rounded hover:bg-gray-200 ${
-            valor ? "text-blue-600" : "text-gray-400"
-          }`}
-        >
-          <FiFilter size={12} />
-        </button>
-      </div>
-
-      {mostrarFiltro && (
-        <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 z-50 min-w-48">
-          <div className="p-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700">
-                Filtrar {titulo}
-              </span>
-              <button
-                onClick={() => setMostrarFiltro(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <FiX size={12} />
-              </button>
-            </div>
-
-            {tipo === "select" ? (
-              <div className="max-h-48 overflow-y-auto">
-                <div
-                  className={`p-2 text-sm cursor-pointer hover:bg-gray-100 rounded ${
-                    valor === "" ? "bg-blue-50 text-blue-600" : ""
-                  }`}
-                  onClick={() => {
-                    onChange("");
-                    setMostrarFiltro(false);
-                  }}
-                >
-                  Todos
-                </div>
-                {opciones.map((opcion, index) => (
-                  <div
-                    key={index}
-                    className={`p-2 text-sm cursor-pointer hover:bg-gray-100 rounded ${
-                      valor === opcion ? "bg-blue-50 text-blue-600" : ""
-                    }`}
-                    onClick={() => {
-                      onChange(opcion);
-                      setMostrarFiltro(false);
-                    }}
-                  >
-                    {opcion}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div>
-                <input
-                  type="text"
-                  value={valor}
-                  onChange={(e) => onChange(e.target.value)}
-                  placeholder={`Buscar ${titulo.toLowerCase()}...`}
-                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                  autoFocus
-                />
-                <div className="flex gap-2 mt-2">
-                  <button
-                    onClick={() => {
-                      onChange("");
-                      setMostrarFiltro(false);
-                    }}
-                    className="px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded hover:bg-gray-200"
-                  >
-                    Limpiar
-                  </button>
-                  <button
-                    onClick={() => setMostrarFiltro(false)}
-                    className="px-2 py-1 text-xs text-white bg-blue-500 rounded hover:bg-blue-600"
-                  >
-                    Aplicar
-                  </button>
-                </div>
-              </div>
-            )}
+    if (esMultiMes && datosMenuales.mes_inicial && datosMenuales.mes_final) {
+      const mesAnterior = datosMenuales.mes_inicial;
+      const mesActual = datosMenuales.mes_final;
+      
+      return (
+        <div className="flex flex-col items-end">
+          {/* Valor total del período */}
+          <div className="text-sm font-bold text-gray-900">
+            ${Math.round(maquina.valor_total).toLocaleString("es-CL")}
+          </div>
+          
+          {/* Mes anterior */}
+          <div className="text-xs text-blue-700 mt-1">
+            📅 ${mesAnterior.costo_por_dia?.toLocaleString("es-CL") || 0}/día
+          </div>
+          <div className="text-xs text-blue-600">
+            {mesAnterior.nombre_mes ? mesAnterior.nombre_mes.split(' ')[0] : 'Anterior'}
+          </div>
+          
+          {/* Mes actual */}
+          <div className="text-xs text-green-700 mt-1">
+            📅 ${mesActual.costo_por_dia?.toLocaleString("es-CL") || 0}/día
+          </div>
+          <div className="text-xs text-green-600">
+            {mesActual.nombre_mes ? mesActual.nombre_mes.split(' ')[0] : 'Actual'}
           </div>
         </div>
-      )}
-    </div>
-  );
-};
-
+      );
+    }
+    
+    // Formato original para un solo mes
+    const mesUnico = datosMenuales?.mes_unico;
+    return (
+      <div className="flex flex-col items-end">
+        <div className="text-sm font-bold text-gray-900">
+          ${Math.round(maquina.valor_total).toLocaleString("es-CL")}
+        </div>
+        <div className="text-xs text-gray-500">
+          ${Math.round(mesUnico?.costo_por_dia || maquina.costo_por_dia || 0).toLocaleString("es-CL")}/día
+        </div>
+        {mesUnico && mesUnico.nombre_mes && (
+          <div className="text-xs text-blue-600">
+            {mesUnico.nombre_mes.split(' ')[0]}
+          </div>
+        )}
+      </div>
+    );
+  };
+  
 const ConsumoPorMaquinaPureTable = ({
   fechaDesde,
   fechaHasta,
@@ -154,11 +84,11 @@ const ConsumoPorMaquinaPureTable = ({
   const [error, setError] = useState(null);
   const [resumenGeneral, setResumenGeneral] = useState(null);
 
-  // Estados para ordenamiento (mantener igual)
+  // Estados para ordenamiento
   const [ordenColumna, setOrdenColumna] = useState("litros_totales");
   const [direccionOrden, setDireccionOrden] = useState("desc");
 
-  // 🆕 Estados para filtros
+  // Estados para filtros
   const [filtros, setFiltros] = useState({
     maquina: "",
     categoria: "",
@@ -166,7 +96,20 @@ const ConsumoPorMaquinaPureTable = ({
     patente: "",
   });
 
-  // Función para formatear fecha con hora (mantener igual)
+  // 🔧 CORECCIÓN 1: Función para manejar ordenamiento con el nuevo componente
+  const manejarCambioOrdenamiento = (columna, direccion) => {
+    console.log("🔧 Ordenamiento:", { columna, direccion });
+    if (direccion) {
+      setOrdenColumna(columna);
+      setDireccionOrden(direccion);
+    } else {
+      // Si direccion es null, limpiar ordenamiento
+      setOrdenColumna("");
+      setDireccionOrden("desc");
+    }
+  };
+
+  // Función para formatear fecha con hora
   const formatearFechaHora = (fecha, hora) => {
     if (!fecha) return fecha;
     if (!hora) return fecha;
@@ -191,23 +134,15 @@ const ConsumoPorMaquinaPureTable = ({
     return fecha;
   };
 
-  // Función para manejar ordenamiento (mantener igual)
-  const manejarOrdenamiento = (columna) => {
-    if (ordenColumna === columna) {
-      setDireccionOrden(direccionOrden === "asc" ? "desc" : "asc");
-    } else {
-      setOrdenColumna(columna);
-      setDireccionOrden("desc");
-    }
-  };
-
-  // Función para ordenar los datos (mantener igual)
+  // 🔧 CORECCIÓN 2: Función para ordenar los datos (corregir nombres de columnas)
   const ordenarDatos = (datos) => {
+    if (!ordenColumna) return datos;
+
     return [...datos].sort((a, b) => {
       let valorA, valorB;
 
       switch (ordenColumna) {
-        case "nombre_maquina":
+        case "maquina": // ✅ CORRECTO: usar "maquina"
           valorA = a.nombre_maquina?.toLowerCase() || "";
           valorB = b.nombre_maquina?.toLowerCase() || "";
           break;
@@ -253,20 +188,35 @@ const ConsumoPorMaquinaPureTable = ({
     });
   };
 
-  // 🆕 Función para filtrar datos
+  // 🆕 Función para filtrar datos (ACTUALIZADA para multiselect)
   const filtrarDatos = (datos) => {
     return datos.filter((maquina) => {
+      // 🆕 MULTISELECT: Filtro de máquina
       const cumpleMaquina =
         !filtros.maquina ||
-        maquina.nombre_maquina
-          ?.toLowerCase()
-          .includes(filtros.maquina.toLowerCase());
+        (filtros.maquina.includes(",")
+          ? filtros.maquina
+              .split(",")
+              .some((m) => m.trim() === maquina.nombre_maquina)
+          : maquina.nombre_maquina === filtros.maquina);
 
+      // 🆕 MULTISELECT: Filtro de categoría
       const cumpleCategoria =
-        !filtros.categoria || maquina.categoria === filtros.categoria;
+        !filtros.categoria ||
+        (filtros.categoria.includes(",")
+          ? filtros.categoria
+              .split(",")
+              .some((c) => c.trim() === maquina.categoria)
+          : maquina.categoria === filtros.categoria);
 
-      const cumpleFaena = !filtros.faena || maquina.faena === filtros.faena;
+      // 🆕 MULTISELECT: Filtro de faena
+      const cumpleFaena =
+        !filtros.faena ||
+        (filtros.faena.includes(",")
+          ? filtros.faena.split(",").some((f) => f.trim() === maquina.faena)
+          : maquina.faena === filtros.faena);
 
+      // Filtro de patente (mantener como texto)
       const cumplePatente =
         !filtros.patente ||
         maquina.patente?.toLowerCase().includes(filtros.patente.toLowerCase());
@@ -275,7 +225,7 @@ const ConsumoPorMaquinaPureTable = ({
     });
   };
 
-  // 🆕 Generar opciones únicas para los filtros select
+  // Generar opciones únicas para los filtros select
   const opcionesFiltros = useMemo(() => {
     const maquinas = [
       ...new Set(datosConsumo.map((m) => m.nombre_maquina).filter(Boolean)),
@@ -290,21 +240,22 @@ const ConsumoPorMaquinaPureTable = ({
     return { maquinas, categorias, faenas };
   }, [datosConsumo]);
 
-  // 🆕 Aplicar filtros y ordenamiento
+  // Aplicar filtros y ordenamiento
   const datosProcesados = useMemo(() => {
     const datosFiltrados = filtrarDatos(datosConsumo);
     return ordenarDatos(datosFiltrados);
   }, [datosConsumo, filtros, ordenColumna, direccionOrden]);
 
-  // 🆕 Función para manejar cambios de filtro
-  const manejarCambioFiltro = (tipoFiltro, valor) => {
+  // 🔧 CORECCIÓN 3: Función para manejar cambios de filtro (corregir parámetros)
+  const manejarCambioFiltro = (columna, valor) => {
+    console.log("🔧 Filtro:", { columna, valor });
     setFiltros((prev) => ({
       ...prev,
-      [tipoFiltro]: valor,
+      [columna]: valor,
     }));
   };
 
-  // 🆕 Función para limpiar todos los filtros
+  // Función para limpiar todos los filtros
   const limpiarFiltros = () => {
     setFiltros({
       maquina: "",
@@ -314,7 +265,7 @@ const ConsumoPorMaquinaPureTable = ({
     });
   };
 
-  // Cargar datos del ConsumoCategoriasController (mantener igual)
+  // Cargar datos del ConsumoCategoriasController
   const cargarDatosConsumoCategoria = async () => {
     try {
       setLoading(true);
@@ -389,7 +340,7 @@ const ConsumoPorMaquinaPureTable = ({
                   formateado: rendimiento.rendimiento_formateado || "N/A",
                   interpretacion: rendimiento.interpretacion || "No disponible",
 
-                  // 🆕 AGREGAR: Información completa de medición
+                  // Información completa de medición
                   medicion_total: rendimiento.medicion_total || {
                     primera_medicion: null,
                     ultima_medicion: null,
@@ -418,6 +369,71 @@ const ConsumoPorMaquinaPureTable = ({
 
       setDatosConsumo(maquinasData);
       setResumenGeneral(response.data.resumen_ejecutivo);
+
+      // ✅ PASO 1: Agregar este componente al inicio del archivo (después de los imports)
+
+      // 🆕 COMPONENTE PARA COLUMNA VALOR TOTAL CON MULTI-MES
+      const ColumnaValorTotal = ({ maquina }) => {
+        const datosMenuales = maquina.datos_mensuales;
+        const esMultiMes = datosMenuales?.es_multi_mes;
+
+        if (
+          esMultiMes &&
+          datosMenuales.mes_inicial &&
+          datosMenuales.mes_final
+        ) {
+          const mesAnterior = datosMenuales.mes_inicial;
+          const mesActual = datosMenuales.mes_final;
+
+          return (
+            <div className="flex flex-col items-end">
+              {/* Valor total del período */}
+              <div className="text-sm font-bold text-gray-900">
+                ${Math.round(maquina.valor_total).toLocaleString("es-CL")}
+              </div>
+
+              {/* Mes anterior */}
+              <div className="text-xs text-blue-700 mt-1">
+                📅 ${mesAnterior.costo_por_dia?.toLocaleString("es-CL") || 0}
+                /día
+              </div>
+              <div className="text-xs text-blue-600">
+                {mesAnterior.nombre_mes.split(" ")[0]} (anterior)
+              </div>
+
+              {/* Mes actual */}
+              <div className="text-xs text-green-700 mt-1">
+                📅 ${mesActual.costo_por_dia?.toLocaleString("es-CL") || 0}/día
+              </div>
+              <div className="text-xs text-green-600">
+                {mesActual.nombre_mes.split(" ")[0]} (actual)
+              </div>
+            </div>
+          );
+        }
+
+        // Formato original para un solo mes
+        const mesUnico = datosMenuales?.mes_unico;
+        return (
+          <div className="flex flex-col items-end">
+            <div className="text-sm font-bold text-gray-900">
+              ${Math.round(maquina.valor_total).toLocaleString("es-CL")}
+            </div>
+            <div className="text-xs text-gray-500">
+              $
+              {Math.round(
+                mesUnico?.costo_por_dia || maquina.costo_por_dia || 0
+              ).toLocaleString("es-CL")}
+              /día
+            </div>
+            {mesUnico && (
+              <div className="text-xs text-blue-600">
+                {mesUnico.nombre_mes.split(" ")[0]}
+              </div>
+            )}
+          </div>
+        );
+      };
 
       console.log(
         "✅ Datos ConsumoCategoriasController cargados con horarios:",
@@ -448,7 +464,7 @@ const ConsumoPorMaquinaPureTable = ({
     refreshKey,
   ]);
 
-  // Funciones auxiliares para colores (mantener igual)
+  // Funciones auxiliares para colores
   const getColorPrecision = (precision) => {
     if (precision >= 80) return "text-green-600 bg-green-50";
     if (precision >= 60) return "text-yellow-600 bg-yellow-50";
@@ -533,7 +549,7 @@ const ConsumoPorMaquinaPureTable = ({
                 Ordenado por:{" "}
                 {ordenColumna === "litros_totales"
                   ? "Consumo Total"
-                  : ordenColumna === "nombre_maquina"
+                  : ordenColumna === "maquina" // 🔧 CORREGIDO
                   ? "Máquina"
                   : ordenColumna === "categoria"
                   ? "Categoría"
@@ -601,16 +617,20 @@ const ConsumoPorMaquinaPureTable = ({
         </div>
       </div>
 
-      {/* 🆕 Barra de filtros activos */}
+      {/* Barra de filtros activos */}
       {filtrosActivos > 0 && (
         <div className="bg-blue-50 border-b border-blue-200 p-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-medium text-blue-700">
               Filtros activos:
             </span>
+            {/* 🆕 FILTROS MÚLTIPLES: Máquinas */}
             {filtros.maquina && (
               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
-                Máquina: {filtros.maquina}
+                Máquina{filtros.maquina.includes(",") ? "s" : ""}:{" "}
+                {filtros.maquina.includes(",")
+                  ? `${filtros.maquina.split(",").length} seleccionadas`
+                  : filtros.maquina}
                 <button
                   onClick={() => manejarCambioFiltro("maquina", "")}
                   className="ml-1 text-blue-600 hover:text-blue-800"
@@ -619,9 +639,13 @@ const ConsumoPorMaquinaPureTable = ({
                 </button>
               </span>
             )}
+            {/* 🆕 FILTROS MÚLTIPLES: Categorías */}
             {filtros.categoria && (
               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
-                Categoría: {filtros.categoria}
+                Categoría{filtros.categoria.includes(",") ? "s" : ""}:{" "}
+                {filtros.categoria.includes(",")
+                  ? `${filtros.categoria.split(",").length} seleccionadas`
+                  : filtros.categoria}
                 <button
                   onClick={() => manejarCambioFiltro("categoria", "")}
                   className="ml-1 text-blue-600 hover:text-blue-800"
@@ -630,9 +654,13 @@ const ConsumoPorMaquinaPureTable = ({
                 </button>
               </span>
             )}
+            {/* 🆕 FILTROS MÚLTIPLES: Faenas */}
             {filtros.faena && (
               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
-                Faena: {filtros.faena}
+                Faena{filtros.faena.includes(",") ? "s" : ""}:{" "}
+                {filtros.faena.includes(",")
+                  ? `${filtros.faena.split(",").length} seleccionadas`
+                  : filtros.faena}
                 <button
                   onClick={() => manejarCambioFiltro("faena", "")}
                   className="ml-1 text-blue-600 hover:text-blue-800"
@@ -662,153 +690,134 @@ const ConsumoPorMaquinaPureTable = ({
         </div>
       )}
 
-      {/* Tabla con filtros en headers */}
+      {/* 🔧 TABLA MEJORADA CON ALTURA MÍNIMA Y TRANSICIONES */}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              {/* 🆕 Header con filtro para Máquina */}
+              {/* ✅ COLUMNA MÁQUINA - MULTISELECT */}
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <ColumnFilter
+                <UniversalTableFilter
                   titulo="Máquina"
-                  tipo="text"
-                  valor={filtros.maquina}
-                  onChange={(valor) => manejarCambioFiltro("maquina", valor)}
-                  onSort={() => manejarOrdenamiento("nombre_maquina")}
+                  columna="maquina"
+                  tipo="select"
+                  esMultiple={true} // 🆕 MULTISELECT HABILITADO
+                  opciones={opcionesFiltros.maquinas}
+                  valorFiltro={filtros.maquina}
+                  onFiltroChange={manejarCambioFiltro}
+                  onOrdenamientoChange={manejarCambioOrdenamiento}
                   ordenColumna={ordenColumna}
                   direccionOrden={direccionOrden}
-                  columna="nombre_maquina"
+                  mostrarBusqueda={true}
+                  placeholder="Buscar máquina..."
+                  anchoMinimo="280px" // Un poco más ancho para multiselect
                 />
               </th>
 
-              {/* 🆕 Header con filtro para Categoría */}
+              {/* ✅ COLUMNA CATEGORÍA - MULTISELECT */}
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <ColumnFilter
+                <UniversalTableFilter
                   titulo="Categoría"
-                  tipo="select"
-                  opciones={opcionesFiltros.categorias}
-                  valor={filtros.categoria}
-                  onChange={(valor) => manejarCambioFiltro("categoria", valor)}
-                  onSort={() => manejarOrdenamiento("categoria")}
-                  ordenColumna={ordenColumna}
-                  direccionOrden={direccionOrden}
                   columna="categoria"
-                />
-              </th>
-
-              {/* 🆕 Header con filtro para Faena */}
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <ColumnFilter
-                  titulo="Faena"
                   tipo="select"
-                  opciones={opcionesFiltros.faenas}
-                  valor={filtros.faena}
-                  onChange={(valor) => manejarCambioFiltro("faena", valor)}
-                  onSort={() => manejarOrdenamiento("faena")}
+                  esMultiple={true} // 🆕 MULTISELECT HABILITADO
+                  opciones={opcionesFiltros.categorias}
+                  valorFiltro={filtros.categoria}
+                  onFiltroChange={manejarCambioFiltro}
+                  onOrdenamientoChange={manejarCambioOrdenamiento}
                   ordenColumna={ordenColumna}
                   direccionOrden={direccionOrden}
-                  columna="faena"
+                  anchoMinimo="230px"
                 />
               </th>
 
-              {/* Headers sin filtro pero con ordenamiento */}
-              <th
-                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                onClick={() => manejarOrdenamiento("litros_totales")}
-              >
-                <div className="flex items-center justify-end">
-                  Consumo Total
-                  {ordenColumna === "litros_totales" ? (
-                    direccionOrden === "asc" ? (
-                      <FiChevronUp className="inline ml-1 text-blue-600" />
-                    ) : (
-                      <FiChevronDown className="inline ml-1 text-blue-600" />
-                    )
-                  ) : (
-                    <span className="text-gray-400 ml-1">↕</span>
-                  )}
-                </div>
+              {/* ✅ COLUMNA FAENA - MULTISELECT */}
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <UniversalTableFilter
+                  titulo="Faena"
+                  columna="faena"
+                  tipo="select"
+                  esMultiple={true} // 🆕 MULTISELECT HABILITADO
+                  opciones={opcionesFiltros.faenas}
+                  valorFiltro={filtros.faena}
+                  onFiltroChange={manejarCambioFiltro}
+                  onOrdenamientoChange={manejarCambioOrdenamiento}
+                  ordenColumna={ordenColumna}
+                  direccionOrden={direccionOrden}
+                  anchoMinimo="210px"
+                />
               </th>
 
-              <th
-                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                onClick={() => manejarOrdenamiento("precio_promedio_litro")}
-              >
-                <div className="flex items-center justify-end">
-                  Precio Específico
-                  {ordenColumna === "precio_promedio_litro" ? (
-                    direccionOrden === "asc" ? (
-                      <FiChevronUp className="inline ml-1 text-blue-600" />
-                    ) : (
-                      <FiChevronDown className="inline ml-1 text-blue-600" />
-                    )
-                  ) : (
-                    <span className="text-gray-400 ml-1">↕</span>
-                  )}
-                </div>
+              {/* 🔧 OTRAS COLUMNAS CONVERTIDAS A UniversalTableFilter */}
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <UniversalTableFilter
+                  titulo="Consumo Total"
+                  columna="litros_totales"
+                  onOrdenamientoChange={manejarCambioOrdenamiento}
+                  ordenColumna={ordenColumna}
+                  direccionOrden={direccionOrden}
+                />
               </th>
 
-              <th
-                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                onClick={() => manejarOrdenamiento("valor_total")}
-              >
-                <div className="flex items-center justify-end">
-                  Valor Total
-                  {ordenColumna === "valor_total" ? (
-                    direccionOrden === "asc" ? (
-                      <FiChevronUp className="inline ml-1 text-blue-600" />
-                    ) : (
-                      <FiChevronDown className="inline ml-1 text-blue-600" />
-                    )
-                  ) : (
-                    <span className="text-gray-400 ml-1">↕</span>
-                  )}
-                </div>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <UniversalTableFilter
+                  titulo="Precio Específico"
+                  columna="precio_promedio_litro"
+                  onOrdenamientoChange={manejarCambioOrdenamiento}
+                  ordenColumna={ordenColumna}
+                  direccionOrden={direccionOrden}
+                />
               </th>
 
-              <th
-                className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                onClick={() => manejarOrdenamiento("rendimiento")}
-              >
-                <div className="flex items-center justify-end">
-                  Rendimiento
-                  {ordenColumna === "rendimiento" ? (
-                    direccionOrden === "asc" ? (
-                      <FiChevronUp className="inline ml-1 text-blue-600" />
-                    ) : (
-                      <FiChevronDown className="inline ml-1 text-blue-600" />
-                    )
-                  ) : (
-                    <span className="text-gray-400 ml-1">↕</span>
-                  )}
-                </div>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <UniversalTableFilter
+                  titulo="Valor Total"
+                  columna="valor_total"
+                  onOrdenamientoChange={manejarCambioOrdenamiento}
+                  ordenColumna={ordenColumna}
+                  direccionOrden={direccionOrden}
+                />
               </th>
 
-              <th
-                className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                onClick={() => manejarOrdenamiento("porcentaje_confirmado")}
-              >
-                <div className="flex items-center justify-center">
-                  Precisión
-                  {ordenColumna === "porcentaje_confirmado" ? (
-                    direccionOrden === "asc" ? (
-                      <FiChevronUp className="inline ml-1 text-blue-600" />
-                    ) : (
-                      <FiChevronDown className="inline ml-1 text-blue-600" />
-                    )
-                  ) : (
-                    <span className="text-gray-400 ml-1">↕</span>
-                  )}
-                </div>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <UniversalTableFilter
+                  titulo="Rendimiento"
+                  columna="rendimiento"
+                  onOrdenamientoChange={manejarCambioOrdenamiento}
+                  ordenColumna={ordenColumna}
+                  direccionOrden={direccionOrden}
+                />
+              </th>
+
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <UniversalTableFilter
+                  titulo="Precisión"
+                  columna="porcentaje_confirmado"
+                  onOrdenamientoChange={manejarCambioOrdenamiento}
+                  ordenColumna={ordenColumna}
+                  direccionOrden={direccionOrden}
+                />
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+
+          {/* 🆕 TBODY CON ALTURA MÍNIMA Y TRANSICIONES SUAVES */}
+          <tbody
+            className="bg-white divide-y divide-gray-200 transition-all duration-300 ease-in-out"
+            style={{
+              minHeight: "600px", // 🎯 ALTURA MÍNIMA para evitar saltos
+            }}
+          >
             {/* Usar datos procesados (filtrados y ordenados) */}
             {datosProcesados.map((maquina, index) => (
               <tr
                 key={`${maquina.id_maquina}-${index}`}
-                className="hover:bg-gray-50 transition-colors"
+                className="hover:bg-gray-50 transition-all duration-200 ease-in-out transform" // 🆕 Transiciones suaves
+                style={{
+                  // 🆕 Animación de entrada staggered para efecto profesional
+                  animationDelay: `${index * 50}ms`,
+                  animation: "fadeInUp 0.4s ease-out forwards",
+                }}
               >
                 {/* Columna Máquina */}
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -819,21 +828,16 @@ const ConsumoPorMaquinaPureTable = ({
                     <div className="text-sm text-gray-500">
                       {maquina.patente}
                     </div>
-                        {/* 🆕 CATEGORÍA EN GRIS (ABAJO) */}
                     <div className="text-xs text-gray-500 text-left">
                       {maquina.categoria}
                     </div>
-                    
                   </div>
                 </td>
-
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex flex-col space-y-2">
-                    {/* 🆕 TIPO DE MEDICIÓN CON FONDO DE COLOR (ARRIBA) */}
                     <div>
                       {maquina.tipo_medicion === "Horometro" ? (
                         <span className="px-2 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                          
                           Horómetro:{" "}
                           {maquina.rendimiento?.medicion_total?.ultima_medicion
                             ? Number(
@@ -845,7 +849,6 @@ const ConsumoPorMaquinaPureTable = ({
                         </span>
                       ) : (
                         <span className="px-2 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                          
                           Kilometraje:{" "}
                           {maquina.rendimiento?.medicion_total?.ultima_medicion
                             ? Number(
@@ -857,18 +860,14 @@ const ConsumoPorMaquinaPureTable = ({
                         </span>
                       )}
                     </div>
-
-                
                   </div>
                 </td>
-
                 {/* Columna Faena */}
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">
                     {maquina.faena}
                   </div>
                 </td>
-
                 {/* Columna Consumo Total */}
                 <td className="px-6 py-4 whitespace-nowrap text-right">
                   <div className="flex flex-col items-end">
@@ -892,7 +891,6 @@ const ConsumoPorMaquinaPureTable = ({
                     </div>
                   </div>
                 </td>
-
                 {/* Columna Precio Específico */}
                 <td className="px-6 py-4 whitespace-nowrap text-right">
                   <div className="text-sm font-medium text-gray-900">
@@ -902,19 +900,9 @@ const ConsumoPorMaquinaPureTable = ({
                 </td>
 
                 {/* Columna Valor Total */}
+
                 <td className="px-6 py-4 whitespace-nowrap text-right">
-                  <div className="flex flex-col items-end">
-                    <div className="text-sm font-bold text-gray-900">
-                      ${Math.round(maquina.valor_total).toLocaleString("es-CL")}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      $
-                      {Math.round(maquina.costo_por_dia).toLocaleString(
-                        "es-CL"
-                      )}
-                      /día
-                    </div>
-                  </div>
+                  <ColumnaValorTotal maquina={maquina} />
                 </td>
 
                 {/* Columna Rendimiento */}
@@ -941,7 +929,6 @@ const ConsumoPorMaquinaPureTable = ({
                     </div>
                   )}
                 </td>
-
                 {/* Columna Precisión */}
                 <td className="px-6 py-4 whitespace-nowrap text-center">
                   <div
@@ -963,6 +950,20 @@ const ConsumoPorMaquinaPureTable = ({
                 </td>
               </tr>
             ))}
+
+            {/* 🆕 FILAS VACÍAS PARA MANTENER ALTURA MÍNIMA */}
+            {datosProcesados.length < 4 &&
+              Array.from({ length: 4 - datosProcesados.length }).map(
+                (_, index) => (
+                  <tr
+                    key={`empty-${index}`}
+                    className="h-20" // Altura similar a las filas reales
+                    style={{ opacity: 0 }} // Invisible pero mantiene el espacio
+                  >
+                    <td colSpan="4">&nbsp;</td>
+                  </tr>
+                )
+              )}
           </tbody>
         </table>
       </div>
@@ -1021,4 +1022,5 @@ const ConsumoPorMaquinaPureTable = ({
     </div>
   );
 };
+
 export default ConsumoPorMaquinaPureTable;
