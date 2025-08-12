@@ -17,60 +17,199 @@ import {
 
 import UniversalTableFilter from "../../components/molecules/UniversalTableFilter";
 
-  // 🆕 DEFINIR COMPONENTE DENTRO DEL COMPONENTE PRINCIPAL
-  const ColumnaValorTotal = ({ maquina }) => {
-    const datosMenuales = maquina.datos_mensuales;
-    const esMultiMes = datosMenuales?.es_multi_mes;
+// ✅ PASO 1: Reemplazar el componente ColumnaValorTotal existente en ConsumoPorMaquinaPureTable.jsx
 
-    if (esMultiMes && datosMenuales.mes_inicial && datosMenuales.mes_final) {
-      const mesAnterior = datosMenuales.mes_inicial;
-      const mesActual = datosMenuales.mes_final;
-      
-      return (
-        <div className="flex flex-col items-end">
-          {/* Valor total del período */}
-          <div className="text-sm font-bold text-gray-900">
-            ${Math.round(maquina.valor_total).toLocaleString("es-CL")}
-          </div>
-          
-          {/* Mes anterior */}
-          <div className="text-xs text-blue-700 mt-1">
-            📅 ${mesAnterior.costo_por_dia?.toLocaleString("es-CL") || 0}/día
-          </div>
-          <div className="text-xs text-blue-600">
-            {mesAnterior.nombre_mes ? mesAnterior.nombre_mes.split(' ')[0] : 'Anterior'}
-          </div>
-          
-          {/* Mes actual */}
-          <div className="text-xs text-green-700 mt-1">
-            📅 ${mesActual.costo_por_dia?.toLocaleString("es-CL") || 0}/día
-          </div>
-          <div className="text-xs text-green-600">
-            {mesActual.nombre_mes ? mesActual.nombre_mes.split(' ')[0] : 'Actual'}
-          </div>
-        </div>
-      );
-    }
-    
-    // Formato original para un solo mes
-    const mesUnico = datosMenuales?.mes_unico;
+const ColumnaValorTotal = ({ maquina }) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  // Obtener datos de comparativa mensual del backend
+  const comparativaMensual =
+    maquina.comparativa_mensual?.comparativa_mensual || {};
+  const resumenPeriodo = maquina.comparativa_mensual?.resumen_periodo || {};
+  const meses = Object.entries(comparativaMensual);
+
+  // Verificar si hay datos mensuales múltiples
+  const tieneMultiplesMeses = meses.length > 1;
+
+  // Si no hay múltiples meses, mostrar formato simple
+  if (!tieneMultiplesMeses) {
     return (
       <div className="flex flex-col items-end">
         <div className="text-sm font-bold text-gray-900">
-          ${Math.round(maquina.valor_total).toLocaleString("es-CL")}
+          ${Math.round(maquina.valor_total || 0).toLocaleString("es-CL")}
         </div>
         <div className="text-xs text-gray-500">
-          ${Math.round(mesUnico?.costo_por_dia || maquina.costo_por_dia || 0).toLocaleString("es-CL")}/día
+          ${Math.round(maquina.costo_por_dia || 0).toLocaleString("es-CL")}/día
         </div>
-        {mesUnico && mesUnico.nombre_mes && (
-          <div className="text-xs text-blue-600">
-            {mesUnico.nombre_mes.split(' ')[0]}
-          </div>
-        )}
       </div>
     );
-  };
-  
+  }
+
+  // Calcular estadísticas para el tooltip
+  const costosArray = meses.map(([_, datos]) => datos.costo_por_dia);
+  const costoMayor = Math.max(...costosArray);
+  const costoMenor = Math.min(...costosArray);
+  const costoPromedio = resumenPeriodo.costo_por_dia_promedio || 0;
+
+  // Último mes para mostrar en la UI principal
+  const ultimoMes = meses[meses.length - 1];
+  const [claveUltimoMes, datosUltimoMes] = ultimoMes || [null, {}];
+  const costoUltimoMes = datosUltimoMes.costo_por_dia || 0;
+  const nombreUltimoMes = datosUltimoMes.mes_nombre?.split(" ")[0] || "Último";
+
+  // Determinar tendencia
+  const primerCosto = costosArray[0];
+  const ultimoCosto = costosArray[costosArray.length - 1];
+  let tendencia = "estable";
+  let iconoTendencia = "📊";
+
+  if (ultimoCosto > primerCosto * 1.1) {
+    tendencia = "ascendente";
+    iconoTendencia = "📈";
+  } else if (ultimoCosto < primerCosto * 0.9) {
+    tendencia = "descendente";
+    iconoTendencia = "📉";
+  }
+
+  return (
+    <div
+      className="relative flex flex-col items-end cursor-pointer group"
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
+      {/* Valor principal */}
+      <div className="text-sm font-bold text-gray-900">
+        ${Math.round(maquina.valor_total || 0).toLocaleString("es-CL")}
+      </div>
+
+      {/* Costo por día con indicador de tendencia */}
+      <div className="flex items-center space-x-1">
+        <div className="text-xs text-blue-600 hover:text-blue-800 underline decoration-dotted">
+          ${costoUltimoMes.toLocaleString("es-CL")}/día
+        </div>
+        <span className="text-orange-500 text-xs">{iconoTendencia}</span>
+      </div>
+
+      {/* Indicador de múltiples meses */}
+      <div className="text-xs text-blue-500 flex items-center space-x-1">
+        <span>{nombreUltimoMes}</span>
+        <span className="text-gray-400">•</span>
+        <span>{meses.length} meses</span>
+      </div>
+
+      {/* Tooltip con detalles mensuales */}
+      {showTooltip && (
+        <div className="absolute bottom-full right-0 mb-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg p-4 z-100">
+          {/* Header del tooltip */}
+          <div className="border-b border-gray-100 pb-2 mb-3">
+            <h4 className="text-sm font-semibold text-gray-800 flex items-center">
+              💰 Análisis de Costos Mensuales
+              <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                {meses.length} meses
+              </span>
+            </h4>
+            <p className="text-xs text-gray-600 mt-1">
+              Costo por día y evolución temporal
+            </p>
+          </div>
+
+          {/* Resumen estadístico */}
+          <div className="grid grid-cols-3 gap-2 mb-3 text-center">
+            <div className="bg-gray-50 rounded p-2">
+              <div className="text-xs text-gray-500">Promedio</div>
+              <div className="text-sm font-semibold text-gray-800">
+                ${costoPromedio.toLocaleString("es-CL")}
+              </div>
+            </div>
+            <div className="bg-green-50 rounded p-2">
+              <div className="text-xs text-green-600">Menor</div>
+              <div className="text-sm font-semibold text-green-800">
+                ${costoMenor.toLocaleString("es-CL")}
+              </div>
+            </div>
+            <div className="bg-red-50 rounded p-2">
+              <div className="text-xs text-red-600">Mayor</div>
+              <div className="text-sm font-semibold text-red-800">
+                ${costoMayor.toLocaleString("es-CL")}
+              </div>
+            </div>
+          </div>
+
+          {/* Lista de meses */}
+          <div className="space-y-2 max-h-40 overflow-y-auto">
+            {meses.map(([claveMes, datos], index) => {
+              const esUltimoMes = index === meses.length - 1;
+              const esMesMayor = datos.costo_por_dia === costoMayor;
+              const esMesMenor = datos.costo_por_dia === costoMenor;
+
+              return (
+                <div
+                  key={claveMes}
+                  className={`flex justify-between items-center p-2 rounded text-xs ${
+                    esUltimoMes
+                      ? "bg-blue-50 border border-blue-200"
+                      : esMesMayor
+                      ? "bg-red-50"
+                      : esMesMenor
+                      ? "bg-green-50"
+                      : "bg-gray-50"
+                  }`}
+                >
+                  <div className="flex items-center space-x-2">
+                    <span className="font-medium text-gray-700">
+                      {datos.mes_nombre || claveMes}
+                    </span>
+                    {esUltimoMes && (
+                      <span className="bg-blue-600 text-white px-1.5 py-0.5 rounded text-xs">
+                        Actual
+                      </span>
+                    )}
+                    {esMesMayor && !esUltimoMes && (
+                      <span className="text-red-600">📈</span>
+                    )}
+                    {esMesMenor && !esUltimoMes && (
+                      <span className="text-green-600">📉</span>
+                    )}
+                  </div>
+
+                  <div className="text-right">
+                    <div className="font-semibold text-gray-800">
+                      ${datos.costo_por_dia.toLocaleString("es-CL")}/día
+                    </div>
+                   
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Footer con tendencia */}
+          <div className="border-t border-gray-100 pt-2 mt-3">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-gray-600">Tendencia:</span>
+              <span
+                className={`font-medium ${
+                  tendencia === "ascendente"
+                    ? "text-red-600"
+                    : tendencia === "descendente"
+                    ? "text-green-600"
+                    : "text-gray-600"
+                }`}
+              >
+                {tendencia === "ascendente"
+                  ? "📈 Creciente"
+                  : tendencia === "descendente"
+                  ? "📉 Decreciente"
+                  : "📊 Estable"}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ConsumoPorMaquinaPureTable = ({
   fechaDesde,
   fechaHasta,
@@ -358,10 +497,15 @@ const ConsumoPorMaquinaPureTable = ({
                   maquinaAnalisis.periodos_confirmados || [],
                 simulacion: maquinaAnalisis.simulacion || null,
 
+                // 🆕 AGREGAR ESTA LÍNEA QUE FALTA:
+                comparativa_mensual: costos.comparativa_mensual || {},
+
                 // Metadata
                 categoria_completa: categoria,
                 analisis_completo: maquinaAnalisis,
               });
+              console.log('🔍 Datos comparativa mensual para', maquina.nombre, ':', maquinaAnalisis.comparativa_mensual);
+
             });
           }
         });
@@ -369,71 +513,6 @@ const ConsumoPorMaquinaPureTable = ({
 
       setDatosConsumo(maquinasData);
       setResumenGeneral(response.data.resumen_ejecutivo);
-
-      // ✅ PASO 1: Agregar este componente al inicio del archivo (después de los imports)
-
-      // 🆕 COMPONENTE PARA COLUMNA VALOR TOTAL CON MULTI-MES
-      const ColumnaValorTotal = ({ maquina }) => {
-        const datosMenuales = maquina.datos_mensuales;
-        const esMultiMes = datosMenuales?.es_multi_mes;
-
-        if (
-          esMultiMes &&
-          datosMenuales.mes_inicial &&
-          datosMenuales.mes_final
-        ) {
-          const mesAnterior = datosMenuales.mes_inicial;
-          const mesActual = datosMenuales.mes_final;
-
-          return (
-            <div className="flex flex-col items-end">
-              {/* Valor total del período */}
-              <div className="text-sm font-bold text-gray-900">
-                ${Math.round(maquina.valor_total).toLocaleString("es-CL")}
-              </div>
-
-              {/* Mes anterior */}
-              <div className="text-xs text-blue-700 mt-1">
-                📅 ${mesAnterior.costo_por_dia?.toLocaleString("es-CL") || 0}
-                /día
-              </div>
-              <div className="text-xs text-blue-600">
-                {mesAnterior.nombre_mes.split(" ")[0]} (anterior)
-              </div>
-
-              {/* Mes actual */}
-              <div className="text-xs text-green-700 mt-1">
-                📅 ${mesActual.costo_por_dia?.toLocaleString("es-CL") || 0}/día
-              </div>
-              <div className="text-xs text-green-600">
-                {mesActual.nombre_mes.split(" ")[0]} (actual)
-              </div>
-            </div>
-          );
-        }
-
-        // Formato original para un solo mes
-        const mesUnico = datosMenuales?.mes_unico;
-        return (
-          <div className="flex flex-col items-end">
-            <div className="text-sm font-bold text-gray-900">
-              ${Math.round(maquina.valor_total).toLocaleString("es-CL")}
-            </div>
-            <div className="text-xs text-gray-500">
-              $
-              {Math.round(
-                mesUnico?.costo_por_dia || maquina.costo_por_dia || 0
-              ).toLocaleString("es-CL")}
-              /día
-            </div>
-            {mesUnico && (
-              <div className="text-xs text-blue-600">
-                {mesUnico.nombre_mes.split(" ")[0]}
-              </div>
-            )}
-          </div>
-        );
-      };
 
       console.log(
         "✅ Datos ConsumoCategoriasController cargados con horarios:",
@@ -898,8 +977,6 @@ const ConsumoPorMaquinaPureTable = ({
                   </div>
                   <div className="text-xs text-gray-500">por litro</div>
                 </td>
-
-                {/* Columna Valor Total */}
 
                 <td className="px-6 py-4 whitespace-nowrap text-right">
                   <ColumnaValorTotal maquina={maquina} />
