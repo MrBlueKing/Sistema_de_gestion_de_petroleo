@@ -279,7 +279,7 @@ const Consumo = ({
   resetFlow = null,
   preloadedEstanques = null
 }) => {
-  const DEBUG = true;
+  const DEBUG = false;
   const { user, loading } = useContext(UserContext);
   const navigate = useNavigate();
 
@@ -327,7 +327,7 @@ const Consumo = ({
   // ✅ Cargar datos cuando esté listo
   useEffect(() => {
     if (patenteSeleccionada?.id_maquina && userInfo?.id_faena) {
-      console.log('🎯 Cargando datos para máquina:', patenteSeleccionada.id_maquina, 'faena:', userInfo.id_faena);
+      DEBUG && console.log('🎯 Cargando datos para máquina:', patenteSeleccionada.id_maquina, 'faena:', userInfo.id_faena);
       cargarUltimaMedicion(patenteSeleccionada.id_maquina, userInfo.id_faena);
       cargarHistorialConsumos(patenteSeleccionada.id_maquina, 5); // Más registros para mejor contexto
     }

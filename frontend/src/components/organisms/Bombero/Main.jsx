@@ -153,7 +153,7 @@ const ConsumoRecenteCard = ({ consumo, formatearFecha }) => {
 
 const Main = () => {
   const { user, loading } = useContext(UserContext);
-
+  const activo = false;
   const [consumosRecientes, setConsumosRecientes] = useState([]);
   const [loadingConsumos, setLoadingConsumos] = useState(false);
   const [error, setError] = useState(null);
@@ -167,7 +167,7 @@ const Main = () => {
   // Función para obtener consumos recientes
   const fetchConsumosRecientes = async () => {
     if (!user?.id_faena) {
-      console.log('Usuario sin faena asignada:', user);
+      activo && console.log('Usuario sin faena asignada:', user);
       return;
     }
 
@@ -181,7 +181,7 @@ const Main = () => {
         throw new Error('No se encontró token de autenticación');
       }
 
-      console.log('Obteniendo consumos para faena:', user.id_faena);
+      activo && console.log('Obteniendo consumos para faena:', user.id_faena);
 
       const response = await axios.get(`/api/consumos/recientes?faena=${user.id_faena}&limit=5`, {
         headers: {
@@ -189,7 +189,7 @@ const Main = () => {
         },
       });
 
-      console.log('Consumos recibidos:', response.data);
+      activo && console.log('Consumos recibidos:', response.data);
       setConsumosRecientes(response.data.data || []);
 
     } catch (error) {
@@ -216,7 +216,7 @@ const Main = () => {
   // useEffect para cargar datos cuando el usuario esté disponible
   useEffect(() => {
     if (!loading && user?.id_faena) {
-      console.log('Usuario disponible, cargando consumos...', user);
+      activo && console.log('Usuario disponible, cargando consumos...', user);
       fetchConsumosRecientes();
     }
   }, [user, loading]);
@@ -496,17 +496,6 @@ const Main = () => {
             <p className="text-gray-600 text-xs sm:text-sm">
               Sistema de Gestión de Combustible v2.1 | Usuario: {user?.nombre} {user?.apellido}
             </p>
-
-            {/* 🆕 INDICADOR DE ROL PARA DEBUG (puedes quitarlo después) */}
-            <div className="mt-2">
-              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${user?.rol?.id_rol === 7
-                ? 'bg-blue-100 text-blue-800'
-                : 'bg-green-100 text-green-800'
-                }`}>
-                Rol ID: {user?.rol?.id_rol}
-                {user?.rol?.id_rol === 7 && ' (Asistente - Permisos limitados)'}
-              </span>
-            </div>
           </div>
         </div>
       </div>

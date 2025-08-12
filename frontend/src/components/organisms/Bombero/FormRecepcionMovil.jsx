@@ -8,7 +8,7 @@ import ModalExitoRecepcionMovil from "../../molecules/ModalExitoRecepcionMovil";
 
 const FormRecepcionMovil = () => {
     const { user } = useContext(UserContext);
-
+    const activo = false;
     const [formData, setFormData] = useState({
         numeroGuia: "",
         numeroFactura: "",
@@ -175,7 +175,7 @@ const FormRecepcionMovil = () => {
                 id_estanque_movil: parseInt(formData.idEstanqueMovil)
             };
 
-            console.log('✅ Enviando compra de combustible:', payload);
+            activo && console.log('✅ Enviando compra de combustible:', payload);
 
             const response = await axios.post('/api/recepciones/estanque-movil', payload, {
                 headers: {
@@ -221,8 +221,8 @@ const FormRecepcionMovil = () => {
                 mostrarAlerta('error', `Error: ${response.data.message}`);
             }
         } catch (error) {
-            console.error('Error al registrar compra:', error);
-            console.log('📋 Detalles del error:', error.response?.data);
+            activo && console.log('Error al registrar compra:', error);
+            activo && console.log('📋 Detalles del error:', error.response?.data);
 
             let mensaje = 'Error de conexión. Intente nuevamente.';
             if (error.response?.data?.message) {
@@ -280,7 +280,7 @@ const FormRecepcionMovil = () => {
                     <div className="text-left space-y-4">
                         <h3 className="text-lg font-medium text-gray-700 flex items-center border-b pb-2">
                             <FaFileAlt className="mr-2 text-orange-600" />
-                            1. Datos del Comprobante Electrónico 
+                            1. Datos del Comprobante Electrónico
                         </h3>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-4">
@@ -625,7 +625,7 @@ const FormRecepcionMovil = () => {
                     onConfirm={handleExitoModalConfirm}
                     datosRecepcion={datosRecepcionExitosa}
                 />
-            )}  
+            )}
         </main>
     );
 };

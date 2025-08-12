@@ -116,7 +116,7 @@ const UniversalHeader = ({
     if ((type === "bombero" || type === "operador") && user && (user.id_rol === 1 || user.id_rol === 7) && faena) {
       return colors.iconColor.replace('-700', '-600'); // Un poco más claro para mejor contraste
     }
-    return 'text-orange-600'; // Color por defecto
+    return 'text-gray-200'; // Color por defecto
   };
 
   // 🎨 FUNCIÓN PARA DETERMINAR SI DEBE USAR COLORES PERSONALIZADOS

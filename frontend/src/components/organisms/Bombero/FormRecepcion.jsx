@@ -309,6 +309,8 @@ const FormRecepcion = () => {
   // Acceder al contexto de usuario
   const { user, loading } = useContext(UserContext);
 
+  const activo = false;
+
   // ✅ CORREGIDO: Estados para datos del formulario con nombres más claros
   const [formData, setFormData] = useState({
     numeroGuia: "",
@@ -363,7 +365,7 @@ const FormRecepcion = () => {
   // Función para manejar cambios en la distribución
   const handleDistribucionChange = (nuevaDistribucion) => {
     setDistribucionLitros(nuevaDistribucion);
-    console.log('Nueva distribución:', nuevaDistribucion);
+    activo && console.log('Nueva distribución:', nuevaDistribucion);
   };
 
   // Función para validar distribución
@@ -534,7 +536,7 @@ const FormRecepcion = () => {
     if (Object.keys(distribucionLitros).length > 0) {
       const validacion = validarDistribucion();
       if (!validacion.valido) {
-        console.log('Error en distribución:', validacion.mensaje);
+        activo && console.log('Error en distribución:', validacion.mensaje);
       }
     }
   }, [distribucionLitros, formData.litrosDocumentados]);
@@ -563,7 +565,7 @@ const FormRecepcion = () => {
       setAlturasEstanques(initialAlturas);
       setDistribucionLitros(initialDistribucion);
     } catch (error) {
-      console.error("Error al cargar estanques:", error);
+      activo && console.log("Error al cargar estanques:", error);
       mostrarAlerta("error", "Error al cargar los estanques fijos de la faena.");
     }
   };
@@ -585,7 +587,7 @@ const FormRecepcion = () => {
         setCapacidadDisponible(response.data.capacidad_disponible);
       }
     } catch (error) {
-      console.error("Error al cargar capacidad disponible:", error);
+      activo && console.log("Error al cargar capacidad disponible:", error);
       mostrarModalAlerta("error", "Error al cargar la capacidad disponible.");
     }
   };
@@ -819,7 +821,7 @@ const FormRecepcion = () => {
 
       return procesarResultadosCalculo(responseInicial, responseFinal);
     } catch (error) {
-      console.error("Error al calcular litros de petróleo:", error);
+      activo && console.log("Error al calcular litros de petróleo:", error);
 
       let errorMessage = "Error al calcular los litros de petróleo.";
       if (error.response?.data?.message) {
@@ -1144,7 +1146,7 @@ const FormRecepcion = () => {
       setDatosRecepcionExitosa(datosParaModalExito);
       setShowExitoModal(true);
     } catch (error) {
-      console.error("Error al enviar los datos:", error);
+      activo && console.log("Error al enviar los datos:", error);
       manejarErrorEnvio(error);
     } finally {
       setIsSubmitting(false);

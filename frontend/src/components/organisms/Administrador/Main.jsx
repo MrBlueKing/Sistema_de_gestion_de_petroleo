@@ -9,7 +9,6 @@ import { TbCategoryPlus } from "react-icons/tb";
 import { FaTruckDroplet } from "react-icons/fa6";
 import { FaUserCog } from "react-icons/fa";
 
-
 const DashboardCard = ({ title, value, icon, color }) => {
     const Icon = icon;
     return (
@@ -128,10 +127,9 @@ export default function Main() {
                 setLoading(false);
             }
         };
-    
+
         fetchRecentUsers();
     }, []);
-    
 
     return (
         <main className="p-4 sm:p-6 bg-gray-100 min-h-screen">
@@ -147,12 +145,12 @@ export default function Main() {
                     <QuickAccessButton icon={FiUserPlus} title="Agregar Usuario" to="/registroUsuario" />
                     <QuickAccessButton icon={TbCategoryPlus} title="Añadir Tipo Maquina" to="/AñadirTipoMaquina" />
                     <QuickAccessButton icon={FaTruckDroplet} title="Categorización de Equipos" to="/GestionarMaquinaCategoria" />
-                    {/* <QuickAccessButton icon={FaUserCog} title="Gestionar Personal" to="/GestionarPersonalInterno" />  */}  
+                    {/* <QuickAccessButton icon={FaUserCog} title="Gestionar Personal" to="/GestionarPersonalInterno" />  */}
                     <QuickAccessButton icon={FaUserCog} title="Gestionar Personal Externo" to="/GestionarPersonalExterno" />
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
                     <QuickAccessButton icon={GrLicense} title="Gertionar Permisos Personal Interno" to="/GestionarPermisoPersonalInterno" />
-                    <QuickAccessButton icon={MdCarRental} title="Gertionar Permisos maquinas Internas" to="/" />
+                    <QuickAccessButton icon={MdCarRental} title="Gertionar Permisos Maquinas" to="/GestionarPermisoMaquinas" />
                 </div>
             </div>
 

@@ -273,6 +273,8 @@ const SelectorEstanque = ({
   showTitle = true,
   className = "",
 }) => {
+  const DEBUG = false;
+
   const [estanques, setEstanques] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -282,7 +284,7 @@ const SelectorEstanque = ({
 
   // Función de selección mejorada con logging para debug
   const handleSeleccionEstanque = useCallback((estanque) => {
-    console.log(`🎯 Selector ${selectorId}: Estanque seleccionado`, estanque);
+    DEBUG && console.log(`🎯 Selector ${selectorId}: Estanque seleccionado`, estanque);
     if (!modoInternoMultiple) {
       onEstanqueSelect(estanque);
     }
