@@ -199,8 +199,8 @@ const ConsumoDetailsModal = ({
               <p className="text-sm text-gray-600">
                 {fechaDesde && fechaHasta
                   ? `Período: ${new Date(fechaDesde).toLocaleDateString(
-                      "es-CL"
-                    )} - ${new Date(fechaHasta).toLocaleDateString("es-CL")}`
+                    "es-CL"
+                  )} - ${new Date(fechaHasta).toLocaleDateString("es-CL")}`
                   : "Todos los períodos"}
               </p>
             </div>
@@ -384,11 +384,10 @@ const ConsumoDetailsModal = ({
                           setCurrentPage(Math.max(1, currentPage - 1))
                         }
                         disabled={currentPage === 1}
-                        className={`p-2 rounded-lg ${
-                          currentPage === 1
-                            ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                            : "bg-white text-gray-700 hover:bg-blue-50 border border-gray-300"
-                        }`}
+                        className={`p-2 rounded-lg ${currentPage === 1
+                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                          : "bg-white text-gray-700 hover:bg-blue-50 border border-gray-300"
+                          }`}
                       >
                         <FiChevronLeft />
                       </button>
@@ -402,11 +401,10 @@ const ConsumoDetailsModal = ({
                           setCurrentPage(Math.min(totalPages, currentPage + 1))
                         }
                         disabled={currentPage === totalPages}
-                        className={`p-2 rounded-lg ${
-                          currentPage === totalPages
-                            ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                            : "bg-white text-gray-700 hover:bg-blue-50 border border-gray-300"
-                        }`}
+                        className={`p-2 rounded-lg ${currentPage === totalPages
+                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                          : "bg-white text-gray-700 hover:bg-blue-50 border border-gray-300"
+                          }`}
                       >
                         <FiChevronRight />
                       </button>
@@ -524,267 +522,297 @@ const ConsumptionPieChart = ({
     };
   }, []);
 
-// 🚀 Función optimizada para mostrar TODAS las etiquetas en espacio limitado
-const renderCustomLabel = (props) => {
-  const { cx, cy, midAngle, innerRadius, outerRadius, percent, index, payload } = props;
-  
-  // Mostrar TODAS las etiquetas, incluso las muy pequeñas
-  if (percent < 0.003) return null; // Solo ocultar si es menor a 1%
-  
-  const RADIAN = Math.PI / 180;
-  
-  // Determinar posición angular
-  const normalizedAngle = ((midAngle * 180 / Math.PI) % 360 + 360) % 360;
-  
-  // 🎯 ESTRATEGIA DE DISTRIBUCIÓN COMPACTA
-  let labelDistance, labelOffset;
-  
-  if (percent > 0.15) {
-    // Segmentos grandes: etiquetas moderadamente cerca
-    labelDistance = outerRadius + 25;
-    labelOffset = 10;
-  } else if (percent > 0.005) {
-    // Segmentos medianos: un poco más lejos pero controlado
-    labelDistance = outerRadius + 35;
-    labelOffset = 12;
-  } else {
-    // Segmentos pequeños: distancia mínima necesaria para legibilidad
-    labelDistance = outerRadius + 65;
-    labelOffset = 15;
-  }
-  
-  // 📐 Calcular posición base
-  const baseX = cx + labelDistance * Math.cos(-midAngle * RADIAN);
-  const baseY = cy + labelDistance * Math.sin(-midAngle * RADIAN);
-  
-  // 🔄 DISTRIBUCIÓN ESPECIAL PARA SEGMENTOS MUY PEQUEÑOS
-  let finalX = baseX;
-  let finalY = baseY;
-  let useSpecialLine = false;
-  
-  if (percent < 0.04) {
-    useSpecialLine = true;
-    
-    // Crear niveles horizontales para evitar solapamiento
-    const levelHeight = 25; // Separación entre niveles
-    const horizontalOffset = 40; // Distancia horizontal desde el círculo
-    
-    // Determinar en qué nivel colocar esta etiqueta
-    const level = index % 3; // Máximo 3 niveles
-    const baseLevel = cy - 60; // Nivel base (arriba del círculo)
-    
-    // Calcular posición final
-    finalY = baseLevel + (level * levelHeight);
-    
-    // Determinar lado (izquierda o derecha del círculo)
-    if (baseX < cx) {
-      // Lado izquierdo
-      finalX = cx - outerRadius - horizontalOffset - (level * 10);
-    } else {
-      // Lado derecho  
-      finalX = cx + outerRadius + horizontalOffset + (level * 10);
-    }
-  }
-  
-  const x = finalX;
-  const y = finalY;
-  const isLeftSide = x < cx;
-  
-    // Truncado inteligente con soporte para múltiples líneas
-  let displayName, secondLine = null;
-  const maxLength = 12; // Máximo 10 caracteres por línea
-  // 🔧 OBTENER DATOS
-  const itemName = payload?.nombre || payload?.name || 'Sin nombre';
-  const itemValue = payload?.value || 0;
-  
-  if (itemName.length > maxLength) {
-    // Buscar un buen punto de corte (preferiblemente un espacio)
-    let breakPoint = maxLength;
-    const spaceIndex = itemName.substring(0, maxLength + 3).lastIndexOf(' ');
-    
-    if (spaceIndex > maxLength - 3 && spaceIndex < maxLength + 3) {
-      breakPoint = spaceIndex;
-    }
-    
-    displayName = itemName.substring(0, breakPoint);
-    const remaining = itemName.substring(breakPoint).trim();
-    
-    // Si queda texto, crear segunda línea (máximo 8 caracteres más)
-    if (remaining.length > 0) {
-      secondLine = remaining.length > 8 ? `${remaining.substring(0, 15)}` : remaining;
-    }
-  } else {
-    displayName = itemName;
-  }
-  
-  
-  
-  
-  
-  // 📍 LÍNEA CONECTORA CON FORMA "L" PARA SEGMENTOS PEQUEÑOS
-  const startX = cx + (outerRadius - 1 ) * Math.cos(-midAngle * RADIAN);
-  const startY = cy + (outerRadius - 1 ) * Math.sin(-midAngle * RADIAN);
-  
-  let linePath;
-  
-  if (useSpecialLine) {
-    // Línea en forma de "L" para segmentos muy pequeños
-    const intermediateX = startX;
-    const intermediateY = y; // Subir verticalmente hasta el nivel de la etiqueta
-    const endX = x - (isLeftSide ? 8 : -8); // Punto antes de llegar a la etiqueta
-    
-    linePath = `M ${startX} ${startY} L ${x - (isLeftSide ? 8 : 5)} ${intermediateY} L ${endX} ${intermediateY}`;
-  } else {
-    
-    // Línea simple y directa para otros segmentos
-    linePath = `M ${startX} ${startY} L ${x} ${y}`;
-  }
-  
-  // 🎨 COLORES Y ESTILOS OPTIMIZADOS
-  const textColor = "#1f2937";
-  const percentColor = COLORS[index % COLORS.length];
-  const lineColor = percent < 0.03 ? percentColor : "#6b7280";
-  
-  return (
-    <g>
-      {/* 🔗 Línea conectora (simple o en "L") */}
-      <path
-        d={linePath}
-        stroke={lineColor}
-        strokeWidth={percent > 0.1 ? 2 : 1.5}
-        strokeOpacity={0.8}
-        fill="none"
-      />
-      
-      {/* 🎯 Punto de conexión al final de la línea */}
-      <circle
-        cx={useSpecialLine ? (x - (isLeftSide ? 8 : -8)) : x}
-        cy={y}
-        r={percent > 0.1 ? 3 : 2}
-        fill={percentColor}
-        opacity={0.9}
-      />
-      
-      {/* 📦 Fondo para etiquetas pequeñas con línea en "L" */}
-      {useSpecialLine && (
-        <rect
-          x={x + (isLeftSide ? -45 : -5)}
-          y={y - 18}
-          width={50}
-          height={30}
-          fill="rgba(255, 255, 255, 0.95)"
-          stroke="#e5e7eb"
-          strokeWidth={0.5}
-          rx={3}
-          opacity={0}
-        />
-      )}
-      
-      {/* 📦 Fondo sutil para otras etiquetas pequeñas */}
-      {!useSpecialLine && percent < 0.06 && (
-        <rect
-          x={x + (isLeftSide ? -labelOffset - 35 : labelOffset - 5)}
-          y={y - 20}
-          width={40}
-          height={35}
-          fill="rgba(255, 255, 255, 0.9)"
-          stroke="#e5e7eb"
-          strokeWidth={0.5}
-          rx={3}
-          opacity={0}
-        />
-      )}
-      
-      {/* 📝 Nombre de la categoría con soporte para múltiples líneas */}
-      <text
-        x={x + (isLeftSide ? -labelOffset : labelOffset)}
-        y={y - (secondLine ? 8 : 4)} // Ajustar posición si hay segunda línea
-        textAnchor={isLeftSide ? 'end' : 'start'}
-        dominantBaseline="central"
-        fill={textColor}
-        fontSize={useSpecialLine ? "15" : (percent > 0.1 ? "15" : percent > 0.05 ? "15" : "15")}
-        fontWeight="600"
-      >
-        {/* Primera línea */}
-        <tspan x={x + (isLeftSide ? -labelOffset : labelOffset)} dy="0">
-          {displayName}
-        </tspan>
-        {/* Segunda línea si existe */}
-        {secondLine && (
-          <tspan x={x + (isLeftSide ? -labelOffset : labelOffset)} dy="12">
-            {secondLine}
-          </tspan>
-        )}
-      </text>
-      
-      {/* 📊 Porcentaje (ajustado si hay segunda línea) */}
-      <text
-        x={x + (isLeftSide ? -labelOffset : labelOffset) }
-        y={y + (secondLine ? 19 : 9)} // Mover hacia abajo si hay segunda línea
-        textAnchor={isLeftSide ? 'end' : 'start'}
-        dominantBaseline="central"
-        fill={percentColor}
-        fontSize={useSpecialLine ? "10" : (percent > 0.1 ? "11" : percent > 0.05 ? "10" : "10")}
-        fontWeight="700"
-      >
-        {(percent * 100).toFixed(1)}%
-      </text>
-      
-      {/* 💧 Valor en litros compacto (ajustado si hay segunda línea) */}
-      {!useSpecialLine && (
-        <text
-          x={x + (isLeftSide ? -labelOffset : labelOffset) + 35 }
-           y={y + (secondLine ? 19 : 9)} // Mover hacia abajo si hay segunda línea
-          textAnchor={isLeftSide ? 'end' : 'start'}
-          dominantBaseline="central"
-          fill="#6b7280"
-          fontSize={useSpecialLine ? "9" : (percent > 0.1 ? "11" : percent > 0.05 ? "10" : "9")}  
-          fontWeight="500"
-        >
-          {itemValue >= 1000 ? 
-            `${(itemValue/1000).toFixed(1)}k L` : 
-            `${Math.round(itemValue)} L`}
-        </text>
-      )}
-      
-      {/* 💧 Valor compacto para líneas en "L" (ajustado si hay segunda línea) */}
-      {useSpecialLine && (
-        <text
-          x={x + (isLeftSide ) - 5}
-          y={y + (secondLine ? 30 : 19)} // Misma línea que el porcentaje
-          textAnchor={isLeftSide ? 'end' : 'start'}
-          dominantBaseline="central"
-          fill="#6b7280"
-          fontSize="10"
-          fontWeight="500"
-          dx={isLeftSide ? -25 : 25}
-        >
-          {Math.round(itemValue)}L
-        </text>
-      )}
-    </g>
-  );
-};
+  // 🚀 Función optimizada para mostrar TODAS las etiquetas en espacio limitado
+  const renderCustomLabel = (props) => {
+    const { cx, cy, midAngle, innerRadius, outerRadius, percent, index, payload } = props;
 
-// 🎯 Función auxiliar para calcular distribución óptima hacia arriba
-const optimizeLabelPositions = (data) => {
-  return data.map((item, index) => {
-    const baseAngle = (item.startAngle + item.endAngle) / 2;
-    const percent = (item.endAngle - item.startAngle) / (2 * Math.PI);
-    
-    // Normalizar ángulo para determinar posición
-    const normalizedAngle = ((baseAngle * 180 / Math.PI) % 360 + 360) % 360;
-    const isUpperRegion = normalizedAngle > 135 && normalizedAngle < 225;
-    
-    return {
-      ...item,
-      optimizedAngle: baseAngle,
-      labelTier: percent > 0.15 ? 1 : percent > 0.08 ? 2 : 3,
-      priority: percent,
-      preferUpward: isUpperRegion && percent < 0.1 // Marcar para mover hacia arriba
-    };
-  });
-};
+    // Mostrar TODAS las etiquetas, incluso las muy pequeñas
+    if (percent < 0.003) return null; // Solo ocultar si es menor a 0.3%
+
+    const RADIAN = Math.PI / 180;
+
+    // Determinar posición angular
+    const normalizedAngle = ((midAngle * 180 / Math.PI) % 360 + 360) % 360;
+
+    console.log(`Segmento ${index}: ${payload?.nombre || payload?.name} - ${(percent * 100).toFixed(2)}% - Ángulo: ${normalizedAngle.toFixed(2)}°`);
+
+    // 🎯 ESTRATEGIA DE DISTRIBUCIÓN MEJORADA
+    let labelDistance, labelOffset;
+
+    // 🔧 SOLUCIÓN PARA SEGMENTOS GRANDES: Darles más distancia para evitar solapamiento
+    if (percent > 0.50) {
+      // Segmentos MUY grandes: MÁS lejos para que no interfieran con otros
+      labelDistance = outerRadius + 60; // Era 45, ahora 60
+      labelOffset = 25; // Era 20, ahora 25
+    } else if (percent > 0.15) {
+      // Segmentos grandes: distancia media-alta
+      labelDistance = outerRadius + 60; // Era 35, ahora 50
+      labelOffset = 10; // Era 15, ahora 20
+    } else if (percent > 0.08) {
+      // Segmentos medianos: distancia media
+      labelDistance = outerRadius + 45; // Nueva categoría
+      labelOffset = 18;
+    } else {
+      // Segmentos pequeños: la mayor distancia para evitar solapamiento
+      labelDistance = outerRadius + 40; // Mantener 65 para pequeños
+      labelOffset = 12; // Era 20, ahora 22
+    }
+
+    // 📐 Calcular posición base
+    const baseX = cx + labelDistance * Math.cos(-midAngle * RADIAN);
+    const baseY = cy + labelDistance * Math.sin(-midAngle * RADIAN);
+
+    // 🔄 DISTRIBUCIÓN ESPECIAL PARA SEGMENTOS MUY PEQUEÑOS
+    let finalX = baseX;
+    let finalY = baseY;
+    let useSpecialLine = false;
+
+    // 🆕 MEJORA: Solo usar líneas especiales para segmentos REALMENTE pequeños
+    if (percent < 0.03) { // Era 0.04, ahora 0.03 - más restrictivo
+      useSpecialLine = true;
+
+      // Crear niveles horizontales para evitar solapamiento
+      const levelHeight = 30; // Era 25, ahora 30 - más separación
+      const horizontalOffset = 50; // Era 40, ahora 50 - más distancia horizontal
+
+      // Determinar en qué nivel colocar esta etiqueta
+      const level = index % 3; // Máximo 3 niveles
+      const baseLevel = cy - 80; // Era -60, ahora -80 - más arriba
+
+      // Calcular posición final
+      finalY = baseLevel + (level * levelHeight);
+
+      // Determinar lado (izquierda o derecha del círculo)
+      if (baseX < cx) {
+        // Lado izquierdo
+        finalX = cx - outerRadius - horizontalOffset - (level * 15); // Era 10, ahora 15
+      } else {
+        // Lado derecho  
+        finalX = cx + outerRadius + horizontalOffset + (level * 15); // Era 10, ahora 15
+      }
+    }
+
+    // 🆕 AJUSTE ESPECIAL PARA ETIQUETAS EN LA PARTE INFERIOR
+    // Detectar si la etiqueta está en la parte inferior del círculo
+    const isBottomRegion = normalizedAngle > 180 && normalizedAngle < 360;
+    const isLargeSegment = percent > 0.30;
+
+    if (isBottomRegion && !useSpecialLine) {
+      if (isLargeSegment) {
+        labelDistance = labelDistance + 15; // aumentar distancia
+        finalX = cx + labelDistance * Math.cos(-midAngle * RADIAN);
+        finalY = cy + labelDistance * Math.sin(-midAngle * RADIAN) + 20; // desplazar hacia abajo
+      } else {
+        finalX = cx + labelDistance * Math.cos(-midAngle * RADIAN);
+        finalY = cy + labelDistance * Math.sin(-midAngle * RADIAN) + 10;
+      }
+    }
+
+
+    // 🆕 PREVENCIÓN DE SOLAPAMIENTO INTELIGENTE
+    // Para segmentos grandes, asegurar separación mínima
+    if (percent > 0.40 && !useSpecialLine) {
+      const minSeparation = 25;
+      // Ajustar posición según el índice para evitar solapamiento
+      if (isBottomRegion) {
+        finalY = finalY + (index * minSeparation * 0.3);
+      }
+    }
+
+    const x = finalX;
+    const y = finalY;
+    const isLeftSide = x < cx;
+
+    // Truncado inteligente con soporte para múltiples líneas
+    let displayName, secondLine = null;
+    const maxLength = 22; // Máximo 12 caracteres por línea
+
+    // 🔧 OBTENER DATOS
+    const itemName = payload?.nombre || payload?.name || 'Sin nombre';
+    const itemValue = payload?.value || 0;
+
+    if (itemName.length > maxLength) {
+      // Buscar un buen punto de corte (preferiblemente un espacio)
+      let breakPoint = maxLength;
+      const spaceIndex = itemName.substring(0, maxLength + 3).lastIndexOf(' ');
+
+      if (spaceIndex > maxLength - 3 && spaceIndex < maxLength + 3) {
+        breakPoint = spaceIndex;
+      }
+
+      displayName = itemName.substring(0, breakPoint);
+      const remaining = itemName.substring(breakPoint).trim();
+
+      // Si queda texto, crear segunda línea (máximo 15 caracteres más)
+      if (remaining.length > 0) {
+        secondLine = remaining.length > 8 ? `${remaining.substring(0, 15)}` : remaining;
+      }
+    } else {
+      displayName = itemName;
+    }
+
+    // 📍 LÍNEA CONECTORA CON FORMA "L" PARA SEGMENTOS PEQUEÑOS
+    const startX = cx + (outerRadius - 1) * Math.cos(-midAngle * RADIAN);
+    const startY = cy + (outerRadius - 1) * Math.sin(-midAngle * RADIAN);
+
+    let linePath;
+
+    if (useSpecialLine) {
+      // Línea en forma de "L" para segmentos muy pequeños
+      const intermediateX = startX;
+      const intermediateY = y; // Subir verticalmente hasta el nivel de la etiqueta
+      const endX = x - (isLeftSide ? 8 : -8); // Punto antes de llegar a la etiqueta
+
+      linePath = `M ${startX} ${startY} L ${x - (isLeftSide ? 8 : 5)} ${intermediateY} L ${endX} ${intermediateY}`;
+    } else {
+      // Línea simple y directa para otros segmentos
+      linePath = `M ${startX} ${startY} L ${x} ${y}`;
+    }
+
+    // 🎨 COLORES Y ESTILOS OPTIMIZADOS
+    const textColor = "#1f2937";
+    const percentColor = COLORS[index % COLORS.length];
+    const lineColor = percent < 0.013 ? percentColor : "#6b7280";
+
+    return (
+      <g>
+        {/* 🔗 Línea conectora (simple o en "L") */}
+        <path
+          d={linePath}
+          stroke={lineColor}
+          strokeWidth={percent > 0.1 ? 2 : 1.5}
+          strokeOpacity={0.8}
+          fill="none"
+        />
+
+        {/* 🎯 Punto de conexión al final de la línea */}
+        <circle
+          cx={useSpecialLine ? (x - (isLeftSide ? 8 : -8)) : x}
+          cy={y}
+          r={percent > 0.1 ? 3 : 2}
+          fill={percentColor}
+          opacity={0.9}
+        />
+
+        {/* 📦 Fondo para etiquetas pequeñas con línea en "L" */}
+        {useSpecialLine && (
+          <rect
+            x={x + (isLeftSide ? -50 : -5)} // Era -45, ahora -50
+            y={y - 20} // Era -18, ahora -20
+            width={55} // Era 50, ahora 55
+            height={35} // Era 30, ahora 35
+            fill="rgba(255, 255, 255, 0.95)"
+            stroke="#e5e7eb"
+            strokeWidth={0.5}
+            rx={3}
+            opacity={0.1} // Mantener muy sutil
+          />
+        )}
+
+        {/* 📦 Fondo sutil para otras etiquetas pequeñas */}
+        {!useSpecialLine && percent < 0.06 && (
+          <rect
+            x={x + (isLeftSide ? -labelOffset - 40 : labelOffset - 5)} // Era -35, ahora -40
+            y={y - 22} // Era -20, ahora -22
+            width={45} // Era 40, ahora 45
+            height={40} // Era 35, ahora 40
+            fill="rgba(255, 255, 255, 0.9)"
+            stroke="#e5e7eb"
+            strokeWidth={0.5}
+            rx={3}
+            opacity={0.1} // Mantener muy sutil
+          />
+        )}
+
+        {/* 📝 Nombre de la categoría con soporte para múltiples líneas */}
+        <text
+          x={x + (isLeftSide ? -labelOffset : labelOffset)}
+          y={y - (secondLine ? 8 : 4)} // Ajustar posición si hay segunda línea
+          textAnchor={isLeftSide ? 'end' : 'start'}
+          dominantBaseline="central"
+          fill={textColor}
+          fontSize={useSpecialLine ? "15" : (percent > 0.1 ? "15" : percent > 0.05 ? "15" : "15")}
+          fontWeight="650"
+        >
+          {/* Primera línea */}
+          <tspan x={x + (isLeftSide ? -labelOffset : labelOffset)} dy="0">
+            {displayName}
+          </tspan>
+          {/* Segunda línea si existe */}
+          {secondLine && (
+            <tspan x={x + (isLeftSide ? -labelOffset : labelOffset)} dy="12">
+              {secondLine}
+            </tspan>
+          )}
+        </text>
+
+        {/* 📊 Porcentaje - POSICIÓN BASE HORIZONTAL */}
+        <text
+          x={x + (isLeftSide ? -labelOffset : labelOffset)}
+          y={y + (secondLine ? 19 : 9)} // Misma Y base para porcentaje y litros
+          textAnchor={isLeftSide ? 'end' : 'start'}
+          dominantBaseline="central"
+          fill={percentColor}
+          fontSize={useSpecialLine ? "10" : (percent > 0.1 ? "11" : percent > 0.05 ? "10" : "10")}
+          fontWeight="700"
+        >
+          {(percent * 100).toFixed(1)}%
+        </text>
+
+        {/* 💧 Valor en litros - SEPARACIÓN HORIZONTAL PARA ETIQUETAS NORMALES */}
+        {!useSpecialLine && (
+          <text
+            x={x + (isLeftSide ? -labelOffset - 40 : labelOffset + 40)} // ← SEPARACIÓN HORIZONTAL: ±50 píxeles
+            y={y + (secondLine ? 19 : 9)} // ← MISMA Y QUE EL PORCENTAJE
+            textAnchor={isLeftSide ? 'end' : 'start'}
+            dominantBaseline="central"
+            fill="#6b7280"
+            fontSize={useSpecialLine ? "11" : (percent > 0.1 ? "11" : percent > 0.05 ? "10" : "9")}
+            fontWeight="700"
+          >
+            {itemValue >= 1000 ?
+              `${(itemValue / 1000).toFixed(1)}k L` :
+              `${Math.round(itemValue)} L`}
+          </text>
+        )}
+
+        {/* 💧 Valor en litros - SEPARACIÓN HORIZONTAL PARA LÍNEAS EN "L" */}
+        {useSpecialLine && (
+          <text
+            x={x + (isLeftSide ? -labelOffset - 20 : labelOffset + 30)} // ← MISMA SEPARACIÓN HORIZONTAL
+            y={y + (secondLine ? 19 : 9)} // ← MISMA Y QUE EL PORCENTAJE
+            textAnchor={isLeftSide ? 'end' : 'start'}
+            dominantBaseline="central"
+            fill="#6b7280"
+            fontSize="10"
+            fontWeight="700"
+          >
+            {Math.round(itemValue)}L
+          </text>
+        )}
+      </g>
+    );
+  };
+
+  // 🎯 Función auxiliar para calcular distribución óptima hacia arriba
+  const optimizeLabelPositions = (data) => {
+    return data.map((item, index) => {
+      const baseAngle = (item.startAngle + item.endAngle) / 2;
+      const percent = (item.endAngle - item.startAngle) / (2 * Math.PI);
+
+      // Normalizar ángulo para determinar posición
+      const normalizedAngle = ((baseAngle * 180 / Math.PI) % 360 + 360) % 360;
+      const isUpperRegion = normalizedAngle > 135 && normalizedAngle < 225;
+
+      return {
+        ...item,
+        optimizedAngle: baseAngle,
+        labelTier: percent > 0.15 ? 1 : percent > 0.08 ? 2 : 3,
+        priority: percent,
+        preferUpward: isUpperRegion && percent < 0.1 // Marcar para mover hacia arriba
+      };
+    });
+  };
   // 🔑 CARGAR DATOS DE CATEGORÍAS con nueva API que incluye internas + externas
   const cargarDatosCategorias = async () => {
     if (!isMounted.current) return;
@@ -1195,7 +1223,7 @@ const optimizeLabelPositions = (data) => {
                   textAnchor="middle"
                   dominantBaseline="middle"
                   fontSize="16"
-                  fontWeight="750"
+                  fontWeight="800"
                   fill="#374151"
                 >
                   {totalActual.toLocaleString("es-CL")} L
@@ -1239,9 +1267,8 @@ const optimizeLabelPositions = (data) => {
                     return (
                       <tr
                         key={item.id || index}
-                        className={`border-b border-gray-100 hover:bg-gray-50 ${
-                          viewMode === "categorias" ? "cursor-pointer" : ""
-                        }`}
+                        className={`border-b border-gray-100 hover:bg-gray-50 ${viewMode === "categorias" ? "cursor-pointer" : ""
+                          }`}
                         onClick={
                           viewMode === "categorias"
                             ? () => handleCategoriaClick(item)
@@ -1265,11 +1292,10 @@ const optimizeLabelPositions = (data) => {
                         {viewMode === "maquinas" && (
                           <td className="p-2 text-center">
                             <span
-                              className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                item.tipo_maquina === "Interna"
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-purple-100 text-purple-800"
-                              }`}
+                              className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${item.tipo_maquina === "Interna"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-purple-100 text-purple-800"
+                                }`}
                             >
                               {item.tipo_maquina === "Interna" ? "🏢" : "🏭"}{" "}
                               {item.tipo_maquina}
@@ -1290,19 +1316,19 @@ const optimizeLabelPositions = (data) => {
                               </span>
                               {(item.maquinas_internas !== undefined ||
                                 item.maquinas_externas !== undefined) && (
-                                <div className="mt-1 space-y-0.5">
-                                  {item.maquinas_internas !== undefined && (
-                                    <div className="text-green-600">
-                                      🏢 {item.maquinas_internas || 0}
-                                    </div>
-                                  )}
-                                  {item.maquinas_externas !== undefined && (
-                                    <div className="text-purple-600">
-                                      🏭 {item.maquinas_externas || 0}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
+                                  <div className="mt-1 space-y-0.5">
+                                    {item.maquinas_internas !== undefined && (
+                                      <div className="text-green-600">
+                                        🏢 {item.maquinas_internas || 0}
+                                      </div>
+                                    )}
+                                    {item.maquinas_externas !== undefined && (
+                                      <div className="text-purple-600">
+                                        🏭 {item.maquinas_externas || 0}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                             </div>
                           </td>
                         )}
@@ -1332,19 +1358,19 @@ const optimizeLabelPositions = (data) => {
             </div>
           </div>
         </div>
-  {/* 🆕 INFORMACIÓN DEL PERÍODO - MOBILE FRIENDLY */}
-          <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs sm:text-sm">
-              <span className="text-gray-600">
-                Período: {new Date(fechaDesde).toLocaleDateString("es-CL")} -{" "}
-                {new Date(fechaHasta).toLocaleDateString("es-CL")}
-              </span>
-              <span className="text-gray-600">
-                Actualizado: {fechaActualizacion?.toLocaleTimeString("es-CL")}
-              </span>
-            </div>
+        {/* 🆕 INFORMACIÓN DEL PERÍODO - MOBILE FRIENDLY */}
+        <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs sm:text-sm">
+            <span className="text-gray-600">
+              Período: {new Date(fechaDesde).toLocaleDateString("es-CL")} -{" "}
+              {new Date(fechaHasta).toLocaleDateString("es-CL")}
+            </span>
+            <span className="text-gray-600">
+              Actualizado: {fechaActualizacion?.toLocaleTimeString("es-CL")}
+            </span>
           </div>
-       
+        </div>
+
       </div>
     </>
   );

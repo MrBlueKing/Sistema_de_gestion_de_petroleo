@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   FaTruck, FaCalendarAlt, FaGasPump, FaChartLine,
   FaClock, FaExchangeAlt, FaChevronDown, FaChevronUp,
-  FaInfoCircle, FaSpinner, FaFilter, FaEye
+  FaInfoCircle, FaSpinner, FaFilter, FaEye,
+  FaChevronLeft, FaChevronRight
 } from 'react-icons/fa';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -29,6 +30,101 @@ const FAENA_COLORS = {
 // 🎨 COLORES PARA GRÁFICOS
 const CHART_COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#8dd1e1', '#d084d0'];
 
+// 🔧 CONFIGURACIÓN DE PAGINACIÓN
+const ITEMS_PER_PAGE = 10;
+
+// 📄 COMPONENTE DE PAGINACIÓN
+const Pagination = React.memo(({
+  currentPage,
+  totalPages,
+  totalItems,
+  onPageChange,
+  itemsPerPage = ITEMS_PER_PAGE
+}) => {
+  const startItem = (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+
+  const getPageNumbers = useMemo(() => {
+    const delta = 2;
+    const range = [];
+    const rangeWithDots = [];
+
+    for (let i = Math.max(2, currentPage - delta);
+      i <= Math.min(totalPages - 1, currentPage + delta);
+      i++) {
+      range.push(i);
+    }
+
+    if (currentPage - delta > 2) {
+      rangeWithDots.push(1, '...');
+    } else {
+      rangeWithDots.push(1);
+    }
+
+    rangeWithDots.push(...range);
+
+    if (currentPage + delta < totalPages - 1) {
+      rangeWithDots.push('...', totalPages);
+    } else {
+      rangeWithDots.push(totalPages);
+    }
+
+    return rangeWithDots;
+  }, [currentPage, totalPages]);
+
+  if (totalPages <= 1) return null;
+
+  return (
+    <div className="flex items-center justify-between flex-col sm:flex-row gap-4 mt-6 pt-4 border-t border-gray-200">
+      <div className="text-sm text-gray-600">
+        Mostrando <span className="font-medium">{startItem}</span> a{" "}
+        <span className="font-medium">{endItem}</span> de{" "}
+        <span className="font-medium">{totalItems}</span> resultados
+      </div>
+
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === 1
+              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+              : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
+            }`}
+        >
+          <FaChevronLeft className="w-3 h-3" />
+        </button>
+
+        {getPageNumbers.map((page, index) => (
+          <button
+            key={index}
+            onClick={() => typeof page === 'number' && onPageChange(page)}
+            disabled={page === '...'}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${page === currentPage
+                ? "bg-blue-600 text-white"
+                : page === '...'
+                  ? "text-gray-400 cursor-default"
+                  : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
+              }`}
+          >
+            {page}
+          </button>
+        ))}
+
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === totalPages
+              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+              : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
+            }`}
+        >
+          <FaChevronRight className="w-3 h-3" />
+        </button>
+      </div>
+    </div>
+  );
+});
+
 // Componente principal de visualizaciones
 const VisualizacionesConsumoMaquina = ({
   consumos = [],
@@ -44,6 +140,9 @@ const VisualizacionesConsumoMaquina = ({
 }) => {
   const [vistaActiva, setVistaActiva] = useState('timeline');
   const [maquinaSeleccionada, setMaquinaSeleccionada] = useState('');
+  
+  // 🆕 ESTADOS PARA PAGINACIÓN
+  const [currentPage, setCurrentPage] = useState(1);
 
   // 🚨 VALIDACIONES INICIALES
   if (loading) {
@@ -65,7 +164,6 @@ const VisualizacionesConsumoMaquina = ({
     );
   }
 
-  //comprueba si consumos es null, undefine, o false, ademas de que su tamaño no este vacio.
   if (!consumos || consumos.length === 0) {
     console.log("Datos de consumo:", consumos);
     return (
@@ -106,69 +204,70 @@ const VisualizacionesConsumoMaquina = ({
       solicitante: item.solicitante_nombre || 'N/A'
     }));
 
-    console.log("DATITOS:", datos.slice(0, 10))
-
-    return datos.sort((a, b) => a.fecha - b.fecha);
+    console.log("DATOS PROCESADOS:", datos.slice(0, 3));
+    return datos.sort((a, b) => b.fecha - a.fecha);
   }, [consumos, formatearFecha]);
 
-  // 🔍 DATOS FILTRADOS POR MÁQUINA SELECCIONADA
-  // 🔍 DATOS FILTRADOS CON LÍMITE DE 10 REGISTROS
-  const datosFiltradosConDebug = useMemo(() => {
-    let datosFiltrados = datosProcesados;
+  // 🔍 DATOS FILTRADOS - AHORA MUESTRA TODOS (SIN LÍMITE DE 10)
+  const datosFiltrados = useMemo(() => {
+    let datos = datosProcesados;
 
     if (maquinaSeleccionada && maquinaSeleccionada.trim() !== '') {
-      // ✅ Filtrar por máquina específica
-      datosFiltrados = datosProcesados.filter(item =>
+      datos = datosProcesados.filter(item =>
         item.maquina === maquinaSeleccionada
       );
 
-      // ✅ Tomar solo los últimos 10 de esa máquina
-      if (datosFiltrados.length > 10) {
-        datosFiltrados = datosFiltrados.slice(-10);
-      }
-
       console.log(`🔍 Filtrado por máquina "${maquinaSeleccionada}":`, {
         totalOriginal: datosProcesados.length,
-        filtradosPorMaquina: datosFiltrados.length,
-        mostrandoUltimos: Math.min(10, datosFiltrados.length),
-        primerosRegistros: datosFiltrados.slice(0, 3)
-      });
-    } else {
-      // ✅ Sin filtro de máquina: mostrar últimos 10 globales
-      if (datosFiltrados.length > 10) {
-        datosFiltrados = datosFiltrados.slice(-10);
-      }
-
-      console.log(`🌐 Mostrando últimos 10 registros globales:`, {
-        totalDisponible: datosProcesados.length,
-        mostrando: datosFiltrados.length
+        filtradosPorMaquina: datos.length
       });
     }
 
-    return datosFiltrados;
+    console.log(`📊 Datos disponibles para visualización:`, {
+      totalDisponible: datos.length,
+      conPaginacion: true
+    });
+
+    return datos;
   }, [datosProcesados, maquinaSeleccionada]);
 
-  // 📈 DATOS PARA LÍNEA DE TIEMPO CON MÁQUINAS
+  // 🆕 PAGINACIÓN DE DATOS PARA LA LÍNEA DE TIEMPO
+  const datosPaginados = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return datosFiltrados.slice(startIndex, endIndex);
+  }, [datosFiltrados, currentPage]);
+
+  // 🆕 CÁLCULOS DE PAGINACIÓN
+  const totalPages = Math.ceil(datosFiltrados.length / ITEMS_PER_PAGE);
+  const totalItems = datosFiltrados.length;
+
+  // 🆕 HANDLER PARA CAMBIO DE PÁGINA
+  const handlePageChange = useCallback((page) => {
+    setCurrentPage(page);
+  }, []);
+
+  // 🆕 RESET PÁGINA AL CAMBIAR FILTROS
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [maquinaSeleccionada]);
+
+  // 📈 DATOS PARA LÍNEA DE TIEMPO - AHORA USA DATOS PAGINADOS
   const datosLineaTiempo = useMemo(() => {
-    const datos = datosFiltradosConDebug.map((item, index) => ({
+    const datos = datosPaginados.map((item, index) => ({
       ...item,
-      diaNumero: index + 1,
-      consumoAcumulado: datosFiltradosConDebug
-        .slice(0, index + 1)
+      diaNumero: ((currentPage - 1) * ITEMS_PER_PAGE) + index + 1,
+      consumoAcumulado: datosFiltrados
+        .slice(0, ((currentPage - 1) * ITEMS_PER_PAGE) + index + 1)
         .reduce((sum, d) => sum + d.litros, 0)
     }));
 
-    // Mostrar últimos 5 consumos si hay máquina seleccionada
-    if (maquinaSeleccionada && datos.length > 5) {
-      return datos.slice(-5);
-    }
-
     return datos;
-  }, [datosFiltradosConDebug, maquinaSeleccionada]);
+  }, [datosPaginados, datosFiltrados, currentPage]);
 
-  // 🥧 DATOS PARA GRÁFICO DE DONA
+  // 🥧 DATOS PARA GRÁFICO DE DONA - USA TODOS LOS DATOS FILTRADOS (NO PAGINADOS)
   const datosDona = useMemo(() => {
-    const porFaena = datosFiltradosConDebug.reduce((acc, item) => {
+    const porFaena = datosFiltrados.reduce((acc, item) => {
       acc[item.faena] = (acc[item.faena] || 0) + item.litros;
       return acc;
     }, {});
@@ -178,15 +277,16 @@ const VisualizacionesConsumoMaquina = ({
     return Object.entries(porFaena).map(([faena, litros]) => ({
       name: faena,
       value: litros,
-      porcentaje: totalLitros > 0 ? ((litros / totalLitros) * 100).toFixed(1) : "0"
+      porcentaje: totalLitros > 0 ?
+        ((litros / totalLitros) * 100).toFixed(1) : "0"
     }));
-  }, [datosFiltradosConDebug]);
+  }, [datosFiltrados]);
 
-  // 📊 DATOS PARA BARRAS APILADAS
+  // 📊 DATOS PARA BARRAS APILADAS - USA TODOS LOS DATOS FILTRADOS
   const datosBarras = useMemo(() => {
     const porFecha = {};
 
-    datosFiltradosConDebug.forEach(item => {
+    datosFiltrados.forEach(item => {
       const fecha = item.fechaFormateada;
       if (!porFecha[fecha]) {
         porFecha[fecha] = { fecha, Cabildo: 0, Tiltil: 0, total: 0 };
@@ -199,44 +299,44 @@ const VisualizacionesConsumoMaquina = ({
       new Date(a.fecha.split('/').reverse().join('-')) -
       new Date(b.fecha.split('/').reverse().join('-'))
     );
-  }, [datosFiltradosConDebug]);
+  }, [datosFiltrados]);
 
-  // 📊 ESTADÍSTICAS CALCULADAS
+  // 📊 ESTADÍSTICAS CALCULADAS - USA TODOS LOS DATOS FILTRADOS
   const estadisticasCalculadas = useMemo(() => {
-    const totalLitros = datosFiltradosConDebug.reduce((sum, d) => sum + d.litros, 0);
-    const visitasCabildo = datosFiltradosConDebug.filter(d => d.faena === 'Cabildo').length;
-    const visitasTiltil = datosFiltradosConDebug.filter(d => d.faena === 'Tiltil').length;
-    const promedioConsumo = datosFiltradosConDebug.length > 0 ? totalLitros / datosFiltradosConDebug.length : 0;
+    const totalLitros = datosFiltrados.reduce((sum, d) => sum + d.litros, 0);
+    const visitasCabildo = datosFiltrados.filter(d => d.faena === 'Cabildo').length;
+    const visitasTiltil = datosFiltrados.filter(d => d.faena === 'Tiltil').length;
+    const promedioConsumo = datosFiltrados.length > 0 ? totalLitros / datosFiltrados.length : 0;
 
     // Detectar cambios de faena
     let cambiosFaena = 0;
-    for (let i = 1; i < datosFiltradosConDebug.length; i++) {
-      if (datosFiltradosConDebug[i].faena !== datosFiltradosConDebug[i - 1].faena) {
+    for (let i = 1; i < datosFiltrados.length; i++) {
+      if (datosFiltrados[i].faena !== datosFiltrados[i - 1].faena) {
         cambiosFaena++;
       }
     }
 
-    const maquinasUnicas = [...new Set(datosFiltradosConDebug.map(d => d.maquina))];
+    const maquinasUnicas = [...new Set(datosFiltrados.map(d => d.maquina))];
 
     return {
       totalLitros: totalLitros.toFixed(0),
-      totalCargas: datosFiltradosConDebug.length,
+      totalCargas: datosFiltrados.length,
       visitasCabildo,
       visitasTiltil,
       cambiosFaena,
       promedioConsumo: promedioConsumo.toFixed(1),
-      diasActivo: new Set(datosFiltradosConDebug.map(d => d.fechaFormateada)).size,
+      diasActivo: new Set(datosFiltrados.map(d => d.fechaFormateada)).size,
       maquinasUnicas: maquinasUnicas.length,
       maquinaMasUsada: maquinasUnicas.length > 0 ? maquinasUnicas[0] : 'N/A'
     };
-  }, [datosFiltradosConDebug]);
+  }, [datosFiltrados]);
 
   // 🚛 OBTENER MÁQUINAS DISPONIBLES
   const maquinasDisponiblesGraficos = useMemo(() => {
     return maquinasDisponibles.length > 0 ? maquinasDisponibles : [...new Set(datosProcesados.map(d => d.maquina))].sort();
   }, [datosProcesados, maquinasDisponibles]);
 
-  // 🎨 COMPONENTE: LÍNEA DE TIEMPO MEJORADA
+  // 🎨 COMPONENTE: LÍNEA DE TIEMPO MEJORADA CON PAGINACIÓN
   const LineaTiempoComponent = () => (
     <div className="bg-white rounded-xl p-6 shadow-lg">
       <div className="flex items-center justify-between mb-4">
@@ -248,15 +348,15 @@ const VisualizacionesConsumoMaquina = ({
           }
         </h3>
         <div className="text-sm text-gray-500 space-y-1">
-          <div>{estadisticasCalculadas.cambiosFaena} cambios de faena</div>
-          <div>{estadisticasCalculadas.totalCargas} consumos totales</div>
+          <div>Página {currentPage} de {totalPages}</div>
+          <div>{totalItems} registros totales</div>
         </div>
       </div>
 
       {datosLineaTiempo.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
           <FaInfoCircle className="text-2xl mb-2 mx-auto" />
-          <p>No hay datos para mostrar la línea de tiempo</p>
+          <p>No hay datos para mostrar en esta página</p>
           <p className="text-sm mt-1">
             {maquinaSeleccionada
               ? `No se encontraron consumos para "${maquinaSeleccionada}"`
@@ -266,7 +366,7 @@ const VisualizacionesConsumoMaquina = ({
         </div>
       ) : (
         <>
-          {/* Timeline visual */}
+          {/* 🎨 LÍNEA DE TIEMPO VISUAL HERMOSA (de la segunda versión) */}
           <div className="relative mb-6">
             <div className="absolute top-8 left-0 right-0 h-1 bg-gray-200"></div>
 
@@ -296,7 +396,7 @@ const VisualizacionesConsumoMaquina = ({
             </div>
           </div>
 
-          {/* Detalles de los consumos */}
+          {/* 🎨 DETALLES DE LOS CONSUMOS (tarjetas bonitas de la segunda versión) */}
           <div className="space-y-3">
             <h4 className="font-semibold text-gray-800 flex items-center gap-2">
               <FaEye className="text-green-600" />
@@ -315,7 +415,7 @@ const VisualizacionesConsumoMaquina = ({
                       <span className="text-lg">{FAENA_COLORS[item.faena]?.icon || '📍'}</span>
                       <span className="font-semibold text-gray-800">{item.faena}</span>
                       <span className="text-xs bg-gray-200 px-2 py-1 rounded">
-                        #{index + 1}
+                        #{((currentPage - 1) * ITEMS_PER_PAGE) + index + 1}
                       </span>
                     </div>
 
@@ -356,7 +456,7 @@ const VisualizacionesConsumoMaquina = ({
             ))}
           </div>
 
-          {/* Resumen por faena */}
+          {/* 🎨 RESUMEN POR FAENA (de la segunda versión) */}
           <div className="grid grid-cols-2 gap-4 mt-6 pt-4 border-t">
             <div className="bg-green-50 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
@@ -365,7 +465,7 @@ const VisualizacionesConsumoMaquina = ({
               </div>
               <div className="space-y-1">
                 <div className="text-sm text-gray-600">
-                  {estadisticasCalculadas.visitasCabildo} visitas
+                  {estadisticasCalculadas.visitasCabildo} Cargas
                 </div>
                 <div className="font-bold text-green-600 text-lg">
                   {datosDona.find(d => d.name === 'Cabildo')?.value?.toFixed(0) || 0} L
@@ -383,7 +483,7 @@ const VisualizacionesConsumoMaquina = ({
               </div>
               <div className="space-y-1">
                 <div className="text-sm text-gray-600">
-                  {estadisticasCalculadas.visitasTiltil} visitas
+                  {estadisticasCalculadas.visitasTiltil} Cargas
                 </div>
                 <div className="font-bold text-red-600 text-lg">
                   {datosDona.find(d => d.name === 'Tiltil')?.value?.toFixed(0) || 0} L
@@ -394,12 +494,21 @@ const VisualizacionesConsumoMaquina = ({
               </div>
             </div>
           </div>
+
+          {/* 🆕 COMPONENTE DE PAGINACIÓN */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            onPageChange={handlePageChange}
+            itemsPerPage={ITEMS_PER_PAGE}
+          />
         </>
       )}
     </div>
   );
 
-  // 🥧 COMPONENTE: GRÁFICO DE DONA MEJORADO
+  // 🥧 COMPONENTE: GRÁFICO DE DONA MEJORADO (de la segunda versión)
   const DonaDobleComponent = () => (
     <div className="bg-white rounded-xl p-6 shadow-lg">
       <div className="flex items-center justify-between mb-4">
@@ -413,7 +522,7 @@ const VisualizacionesConsumoMaquina = ({
           )}
         </h3>
         <span className="text-sm text-gray-500">
-          Total: {estadisticasCalculadas.totalLitros} L
+          Total: {estadisticasCalculadas.totalLitros} L ({totalItems} registros)
         </span>
       </div>
 
@@ -455,7 +564,6 @@ const VisualizacionesConsumoMaquina = ({
                   name
                 ]}
               />
-              <Legend />
             </PieChart>
           </ResponsiveContainer>
 
@@ -507,7 +615,7 @@ const VisualizacionesConsumoMaquina = ({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header (de la segunda versión) */}
       <div className="bg-white rounded-xl shadow-lg p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -519,34 +627,41 @@ const VisualizacionesConsumoMaquina = ({
                 Análisis de Recorrido y Consumo
               </h1>
               <p className="text-gray-600">
-                Se muestran solo {datosFiltradosConDebug.length} registros
-                {maquinaSeleccionada && ` para ${maquinaSeleccionada}`}
-                {datosFiltradosConDebug.length !== datosProcesados.length &&
-                  ` de un total de ${datosProcesados.length}.`
-                }
+                {totalItems > 0 ? (
+                  <>
+                    Mostrando {totalItems} registros
+                    {maquinaSeleccionada && ` para ${maquinaSeleccionada}`}
+                    {totalItems !== datosProcesados.length &&
+                      ` de un total de ${datosProcesados.length}`
+                    }
+                    {totalPages > 1 && ` - Página ${currentPage} de ${totalPages}`}
+                  </>
+                ) : (
+                  "No hay registros para mostrar"
+                )}
               </p>
             </div>
           </div>
+        </div>
 
-          {/* Selector de vista */}
-          <div className="flex flex-wrap gap-2">
-            {[
-              { id: 'timeline', label: 'Línea de Tiempo', icon: <FaClock /> },
-              { id: 'dona', label: 'Distribución', icon: <FaChartLine /> },
-            ].map((vista) => (
-              <button
-                key={vista.id}
-                onClick={() => setVistaActiva(vista.id)}
-                className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-sm ${vistaActiva === vista.id
-                  ? 'bg-orange-600 text-white shadow-lg'
-                  : 'bg-gray-100 text-gray-700 hover:bg-orange-100 hover:text-orange-600'
-                  }`}
-              >
-                {vista.icon}
-                <span className="hidden sm:inline">{vista.label}</span>
-              </button>
-            ))}
-          </div>
+        {/* Selector de vista */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          {[
+            { id: 'timeline', label: 'Línea de Tiempo', icon: <FaClock /> },
+            { id: 'dona', label: 'Distribución', icon: <FaChartLine /> },
+          ].map((vista) => (
+            <button
+              key={vista.id}
+              onClick={() => setVistaActiva(vista.id)}
+              className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-sm ${vistaActiva === vista.id
+                ? 'bg-orange-600 text-white shadow-lg'
+                : 'bg-gray-100 text-gray-700 hover:bg-orange-100 hover:text-orange-600'
+                }`}
+            >
+              {vista.icon}
+              <span className="hidden sm:inline">{vista.label}</span>
+            </button>
+          ))}
         </div>
 
         {/* Estadísticas rápidas */}
@@ -556,11 +671,11 @@ const VisualizacionesConsumoMaquina = ({
             <div className="text-2xl font-bold text-blue-800">{estadisticasCalculadas.totalLitros} L</div>
           </div>
           <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-3">
-            <div className="text-green-600 text-sm">Visitas Cabildo</div>
+            <div className="text-green-600 text-sm">Cargas Cabildo</div>
             <div className="text-2xl font-bold text-green-800">{estadisticasCalculadas.visitasCabildo}</div>
           </div>
           <div className="bg-gradient-to-r from-red-50 to-red-100 rounded-lg p-3">
-            <div className="text-red-600 text-sm">Visitas Tiltil</div>
+            <div className="text-red-600 text-sm">Cargas Tiltil</div>
             <div className="text-2xl font-bold text-red-800">{estadisticasCalculadas.visitasTiltil}</div>
           </div>
           <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg p-3">
