@@ -57,13 +57,19 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 ## [2.1.0] - 2025-07-30
 ### Added   
 - [Ready] Medición visible: Ahora, en el registro de consumo, la etiqueta de la máquina mostrará su última medición registrada.
+
 - [Ready] Numeral inicial preestablecido: El numeral inicial ahora se sugiere automáticamente como valor preestablecido (no definitivo) para facilitar el ingreso del consumo. En consumos desde estanques móviles, este valor será 0 por defecto.
+
 - [Ready] Validación de medición actual: Se ha implementado una nueva restricción: la medición actual no puede ser menor que la última registrada, evitando así inconsistencias en los datos.
+
 - [Ready] Mensaje de confirmación por diferencia de medición: Si la medición actual supera la anterior por más de 12 horas (en horómetro) o 1000 km (en kilometraje), se mostrará un mensaje de advertencia que solicita confirmar o cancelar el ingreso.
+
 - [Ready] Se mejoró la generación de PDF, añadiendo la opción de filtrado por faenas y la adaptación dinámica del ícono según la ubicación seleccionada.
 
 - [WIP] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
+
 - [WIP] Rol de jefe de mina, bombero 2 y operador vehiculo.
+
 
 ### Changed
 - [Ready] Mejoras en perfil de Gerente: Se actualizó la presentación visual del perfil de Gerente, incluyendo cambios en los recuadros informativos.
