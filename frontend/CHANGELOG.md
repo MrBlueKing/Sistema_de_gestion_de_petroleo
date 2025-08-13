@@ -35,7 +35,7 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - [Planned] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
 
--[WIP] Mejorar visualización de gráficos de torta en Gerente: optimizar la distribución y legibilidad de los nombres de las máquinas.En Bombero: ajustar la presentación para mejorar la distribución y comprensión del consumo.
+-[Testing] Mejorar visualización de gráficos de torta en Gerente: optimizar la distribución y legibilidad de los nombres de las máquinas.En Bombero: ajustar la presentación para mejorar la distribución y comprensión del consumo.
 
 ### Depecrated
 - Ninguno 
