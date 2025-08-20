@@ -906,17 +906,25 @@ class ConsumoController extends Controller
                 $faenasArray = [$faena];
             }
 
-            // Construir la consulta con joins
-            $query = DB::table('consumos as c')
-                ->leftJoin('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
+            // 🚀 CONSULTA REFACTORIZADA: Usar vista unificada consumos_unificados
+            $query = DB::table('consumos_unificados as cu')
+                ->leftJoin('maquinas as m', 'cu.id_equipo', '=', 'm.id_maquina')
                 ->leftJoin('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
                 ->leftJoin('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria')
-                ->leftJoin('estanques as e', 'c.id_estanque', '=', 'e.id_estanque')
-                ->leftJoin('consumo_estanques as ce', 'c.id_consumo', '=', 'ce.id_consumo')
+                ->leftJoin('estanques as e', 'cu.id_estanque', '=', 'e.id_estanque')
+                // 🆕 NOTA: Para consumos externos, estos JOINs pueden devolver NULL
+                ->leftJoin('consumo_estanques as ce', function ($join) {
+                    $join->on('cu.id_consumo', '=', 'ce.id_consumo')
+                        ->where('cu.tipo_consumo_origen', '=', 'INTERNO'); // Solo para internos
+                })
                 ->leftJoin('estanques as ce_estanques', 'ce.id_estanque', '=', 'ce_estanques.id_estanque')
-                ->leftJoin('faenas as f', 'c.id_faena', '=', 'f.id_faena')
-                ->leftJoin('users as u', 'c.id_usuario', '=', 'u.id')
-                ->leftJoin('solicitantes as s', 'c.id_dotacion', '=', 's.rut')
+                ->leftJoin('faenas as f', 'cu.id_faena', '=', 'f.id_faena')
+                ->leftJoin('users as u', 'cu.id_usuario', '=', 'u.id')
+                // 🆕 SOLICITANTES: Solo para consumos internos
+                ->leftJoin('solicitantes as s', function ($join) {
+                    $join->on('cu.id_dotacion', '=', 's.rut')
+                        ->where('cu.tipo_consumo_origen', '=', 'INTERNO');
+                })
                 ->leftJoin('personal_interno as pi', function ($join) {
                     $join->on('s.rut', '=', 'pi.rut')
                         ->where('s.tipo_personal', '=', 'Interno');
@@ -927,27 +935,33 @@ class ConsumoController extends Controller
                 })
                 ->leftJoin('empresas_externas as ee', 'pe.id_empresa', '=', 'ee.id_empresa')
                 ->select([
-                    'c.id_consumo',
-                    'c.id_dotacion',
-                    'c.fecha_consumo',
-                    'c.litros_consumidos',
-                    'c.medicion',
-                    'c.numeral_inicial',
-                    'c.numeral_final',
-                    'c.precio_litro',
-                    'c.observacion',
-                    'c.created_at',
-                    'c.updated_at',
-                    'c.tipo_consumo',
+                    'cu.id_consumo',
+                    'cu.id_dotacion',
+                    'cu.fecha_consumo',
+                    'cu.litros_consumidos',
+                    'cu.medicion',
+                    'cu.numeral_inicial',
+                    'cu.numeral_final',
+                    'cu.precio_litro',
+                    'cu.observacion',
+                    'cu.created_at',
+                    'cu.updated_at',
+                    'cu.tipo_consumo',
+                    'cu.tipo_consumo_origen', // 🆕 NUEVO: Campo que indica si es INTERNO o EXTERNO
                     'm.nombre_maquina',
                     'mi.patente',
                     'cm.tipo_medicion',
                     'e.nombre as estanque_simple',
-                    DB::raw("GROUP_CONCAT(
-                DISTINCT ce_estanques.nombre 
-                ORDER BY ce_estanques.nombre 
-                SEPARATOR ' / '
-            ) as estanques_multiples"),
+                    // 🆕 ESTANQUES MÚLTIPLES: Solo para consumos internos
+                    DB::raw("CASE 
+                    WHEN cu.tipo_consumo_origen = 'INTERNO' THEN
+                        GROUP_CONCAT(
+                            DISTINCT ce_estanques.nombre 
+                            ORDER BY ce_estanques.nombre 
+                            SEPARATOR ' / '
+                        )
+                    ELSE NULL 
+                END as estanques_multiples"),
                     'f.ubicacion as faena',
                     'u.nombre as usuario_nombre',
                     'u.apellido as usuario_apellido',
@@ -956,17 +970,22 @@ class ConsumoController extends Controller
                     'pi.apellido as interno_apellido',
                     'pe.nombre as externo_nombre',
                     'ee.nombre as empresa_nombre',
-                    DB::raw("COUNT(DISTINCT ce.id_estanque) as cantidad_estanques")
+                    // 🆕 CANTIDAD ESTANQUES: Solo para consumos internos
+                    DB::raw("CASE 
+                    WHEN cu.tipo_consumo_origen = 'INTERNO' THEN
+                        COUNT(DISTINCT ce.id_estanque)
+                    ELSE 1 
+                END as cantidad_estanques")
                 ]);
 
             // 🆕 FILTRO MODIFICADO: Usar whereIn para múltiples faenas
-            $query->whereIn('c.id_faena', $faenasArray);
+            $query->whereIn('cu.id_faena', $faenasArray);
 
-            // Aplicar filtros de fecha (sin cambios)
+            // Aplicar filtros de fecha
             if ($dateFrom) {
                 try {
                     $fechaDesde = Carbon::createFromFormat('Y-m-d', $dateFrom)->startOfDay();
-                    $query->where('c.fecha_consumo', '>=', $fechaDesde);
+                    $query->where('cu.fecha_consumo', '>=', $fechaDesde);
                 } catch (\Exception $e) {
                     return response()->json([
                         'success' => false,
@@ -978,7 +997,7 @@ class ConsumoController extends Controller
             if ($dateTo) {
                 try {
                     $fechaHasta = Carbon::createFromFormat('Y-m-d', $dateTo)->endOfDay();
-                    $query->where('c.fecha_consumo', '<=', $fechaHasta);
+                    $query->where('cu.fecha_consumo', '<=', $fechaHasta);
                 } catch (\Exception $e) {
                     return response()->json([
                         'success' => false,
@@ -987,7 +1006,7 @@ class ConsumoController extends Controller
                 }
             }
 
-            // Aplicar filtro por equipo (sin cambios)
+            // Aplicar filtro por equipo
             if ($equipoFilter) {
                 $query->where(function ($q) use ($equipoFilter) {
                     $q->where('m.nombre_maquina', 'LIKE', '%' . $equipoFilter . '%')
@@ -995,20 +1014,21 @@ class ConsumoController extends Controller
                 });
             }
 
-            // GROUP BY (sin cambios)
+            // GROUP BY actualizado para la vista unificada
             $query->groupBy([
-                'c.id_consumo',
-                'c.id_dotacion',
-                'c.fecha_consumo',
-                'c.litros_consumidos',
-                'c.medicion',
-                'c.numeral_inicial',
-                'c.numeral_final',
-                'c.precio_litro',
-                'c.observacion',
-                'c.created_at',
-                'c.updated_at',
-                'c.tipo_consumo',
+                'cu.id_consumo',
+                'cu.id_dotacion',
+                'cu.fecha_consumo',
+                'cu.litros_consumidos',
+                'cu.medicion',
+                'cu.numeral_inicial',
+                'cu.numeral_final',
+                'cu.precio_litro',
+                'cu.observacion',
+                'cu.created_at',
+                'cu.updated_at',
+                'cu.tipo_consumo',
+                'cu.tipo_consumo_origen', // 🆕 NUEVO
                 'm.nombre_maquina',
                 'mi.patente',
                 'cm.tipo_medicion',
@@ -1023,23 +1043,23 @@ class ConsumoController extends Controller
                 'ee.nombre'
             ]);
 
-            $query->orderBy('c.fecha_consumo', 'desc');
+            $query->orderBy('cu.fecha_consumo', 'desc');
 
-            // 🆕 CONTEO MODIFICADO: Usar whereIn para múltiples faenas
-            $totalRecords = DB::table('consumos as c')
-                ->leftJoin('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
+            // 🆕 CONTEO MODIFICADO: Usar vista unificada
+            $totalRecords = DB::table('consumos_unificados as cu')
+                ->leftJoin('maquinas as m', 'cu.id_equipo', '=', 'm.id_maquina')
                 ->leftJoin('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
-                ->whereIn('c.id_faena', $faenasArray); // 🆕 CAMBIO AQUÍ
+                ->whereIn('cu.id_faena', $faenasArray);
 
             // Aplicar los mismos filtros para el conteo
             if ($dateFrom) {
                 $fechaDesde = Carbon::createFromFormat('Y-m-d', $dateFrom)->startOfDay();
-                $totalRecords->where('c.fecha_consumo', '>=', $fechaDesde);
+                $totalRecords->where('cu.fecha_consumo', '>=', $fechaDesde);
             }
 
             if ($dateTo) {
                 $fechaHasta = Carbon::createFromFormat('Y-m-d', $dateTo)->endOfDay();
-                $totalRecords->where('c.fecha_consumo', '<=', $fechaHasta);
+                $totalRecords->where('cu.fecha_consumo', '<=', $fechaHasta);
             }
 
             if ($equipoFilter) {
@@ -1058,27 +1078,43 @@ class ConsumoController extends Controller
                 ->take($perPage)
                 ->get();
 
-            // Transformar datos (sin cambios)
+            // 🆕 TRANSFORMAR DATOS: Manejar tanto internos como externos
             $consumosTransformados = $consumos->map(function ($consumo) {
-                // ... (código de transformación sin cambios)
                 $solicitanteNombre = 'N/A';
                 $solicitanteTipo = $consumo->tipo_personal ?? 'N/A';
 
-                if ($consumo->tipo_personal === 'Interno' && $consumo->interno_nombre) {
-                    $solicitanteNombre = trim($consumo->interno_nombre . ' ' . ($consumo->interno_apellido ?? ''));
-                } elseif ($consumo->tipo_personal === 'Externo' && $consumo->externo_nombre) {
-                    $empresaNombre = $consumo->empresa_nombre ? ' (' . $consumo->empresa_nombre . ')' : '';
-                    $solicitanteNombre = $consumo->externo_nombre . $empresaNombre;
+                // 🆕 LÓGICA MEJORADA: Manejar solicitantes según origen
+                if ($consumo->tipo_consumo_origen === 'INTERNO') {
+                    // Para consumos internos, usar la lógica existente
+                    if ($consumo->tipo_personal === 'Interno' && $consumo->interno_nombre) {
+                        $solicitanteNombre = trim($consumo->interno_nombre . ' ' . ($consumo->interno_apellido ?? ''));
+                    } elseif ($consumo->tipo_personal === 'Externo' && $consumo->externo_nombre) {
+                        $empresaNombre = $consumo->empresa_nombre ? ' (' . $consumo->empresa_nombre . ')' : '';
+                        $solicitanteNombre = $consumo->externo_nombre . $empresaNombre;
+                    }
+                } else {
+                    // Para consumos externos (Copec), el id_dotacion es el RUT del usuario
+                    $solicitanteNombre = $consumo->usuario_nombre ?
+                        trim(($consumo->usuario_nombre ?? '') . ' ' . ($consumo->usuario_apellido ?? '')) :
+                        'Usuario Externo';
+                    $solicitanteTipo = 'Externo (Copec)';
                 }
 
+                // Determinar qué mostrar en el campo estanque
                 $estanque = 'N/A';
-                if ($consumo->tipo_consumo === 'multiple' && $consumo->estanques_multiples) {
-                    $estanque = $consumo->estanques_multiples;
-                    if ($consumo->cantidad_estanques > 1) {
-                        $estanque .= " ({$consumo->cantidad_estanques} estanques)";
+                if ($consumo->tipo_consumo_origen === 'INTERNO') {
+                    // Para consumos internos, usar lógica existente
+                    if ($consumo->tipo_consumo === 'multiple' && $consumo->estanques_multiples) {
+                        $estanque = $consumo->estanques_multiples;
+                        if ($consumo->cantidad_estanques > 1) {
+                            $estanque .= " ({$consumo->cantidad_estanques} estanques)";
+                        }
+                    } else if ($consumo->estanque_simple) {
+                        $estanque = $consumo->estanque_simple;
                     }
-                } else if ($consumo->estanque_simple) {
-                    $estanque = $consumo->estanque_simple;
+                } else {
+                    // Para consumos externos, mostrar información de la ubicación
+                    $estanque = 'Estación Externa';
                 }
 
                 return [
@@ -1099,6 +1135,7 @@ class ConsumoController extends Controller
                     'tipo_medicion' => $consumo->tipo_medicion,
                     'estanque' => $estanque,
                     'tipo_consumo' => $consumo->tipo_consumo,
+                    'tipo_consumo_origen' => $consumo->tipo_consumo_origen, // 🆕 NUEVO
                     'cantidad_estanques' => $consumo->cantidad_estanques,
                     'faena' => $consumo->faena,
                     'usuario' => trim(($consumo->usuario_nombre ?? '') . ' ' . ($consumo->usuario_apellido ?? '')),
@@ -1109,21 +1146,21 @@ class ConsumoController extends Controller
                 ];
             });
 
-            // 🆕 ESTADÍSTICAS MODIFICADAS: Usar whereIn para múltiples faenas
-            $statsQuery = DB::table('consumos as c')
-                ->leftJoin('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
+            // 🆕 ESTADÍSTICAS MODIFICADAS: Usar vista unificada
+            $statsQuery = DB::table('consumos_unificados as cu')
+                ->leftJoin('maquinas as m', 'cu.id_equipo', '=', 'm.id_maquina')
                 ->leftJoin('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
-                ->whereIn('c.id_faena', $faenasArray); // 🆕 CAMBIO AQUÍ
+                ->whereIn('cu.id_faena', $faenasArray);
 
             // Aplicar filtros para estadísticas
             if ($dateFrom) {
                 $fechaDesde = Carbon::createFromFormat('Y-m-d', $dateFrom)->startOfDay();
-                $statsQuery->where('c.fecha_consumo', '>=', $fechaDesde);
+                $statsQuery->where('cu.fecha_consumo', '>=', $fechaDesde);
             }
 
             if ($dateTo) {
                 $fechaHasta = Carbon::createFromFormat('Y-m-d', $dateTo)->endOfDay();
-                $statsQuery->where('c.fecha_consumo', '<=', $fechaHasta);
+                $statsQuery->where('cu.fecha_consumo', '<=', $fechaHasta);
             }
 
             if ($equipoFilter) {
@@ -1133,15 +1170,17 @@ class ConsumoController extends Controller
                 });
             }
 
-            // Obtener estadísticas globales (sin cambios)
+            // 🆕 ESTADÍSTICAS MEJORADAS: Incluir información de origen
             $statsGlobales = $statsQuery->selectRaw('
-        COUNT(*) as total_consumos,
-        SUM(litros_consumidos) as total_litros,
-        AVG(litros_consumidos) as promedio_consumo,
-        SUM(CASE WHEN precio_litro IS NOT NULL THEN litros_consumidos * precio_litro ELSE 0 END) as costo_total,
-        SUM(CASE WHEN tipo_consumo = "simple" THEN 1 ELSE 0 END) as consumos_simples,
-        SUM(CASE WHEN tipo_consumo = "multiple" THEN 1 ELSE 0 END) as consumos_multiples
-    ')->first();
+            COUNT(*) as total_consumos,
+            SUM(litros_consumidos) as total_litros,
+            AVG(litros_consumidos) as promedio_consumo,
+            SUM(CASE WHEN precio_litro IS NOT NULL THEN litros_consumidos * precio_litro ELSE 0 END) as costo_total,
+            SUM(CASE WHEN tipo_consumo = "simple" OR tipo_consumo_origen = "EXTERNO" THEN 1 ELSE 0 END) as consumos_simples,
+            SUM(CASE WHEN tipo_consumo = "multiple" AND tipo_consumo_origen = "INTERNO" THEN 1 ELSE 0 END) as consumos_multiples,
+            SUM(CASE WHEN tipo_consumo_origen = "INTERNO" THEN 1 ELSE 0 END) as consumos_internos,
+            SUM(CASE WHEN tipo_consumo_origen = "EXTERNO" THEN 1 ELSE 0 END) as consumos_externos
+        ')->first();
 
             $equipoMasUsadoGlobal = $statsQuery
                 ->selectRaw('m.nombre_maquina, COUNT(*) as total_usos')
@@ -1157,8 +1196,13 @@ class ConsumoController extends Controller
                 'equipo_mas_usado' => $equipoMasUsadoGlobal->nombre_maquina ?? 'N/A',
                 'consumos_simples' => (int) $statsGlobales->consumos_simples,
                 'consumos_multiples' => (int) $statsGlobales->consumos_multiples,
+                'consumos_internos' => (int) $statsGlobales->consumos_internos, // 🆕 NUEVO
+                'consumos_externos' => (int) $statsGlobales->consumos_externos, // 🆕 NUEVO
                 'porcentaje_multiples' => $statsGlobales->total_consumos > 0
                     ? round(($statsGlobales->consumos_multiples / $statsGlobales->total_consumos) * 100, 2)
+                    : 0,
+                'porcentaje_externos' => $statsGlobales->total_consumos > 0 // 🆕 NUEVO
+                    ? round(($statsGlobales->consumos_externos / $statsGlobales->total_consumos) * 100, 2)
                     : 0,
             ];
 
@@ -1176,7 +1220,7 @@ class ConsumoController extends Controller
                 ],
                 'filters_applied' => [
                     'faena' => $faena,
-                    'faenas' => $faenas, // 🆕 NUEVO
+                    'faenas' => $faenas,
                     'date_from' => $dateFrom,
                     'date_to' => $dateTo,
                     'equipo_filter' => $equipoFilter,
@@ -1197,7 +1241,6 @@ class ConsumoController extends Controller
             ], 500);
         }
     }
-
     /**
      * Obtener el equipo más usado desde una colección
      */
@@ -1602,7 +1645,7 @@ class ConsumoController extends Controller
                 ], 404);
             }
             // 🔍 Último consumo DE ESTA MÁQUINA EN LA FAENA ESPECÍFICA (para medición)
-            $ultimoConsumoMaquina = DB::table('consumos')
+            $ultimoConsumoMaquina = DB::table('consumos_unificados')
                 ->where('id_equipo', $idMaquina)
                 ->orderBy('fecha_consumo', 'desc')
                 ->orderBy('id_consumo', 'desc')
@@ -1710,7 +1753,7 @@ class ConsumoController extends Controller
         try {
             $limit = $request->input('limit', 2); // Por defecto 2 registros
 
-            $consumos = DB::table('consumos as c')
+            $consumos = DB::table('consumos_unificados as c')
                 ->leftJoin('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
                 ->leftJoin('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
                 ->leftJoin('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria')

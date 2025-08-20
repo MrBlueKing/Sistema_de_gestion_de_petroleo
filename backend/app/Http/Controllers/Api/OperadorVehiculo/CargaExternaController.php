@@ -8,6 +8,8 @@ use App\Models\OperadorVehiculo\CargaExterna;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class CargaExternaController extends Controller
@@ -18,41 +20,48 @@ class CargaExternaController extends Controller
     public function store(Request $request): JsonResponse
     {
         try {
-            // Validaciones básicas
+            // ✅ VALIDACIONES ACTUALIZADAS
             $validated = $request->validate([
                 'numero_boleta' => 'required|string|max:50',
                 'litros' => 'required|numeric|min:0.01',
                 'costo' => 'required|numeric|min:0.01',
-                'precio_por_litro' => 'nullable|numeric|min:0', // ✅ Agregado
-                'fecha_carga' => 'required|date',
-                'ubicacion' => 'required|string|max:100',
-                'id_user' => 'required|integer', // Por ahora manual
-                'id_maquina' => 'required|integer', // Por ahora manual
+                'precio_por_litro' => 'nullable|numeric|min:0',
+                'id_user' => 'required|integer|exists:users,id',
+                'id_maquina' => 'required|integer|exists:maquinas,id_maquina',
+                'id_faena' => 'required|integer|exists:faenas,id_faena', // ✅ NUEVA VALIDACIÓN
+                'ubicacion' => 'nullable|string|max:255', // ✅ TEXTO LIBRE
                 'tipo_combustible' => 'nullable|string|max:30',
-                'observaciones' => 'nullable|string'
+                'observaciones' => 'nullable|string',
+                'medicion' => 'nullable|numeric'
             ]);
 
-            // Crear la carga
+            Log::info('Datos validados para carga externa:', $validated);
+
+            // ✅ CREAR LA CARGA CON NUEVOS CAMPOS
             $carga = CargaExterna::create([
                 'id_user' => $validated['id_user'],
                 'id_maquina' => $validated['id_maquina'],
                 'numero_boleta' => $validated['numero_boleta'],
                 'litros' => $validated['litros'],
                 'costo' => $validated['costo'],
-                'precio_por_litro' => $validated['precio_por_litro'] ?? round($validated['costo'] / $validated['litros'], 2), // ✅ Agregado con cálculo automático
-                'fecha_carga' => $validated['fecha_carga'],
-                'ubicacion' => $validated['ubicacion'],
-                'tipo_combustible' => $validated['tipo_combustible'] ?? 'Diesel',
-                'observaciones' => $validated['observaciones'],
+                'precio_por_litro' => $validated['precio_por_litro'] ?? round($validated['costo'] / $validated['litros'], 2),
+                'id_faena' => $validated['id_faena'],     // ✅ NUEVA
+                'ubicacion' => $validated['ubicacion'],   // ✅ TEXTO LIBRE
+                'tipo_combustible' => $validated['tipo_combustible'],
+                'observaciones' => $validated['observaciones'] ?? null,
+                'medicion' => $validated['medicion'],
                 'estado' => 'pendiente'
             ]);
+
+            // Cargar las relaciones para la respuesta
+            $carga->load(['user', 'maquina', 'faena']);
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'Carga externa creada exitosamente',
                 'data' => $carga
             ], 201);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Errores de validación',
@@ -96,7 +105,7 @@ class CargaExternaController extends Controller
 
             // Obtener cargas del usuario
             $cargas = CargaExterna::where('id_user', $user->id)
-                ->orderBy('fecha_carga', 'desc')
+                ->orderBy('created_at', 'desc')
                 ->get();
 
             // Calcular resumen del mes actual
@@ -144,6 +153,50 @@ class CargaExternaController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Error al obtener cargas del usuario: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function cargasMesActual(Request $request)
+    {
+        try {
+            // ✅ Obtener ID de la máquina (parámetro en query o body)
+            $idMaquina = $request->input('id_maquina');
+
+            if (!$idMaquina) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Debe proporcionar un id_maquina'
+                ], 400);
+            }
+
+            // ✅ Fechas de referencia
+            $inicioMesActual = Carbon::now()->startOfMonth();
+            $finMesActual = Carbon::now()->endOfMonth();
+
+            $inicioMesAnterior = Carbon::now()->subMonth()->startOfMonth();
+            $finMesAnterior = Carbon::now()->subMonth()->endOfMonth();
+
+            Log::info("Obteniendo datos de consumos para maquina ID: $idMaquina");
+            Log::info("Fechas de referencias MES ACTUAl: $inicioMesActual - $finMesActual");
+            Log::info("Fechas de referencias MES ANTERIOR: $inicioMesAnterior - $finMesAnterior");
+
+            // ✅ Consultar en la vista `consumos_unificados`
+            $consumos = DB::table('consumos_unificados')
+                ->where('id_equipo', $idMaquina)
+                ->whereBetween('fecha_consumo', [$inicioMesAnterior, $finMesActual]) // incluye mes actual + anterior
+                ->orderBy('fecha_consumo', 'desc')
+                ->get();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Consumos del mes actual y anterior',
+                'data' => $consumos
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al obtener consumos: ' . $e->getMessage()
             ], 500);
         }
     }

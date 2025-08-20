@@ -180,7 +180,7 @@ const Graficos = ({ children }) => {
             <h2 className="text-lg font-semibold text-gray-800 flex items-center">
               <FiDroplet className="mr-2" style={{ color: "#F67029" }} />
               Dashboard Operacional{" "}
-                
+
             </h2>
 
 
@@ -189,11 +189,10 @@ const Graficos = ({ children }) => {
               <div className="bg-gray-100 rounded-lg p-1 flex">
                 <button
                   onClick={() => setVistaActiva("graficos")}
-                  className={`px-3 py-1 rounded-md transition-colors ${
-                    vistaActiva === "graficos"
+                  className={`px-3 py-1 rounded-md transition-colors ${vistaActiva === "graficos"
                       ? "text-white"
                       : "text-gray-600 hover:bg-gray-200"
-                  }`}
+                    }`}
                   style={
                     vistaActiva === "graficos"
                       ? { backgroundColor: "#F67029" }
@@ -204,11 +203,10 @@ const Graficos = ({ children }) => {
                 </button>
                 <button
                   onClick={() => setVistaActiva("tablas")}
-                  className={`px-3 py-1 rounded-md transition-colors ${
-                    vistaActiva === "tablas"
+                  className={`px-3 py-1 rounded-md transition-colors ${vistaActiva === "tablas"
                       ? "text-white"
                       : "text-gray-600 hover:bg-gray-200"
-                  }`}
+                    }`}
                   style={
                     vistaActiva === "tablas"
                       ? { backgroundColor: "#F67029" }
@@ -260,7 +258,6 @@ const Graficos = ({ children }) => {
               setHoraDesde={setHoraDesde}
               horaHasta={horaHasta}
               setHoraHasta={setHoraHasta}
-              
             />
           </div>
 

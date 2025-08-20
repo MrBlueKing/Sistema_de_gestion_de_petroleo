@@ -7,7 +7,9 @@ use App\Models\PermisosMaquinasFaenas;
 use App\Models\SolicitanteFaena;
 use App\Models\PersonalInterno;
 use App\Models\IngresoPetroleo;
+use App\Models\OperadorVehiculo\CargaExterna;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Faena extends Model
 {
@@ -64,5 +66,14 @@ class Faena extends Model
     public function tonelajes()
     {
         return $this->hasManyThrough(Tonelaje::class, Padron::class, 'id_faena', 'id_padron', 'id_faena', 'id_padron');
+    }
+
+    /**
+     * ✅ Relación con cargas externas
+     */
+    public function cargasExternas(): HasMany
+    {
+        return $this->hasMany(CargaExterna::class, 'ubicacion', 'id_faena');
+        // Si renombraste la columna, cambia 'ubicacion' por 'id_faena'
     }
 }

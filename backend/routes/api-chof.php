@@ -64,5 +64,8 @@ Route::prefix('chofer')->group(function () {
 
         // Ver carga específica
         Route::get('/cargas-externas/{id}', [CargaExternaController::class, 'show']);
+
+        // Cargas del mes actual
+        Route::get('/cargas-externas-mes-actual', [CargaExternaController::class, 'cargasMesActual']);
     });
 });

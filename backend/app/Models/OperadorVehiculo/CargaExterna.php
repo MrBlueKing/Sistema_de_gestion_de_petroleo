@@ -5,6 +5,7 @@ namespace App\Models\OperadorVehiculo;
 use App\Models\Maquinas;
 use App\Models\PersonalInterno;
 use App\Models\User;
+use App\Models\Faena;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,27 +17,28 @@ class CargaExterna extends Model
     protected $table = 'cargas_externas';
 
     protected $fillable = [
-        'id_user', // ✅ Cambio aquí
+                'id_user',
         'id_maquina',
         'numero_boleta',
         'litros',
         'costo',
         'precio_por_litro',
-        'fecha_carga',
-        'ubicacion',
+        'id_faena',        
+        'ubicacion',       
         'tipo_combustible',
         'observaciones',
         'estado',
         'aprobado_por',
         'fecha_aprobacion',
-        'motivo_rechazo'
+        'motivo_rechazo',
+        'medicion',       
     ];
 
     protected $casts = [
         'litros' => 'decimal:2',
         'costo' => 'decimal:2',
         'precio_por_litro' => 'decimal:2',
-        'fecha_carga' => 'datetime',
+        'medicion' => 'decimal:3',
         'fecha_aprobacion' => 'datetime',
     ];
 
@@ -54,6 +56,15 @@ class CargaExterna extends Model
     public function maquina(): BelongsTo
     {
         return $this->belongsTo(Maquinas::class, 'id_maquina', 'id_maquina');
+    }
+
+    /**
+     * ✅ NUEVA: Relación con Faena
+     */
+    public function faena(): BelongsTo
+    {
+        return $this->belongsTo(Faena::class, 'id_faena', 'id_faena');
+        // Si renombraste la columna a 'id_faena', cambia 'ubicacion' por 'id_faena'
     }
 
     /**

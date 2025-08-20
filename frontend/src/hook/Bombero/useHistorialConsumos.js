@@ -51,7 +51,7 @@ export const useHistorialConsumos = () => {
           tipo_operacion: consumo.tipo_operacion,
 
           // ✅ NUEVOS CAMPOS MEJORADOS
-          faena_ubicacion: consumo.faena_ubicacion || `Faena ${consumo.id_faena}`,
+          faena_ubicacion: consumo.faena_ubicacion || `${consumo.id_faena}`,
           faena_detalle: consumo.faena_detalle,
 
           // 🆕 Formatear fecha para mostrar - CORREGIDO

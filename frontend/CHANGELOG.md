@@ -26,9 +26,17 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 - [Testing] ADMINISTRADOR: Se añadirá una nueva funcionalidad que permitirá una gestión más eficiente de los permisos asociados a las máquinas.
 
 - [Queued] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
-- [Queued] Rol de jefe de mina, bombero 2 y operador vehiculo.
 
 - [Testing] Encargado de Operaciones de Combustible: A traves de la solicitud de gerencia, ahora el rol "Encargado de Operaciones de Combustible" debe ser dividio en dos roles, manteniendo el rol "bombero" como rol principal y que tendra privilegios como realizar la recepcion de petroleo. mientras que el nuevo rol "asistente_bombero" sera restringido, solo pudiendo hacer ingresos de consumos.
+
+- [WIP] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
+
+- [WIP] Rol de jefe de mina.
+
+- [Testing] Operador vehiculo:Implementación de un nuevo rol destinado a registrar el consumo de combustible de las camionetas internas. Ademas de realizar la validación del kilometraje ingresado y la visualización de las dos últimas cargas realizadas.
+
+- [WIP] Administrador Operador: desarrollo de rol + interfaz completa para gestión de cargas y asignaciones de vehículos.
+
 
 ### Changed
 - [Testing] Encargado de Operaciones de Combustible: Anteriormente solo se mostraba la última medición registrada. Ahora se implementará un mini historial que muestre los dos últimos consumos, incluyendo la siguiente información: quién realizó el consumo, en qué lugar, cuánta cantidad se utilizó y cuándo ocurrió.
@@ -65,10 +73,6 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 - [Ready] Mensaje de confirmación por diferencia de medición: Si la medición actual supera la anterior por más de 12 horas (en horómetro) o 1000 km (en kilometraje), se mostrará un mensaje de advertencia que solicita confirmar o cancelar el ingreso.
 
 - [Ready] Se mejoró la generación de PDF, añadiendo la opción de filtrado por faenas y la adaptación dinámica del ícono según la ubicación seleccionada.
-
-- [WIP] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
-
-- [WIP] Rol de jefe de mina, bombero 2 y operador vehiculo.
 
 
 ### Changed
