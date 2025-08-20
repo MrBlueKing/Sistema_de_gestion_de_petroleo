@@ -28,7 +28,7 @@ import TopEquiposChart from "../../molecules/TopEquiposChart";
 import ConsumoTendenciaChart from "../../molecules/ConsumoTendenciaChart";
 import ConsumptionPieChart from "../../molecules/ConsumptionPieChart";
 import CompactConsumptionPieChart from "../../molecules/CompactConsumptionPieChart";
-import ConsumoPorFaenaChart from "../../molecules/ConsumoPorFaenaChart";
+import DashboardComparativo from "../../molecules/DashboardComparativo";
 
 const Graficos = ({ children }) => {
   // Estados básicos necesarios
@@ -64,17 +64,25 @@ const Graficos = ({ children }) => {
 
   // Estados para fechas - MODIFICADO PARA MOSTRAR MES ACTUAL HASTA HOY
   const fechaActual = new Date();
-  
+
   // 🗓️ OBTENER EL PRIMER DÍA DEL MES ACTUAL
-  const primerDiaMesActual = new Date(fechaActual.getFullYear(), fechaActual.getMonth(), 1);
-  
+  const primerDiaMesActual = new Date(
+    fechaActual.getFullYear(),
+    fechaActual.getMonth(),
+    1
+  );
+
   // 🗓️ USAR EL DÍA ACTUAL COMO FECHA FINAL
-  const diaActual = new Date(fechaActual.getFullYear(), fechaActual.getMonth(), fechaActual.getDate());
+  const diaActual = new Date(
+    fechaActual.getFullYear(),
+    fechaActual.getMonth(),
+    fechaActual.getDate()
+  );
 
   console.log("📅 Graficos: Configurando fechas por defecto:", {
-    fechaActual: fechaActual.toISOString().split('T')[0],
-    primerDiaMesActual: primerDiaMesActual.toISOString().split('T')[0],
-    diaActual: diaActual.toISOString().split('T')[0],
+    fechaActual: fechaActual.toISOString().split("T")[0],
+    primerDiaMesActual: primerDiaMesActual.toISOString().split("T")[0],
+    diaActual: diaActual.toISOString().split("T")[0],
     mesActual: fechaActual.getMonth() + 1,
     añoActual: fechaActual.getFullYear(),
     diaDelMes: fechaActual.getDate(),
@@ -111,68 +119,89 @@ const Graficos = ({ children }) => {
   // 🎨 FUNCIÓN PARA OBTENER COLOR POR NOMBRE DE CATEGORÍA
   const getColorForCategory = (categoryName) => {
     const color = categoryColorMapping[categoryName];
-    
+
     console.log(`🎨 Graficos: getColorForCategory("${categoryName}")`, {
       found: !!color,
-      color: color || 'NO ENCONTRADO',
+      color: color || "NO ENCONTRADO",
       availableCategories: Object.keys(categoryColorMapping),
       mappingLength: Object.keys(categoryColorMapping).length,
     });
-    
+
     if (color) {
-      console.log(`🎨 Graficos: ✅ Color encontrado para "${categoryName}": ${color}`);
+      console.log(
+        `🎨 Graficos: ✅ Color encontrado para "${categoryName}": ${color}`
+      );
       return color;
     }
-    
+
     console.warn(`🎨 Graficos: ❌ No se encontró color para "${categoryName}"`);
-    console.warn(`🎨 Graficos: Categorías disponibles:`, Object.keys(categoryColorMapping));
+    console.warn(
+      `🎨 Graficos: Categorías disponibles:`,
+      Object.keys(categoryColorMapping)
+    );
     return "#64748b"; // Color por defecto (slate-500)
   };
 
   // 🎨 CALLBACK: Cuando ConsumptionPieChart carga y asigna colores - MEJORADO
   const handleMainChartLoad = (categoriasConColores) => {
-    console.log("🎨 Graficos: ConsumptionPieChart notificó categorías con colores:", categoriasConColores);
-    
+    console.log(
+      "🎨 Graficos: ConsumptionPieChart notificó categorías con colores:",
+      categoriasConColores
+    );
+
     // 🔧 VALIDAR QUE TENEMOS DATOS VÁLIDOS
-    if (!categoriasConColores || !Array.isArray(categoriasConColores) || categoriasConColores.length === 0) {
+    if (
+      !categoriasConColores ||
+      !Array.isArray(categoriasConColores) ||
+      categoriasConColores.length === 0
+    ) {
       console.warn("🎨 Graficos: Datos de categorías inválidos o vacíos");
       return;
     }
-    
+
     // 🔧 CREAR MAPEO DE COLORES BASADO EN LO QUE DEVUELVE ConsumptionPieChart
     const newMapping = {};
-    
+
     categoriasConColores.forEach((categoria, index) => {
-      const categoryName = categoria.name || categoria.nombre || "Sin categoría";
-      
+      const categoryName =
+        categoria.name || categoria.nombre || "Sin categoría";
+
       // 🎨 OBTENER COLOR DEL ConsumptionPieChart
       // Puede venir en diferentes propiedades según cómo se asigne
-      const color = categoria.color || categoria.assignedColor || categoria.chartColor;
-      
+      const color =
+        categoria.color || categoria.assignedColor || categoria.chartColor;
+
       if (color) {
         newMapping[categoryName] = color;
         console.log(`🎨 Graficos: Mapeando "${categoryName}" → ${color}`);
       } else {
         // 🔧 FALLBACK: Si no viene color, usar la paleta por índice
         // ConsumptionPieChart debería haber asignado los colores por participación
-        console.warn(`🎨 Graficos: Sin color para "${categoryName}", generando fallback`);
+        console.warn(
+          `🎨 Graficos: Sin color para "${categoryName}", generando fallback`
+        );
         // Como el array ya viene ordenado por participación, usar el índice
         const fallbackColor = CHART_COLORS[index % CHART_COLORS.length];
         newMapping[categoryName] = fallbackColor;
-        console.log(`🎨 Graficos: Color fallback para "${categoryName}" → ${fallbackColor}`);
+        console.log(
+          `🎨 Graficos: Color fallback para "${categoryName}" → ${fallbackColor}`
+        );
       }
     });
-    
+
     console.log("🎨 Graficos: Mapeo ANTES de guardar:", newMapping);
-    console.log("🎨 Graficos: Número de categorías mapeadas:", Object.keys(newMapping).length);
-    
+    console.log(
+      "🎨 Graficos: Número de categorías mapeadas:",
+      Object.keys(newMapping).length
+    );
+
     // 🔧 SOLO ACTUALIZAR SI REALMENTE HAY CAMBIOS
     const hasValidMapping = Object.keys(newMapping).length > 0;
-    
+
     if (hasValidMapping) {
       setCategoryColorMapping(newMapping);
       setMainChartLoaded(true);
-      
+
       console.log("🎨 Graficos: ✅ Mapeo actualizado exitosamente");
       console.log("🎨 Graficos: ✅ mainChartLoaded establecido a true");
       console.log("🎨 Graficos: Mapeo final de colores:", newMapping);
@@ -183,15 +212,21 @@ const Graficos = ({ children }) => {
 
   // 🎨 RESETEAR cuando cambian filtros importantes - CORREGIDO PARA FECHAS
   useEffect(() => {
-    console.log("🔄 Graficos: Detectando cambio de filtros importantes (incluyendo fechas)");
-    console.log("🔄 Graficos: Reseteando estados de colores para nueva consulta");
-    
+    console.log(
+      "🔄 Graficos: Detectando cambio de filtros importantes (incluyendo fechas)"
+    );
+    console.log(
+      "🔄 Graficos: Reseteando estados de colores para nueva consulta"
+    );
+
     // 🔧 RESETEAR AMBOS ESTADOS cuando cambian los filtros
     // Esto fuerza a que ConsumptionPieChart notifique nuevos colores
     setCategoryColorMapping({});
     setMainChartLoaded(false);
-    
-    console.log("🔄 Graficos: Reset completo - esperando nuevos datos y colores");
+
+    console.log(
+      "🔄 Graficos: Reset completo - esperando nuevos datos y colores"
+    );
   }, [faenaSeleccionada, fechaDesde, fechaHasta, refreshTrigger]); // 🔧 INCLUIR FECHAS
 
   // 🔧 USEEFFECT ADICIONAL PARA DEBUGGING DE CAMBIOS DE FECHAS
@@ -220,7 +255,10 @@ const Graficos = ({ children }) => {
         console.log("🏭 Iniciando carga de faenas...");
 
         const response = await axios.get("/api/faenas");
-        console.log("📊 Respuesta completa del endpoint /api/faenas:", response.data);
+        console.log(
+          "📊 Respuesta completa del endpoint /api/faenas:",
+          response.data
+        );
 
         let faenasData = null;
 
@@ -228,22 +266,38 @@ const Graficos = ({ children }) => {
         if (response.data) {
           if (response.data.data && Array.isArray(response.data.data)) {
             faenasData = response.data.data;
-            console.log("✅ Estructura encontrada: response.data.data (con wrapper)");
+            console.log(
+              "✅ Estructura encontrada: response.data.data (con wrapper)"
+            );
           } else if (Array.isArray(response.data)) {
             faenasData = response.data;
-            console.log("✅ Estructura encontrada: response.data (array directo)");
-          } else if (response.data.faenas && Array.isArray(response.data.faenas)) {
+            console.log(
+              "✅ Estructura encontrada: response.data (array directo)"
+            );
+          } else if (
+            response.data.faenas &&
+            Array.isArray(response.data.faenas)
+          ) {
             faenasData = response.data.faenas;
             console.log("✅ Estructura encontrada: response.data.faenas");
           } else {
-            console.warn("⚠️ Estructura de respuesta no reconocida:", response.data);
-            console.log("🔍 Propiedades disponibles:", Object.keys(response.data));
+            console.warn(
+              "⚠️ Estructura de respuesta no reconocida:",
+              response.data
+            );
+            console.log(
+              "🔍 Propiedades disponibles:",
+              Object.keys(response.data)
+            );
           }
         }
 
         // Procesar las faenas si se encontraron
         if (faenasData && Array.isArray(faenasData) && faenasData.length > 0) {
-          console.log(`🏭 Procesando ${faenasData.length} faenas encontradas:`, faenasData);
+          console.log(
+            `🏭 Procesando ${faenasData.length} faenas encontradas:`,
+            faenasData
+          );
 
           // Formatear faenas para el selector
           const faenasFormateadas = faenasData.map((faena) => {
@@ -252,19 +306,32 @@ const Graficos = ({ children }) => {
             return {
               id_faena: faena.id_faena || faena.id || 0,
               value: (faena.id_faena || faena.id || 0).toString(),
-              ubicacion: faena.ubicacion || faena.nombre || faena.name || `Faena ${faena.id_faena || faena.id}`,
-              label: faena.ubicacion || faena.nombre || faena.name || `Faena ${faena.id_faena || faena.id}`,
+              ubicacion:
+                faena.ubicacion ||
+                faena.nombre ||
+                faena.name ||
+                `Faena ${faena.id_faena || faena.id}`,
+              label:
+                faena.ubicacion ||
+                faena.nombre ||
+                faena.name ||
+                `Faena ${faena.id_faena || faena.id}`,
               nombre: faena.nombre || faena.ubicacion,
               activo: faena.activo !== false,
             };
           });
 
-          console.log("✅ Faenas formateadas para el selector:", faenasFormateadas);
+          console.log(
+            "✅ Faenas formateadas para el selector:",
+            faenasFormateadas
+          );
           setFaenas(faenasFormateadas);
 
           // Seleccionar automáticamente la primera faena si no hay ninguna seleccionada
           if (faenaSeleccionada === "todas" && faenasFormateadas.length === 1) {
-            console.log("🎯 Solo hay una faena, seleccionándola automáticamente");
+            console.log(
+              "🎯 Solo hay una faena, seleccionándola automáticamente"
+            );
             setFaenaSeleccionada(faenasFormateadas[0].value);
           }
         } else {
@@ -293,7 +360,9 @@ const Graficos = ({ children }) => {
         }
 
         setFaenas([]);
-        setError("No se pudieron cargar las faenas disponibles. Verifique su conexión.");
+        setError(
+          "No se pudieron cargar las faenas disponibles. Verifique su conexión."
+        );
       }
     };
 
@@ -394,10 +463,11 @@ const Graficos = ({ children }) => {
               <div className="bg-gray-100 rounded-lg p-1 flex">
                 <button
                   onClick={() => setVistaActiva("graficos")}
-                  className={`px-3 py-1 rounded-md transition-colors ${vistaActiva === "graficos"
+                  className={`px-3 py-1 rounded-md transition-colors ${
+                    vistaActiva === "graficos"
                       ? "text-white"
                       : "text-gray-600 hover:bg-gray-200"
-                    }`}
+                  }`}
                   style={
                     vistaActiva === "graficos"
                       ? { backgroundColor: "#F67029" }
@@ -408,10 +478,11 @@ const Graficos = ({ children }) => {
                 </button>
                 <button
                   onClick={() => setVistaActiva("tablas")}
-                  className={`px-3 py-1 rounded-md transition-colors ${vistaActiva === "tablas"
+                  className={`px-3 py-1 rounded-md transition-colors ${
+                    vistaActiva === "tablas"
                       ? "text-white"
                       : "text-gray-600 hover:bg-gray-200"
-                    }`}
+                  }`}
                   style={
                     vistaActiva === "tablas"
                       ? { backgroundColor: "#F67029" }
@@ -517,24 +588,6 @@ const Graficos = ({ children }) => {
                     Visualización de Datos
                   </h3>
 
-                  {/* 🎨 GRÁFICO PRINCIPAL - ConsumptionPieChart ASIGNA LOS COLORES */}
-                  <div className="mb-6">
-                    <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-                      <h4 className="text-sm font-medium text-gray-700 mb-3">
-                        Consumo por Categoría de Máquinas
-                      </h4>
-                      {fechaDesde && fechaHasta && (
-                        <ConsumptionPieChart
-                          faenaSeleccionada={faenaSeleccionada}
-                          fechaDesde={fechaDesde}
-                          fechaHasta={fechaHasta}
-                          refreshKey={refreshTrigger}
-                          onCategoriesLoad={handleMainChartLoad} // 👈 Recibe colores asignados por participación
-                        />
-                      )}
-                    </div>
-                  </div>
-
                   {/* TOP EQUIPOS CHART */}
                   <div className="mb-6">
                     <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
@@ -555,41 +608,60 @@ const Graficos = ({ children }) => {
                       )}
                     </div>
                   </div>
+               
 
-                  {/* NUEVO: GRÁFICO DE CONSUMO POR FAENA */}
+                  {/* 🎨 GRÁFICO PRINCIPAL - ConsumptionPieChart ASIGNA LOS COLORES */}
                   <div className="mb-6">
-                    <ConsumoPorFaenaChart
-                      fechaDesde={fechaDesde}
-                      fechaHasta={fechaHasta}
-                      faenaSeleccionada={faenaSeleccionada}
-                      refreshKey={refreshTrigger}
-                    />
+                    <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">
+                        Consumo por Categoría de Máquinas
+                      </h4>
+                      {fechaDesde && fechaHasta && (
+                        <ConsumptionPieChart
+                          faenaSeleccionada={faenaSeleccionada}
+                          fechaDesde={fechaDesde}
+                          fechaHasta={fechaHasta}
+                          refreshKey={refreshTrigger}
+                          onCategoriesLoad={handleMainChartLoad} // 👈 Recibe colores asignados por participación
+                        />
+                      )}
+                    </div>
                   </div>
 
                   {/* 🎨 GRÁFICO COMPACTO - USA LOS COLORES ASIGNADOS POR ConsumptionPieChart */}
                   {(() => {
                     // 🔧 CONDICIÓN MEJORADA: Verificar que tenemos datos válidos para renderizar
-                    const hasValidColorMapping = Object.keys(categoryColorMapping).length > 0;
+                    const hasValidColorMapping =
+                      Object.keys(categoryColorMapping).length > 0;
                     const shouldRenderCompact = hasValidColorMapping; // Simplificar la condición
-                    
-                    console.log("🔍 Graficos: Evaluando renderizado de CompactChart:", {
-                      mainChartLoaded,
-                      categoryColorMappingKeys: Object.keys(categoryColorMapping),
-                      categoryColorMappingLength: Object.keys(categoryColorMapping).length,
-                      hasValidColorMapping,
-                      shouldRenderCompact,
-                      categoryColorMappingObject: categoryColorMapping,
-                    });
+
+                    console.log(
+                      "🔍 Graficos: Evaluando renderizado de CompactChart:",
+                      {
+                        mainChartLoaded,
+                        categoryColorMappingKeys:
+                          Object.keys(categoryColorMapping),
+                        categoryColorMappingLength:
+                          Object.keys(categoryColorMapping).length,
+                        hasValidColorMapping,
+                        shouldRenderCompact,
+                        categoryColorMappingObject: categoryColorMapping,
+                      }
+                    );
 
                     if (shouldRenderCompact) {
-                      console.log("🔍 Graficos: ✅ RENDERIZANDO CompactConsumptionPieChart con props:", {
-                        faenaSeleccionada,
-                        fechaDesde,
-                        fechaHasta,
-                        refreshKey: refreshTrigger,
-                        categoryColorMappingKeys: Object.keys(categoryColorMapping),
-                        getColorForCategoryFunction: !!getColorForCategory,
-                      });
+                      console.log(
+                        "🔍 Graficos: ✅ RENDERIZANDO CompactConsumptionPieChart con props:",
+                        {
+                          faenaSeleccionada,
+                          fechaDesde,
+                          fechaHasta,
+                          refreshKey: refreshTrigger,
+                          categoryColorMappingKeys:
+                            Object.keys(categoryColorMapping),
+                          getColorForCategoryFunction: !!getColorForCategory,
+                        }
+                      );
 
                       return (
                         <div className="mb-6">
@@ -606,14 +678,25 @@ const Graficos = ({ children }) => {
                         </div>
                       );
                     } else {
-                      console.log("🔍 Graficos: ❌ NO renderizando CompactChart. Análisis detallado:", {
-                        mainChartLoaded: mainChartLoaded ? "✅ TRUE" : "❌ FALSE",
-                        categoryColorMappingLength: Object.keys(categoryColorMapping).length,
-                        hasValidColorMapping: hasValidColorMapping ? "✅ TRUE" : "❌ FALSE",
-                        categoryColorMappingContent: categoryColorMapping,
-                        waitingForColors: Object.keys(categoryColorMapping).length === 0 ? "⏳ ESPERANDO COLORES" : "✅ TIENE COLORES",
-                      });
-                      
+                      console.log(
+                        "🔍 Graficos: ❌ NO renderizando CompactChart. Análisis detallado:",
+                        {
+                          mainChartLoaded: mainChartLoaded
+                            ? "✅ TRUE"
+                            : "❌ FALSE",
+                          categoryColorMappingLength:
+                            Object.keys(categoryColorMapping).length,
+                          hasValidColorMapping: hasValidColorMapping
+                            ? "✅ TRUE"
+                            : "❌ FALSE",
+                          categoryColorMappingContent: categoryColorMapping,
+                          waitingForColors:
+                            Object.keys(categoryColorMapping).length === 0
+                              ? "⏳ ESPERANDO COLORES"
+                              : "✅ TIENE COLORES",
+                        }
+                      );
+
                       // 🔧 MOSTRAR INDICADOR DE CARGA MIENTRAS ESPERAMOS COLORES
                       if (Object.keys(categoryColorMapping).length === 0) {
                         return (
@@ -622,50 +705,92 @@ const Graficos = ({ children }) => {
                               <div className="flex items-center justify-center">
                                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500 mr-2"></div>
                                 <p className="text-sm text-blue-700">
-                                  Esperando asignación de colores consistentes...
+                                  Esperando asignación de colores
+                                  consistentes...
                                 </p>
                               </div>
                               <div className="mt-2 text-xs text-blue-600">
-                                Estado: mainChartLoaded={mainChartLoaded.toString()}, 
-                                colores={Object.keys(categoryColorMapping).length}
+                                Estado: mainChartLoaded=
+                                {mainChartLoaded.toString()}, colores=
+                                {Object.keys(categoryColorMapping).length}
                               </div>
                             </div>
                           </div>
                         );
                       }
-                      
+
                       return null;
                     }
                   })()}
 
                   {/* Mensaje informativo solo si no hay colores después de mucho tiempo */}
-                  {!mainChartLoaded && Object.keys(categoryColorMapping).length === 0 && (
-                    <div className="mb-6">
-                      <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
-                        <div className="flex items-center justify-center">
-                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-500 mr-2"></div>
-                          <p className="text-sm text-amber-700">
-                            Cargando gráfico principal para análisis comparativo...
-                          </p>
+                  {!mainChartLoaded &&
+                    Object.keys(categoryColorMapping).length === 0 && (
+                      <div className="mb-6">
+                        <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
+                          <div className="flex items-center justify-center">
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-500 mr-2"></div>
+                            <p className="text-sm text-amber-700">
+                              Cargando gráfico principal para análisis
+                              comparativo...
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
                   {!mainChartLoaded && (
                     <div className="mb-6">
                       <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                         <div className="flex items-center justify-center">
                           <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500 mr-2"></div>
                           <p className="text-sm text-blue-700">
-                            Cargando gráfico principal y asignando colores consistentes...
+                            Cargando gráfico principal y asignando colores
+                            consistentes...
                           </p>
                         </div>
                         <div className="mt-2 text-xs text-blue-600">
-                          Colores asignados: {Object.keys(categoryColorMapping).length} categorías
+                          Colores asignados:{" "}
+                          {Object.keys(categoryColorMapping).length} categorías
                         </div>
                       </div>
                     </div>
                   )}
+
+  <div className="mb-6">
+                  <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-100">
+                    <div className="flex items-center justify-between mb-6">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+                         <span className="ml-2">Dashboard Comparativo</span>
+                        </h3>
+                        
+                      </div>
+                      
+                      {/* Indicador del período anterior */}
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500">Comparando con:</p>
+                        <p className="text-sm font-medium text-blue-600">Mes Anterior</p>
+                      </div>
+                    </div>
+
+                    {fechaDesde && fechaHasta ? (
+                      <DashboardComparativo
+                        faenaSeleccionada={faenaSeleccionada}
+                        fechaDesde={fechaDesde}
+                        fechaHasta={fechaHasta}
+                        refreshKey={refreshTrigger}
+                        chartColors={CHART_COLORS}
+                      />
+                    ) : (
+                      <div className="text-center py-12">
+                        <FiCalendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                        <p className="text-gray-600">
+                          Seleccione un rango de fechas para ver el dashboard comparativo
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                   {/* TENDENCIA */}
                   <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
@@ -713,4 +838,4 @@ const Graficos = ({ children }) => {
   );
 };
 
-export default Graficos;  
+export default Graficos;

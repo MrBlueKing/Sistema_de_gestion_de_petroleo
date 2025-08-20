@@ -19,12 +19,12 @@ class InformeKpiController extends Controller
     {
         try {
             // Verificar si las tablas existen y tienen datos
-            $consumosCount = DB::table('consumos')->count();
+            $consumosCount = DB::table('consumos_unificados')->count();
             $maquinasCount = DB::table('maquinas_internas')->count();
             $faenasCount = DB::table('faenas')->count();
 
             // Intentar obtener la estructura de las tablas
-            $consumosColumns = DB::getSchemaBuilder()->getColumnListing('consumos');
+            $consumosColumns = DB::getSchemaBuilder()->getColumnListing('consumos_unificados');
 
             // ✅ CORREGIDO: Usar la estructura correcta de relaciones
             $equipos = DB::table('consumos as c')
@@ -161,7 +161,7 @@ class InformeKpiController extends Controller
                 ->join('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria')
                 ->select(
                     'm.id_maquina as id',
-                    'ee.nombre as nombre',
+                    'm.nombre_maquina as nombre',
                     DB::raw('NULL as patente'),
                     'm.chc_maquina',
                     'cm.tipo_medicion',
@@ -179,8 +179,9 @@ class InformeKpiController extends Controller
                 ->when($faena !== 'todas', fn($q) => $q->where('c.id_faena', $faena))
                 ->groupBy(
                     'm.id_maquina',
-                    'ee.nombre',
+                    'm.nombre_maquina',
                     'm.chc_maquina',
+                    'ee.nombre',
                     'cm.tipo_medicion',
                     'cm.nombre_categoria',
                     'me.nombre_contacto'
@@ -223,7 +224,7 @@ class InformeKpiController extends Controller
                 ->join('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria')
                 ->select(
                     'm.id_maquina as id',
-                    'ee.nombre as nombre',
+                    'm.nombre_maquina as nombre',
                     DB::raw('NULL as patente'),
                     'm.chc_maquina',
                     'cm.tipo_medicion',
@@ -290,7 +291,7 @@ class InformeKpiController extends Controller
 
                 // Cálculo de rendimiento original (para mantener compatibilidad)
                 if ($equipo->total_consumos_periodo >= 2) {
-                    $mediciones = DB::table('consumos')
+                    $mediciones = DB::table('consumos_unificados')
                         ->where('id_equipo', $equipo->id)
                         ->when($faena !== 'todas', fn($q) => $q->where('id_faena', $faena))
                         ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
@@ -402,21 +403,21 @@ class InformeKpiController extends Controller
                 $fechaFin = Carbon::now()->endOfDay();
             }
 
-            $query = DB::table('consumos')
-                ->join('faenas', 'consumos.id_faena', '=', 'faenas.id_faena')
+            $query = DB::table('consumos_unificados')
+                ->join('faenas', 'consumos_unificados.id_faena', '=', 'faenas.id_faena')
                 ->select(
                     'faenas.id_faena as id',
                     'faenas.ubicacion as name',
-                    DB::raw('SUM(consumos.litros_consumidos) as consumo'),
-                    DB::raw('SUM(consumos.medicion) as suma_kms')
+                    DB::raw('SUM(consumos_unificados.litros_consumidos) as consumo'),
+                    DB::raw('SUM(consumos_unificados.medicion) as suma_kms')
                 )
-                ->whereBetween('consumos.fecha_consumo', [$fechaInicio, $fechaFin])
+                ->whereBetween('consumos_unificados.fecha_consumo', [$fechaInicio, $fechaFin])
                 ->groupBy('faenas.id_faena', 'faenas.ubicacion')
                 ->orderBy('consumo', 'desc');
 
             // Filtrar por faena específica si se solicita
             if ($faena !== 'todas') {
-                $query->where('consumos.id_faena', $faena);
+                $query->where('consumos_unificados.id_faena', $faena);
             }
 
             $data = $query->get();
@@ -470,7 +471,7 @@ class InformeKpiController extends Controller
 
             $abreviaturas = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-            $query = DB::table('consumos')
+            $query = DB::table('consumos_unificados')
                 ->select(
                     DB::raw('MONTH(fecha_consumo) as mes'),
                     DB::raw('SUM(litros_consumidos) as consumo')
@@ -543,7 +544,7 @@ class InformeKpiController extends Controller
             }
 
             // Obtener total de litros consumidos en el periodo
-            $query = DB::table('consumos')
+            $query = DB::table('consumos_unificados')
                 ->select(DB::raw('SUM(litros_consumidos) as total_consumo'))
                 ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin]);
 
@@ -554,7 +555,7 @@ class InformeKpiController extends Controller
             $consumoTotal = $query->first()->total_consumo ?? 0;
 
             // Obtener promedio diario en el periodo
-            $query = DB::table('consumos')
+            $query = DB::table('consumos_unificados')
                 ->select(
                     DB::raw('DATE(fecha_consumo) as fecha'),
                     DB::raw('SUM(litros_consumidos) as consumo_diario')
@@ -570,7 +571,7 @@ class InformeKpiController extends Controller
             $promedioDiario = $consumosDiarios->count() > 0 ? $consumosDiarios->avg('consumo_diario') : 0;
 
             // Obtener número de equipos activos en el periodo
-            $query = DB::table('consumos')
+            $query = DB::table('consumos_unificados')
                 ->distinct()
                 ->select('id_equipo')
                 ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin]);
@@ -665,7 +666,7 @@ class InformeKpiController extends Controller
             // Procesar cada máquina
             foreach ($maquinas as $maquina) {
                 // Obtener horas actuales de la tabla consumos
-                $ultimoConsumo = DB::table('consumos')
+                $ultimoConsumo = DB::table('consumos_unificados')
                     ->where('id_equipo', $maquina->id_maquina)
                     ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
                     ->orderBy('fecha_consumo', 'desc')
@@ -676,7 +677,7 @@ class InformeKpiController extends Controller
                     $maquina->horasActuales = $ultimoConsumo->numeral_final ?? $ultimoConsumo->medicion ?? 0;
                 } else {
                     // Si no hay consumos en el período, buscar el último consumo general
-                    $ultimoConsumoGeneral = DB::table('consumos')
+                    $ultimoConsumoGeneral = DB::table('consumos_unificados')
                         ->where('id_equipo', $maquina->id_maquina)
                         ->orderBy('fecha_consumo', 'desc')
                         ->first();

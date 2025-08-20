@@ -36,18 +36,21 @@ const CompactConsumptionPieChart = ({
   ],
   titulo = "Análisis Comparativo Mensual",
 }) => {
-  
   // 🔍 LOGS INICIALES PARA DEBUGGING
-  console.log("🔍 CompactConsumptionPieChart: Componente montándose con props:", {
-    faenaSeleccionada,
-    fechaDesde,
-    fechaHasta,
-    refreshKey,
-    titulo,
-    hasGetColorForCategory: !!getColorForCategory,
-    categoryColorMappingKeys: Object.keys(categoryColorMapping || {}),
-    categoryColorMappingLength: Object.keys(categoryColorMapping || {}).length,
-  });
+  console.log(
+    "🔍 CompactConsumptionPieChart: Componente montándose con props:",
+    {
+      faenaSeleccionada,
+      fechaDesde,
+      fechaHasta,
+      refreshKey,
+      titulo,
+      hasGetColorForCategory: !!getColorForCategory,
+      categoryColorMappingKeys: Object.keys(categoryColorMapping || {}),
+      categoryColorMappingLength: Object.keys(categoryColorMapping || {})
+        .length,
+    }
+  );
 
   // Estados principales
   const [periodoActual, setPeriodoActual] = useState([]);
@@ -55,7 +58,8 @@ const CompactConsumptionPieChart = ({
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [periodoAnteriorDescripcion, setPeriodoAnteriorDescripcion] = useState("");
+  const [periodoAnteriorDescripcion, setPeriodoAnteriorDescripcion] =
+    useState("");
 
   // Ref para verificar si el componente está montado
   const isMounted = useRef(true);
@@ -68,7 +72,9 @@ const CompactConsumptionPieChart = ({
   });
 
   useEffect(() => {
-    console.log("🔍 CompactConsumptionPieChart: useEffect de montaje ejecutado");
+    console.log(
+      "🔍 CompactConsumptionPieChart: useEffect de montaje ejecutado"
+    );
     isMounted.current = true;
     return () => {
       console.log("🔍 CompactConsumptionPieChart: Componente desmontándose");
@@ -81,7 +87,8 @@ const CompactConsumptionPieChart = ({
     console.log("🔍 CompactConsumptionPieChart: Props de colores cambiaron:", {
       hasGetColorForCategory: !!getColorForCategory,
       categoryColorMappingKeys: Object.keys(categoryColorMapping || {}),
-      categoryColorMappingLength: Object.keys(categoryColorMapping || {}).length,
+      categoryColorMappingLength: Object.keys(categoryColorMapping || {})
+        .length,
     });
   }, [getColorForCategory, categoryColorMapping]);
 
@@ -95,12 +102,20 @@ const CompactConsumptionPieChart = ({
       prevF.refreshKey !== refreshKey ||
       !initialLoadDone.current;
 
-    console.log("🔍 CompactConsumptionPieChart: Verificando cambios de filtros:", {
-      changed,
-      prevFilters: prevF,
-      currentFilters: { faenaSeleccionada, fechaDesde, fechaHasta, refreshKey },
-      initialLoadDone: initialLoadDone.current,
-    });
+    console.log(
+      "🔍 CompactConsumptionPieChart: Verificando cambios de filtros:",
+      {
+        changed,
+        prevFilters: prevF,
+        currentFilters: {
+          faenaSeleccionada,
+          fechaDesde,
+          fechaHasta,
+          refreshKey,
+        },
+        initialLoadDone: initialLoadDone.current,
+      }
+    );
 
     prevFilters.current = {
       faenaSeleccionada,
@@ -114,35 +129,46 @@ const CompactConsumptionPieChart = ({
   // 🎨 FUNCIÓN MEJORADA PARA OBTENER COLORES CONSISTENTES
   const obtenerColor = (categoria, index) => {
     const categoryName = categoria.name || categoria.nombre || "Sin categoría";
-    
+
     console.log(`🎨 CompactChart: Obteniendo color para "${categoryName}"`);
-    
+
     // 1. Usar la función del padre si está disponible (PRIORIDAD 1)
-    if (getColorForCategory && typeof getColorForCategory === 'function') {
+    if (getColorForCategory && typeof getColorForCategory === "function") {
       const color = getColorForCategory(categoryName);
-      console.log(`🎨 CompactChart: Color desde función padre para "${categoryName}": ${color}`);
+      console.log(
+        `🎨 CompactChart: Color desde función padre para "${categoryName}": ${color}`
+      );
       return color;
     }
-    
+
     // 2. Usar función legacy si está disponible (PRIORIDAD 2)
-    if (getColorForCategoryName && typeof getColorForCategoryName === 'function') {
+    if (
+      getColorForCategoryName &&
+      typeof getColorForCategoryName === "function"
+    ) {
       const color = getColorForCategoryName(categoryName);
-      console.log(`🎨 CompactChart: Color desde función legacy para "${categoryName}": ${color}`);
+      console.log(
+        `🎨 CompactChart: Color desde función legacy para "${categoryName}": ${color}`
+      );
       return color;
     }
-    
+
     // 3. Usar el mapeo de colores del padre si está disponible (PRIORIDAD 3)
     if (categoryColorMapping && Object.keys(categoryColorMapping).length > 0) {
       const mappedColor = categoryColorMapping[categoryName];
       if (mappedColor) {
-        console.log(`🎨 CompactChart: Color desde mapeo para "${categoryName}": ${mappedColor}`);
+        console.log(
+          `🎨 CompactChart: Color desde mapeo para "${categoryName}": ${mappedColor}`
+        );
         return mappedColor;
       }
     }
-    
+
     // 4. Fallback al array de colores (PRIORIDAD 4)
     const fallbackColor = chartColors[index % chartColors.length];
-    console.log(`🎨 CompactChart: Color fallback para "${categoryName}": ${fallbackColor}`);
+    console.log(
+      `🎨 CompactChart: Color fallback para "${categoryName}": ${fallbackColor}`
+    );
     return fallbackColor;
   };
 
@@ -215,15 +241,82 @@ const CompactConsumptionPieChart = ({
       fechaDesde: inicioAnterior.toISOString().split("T")[0],
       fechaHasta: finAnterior.toISOString().split("T")[0],
       tipo: "mes_anterior_fijo",
-      descripcion: obtenerDescripcionPeriodoAnterior(inicioAnterior, finAnterior),
+      descripcion: obtenerDescripcionPeriodoAnterior(
+        inicioAnterior,
+        finAnterior
+      ),
     };
+  };
+
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+
+      // 🔍 Detectar cuál gráfico estamos mostrando basado en el dataKey del Pie
+      const dataKey = payload[0].dataKey; // Será 'actual' o 'anterior'
+
+      let valorCategoria = 0;
+      let total = 0;
+      let periodo = "";
+
+      if (dataKey === "actual") {
+        // Gráfico del período actual
+        valorCategoria = data.actual || 0;
+        total = categorias.reduce((sum, item) => sum + (item.actual || 0), 0);
+        periodo = "Período Actual";
+      } else if (dataKey === "anterior") {
+        // Gráfico del período anterior
+        valorCategoria = data.anterior || 0;
+        total = categorias.reduce((sum, item) => sum + (item.anterior || 0), 0);
+        periodo = "Período Anterior";
+      } else {
+        // Fallback para otros casos
+        valorCategoria = data.value || 0;
+        total = currentData
+          ? currentData.reduce((sum, item) => sum + item.value, 0)
+          : valorCategoria;
+        periodo = "Datos";
+      }
+
+      // Calcular el porcentaje
+      const percentage =
+        total > 0 ? ((valorCategoria / total) * 100).toFixed(1) : 0;
+
+      return (
+        <div className="bg-white p-3 border border-gray-300 rounded-lg shadow-lg">
+          <p className="font-semibold text-gray-800">
+            {data.name || data.nombre || label}
+          </p>
+          <p className="text-orange-600 font-medium">
+            Consumo: {valorCategoria.toLocaleString("es-CL")} L
+          </p>
+          <p className="text-gray-600 text-sm font-medium">
+            {percentage}% del total
+          </p>
+          {/* 📊 Indicador visual del período */}
+          <p className="text-xs text-blue-600 mt-1">{periodo}</p>
+        </div>
+      );
+    }
+
+    return null;
   };
 
   // Función para generar descripción legible del período anterior
   const obtenerDescripcionPeriodoAnterior = (inicio, fin) => {
     const meses = [
-      "Ene", "Feb", "Mar", "Abr", "May", "Jun",
-      "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
+      "Ene",
+      "Feb",
+      "Mar",
+      "Abr",
+      "May",
+      "Jun",
+      "Jul",
+      "Ago",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dic",
     ];
 
     const mesInicio = meses[inicio.getMonth()];
@@ -319,11 +412,14 @@ const CompactConsumptionPieChart = ({
         `🔢 Aplicando factor 0.3% a Camionetas: ${valorOriginal.toLocaleString()} L → ${camionetasAgrupadas.value.toLocaleString()} L`
       );
       console.log(
-        `📋 Categorías agrupadas en Camionetas: ${camionetasAgrupadas.categorias_originales.join(", ")}`
+        `📋 Categorías agrupadas en Camionetas: ${camionetasAgrupadas.categorias_originales.join(
+          ", "
+        )}`
       );
 
       // Redondear el resultado
-      camionetasAgrupadas.value = Math.round(camionetasAgrupadas.value * 100) / 100;
+      camionetasAgrupadas.value =
+        Math.round(camionetasAgrupadas.value * 100) / 100;
 
       // Agregar a las categorías finales
       categoriasAgrupadas.push(camionetasAgrupadas);
@@ -384,7 +480,9 @@ const CompactConsumptionPieChart = ({
 
     // Verificar que el inicio sea anterior al fin
     if (inicio > fin) {
-      console.error("❌ Fecha de inicio del período anterior es posterior a la fecha de fin");
+      console.error(
+        "❌ Fecha de inicio del período anterior es posterior a la fecha de fin"
+      );
       return false;
     }
 
@@ -393,12 +491,16 @@ const CompactConsumptionPieChart = ({
     dosAñosAtras.setFullYear(dosAñosAtras.getFullYear() - 2);
 
     if (inicio < dosAñosAtras) {
-      console.warn("⚠️ El período anterior es de hace más de 2 años, es posible que no haya datos");
+      console.warn(
+        "⚠️ El período anterior es de hace más de 2 años, es posible que no haya datos"
+      );
     }
 
     // Advertir si las fechas son futuras
     if (inicio > ahora) {
-      console.warn("⚠️ El período anterior es en el futuro, es posible que no haya datos");
+      console.warn(
+        "⚠️ El período anterior es en el futuro, es posible que no haya datos"
+      );
     }
 
     return true;
@@ -407,34 +509,52 @@ const CompactConsumptionPieChart = ({
   // Función principal actualizada con validaciones
   const cargarDatos = async () => {
     console.log("🔍 CompactConsumptionPieChart: cargarDatos() iniciando...");
-    
+
     if (!isMounted.current) {
-      console.log("🔍 CompactConsumptionPieChart: Componente no montado, abortando carga");
+      console.log(
+        "🔍 CompactConsumptionPieChart: Componente no montado, abortando carga"
+      );
       return;
     }
 
     setLoading(true);
     setError(null);
-    console.log("🔍 CompactConsumptionPieChart: Estado loading=true establecido");
+    console.log(
+      "🔍 CompactConsumptionPieChart: Estado loading=true establecido"
+    );
 
     try {
       if (!fechaDesde || !fechaHasta) {
-        console.error("🔍 CompactConsumptionPieChart: Fechas faltantes:", { fechaDesde, fechaHasta });
+        console.error("🔍 CompactConsumptionPieChart: Fechas faltantes:", {
+          fechaDesde,
+          fechaHasta,
+        });
         throw new Error("Las fechas son requeridas");
       }
 
-      console.log("🔍 CompactConsumptionPieChart: Fechas válidas, calculando período anterior...");
+      console.log(
+        "🔍 CompactConsumptionPieChart: Fechas válidas, calculando período anterior..."
+      );
 
       // Calcular período anterior (un mes atrás)
       const periodoAnteriorFechas = calcularPeriodoAnterior();
 
       // Validar el período anterior
-      if (!validarPeriodoAnterior(periodoAnteriorFechas.fechaDesde, periodoAnteriorFechas.fechaHasta)) {
-        console.error("🔍 CompactConsumptionPieChart: Período anterior inválido");
+      if (
+        !validarPeriodoAnterior(
+          periodoAnteriorFechas.fechaDesde,
+          periodoAnteriorFechas.fechaHasta
+        )
+      ) {
+        console.error(
+          "🔍 CompactConsumptionPieChart: Período anterior inválido"
+        );
         throw new Error("El período anterior calculado no es válido");
       }
 
-      console.log("🔍 CompactConsumptionPieChart: Períodos calculados correctamente, iniciando carga de datos...");
+      console.log(
+        "🔍 CompactConsumptionPieChart: Períodos calculados correctamente, iniciando carga de datos..."
+      );
 
       console.log("📊 Períodos a consultar:", {
         actual: `${fechaDesde} al ${fechaHasta}`,
@@ -443,16 +563,23 @@ const CompactConsumptionPieChart = ({
       });
 
       // Cargar ambos períodos en paralelo
-      console.log("🔍 CompactConsumptionPieChart: Iniciando carga paralela de datos...");
+      console.log(
+        "🔍 CompactConsumptionPieChart: Iniciando carga paralela de datos..."
+      );
       const [datosActuales, datosAnteriores] = await Promise.all([
         obtenerDatosPeriodo(fechaDesde, fechaHasta),
-        obtenerDatosPeriodo(periodoAnteriorFechas.fechaDesde, periodoAnteriorFechas.fechaHasta),
+        obtenerDatosPeriodo(
+          periodoAnteriorFechas.fechaDesde,
+          periodoAnteriorFechas.fechaHasta
+        ),
       ]);
 
       console.log("🔍 CompactConsumptionPieChart: Datos cargados exitosamente");
 
       if (!isMounted.current) {
-        console.log("🔍 CompactConsumptionPieChart: Componente desmontado durante la carga, abortando");
+        console.log(
+          "🔍 CompactConsumptionPieChart: Componente desmontado durante la carga, abortando"
+        );
         return;
       }
 
@@ -476,11 +603,15 @@ const CompactConsumptionPieChart = ({
       // Crear lista unificada de todas las categorías
       const todasCategorias = new Map();
 
-      console.log("🔍 CompactConsumptionPieChart: Procesando datos actuales...");
+      console.log(
+        "🔍 CompactConsumptionPieChart: Procesando datos actuales..."
+      );
       datosActuales.forEach((cat, index) => {
         const color = obtenerColor(cat, index);
-        console.log(`🎨 CompactConsumptionPieChart: Color para ${cat.name}: ${color}`);
-        
+        console.log(
+          `🎨 CompactConsumptionPieChart: Color para ${cat.name}: ${color}`
+        );
+
         todasCategorias.set(cat.name, {
           name: cat.name,
           actual: cat.value,
@@ -489,14 +620,18 @@ const CompactConsumptionPieChart = ({
         });
       });
 
-      console.log("🔍 CompactConsumptionPieChart: Procesando datos anteriores...");
+      console.log(
+        "🔍 CompactConsumptionPieChart: Procesando datos anteriores..."
+      );
       datosAnteriores.forEach((cat, index) => {
         if (todasCategorias.has(cat.name)) {
           todasCategorias.get(cat.name).anterior = cat.value;
         } else {
           const color = obtenerColor(cat, index);
-          console.log(`🎨 CompactConsumptionPieChart: Color para ${cat.name} (solo anterior): ${color}`);
-          
+          console.log(
+            `🎨 CompactConsumptionPieChart: Color para ${cat.name} (solo anterior): ${color}`
+          );
+
           todasCategorias.set(cat.name, {
             name: cat.name,
             actual: 0,
@@ -510,25 +645,37 @@ const CompactConsumptionPieChart = ({
         (a, b) => b.actual + b.anterior - (a.actual + a.anterior)
       );
 
-      console.log("🔍 CompactConsumptionPieChart: Categorías unificadas:", categoriasUnificadas);
+      console.log(
+        "🔍 CompactConsumptionPieChart: Categorías unificadas:",
+        categoriasUnificadas
+      );
 
       setPeriodoActual(datosActuales);
       setPeriodoAnterior(datosAnteriores);
       setCategorias(categoriasUnificadas);
       initialLoadDone.current = true;
 
-      console.log("✅ CompactConsumptionPieChart: Comparación cargada exitosamente");
+      console.log(
+        "✅ CompactConsumptionPieChart: Comparación cargada exitosamente"
+      );
     } catch (error) {
-      console.error("❌ CompactConsumptionPieChart: Error al cargar datos de comparación:", error);
+      console.error(
+        "❌ CompactConsumptionPieChart: Error al cargar datos de comparación:",
+        error
+      );
       if (isMounted.current) {
-        setError(error.message || "Error al cargar datos del gráfico de comparación");
+        setError(
+          error.message || "Error al cargar datos del gráfico de comparación"
+        );
         setPeriodoActual([]);
         setPeriodoAnterior([]);
         setCategorias([]);
       }
     } finally {
       if (isMounted.current) {
-        console.log("🔍 CompactConsumptionPieChart: Estableciendo loading=false");
+        console.log(
+          "🔍 CompactConsumptionPieChart: Estableciendo loading=false"
+        );
         setLoading(false);
       }
     }
@@ -536,30 +683,49 @@ const CompactConsumptionPieChart = ({
 
   // Effect para cargar datos cuando cambien los filtros
   useEffect(() => {
-    console.log("🔍 CompactConsumptionPieChart: useEffect de carga ejecutándose...");
-    
+    console.log(
+      "🔍 CompactConsumptionPieChart: useEffect de carga ejecutándose..."
+    );
+
     const shouldLoad = filtersChanged();
-    console.log("🔍 CompactConsumptionPieChart: ¿Debe cargar datos?", shouldLoad);
-    
+    console.log(
+      "🔍 CompactConsumptionPieChart: ¿Debe cargar datos?",
+      shouldLoad
+    );
+
     if (shouldLoad) {
-      console.log("🔍 CompactConsumptionPieChart: Iniciando carga de datos por cambio de filtros");
+      console.log(
+        "🔍 CompactConsumptionPieChart: Iniciando carga de datos por cambio de filtros"
+      );
       cargarDatos();
     } else {
-      console.log("🔍 CompactConsumptionPieChart: No hay cambios en filtros, omitiendo carga");
+      console.log(
+        "🔍 CompactConsumptionPieChart: No hay cambios en filtros, omitiendo carga"
+      );
     }
   }, [faenaSeleccionada, fechaDesde, fechaHasta, refreshKey]);
 
   // 🔍 LOG ADICIONAL PARA VER EL ESTADO ACTUAL
   useEffect(() => {
-    console.log("🔍 CompactConsumptionPieChart: Estado actual del componente:", {
-      loading,
-      error,
-      categoriasLength: categorias.length,
-      periodoActualLength: periodoActual.length,
-      periodoAnteriorLength: periodoAnterior.length,
-      periodoAnteriorDescripcion,
-    });
-  }, [loading, error, categorias, periodoActual, periodoAnterior, periodoAnteriorDescripcion]);
+    console.log(
+      "🔍 CompactConsumptionPieChart: Estado actual del componente:",
+      {
+        loading,
+        error,
+        categoriasLength: categorias.length,
+        periodoActualLength: periodoActual.length,
+        periodoAnteriorLength: periodoAnterior.length,
+        periodoAnteriorDescripcion,
+      }
+    );
+  }, [
+    loading,
+    error,
+    categorias,
+    periodoActual,
+    periodoAnterior,
+    periodoAnteriorDescripcion,
+  ]);
 
   // Header mejorado para la gerencia
   const HeaderGerencia = () => {
@@ -575,59 +741,115 @@ const CompactConsumptionPieChart = ({
     );
   };
 
-  // Custom Tooltip
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length > 0) {
-      const data = payload[0].payload;
-      const isActual = payload[0].dataKey === "actual";
-      const periodo = isActual ? "Actual" : "Anterior";
+// Función para renderizar etiquetas personalizadas COMPACTAS (para dual pie charts)
+const renderCustomLabel = (props, isActual = true) => {
+  const { cx, cy, midAngle, innerRadius, outerRadius, percent, index, payload } = props;
 
-      return (
-        <div className="bg-white p-3 border border-gray-300 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-800">{data.name}</p>
-          <p className="text-sm text-gray-600">
-            Período {periodo}:{" "}
-            <span className="font-medium">
-              {data[isActual ? "actual" : "anterior"].toLocaleString("es-CL")} L
-            </span>
-          </p>
-        </div>
-      );
+  // Solo mostrar si es mayor al 3% para evitar saturación en espacio compacto
+  if (percent < 0.03) return null;
+
+  const RADIAN = Math.PI / 180;
+  const normalizedAngle = ((((midAngle * 180) / Math.PI) % 360) + 360) % 360;
+  
+  // Distancia más corta para gráficos compactos - REDUCIDA AÚN MÁS
+  let labelDistance;
+  if (percent > 0.4) {
+    labelDistance = outerRadius + 20; // REDUCIDO de 35 a 20
+  } else if (percent > 0.15) {
+    labelDistance = outerRadius + 18; // REDUCIDO de 30 a 18
+  } else {
+    labelDistance = outerRadius + 15; // REDUCIDO de 25 a 15
+  }
+
+  const baseX = cx + labelDistance * Math.cos(-midAngle * RADIAN);
+  const baseY = cy + labelDistance * Math.sin(-midAngle * RADIAN);
+
+  let finalX = baseX;
+  let finalY = baseY;
+
+  // Ajustar posición para evitar traslapes en la zona inferior
+  const isBottomRegion = normalizedAngle > 180 && normalizedAngle < 360;
+  if (isBottomRegion && percent < 0.2) {
+    finalY = finalY + (index % 2) * 12; // Escalonar ligeramente
+  }
+
+  const isLeftSide = finalX < cx;
+  const value = isActual ? payload.actual : payload.anterior;
+  
+  // Nombre de categoría con truncado inteligente
+  const itemName = payload?.nombre || payload?.name || "Sin nombre";
+  let displayName;
+  const maxLength = percent > 0.3 ? 16 : percent > 0.15 ? 14 : 12;
+  
+  if (itemName.length > maxLength) {
+    // Buscar espacio para cortar palabra completa
+    const spaceIndex = itemName.substring(0, maxLength - 1).lastIndexOf(" ");
+    if (spaceIndex > maxLength - 5) {
+      displayName = itemName.substring(0, spaceIndex);
+    } else {
+      displayName = itemName.substring(0, maxLength - 1) + "...";
     }
-    return null;
-  };
+  } else {
+    displayName = itemName;
+  }
 
-  // Función para renderizar etiquetas personalizadas
-  const renderCustomLabel = (props, isActual = true) => {
-    const { cx, cy, midAngle, innerRadius, outerRadius, percent } = props;
+  // Línea de conexión desde el borde del segmento
+  const startX = cx + (outerRadius - 1) * Math.cos(-midAngle * RADIAN);
+  const startY = cy + (outerRadius - 1) * Math.sin(-midAngle * RADIAN);
 
-    if (percent < 0.025) return null; // Solo mostrar si es mayor al 2.5%
+  return (
+    <g>
+      {/* Línea de conexión */}
+      <path
+        d={`M ${startX} ${startY} L ${finalX} ${finalY}`}
+        stroke="#9ca3af"
+        strokeWidth={percent > 0.2 ? 1.5 : 1}
+        strokeOpacity={0.7}
+        fill="none"
+      />
 
-    const RADIAN = Math.PI / 180;
-    const radius = outerRadius + 12;
-    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+      {/* Punto de conexión */}
+      <circle
+        cx={finalX}
+        cy={finalY}
+        r={percent > 0.2 ? 2.5 : 2}
+        fill="#9ca3af"
+        opacity={0.8}
+      />
 
-    const isLeftSide = x < cx;
-    const value = isActual ? props.payload.actual : props.payload.anterior;
+   
 
-    return (
+      {/* Nombre de la categoría */}
       <text
-        x={x}
-        y={y}
-        fill="#374151"
+        x={finalX + (isLeftSide ? -8 : 8)}
+        y={finalY - 6}
         textAnchor={isLeftSide ? "end" : "start"}
         dominantBaseline="central"
-        fontSize="11"
+        fill="#374151"
+        fontSize={percent > 0.3 ? "11" : percent > 0.15 ? "10" : "9"}
         fontWeight="600"
         className="drop-shadow-sm"
       >
-        {value > 1000000
-          ? `${(value / 1000).toFixed(0)}K`
-          : value.toLocaleString() + " L"}
+        {displayName}
       </text>
-    );
-  };
+
+      {/* Valor en litros Y porcentaje en la MISMA línea */}
+      <text
+        x={finalX + (isLeftSide ? -8 : 8)}
+        y={finalY + 6}
+        textAnchor={isLeftSide ? "end" : "start"}
+        dominantBaseline="central"
+        fill="#6b7280"
+        fontSize={percent > 0.3 ? "10" : percent > 0.15 ? "9" : "8"}
+        fontWeight="600"
+      >
+        {value >= 1000 
+          ? `${(value / 1000).toFixed(1)}k L • ${(percent * 100).toFixed(1)}%`
+          : `${Math.round(value)} L • ${(percent * 100).toFixed(1)}%`}
+      </text>
+    </g>
+  );
+};
 
   // Estados de carga y error
   if (loading) {
@@ -649,7 +871,10 @@ const CompactConsumptionPieChart = ({
   }
 
   if (error) {
-    console.log("🔍 CompactConsumptionPieChart: Mostrando estado de error:", error);
+    console.log(
+      "🔍 CompactConsumptionPieChart: Mostrando estado de error:",
+      error
+    );
     return (
       <div className="w-full bg-white rounded-lg shadow-lg border border-gray-100">
         <HeaderGerencia />
@@ -679,7 +904,8 @@ const CompactConsumptionPieChart = ({
               No hay datos para el análisis comparativo
             </p>
             <p className="text-sm text-gray-400">
-              Verifique que existan registros tanto para el período actual como el anterior
+              Verifique que existan registros tanto para el período actual como
+              el anterior
             </p>
           </div>
         </div>
@@ -687,11 +913,14 @@ const CompactConsumptionPieChart = ({
     );
   }
 
-  console.log("🔍 CompactConsumptionPieChart: Renderizando componente completo con datos:", {
-    categoriasLength: categorias.length,
-    loading,
-    error,
-  });
+  console.log(
+    "🔍 CompactConsumptionPieChart: Renderizando componente completo con datos:",
+    {
+      categoriasLength: categorias.length,
+      loading,
+      error,
+    }
+  );
 
   return (
     <div className="w-full bg-white rounded-lg shadow-lg border border-gray-100">
@@ -701,8 +930,14 @@ const CompactConsumptionPieChart = ({
         {/* Resumen ejecutivo para la gerencia */}
         {categorias.length > 0 &&
           (() => {
-            const totalActual = categorias.reduce((sum, cat) => sum + cat.actual, 0);
-            const totalAnterior = categorias.reduce((sum, cat) => sum + cat.anterior, 0);
+            const totalActual = categorias.reduce(
+              (sum, cat) => sum + cat.actual,
+              0
+            );
+            const totalAnterior = categorias.reduce(
+              (sum, cat) => sum + cat.anterior,
+              0
+            );
             const cambioTotal = totalActual - totalAnterior;
             const porcentajeCambioTotal =
               totalAnterior > 0 ? (cambioTotal / totalAnterior) * 100 : 0;
@@ -739,7 +974,137 @@ const CompactConsumptionPieChart = ({
 
         {/* Gráficos lado a lado con leyenda en el centro */}
         <div className="grid grid-cols-5 gap-4 mb-4">
-          {/* Período Actual */}
+       
+{/* Período Anterior */}
+          <div className="col-span-2 text-center">
+            <div className="h-80">
+              <h4 className="text-sm font-medium text-gray-700 mb-1">
+                📈 Período Anterior
+              </h4>
+              <p className="text-xs text-gray-500">
+                {periodoAnteriorDescripcion}
+              </p>
+
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart margin={{ top: 20, right: 40, bottom: 20, left: 40 }}>
+                  <Pie
+                    data={categorias.filter((cat) => cat.anterior > 0)}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={120}
+                    innerRadius={40}
+                    fill="#8884d8"
+                    dataKey="anterior"
+                    label={(props) => renderCustomLabel(props, false)}
+                    labelLine={false}
+                  >
+                    {categorias
+                      .filter((cat) => cat.anterior > 0)
+                      .map((entry, index) => (
+                        <Cell
+                          key={`cell-anterior-${index}`}
+                          fill={entry.color} // 🎨 USAR COLOR CONSISTENTE DEL PADRE
+                          stroke="#fff"
+                          strokeWidth={2}
+                        />
+                      ))}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                  {/* Texto central con cálculo directo */}
+                  <text
+                    x="50%"
+                    y="50%"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fontSize="16"
+                    fontWeight="800"
+                    fill="#374151"
+                  >
+                    {categorias
+                      .reduce((sum, cat) => sum + cat.anterior, 0)
+                      .toLocaleString("es-CL")}{" "}
+                    L
+                  </text>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Leyenda en el centro con valores de ambos períodos */}
+          <div className="col-span-1 flex items-center">
+            <div className="w-full">
+              <div className="max-h-90 overflow-y-auto bg-white rounded-lg">
+                <div className="space-y-2">
+                  {categorias.map((categoria, index) => {
+                    const diferencia = categoria.actual - categoria.anterior;
+                    const porcentajeCambio =
+                      categoria.anterior > 0
+                        ? (diferencia / categoria.anterior) * 100
+                        : categoria.actual > 0
+                        ? 100
+                        : 0;
+
+                    const tieneCambio = Math.abs(porcentajeCambio) >= 5;
+                    const esMejor = diferencia < 0; // Menos consumo es mejor
+
+                    return (
+                      <div
+                        key={categoria.name}
+                        className="bg-white rounded-lg p-2 border border-gray-200 shadow-sm"
+                      >
+                        {/* Nombre de categoría con color */}
+                        <div className="flex items-center mb-1">
+                          <div
+                            className="w-3 h-3 rounded-full mr-2 flex-shrink-0"
+                            style={{ backgroundColor: categoria.color }} // 🎨 USAR COLOR CONSISTENTE
+                          ></div>
+                          <span className="text-xs font-medium text-gray-700 truncate">
+                            {categoria.name}
+                          </span>
+                        </div>
+
+                        {/* Valores actuales y anteriores */}
+                        <div className="text-xs text-gray-600 space-y-0.5">
+                          <div>
+                            Actual: {categoria.actual.toLocaleString("es-CL")} L
+                          </div>
+                          <div>
+                            Anterior:{" "}
+                            {categoria.anterior.toLocaleString("es-CL")} L
+                          </div>
+                        </div>
+
+                        {/* Indicador de cambio */}
+                        {tieneCambio && (
+                          <div
+                            className={`flex items-center justify-between pt-1 border-t border-gray-200 mt-1 text-xs ${
+                              esMejor ? "text-green-600" : "text-red-600"
+                            }`}
+                          >
+                            <span>Cambio:</span>
+                            <div className="flex items-center">
+                              {esMejor ? (
+                                <FiTrendingDown size={10} className="mr-1" />
+                              ) : (
+                                <FiTrendingUp size={10} className="mr-1" />
+                              )}
+                              <span>
+                                {Math.abs(porcentajeCambio).toFixed(1)}%
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+        
+
+   {/* Período Actual */}
           <div className="col-span-2 text-center">
             <div className="h-80">
               <h4 className="text-sm font-medium text-gray-700 mb-1">
@@ -802,138 +1167,16 @@ const CompactConsumptionPieChart = ({
             </div>
           </div>
 
-          {/* Leyenda en el centro con valores de ambos períodos */}
-          <div className="col-span-1 flex items-center">
-            <div className="w-full">
-              <div className="max-h-90 overflow-y-auto bg-white rounded-lg">
-                <div className="space-y-2">
-                  {categorias.map((categoria, index) => {
-                    const diferencia = categoria.actual - categoria.anterior;
-                    const porcentajeCambio =
-                      categoria.anterior > 0
-                        ? (diferencia / categoria.anterior) * 100
-                        : categoria.actual > 0
-                        ? 100
-                        : 0;
-
-                    const tieneCambio = Math.abs(porcentajeCambio) >= 5;
-                    const esMejor = diferencia < 0; // Menos consumo es mejor
-
-                    return (
-                      <div
-                        key={categoria.name}
-                        className="bg-white rounded-lg p-2 border border-gray-200 shadow-sm"
-                      >
-                        {/* Nombre de categoría con color */}
-                        <div className="flex items-center mb-1">
-                          <div
-                            className="w-3 h-3 rounded-full mr-2 flex-shrink-0"
-                            style={{ backgroundColor: categoria.color }} // 🎨 USAR COLOR CONSISTENTE
-                          ></div>
-                          <span className="text-xs font-medium text-gray-700 truncate">
-                            {categoria.name}
-                          </span>
-                        </div>
-
-                        {/* Valores actuales y anteriores */}
-                        <div className="text-xs text-gray-600 space-y-0.5">
-                          <div>
-                            Actual: {categoria.actual.toLocaleString("es-CL")} L
-                          </div>
-                          <div>
-                            Anterior: {categoria.anterior.toLocaleString("es-CL")} L
-                          </div>
-                        </div>
-
-                        {/* Indicador de cambio */}
-                        {tieneCambio && (
-                          <div
-                            className={`flex items-center justify-between pt-1 border-t border-gray-200 mt-1 text-xs ${
-                              esMejor ? "text-green-600" : "text-red-600"
-                            }`}
-                          >
-                            <span>Cambio:</span>
-                            <div className="flex items-center">
-                              {esMejor ? (
-                                <FiTrendingDown size={10} className="mr-1" />
-                              ) : (
-                                <FiTrendingUp size={10} className="mr-1" />
-                              )}
-                              <span>{Math.abs(porcentajeCambio).toFixed(1)}%</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
           </div>
-
-          {/* Período Anterior */}
-          <div className="col-span-2 text-center">
-            <div className="h-80">
-              <h4 className="text-sm font-medium text-gray-700 mb-1">
-                📈 Período Anterior
-              </h4>
-              <p className="text-xs text-gray-500">{periodoAnteriorDescripcion}</p>
-              
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart margin={{ top: 20, right: 40, bottom: 20, left: 40 }}>
-                  <Pie
-                    data={categorias.filter((cat) => cat.anterior > 0)}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={120}
-                    innerRadius={40}
-                    fill="#8884d8"
-                    dataKey="anterior"
-                    label={(props) => renderCustomLabel(props, false)}
-                    labelLine={false}
-                  >
-                    {categorias
-                      .filter((cat) => cat.anterior > 0)
-                      .map((entry, index) => (
-                        <Cell
-                          key={`cell-anterior-${index}`}
-                          fill={entry.color} // 🎨 USAR COLOR CONSISTENTE DEL PADRE
-                          stroke="#fff"
-                          strokeWidth={2}
-                        />
-                      ))}
-                  </Pie>
-                  <Tooltip content={<CustomTooltip />} />
-                  {/* Texto central con cálculo directo */}
-                  <text
-                    x="50%"
-                    y="50%"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fontSize="16"
-                    fontWeight="800"
-                    fill="#374151"
-                  >
-                    {categorias
-                      .reduce((sum, cat) => sum + cat.anterior, 0)
-                      .toLocaleString("es-CL")}{" "}
-                    L
-                  </text>
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
 
         {/* Footer con información adicional */}
         <div className="mt-4 pt-3 border-t border-gray-200">
           <div className="flex justify-between items-center text-xs text-gray-500">
             <span>
-              Comparando {categorias.filter(c => c.actual > 0).length} categorías activas
+              Comparando {categorias.filter((c) => c.actual > 0).length}{" "}
+              categorías activas
             </span>
-            <span>
-              Actualizado: {new Date().toLocaleTimeString("es-CL")}
-            </span>
+            <span>Actualizado: {new Date().toLocaleTimeString("es-CL")}</span>
           </div>
         </div>
       </div>
