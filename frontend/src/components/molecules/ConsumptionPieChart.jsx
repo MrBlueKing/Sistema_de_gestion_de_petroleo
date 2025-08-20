@@ -72,21 +72,17 @@ const ConsumoDetailsModal = ({
         throw new Error("No se encontró token de autenticación");
       }
 
-      // 🔑 CONSTRUIR PARÁMETROS como en ConsumosView
       const params = new URLSearchParams({
         page: page.toString(),
         per_page: itemsPerPage.toString(),
       });
 
-      // 🔧 SIEMPRE AGREGAR FAENA (temporal mientras se actualiza el controlador)
       if (faenaSeleccionada && faenaSeleccionada !== "todas") {
         params.append("faena", faenaSeleccionada);
       } else {
-        // 🚨 TEMPORAL: Agregar faena por defecto para evitar error 400
-        params.append("faena", "1"); // O usar cualquier ID de faena válido
+        params.append("faena", "1");
       }
 
-      // Agregar filtros de fecha
       if (fechaDesde) {
         params.append("dateFrom", fechaDesde);
       }
@@ -94,7 +90,6 @@ const ConsumoDetailsModal = ({
         params.append("dateTo", fechaHasta);
       }
 
-      // 🆕 AGREGAR ID DE CATEGORÍA como parámetro principal
       params.append("id_categoria", categoria.id.toString());
 
       console.log(
@@ -104,7 +99,6 @@ const ConsumoDetailsModal = ({
         categoria.id
       );
 
-      // 🆕 USAR LA NUEVA RUTA ESPECÍFICA PARA CONSUMOS POR CATEGORÍA
       const response = await axios.get(`/api/consumos-categoria?${params}`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -112,7 +106,6 @@ const ConsumoDetailsModal = ({
       });
 
       if (response.data.success) {
-        // 🎯 DATOS YA FILTRADOS POR CATEGORÍA en el backend
         const consumosData = response.data.data || [];
 
         setConsumos(consumosData);
@@ -138,7 +131,6 @@ const ConsumoDetailsModal = ({
     }
   };
 
-  // Cargar consumos cuando se abre el modal o cambia la página
   useEffect(() => {
     if (isOpen && categoria) {
       fetchConsumosDeCategoria(currentPage);
@@ -152,7 +144,6 @@ const ConsumoDetailsModal = ({
     faenaSeleccionada,
   ]);
 
-  // Resetear página cuando se abre el modal
   useEffect(() => {
     if (isOpen) {
       setCurrentPage(1);
@@ -199,8 +190,8 @@ const ConsumoDetailsModal = ({
               <p className="text-sm text-gray-600">
                 {fechaDesde && fechaHasta
                   ? `Período: ${new Date(fechaDesde).toLocaleDateString(
-                    "es-CL"
-                  )} - ${new Date(fechaHasta).toLocaleDateString("es-CL")}`
+                      "es-CL"
+                    )} - ${new Date(fechaHasta).toLocaleDateString("es-CL")}`
                   : "Todos los períodos"}
               </p>
             </div>
@@ -213,7 +204,7 @@ const ConsumoDetailsModal = ({
           </button>
         </div>
 
-        {/* Estadísticas rápidas - Versión compacta */}
+        {/* Estadísticas rápidas */}
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 bg-gray-50 border-b">
             <div className="text-center">
@@ -384,10 +375,11 @@ const ConsumoDetailsModal = ({
                           setCurrentPage(Math.max(1, currentPage - 1))
                         }
                         disabled={currentPage === 1}
-                        className={`p-2 rounded-lg ${currentPage === 1
-                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                          : "bg-white text-gray-700 hover:bg-blue-50 border border-gray-300"
-                          }`}
+                        className={`p-2 rounded-lg ${
+                          currentPage === 1
+                            ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                            : "bg-white text-gray-700 hover:bg-blue-50 border border-gray-300"
+                        }`}
                       >
                         <FiChevronLeft />
                       </button>
@@ -401,10 +393,11 @@ const ConsumoDetailsModal = ({
                           setCurrentPage(Math.min(totalPages, currentPage + 1))
                         }
                         disabled={currentPage === totalPages}
-                        className={`p-2 rounded-lg ${currentPage === totalPages
-                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                          : "bg-white text-gray-700 hover:bg-blue-50 border border-gray-300"
-                          }`}
+                        className={`p-2 rounded-lg ${
+                          currentPage === totalPages
+                            ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                            : "bg-white text-gray-700 hover:bg-blue-50 border border-gray-300"
+                        }`}
                       >
                         <FiChevronRight />
                       </button>
@@ -432,7 +425,7 @@ const ConsumoDetailsModal = ({
   );
 };
 
-// Componente Principal ConsumptionPieChart (mantenido exactamente igual)
+// Componente Principal ConsumptionPieChart - CORREGIDO
 const ConsumptionPieChart = ({
   faenaSeleccionada = "todas",
   fechaDesde,
@@ -440,23 +433,40 @@ const ConsumptionPieChart = ({
   horaDesde,
   horaHasta,
   refreshKey = 0,
+  onCategoriesLoad = null,
+  chartColors = [
+    "#f97316", // orange-500
+    "#3b82f6", // blue-500
+    "#10b981", // emerald-500
+    "#f59e0b", // amber-500
+    "#8b5cf6", // violet-500
+    "#ef4444", // red-500
+    "#06b6d4", // cyan-500
+    "#84cc16", // lime-500
+    "#f43f5e", // rose-500
+    "#6366f1", // indigo-500
+    "#64748b", // slate-500
+  ],
+  // 🎨 NUEVAS PROPS PARA MANEJAR COLORES CONSISTENTES
+  getColorForCategory = null, // Función para obtener color por categoría
+  coloresMapeados = {}, // Mapeo de colores del componente padre
 }) => {
   const [categorias, setCategorias] = useState([]);
   const [maquinas, setMaquinas] = useState([]);
   const [selectedCategoria, setSelectedCategoria] = useState(null);
-  const [viewMode, setViewMode] = useState("categorias"); // 'categorias' o 'maquinas'
+  const [viewMode, setViewMode] = useState("categorias");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [totalConsumo, setTotalConsumo] = useState(0);
   const [fechaActualizacion, setFechaActualizacion] = useState(null);
 
-  // 🆕 ESTADOS PARA MODALES
+  // Estados para modales
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedCategoriaForDetails, setSelectedCategoriaForDetails] =
     useState(null);
   const [showEnhancedModal, setShowEnhancedModal] = useState(false);
 
-  // 🔑 IGUAL QUE TopEquiposChart: useRef para filtros
+  // useRef para filtros
   const isMounted = useRef(true);
   const initialLoadDone = useRef(false);
   const prevFilters = useRef({
@@ -466,21 +476,40 @@ const ConsumptionPieChart = ({
     refreshKey,
   });
 
-  // Colores para el piechart
-  const COLORS = [
-    "#f97316", // Orange-500 (principal)
-    "#3b82f6", // Blue-500
-    "#10b981", // Emerald-500
-    "#f59e0b", // Amber-500
-    "#8b5cf6", // Violet-500
-    "#ef4444", // Red-500
-    "#06b6d4", // Cyan-500
-    "#84cc16", // Lime-500
-    "#f43f5e", // Rose-500
-    "#6366f1", // Indigo-500
-  ];
+  // 🎨 FUNCIÓN MEJORADA PARA OBTENER COLORES
+  const getColorForIndex = (item, index) => {
+    const categoryName = item.nombre || item.name || "Sin categoría";
+    
+    // 1. Usar la función del padre si está disponible
+    if (getColorForCategory && typeof getColorForCategory === 'function') {
+      const color = getColorForCategory(categoryName);
+      console.log(`🎨 Color desde función padre para "${categoryName}": ${color}`);
+      return color;
+    }
+    
+    // 2. Usar el mapeo de colores del padre si está disponible
+    if (coloresMapeados && Object.keys(coloresMapeados).length > 0) {
+      const mappedColor = coloresMapeados[categoryName];
+      if (mappedColor) {
+        console.log(`🎨 Color desde mapeo para "${categoryName}": ${mappedColor}`);
+        return mappedColor;
+      }
+    }
+    
+    // 3. Fallback al array de colores
+    const fallbackColor = chartColors[index % chartColors.length];
+    console.log(`🎨 Color fallback para "${categoryName}": ${fallbackColor}`);
+    return fallbackColor;
+  };
 
-  // 🔑 IGUAL QUE TopEquiposChart: Función para verificar cambios de filtros
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  // Función para verificar cambios de filtros
   const filtersChanged = () => {
     const prevF = prevFilters.current;
     const changed =
@@ -490,7 +519,6 @@ const ConsumptionPieChart = ({
       prevF.refreshKey !== refreshKey ||
       !initialLoadDone.current;
 
-    // Actualizar los filtros previos
     prevFilters.current = {
       faenaSeleccionada,
       fechaDesde,
@@ -503,119 +531,84 @@ const ConsumptionPieChart = ({
   // Datos actuales según el modo de vista
   const currentData = viewMode === "categorias" ? categorias : maquinas;
 
-  // 🆕 CALCULAR TOTAL DINÁMICO BASADO EN LOS DATOS ACTUALES
+  // Calcular total dinámico
   const totalActual = currentData.reduce((sum, item) => sum + item.value, 0);
 
-  // 🆕 FUNCIÓN PARA OBTENER EL TÍTULO DINÁMICO
-  const getTitleText = () => {
-    if (viewMode === "categorias") {
-      return "Total General";
-    } else {
-      return selectedCategoria?.nombre || "Total Categoría";
-    }
-  };
-
-  useEffect(() => {
-    isMounted.current = true;
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
-
-  // 🚀 Función optimizada para mostrar TODAS las etiquetas en espacio limitado
+  // Función optimizada para mostrar etiquetas
   const renderCustomLabel = (props) => {
-    const { cx, cy, midAngle, innerRadius, outerRadius, percent, index, payload } = props;
+    const {
+      cx,
+      cy,
+      midAngle,
+      innerRadius,
+      outerRadius,
+      percent,
+      index,
+      payload,
+    } = props;
 
-    // Mostrar TODAS las etiquetas, incluso las muy pequeñas
-    if (percent < 0.003) return null; // Solo ocultar si es menor a 0.3%
+    if (percent < 0.003) return null;
 
     const RADIAN = Math.PI / 180;
+    const normalizedAngle = ((((midAngle * 180) / Math.PI) % 360) + 360) % 360;
 
-    // Determinar posición angular
-    const normalizedAngle = ((midAngle * 180 / Math.PI) % 360 + 360) % 360;
-
-    console.log(`Segmento ${index}: ${payload?.nombre || payload?.name} - ${(percent * 100).toFixed(2)}% - Ángulo: ${normalizedAngle.toFixed(2)}°`);
-
-    // 🎯 ESTRATEGIA DE DISTRIBUCIÓN MEJORADA
     let labelDistance, labelOffset;
 
-    // 🔧 SOLUCIÓN PARA SEGMENTOS GRANDES: Darles más distancia para evitar solapamiento
-    if (percent > 0.50) {
-      // Segmentos MUY grandes: MÁS lejos para que no interfieran con otros
-      labelDistance = outerRadius + 60; // Era 45, ahora 60
-      labelOffset = 25; // Era 20, ahora 25
+    if (percent > 0.5) {
+      labelDistance = outerRadius + 60;
+      labelOffset = 25;
     } else if (percent > 0.15) {
-      // Segmentos grandes: distancia media-alta
-      labelDistance = outerRadius + 60; // Era 35, ahora 50
-      labelOffset = 10; // Era 15, ahora 20
+      labelDistance = outerRadius + 60;
+      labelOffset = 10;
     } else if (percent > 0.08) {
-      // Segmentos medianos: distancia media
-      labelDistance = outerRadius + 45; // Nueva categoría
+      labelDistance = outerRadius + 45;
       labelOffset = 18;
     } else {
-      // Segmentos pequeños: la mayor distancia para evitar solapamiento
-      labelDistance = outerRadius + 40; // Mantener 65 para pequeños
-      labelOffset = 12; // Era 20, ahora 22
+      labelDistance = outerRadius + 40;
+      labelOffset = 12;
     }
 
-    // 📐 Calcular posición base
     const baseX = cx + labelDistance * Math.cos(-midAngle * RADIAN);
     const baseY = cy + labelDistance * Math.sin(-midAngle * RADIAN);
 
-    // 🔄 DISTRIBUCIÓN ESPECIAL PARA SEGMENTOS MUY PEQUEÑOS
     let finalX = baseX;
     let finalY = baseY;
     let useSpecialLine = false;
 
-    // 🆕 MEJORA: Solo usar líneas especiales para segmentos REALMENTE pequeños
-    if (percent < 0.03) { // Era 0.04, ahora 0.03 - más restrictivo
+    if (percent < 0.03) {
       useSpecialLine = true;
+      const levelHeight = 30;
+      const horizontalOffset = 50;
+      const level = index % 3;
+      const baseLevel = cy - 80;
 
-      // Crear niveles horizontales para evitar solapamiento
-      const levelHeight = 30; // Era 25, ahora 30 - más separación
-      const horizontalOffset = 50; // Era 40, ahora 50 - más distancia horizontal
+      finalY = baseLevel + level * levelHeight;
 
-      // Determinar en qué nivel colocar esta etiqueta
-      const level = index % 3; // Máximo 3 niveles
-      const baseLevel = cy - 80; // Era -60, ahora -80 - más arriba
-
-      // Calcular posición final
-      finalY = baseLevel + (level * levelHeight);
-
-      // Determinar lado (izquierda o derecha del círculo)
       if (baseX < cx) {
-        // Lado izquierdo
-        finalX = cx - outerRadius - horizontalOffset - (level * 15); // Era 10, ahora 15
+        finalX = cx - outerRadius - horizontalOffset - level * 15;
       } else {
-        // Lado derecho  
-        finalX = cx + outerRadius + horizontalOffset + (level * 15); // Era 10, ahora 15
+        finalX = cx + outerRadius + horizontalOffset + level * 15;
       }
     }
 
-    // 🆕 AJUSTE ESPECIAL PARA ETIQUETAS EN LA PARTE INFERIOR
-    // Detectar si la etiqueta está en la parte inferior del círculo
     const isBottomRegion = normalizedAngle > 180 && normalizedAngle < 360;
-    const isLargeSegment = percent > 0.30;
+    const isLargeSegment = percent > 0.3;
 
     if (isBottomRegion && !useSpecialLine) {
       if (isLargeSegment) {
-        labelDistance = labelDistance + 15; // aumentar distancia
+        labelDistance = labelDistance + 15;
         finalX = cx + labelDistance * Math.cos(-midAngle * RADIAN);
-        finalY = cy + labelDistance * Math.sin(-midAngle * RADIAN) + 20; // desplazar hacia abajo
+        finalY = cy + labelDistance * Math.sin(-midAngle * RADIAN) + 20;
       } else {
         finalX = cx + labelDistance * Math.cos(-midAngle * RADIAN);
         finalY = cy + labelDistance * Math.sin(-midAngle * RADIAN) + 10;
       }
     }
 
-
-    // 🆕 PREVENCIÓN DE SOLAPAMIENTO INTELIGENTE
-    // Para segmentos grandes, asegurar separación mínima
-    if (percent > 0.40 && !useSpecialLine) {
+    if (percent > 0.4 && !useSpecialLine) {
       const minSeparation = 25;
-      // Ajustar posición según el índice para evitar solapamiento
       if (isBottomRegion) {
-        finalY = finalY + (index * minSeparation * 0.3);
+        finalY = finalY + index * minSeparation * 0.3;
       }
     }
 
@@ -623,18 +616,15 @@ const ConsumptionPieChart = ({
     const y = finalY;
     const isLeftSide = x < cx;
 
-    // Truncado inteligente con soporte para múltiples líneas
     let displayName, secondLine = null;
-    const maxLength = 22; // Máximo 12 caracteres por línea
+    const maxLength = 22;
 
-    // 🔧 OBTENER DATOS
-    const itemName = payload?.nombre || payload?.name || 'Sin nombre';
+    const itemName = payload?.nombre || payload?.name || "Sin nombre";
     const itemValue = payload?.value || 0;
 
     if (itemName.length > maxLength) {
-      // Buscar un buen punto de corte (preferiblemente un espacio)
       let breakPoint = maxLength;
-      const spaceIndex = itemName.substring(0, maxLength + 3).lastIndexOf(' ');
+      const spaceIndex = itemName.substring(0, maxLength + 3).lastIndexOf(" ");
 
       if (spaceIndex > maxLength - 3 && spaceIndex < maxLength + 3) {
         breakPoint = spaceIndex;
@@ -643,7 +633,6 @@ const ConsumptionPieChart = ({
       displayName = itemName.substring(0, breakPoint);
       const remaining = itemName.substring(breakPoint).trim();
 
-      // Si queda texto, crear segunda línea (máximo 15 caracteres más)
       if (remaining.length > 0) {
         secondLine = remaining.length > 8 ? `${remaining.substring(0, 15)}` : remaining;
       }
@@ -651,32 +640,28 @@ const ConsumptionPieChart = ({
       displayName = itemName;
     }
 
-    // 📍 LÍNEA CONECTORA CON FORMA "L" PARA SEGMENTOS PEQUEÑOS
     const startX = cx + (outerRadius - 1) * Math.cos(-midAngle * RADIAN);
     const startY = cy + (outerRadius - 1) * Math.sin(-midAngle * RADIAN);
 
     let linePath;
 
     if (useSpecialLine) {
-      // Línea en forma de "L" para segmentos muy pequeños
       const intermediateX = startX;
-      const intermediateY = y; // Subir verticalmente hasta el nivel de la etiqueta
-      const endX = x - (isLeftSide ? 8 : -8); // Punto antes de llegar a la etiqueta
+      const intermediateY = y;
+      const endX = x - (isLeftSide ? 8 : -8);
 
       linePath = `M ${startX} ${startY} L ${x - (isLeftSide ? 8 : 5)} ${intermediateY} L ${endX} ${intermediateY}`;
     } else {
-      // Línea simple y directa para otros segmentos
       linePath = `M ${startX} ${startY} L ${x} ${y}`;
     }
 
-    // 🎨 COLORES Y ESTILOS OPTIMIZADOS
+    // 🎨 USAR COLOR CONSISTENTE
     const textColor = "#1f2937";
-    const percentColor = COLORS[index % COLORS.length];
+    const percentColor = getColorForIndex(payload, index);
     const lineColor = percent < 0.013 ? percentColor : "#6b7280";
 
     return (
       <g>
-        {/* 🔗 Línea conectora (simple o en "L") */}
         <path
           d={linePath}
           stroke={lineColor}
@@ -685,60 +670,54 @@ const ConsumptionPieChart = ({
           fill="none"
         />
 
-        {/* 🎯 Punto de conexión al final de la línea */}
         <circle
-          cx={useSpecialLine ? (x - (isLeftSide ? 8 : -8)) : x}
+          cx={useSpecialLine ? x - (isLeftSide ? 8 : -8) : x}
           cy={y}
           r={percent > 0.1 ? 3 : 2}
           fill={percentColor}
           opacity={0.9}
         />
 
-        {/* 📦 Fondo para etiquetas pequeñas con línea en "L" */}
         {useSpecialLine && (
           <rect
-            x={x + (isLeftSide ? -50 : -5)} // Era -45, ahora -50
-            y={y - 20} // Era -18, ahora -20
-            width={55} // Era 50, ahora 55
-            height={35} // Era 30, ahora 35
+            x={x + (isLeftSide ? -50 : -5)}
+            y={y - 20}
+            width={55}
+            height={35}
             fill="rgba(255, 255, 255, 0.95)"
             stroke="#e5e7eb"
             strokeWidth={0.5}
             rx={3}
-            opacity={0.1} // Mantener muy sutil
+            opacity={0.1}
           />
         )}
 
-        {/* 📦 Fondo sutil para otras etiquetas pequeñas */}
         {!useSpecialLine && percent < 0.06 && (
           <rect
-            x={x + (isLeftSide ? -labelOffset - 40 : labelOffset - 5)} // Era -35, ahora -40
-            y={y - 22} // Era -20, ahora -22
-            width={45} // Era 40, ahora 45
-            height={40} // Era 35, ahora 40
+            x={x + (isLeftSide ? -labelOffset - 40 : labelOffset - 5)}
+            y={y - 22}
+            width={45}
+            height={40}
             fill="rgba(255, 255, 255, 0.9)"
             stroke="#e5e7eb"
             strokeWidth={0.5}
             rx={3}
-            opacity={0.1} // Mantener muy sutil
+            opacity={0.1}
           />
         )}
 
-        {/* 📝 Nombre de la categoría con soporte para múltiples líneas */}
         <text
           x={x + (isLeftSide ? -labelOffset : labelOffset)}
-          y={y - (secondLine ? 8 : 4)} // Ajustar posición si hay segunda línea
-          textAnchor={isLeftSide ? 'end' : 'start'}
+          y={y - (secondLine ? 8 : 4)}
+          textAnchor={isLeftSide ? "end" : "start"}
           dominantBaseline="central"
           fill={textColor}
-          fontSize={useSpecialLine ? "15" : (percent > 0.1 ? "15" : percent > 0.05 ? "15" : "15")}
+          fontSize={useSpecialLine ? "15" : percent > 0.1 ? "15" : percent > 0.05 ? "15" : "15"}
           fontWeight="650"
         >
-          {/* Primera línea */}
           <tspan x={x + (isLeftSide ? -labelOffset : labelOffset)} dy="0">
             {displayName}
           </tspan>
-          {/* Segunda línea si existe */}
           {secondLine && (
             <tspan x={x + (isLeftSide ? -labelOffset : labelOffset)} dy="12">
               {secondLine}
@@ -746,42 +725,39 @@ const ConsumptionPieChart = ({
           )}
         </text>
 
-        {/* 📊 Porcentaje - POSICIÓN BASE HORIZONTAL */}
         <text
           x={x + (isLeftSide ? -labelOffset : labelOffset)}
-          y={y + (secondLine ? 19 : 9)} // Misma Y base para porcentaje y litros
-          textAnchor={isLeftSide ? 'end' : 'start'}
+          y={y + (secondLine ? 19 : 9)}
+          textAnchor={isLeftSide ? "end" : "start"}
           dominantBaseline="central"
           fill={percentColor}
-          fontSize={useSpecialLine ? "10" : (percent > 0.1 ? "11" : percent > 0.05 ? "10" : "10")}
+          fontSize={useSpecialLine ? "10" : percent > 0.1 ? "11" : percent > 0.05 ? "10" : "10"}
           fontWeight="700"
         >
           {(percent * 100).toFixed(1)}%
         </text>
 
-        {/* 💧 Valor en litros - SEPARACIÓN HORIZONTAL PARA ETIQUETAS NORMALES */}
         {!useSpecialLine && (
           <text
-            x={x + (isLeftSide ? -labelOffset - 40 : labelOffset + 40)} // ← SEPARACIÓN HORIZONTAL: ±50 píxeles
-            y={y + (secondLine ? 19 : 9)} // ← MISMA Y QUE EL PORCENTAJE
-            textAnchor={isLeftSide ? 'end' : 'start'}
+            x={x + (isLeftSide ? -labelOffset - 40 : labelOffset + 40)}
+            y={y + (secondLine ? 19 : 9)}
+            textAnchor={isLeftSide ? "end" : "start"}
             dominantBaseline="central"
             fill="#6b7280"
-            fontSize={useSpecialLine ? "11" : (percent > 0.1 ? "11" : percent > 0.05 ? "10" : "9")}
+            fontSize={useSpecialLine ? "11" : percent > 0.1 ? "11" : percent > 0.05 ? "10" : "9"}
             fontWeight="700"
           >
-            {itemValue >= 1000 ?
-              `${(itemValue / 1000).toFixed(1)}k L` :
-              `${Math.round(itemValue)} L`}
+            {itemValue >= 1000
+              ? `${(itemValue / 1000).toFixed(1)}k L`
+              : `${Math.round(itemValue)} L`}
           </text>
         )}
 
-        {/* 💧 Valor en litros - SEPARACIÓN HORIZONTAL PARA LÍNEAS EN "L" */}
         {useSpecialLine && (
           <text
-            x={x + (isLeftSide ? -labelOffset - 20 : labelOffset + 30)} // ← MISMA SEPARACIÓN HORIZONTAL
-            y={y + (secondLine ? 19 : 9)} // ← MISMA Y QUE EL PORCENTAJE
-            textAnchor={isLeftSide ? 'end' : 'start'}
+            x={x + (isLeftSide ? -labelOffset - 20 : labelOffset + 30)}
+            y={y + (secondLine ? 19 : 9)}
+            textAnchor={isLeftSide ? "end" : "start"}
             dominantBaseline="central"
             fill="#6b7280"
             fontSize="10"
@@ -794,26 +770,7 @@ const ConsumptionPieChart = ({
     );
   };
 
-  // 🎯 Función auxiliar para calcular distribución óptima hacia arriba
-  const optimizeLabelPositions = (data) => {
-    return data.map((item, index) => {
-      const baseAngle = (item.startAngle + item.endAngle) / 2;
-      const percent = (item.endAngle - item.startAngle) / (2 * Math.PI);
-
-      // Normalizar ángulo para determinar posición
-      const normalizedAngle = ((baseAngle * 180 / Math.PI) % 360 + 360) % 360;
-      const isUpperRegion = normalizedAngle > 135 && normalizedAngle < 225;
-
-      return {
-        ...item,
-        optimizedAngle: baseAngle,
-        labelTier: percent > 0.15 ? 1 : percent > 0.08 ? 2 : 3,
-        priority: percent,
-        preferUpward: isUpperRegion && percent < 0.1 // Marcar para mover hacia arriba
-      };
-    });
-  };
-  // 🔑 CARGAR DATOS DE CATEGORÍAS con nueva API que incluye internas + externas
+  // Cargar datos de categorías
   const cargarDatosCategorias = async () => {
     if (!isMounted.current) return;
 
@@ -821,7 +778,6 @@ const ConsumptionPieChart = ({
       setLoading(true);
       setError(null);
 
-      // 🔑 IGUAL QUE TopEquiposChart: Validaciones
       if (!fechaDesde || !fechaHasta) {
         setError("Por favor, seleccione un rango de fechas válido.");
         setCategorias([]);
@@ -836,30 +792,23 @@ const ConsumptionPieChart = ({
         return;
       }
 
-      console.log(
-        "ConsumptionPieChart: Llamando con MISMOS FILTROS que TopEquiposChart:",
-        {
-          faenaSeleccionada,
-          fechaDesde,
-          fechaHasta,
-        }
-      );
+      console.log("🎨 ConsumptionPieChart: Cargando con colores:", {
+        coloresMapeados: Object.keys(coloresMapeados).length,
+        getColorForCategory: !!getColorForCategory,
+      });
 
-      // 🆕 USAR TU API ACTUALIZADA con internas + externas
       const requestBody = {
         fecha_inicio: fechaDesde,
         fecha_fin: fechaHasta,
         modo: "categorias",
       };
 
-      // 🔑 FILTRO DE FAENA igual que TopEquiposChart
       if (faenaSeleccionada && faenaSeleccionada !== "todas") {
         requestBody.id_faena = faenaSeleccionada;
       }
 
       console.log("ConsumptionPieChart: Request body enviado:", requestBody);
 
-      // 🆕 LLAMAR A TU API de categorías ACTUALIZADA
       const response = await axios.post(
         "/api/categorias-chart/categorias",
         requestBody
@@ -867,31 +816,28 @@ const ConsumptionPieChart = ({
 
       console.log("ConsumptionPieChart: Respuesta completa:", response.data);
 
-      // Solo actualizar el estado si el componente sigue montado
       if (!isMounted.current) return;
 
-      // 🆕 PROCESAR RESPUESTA con nuevos campos de internas/externas
       if (response.data && response.data.success && response.data.categorias) {
         const formattedData = response.data.categorias
           .map((item) => ({
             id: item.id,
             nombre: item.name || item.nombre || "Sin categoría",
-            name: item.name || item.nombre || "Sin categoría", // Para compatibilidad con el gráfico
+            name: item.name || item.nombre || "Sin categoría",
             value: Math.round((item.value || 0) * 100) / 100,
             maquinas_count: item.maquinas_count || 0,
-            maquinas_internas: item.maquinas_internas || 0, // 🆕 NUEVO
-            maquinas_externas: item.maquinas_externas || 0, // 🆕 NUEVO
+            maquinas_internas: item.maquinas_internas || 0,
+            maquinas_externas: item.maquinas_externas || 0,
             tipo_medicion: item.tipo_medicion,
             promedio_consumo: item.promedio_consumo || 0,
             total_registros: item.total_registros || 0,
           }))
-          .filter((item) => item.value > 0) // Solo categorías con consumo
-          .sort((a, b) => b.value - a.value); // 🔑 IGUAL QUE TopEquiposChart: ordenar desc
+          .filter((item) => item.value > 0)
+          .sort((a, b) => b.value - a.value);
 
         console.log("🔍 DATOS FORMATEADOS CON NOMBRES:", formattedData);
         setCategorias(formattedData);
 
-        // 🆕 CALCULAR TOTALES igual que TopEquiposChart
         const metadata = response.data.resumen || response.data.metadata;
         const total =
           metadata?.total_consumo_litros ||
@@ -899,9 +845,17 @@ const ConsumptionPieChart = ({
 
         setTotalConsumo(total);
         setFechaActualizacion(new Date());
-
-        // 🔑 IGUAL QUE TopEquiposChart: marcar como cargado
         initialLoadDone.current = true;
+
+        // 🎨 NOTIFICAR AL PADRE SOLO SI NO HAY COLORES MAPEADOS
+        if (onCategoriesLoad && typeof onCategoriesLoad === "function") {
+          if (Object.keys(coloresMapeados).length === 0) {
+            console.log("🎨 ConsumptionPieChart: Notificando categorías al padre para asignar colores");
+            onCategoriesLoad(formattedData);
+          } else {
+            console.log("🎨 ConsumptionPieChart: Usando colores ya mapeados del padre");
+          }
+        }
 
         console.log("ConsumptionPieChart: Datos formateados:", formattedData);
         console.log("ConsumptionPieChart: Total:", total);
@@ -924,7 +878,7 @@ const ConsumptionPieChart = ({
     }
   };
 
-  // 🆕 CARGAR MÁQUINAS con datos de internas + externas
+  // Cargar máquinas por categoría
   const cargarMaquinasPorCategoria = async (categoria) => {
     if (!isMounted.current) return;
 
@@ -932,25 +886,19 @@ const ConsumptionPieChart = ({
       setLoading(true);
       setError(null);
 
-      console.log(
-        "ConsumptionPieChart: Cargando máquinas para categoría:",
-        categoria
-      );
+      console.log("ConsumptionPieChart: Cargando máquinas para categoría:", categoria);
 
-      // 🆕 USAR TU API con MISMOS FILTROS que TopEquiposChart
       const requestBody = {
         fecha_inicio: fechaDesde,
         fecha_fin: fechaHasta,
       };
 
-      // 🔑 FILTRO DE FAENA igual que TopEquiposChart
       if (faenaSeleccionada && faenaSeleccionada !== "todas") {
         requestBody.id_faena = faenaSeleccionada;
       }
 
       console.log("ConsumptionPieChart: Request para máquinas:", requestBody);
 
-      // 🆕 LLAMAR A TU API para máquinas por categoría ACTUALIZADA
       const response = await axios.post(
         `/api/categorias-chart/categorias/${categoria.id}/maquinas`,
         requestBody
@@ -965,16 +913,16 @@ const ConsumptionPieChart = ({
           .map((maquina) => ({
             id: maquina.id,
             nombre: maquina.name || maquina.nombre || "Sin nombre",
-            name: maquina.name || maquina.nombre || "Sin nombre", // Para compatibilidad con el gráfico
+            name: maquina.name || maquina.nombre || "Sin nombre",
             patente: maquina.patente || "S/P",
             value: Math.round((maquina.value || 0) * 100) / 100,
             estado: maquina.estado,
-            tipo_maquina: maquina.tipo_maquina || "N/A", // 🆕 NUEVO: Interna/Externa
+            tipo_maquina: maquina.tipo_maquina || "N/A",
             promedio_consumo: maquina.promedio_consumo || 0,
             total_registros: maquina.total_registros || 0,
           }))
           .filter((item) => item.value > 0)
-          .sort((a, b) => b.value - a.value); // 🔑 IGUAL QUE TopEquiposChart: ordenar desc
+          .sort((a, b) => b.value - a.value);
 
         console.log("🔍 MÁQUINAS FORMATEADAS CON NOMBRES:", maquinasData);
         setMaquinas(maquinasData);
@@ -998,16 +946,15 @@ const ConsumptionPieChart = ({
     }
   };
 
-  // 🔑 IGUAL QUE TopEquiposChart: Effect para cargar datos cuando cambian filtros
+  // Effect para cargar datos cuando cambian filtros
   useEffect(() => {
     if (filtersChanged()) {
       cargarDatosCategorias();
-      // Reset al modo de categorías cuando cambian los filtros
       setViewMode("categorias");
       setSelectedCategoria(null);
       setMaquinas([]);
     }
-  }, [faenaSeleccionada, fechaDesde, fechaHasta, refreshKey]); // 🔑 MISMOS DEPS que TopEquiposChart
+  }, [faenaSeleccionada, fechaDesde, fechaHasta, refreshKey]);
 
   // Función para manejar click en categoría
   const handleCategoriaClick = async (data) => {
@@ -1023,7 +970,7 @@ const ConsumptionPieChart = ({
     setViewMode("categorias");
   };
 
-  // 🔑 IGUAL QUE TopEquiposChart: Función para reintentar
+  // Función para reintentar
   const handleRetry = () => {
     setError(null);
     if (viewMode === "categorias") {
@@ -1033,7 +980,7 @@ const ConsumptionPieChart = ({
     }
   };
 
-  // 🆕 FUNCIONES PARA MOSTRAR MODALES
+  // Funciones para mostrar modales
   const handleShowDetails = (categoria) => {
     setSelectedCategoriaForDetails(categoria);
     setShowDetailsModal(true);
@@ -1044,13 +991,12 @@ const ConsumptionPieChart = ({
     setShowEnhancedModal(true);
   };
 
-  // 🆕 TOOLTIP MEJORADO con información de internas/externas
+  // Tooltip mejorado
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       const total = currentData.reduce((sum, item) => sum + item.value, 0);
-      const percentage =
-        total > 0 ? ((data.value / total) * 100).toFixed(1) : 0;
+      const percentage = total > 0 ? ((data.value / total) * 100).toFixed(1) : 0;
 
       return (
         <div className="bg-white p-3 border border-gray-300 rounded-lg shadow-lg">
@@ -1097,7 +1043,7 @@ const ConsumptionPieChart = ({
     return null;
   };
 
-  // 🔑 IGUAL QUE TopEquiposChart: Estados de carga y error
+  // Estados de carga y error
   if (loading) {
     return (
       <div className="h-96 flex items-center justify-center bg-gray-50 rounded-lg">
@@ -1142,7 +1088,7 @@ const ConsumptionPieChart = ({
 
   return (
     <>
-      {/* 🆕 MODAL DE DETALLES ORIGINAL */}
+      {/* Modales */}
       <ConsumoDetailsModal
         isOpen={showDetailsModal}
         onClose={() => setShowDetailsModal(false)}
@@ -1152,7 +1098,6 @@ const ConsumptionPieChart = ({
         faenaSeleccionada={faenaSeleccionada}
       />
 
-      {/* 🆕 MODAL MEJORADO CON TENDENCIAS */}
       <EnhancedConsumoDetailsModal
         isOpen={showEnhancedModal}
         onClose={() => setShowEnhancedModal(false)}
@@ -1208,7 +1153,7 @@ const ConsumptionPieChart = ({
                   {currentData.map((entry, index) => (
                     <Cell
                       key={`cell-${index}`}
-                      fill={COLORS[index % COLORS.length]}
+                      fill={getColorForIndex(entry, index)} // 🎨 USAR FUNCIÓN CONSISTENTE
                       stroke="#fff"
                       strokeWidth={3}
                     />
@@ -1216,7 +1161,6 @@ const ConsumptionPieChart = ({
                 </Pie>
                 <Tooltip content={<CustomTooltip />} />
 
-                {/* 🆕 TEXTO CENTRAL SOLO CON EL NÚMERO */}
                 <text
                   x="48%"
                   y="48%"
@@ -1232,10 +1176,10 @@ const ConsumptionPieChart = ({
             </ResponsiveContainer>
           </div>
 
-          {/* Tabla de datos - MÁS ANCHA */}
+          {/* Tabla de datos */}
           <div className="lg:col-span-2 overflow-hidden">
             <h3 className="text-lg font-semibold mb-3">Detalle de Consumo</h3>
-            <div className="max-h-95  overflow-y-auto border border-gray-200 rounded">
+            <div className="max-h-95 overflow-y-auto border border-gray-200 rounded">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
@@ -1267,8 +1211,9 @@ const ConsumptionPieChart = ({
                     return (
                       <tr
                         key={item.id || index}
-                        className={`border-b border-gray-100 hover:bg-gray-50 ${viewMode === "categorias" ? "cursor-pointer" : ""
-                          }`}
+                        className={`border-b border-gray-100 hover:bg-gray-50 ${
+                          viewMode === "categorias" ? "cursor-pointer" : ""
+                        }`}
                         onClick={
                           viewMode === "categorias"
                             ? () => handleCategoriaClick(item)
@@ -1280,7 +1225,7 @@ const ConsumptionPieChart = ({
                             <div
                               className="w-3 h-3 rounded-full mr-2 flex-shrink-0"
                               style={{
-                                backgroundColor: COLORS[index % COLORS.length],
+                                backgroundColor: getColorForIndex(item, index), // 🎨 USAR FUNCIÓN CONSISTENTE
                               }}
                             ></div>
                             <span className="font-medium">{item.nombre}</span>
@@ -1292,10 +1237,11 @@ const ConsumptionPieChart = ({
                         {viewMode === "maquinas" && (
                           <td className="p-2 text-center">
                             <span
-                              className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${item.tipo_maquina === "Interna"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-purple-100 text-purple-800"
-                                }`}
+                              className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                item.tipo_maquina === "Interna"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-purple-100 text-purple-800"
+                              }`}
                             >
                               {item.tipo_maquina === "Interna" ? "🏢" : "🏭"}{" "}
                               {item.tipo_maquina}
@@ -1316,29 +1262,28 @@ const ConsumptionPieChart = ({
                               </span>
                               {(item.maquinas_internas !== undefined ||
                                 item.maquinas_externas !== undefined) && (
-                                  <div className="mt-1 space-y-0.5">
-                                    {item.maquinas_internas !== undefined && (
-                                      <div className="text-green-600">
-                                        🏢 {item.maquinas_internas || 0}
-                                      </div>
-                                    )}
-                                    {item.maquinas_externas !== undefined && (
-                                      <div className="text-purple-600">
-                                        🏭 {item.maquinas_externas || 0}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
+                                <div className="mt-1 space-y-0.5">
+                                  {item.maquinas_internas !== undefined && (
+                                    <div className="text-green-600">
+                                      🏢 {item.maquinas_internas || 0}
+                                    </div>
+                                  )}
+                                  {item.maquinas_externas !== undefined && (
+                                    <div className="text-purple-600">
+                                      🏭 {item.maquinas_externas || 0}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </td>
                         )}
-                        {/* 🆕 NUEVA COLUMNA DE ACCIONES PARA CATEGORÍAS CON AMBOS BOTONES */}
                         {viewMode === "categorias" && (
                           <td className="p-2 text-center">
                             <div className="flex flex-col gap-1">
                               <button
                                 onClick={(e) => {
-                                  e.stopPropagation(); // Evitar que se active el click de la fila
+                                  e.stopPropagation();
                                   handleShowEnhancedDetails(item);
                                 }}
                                 className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs hover:bg-green-200 transition-colors flex items-center gap-1 justify-center"
@@ -1358,7 +1303,8 @@ const ConsumptionPieChart = ({
             </div>
           </div>
         </div>
-        {/* 🆕 INFORMACIÓN DEL PERÍODO - MOBILE FRIENDLY */}
+
+        {/* Información del período */}
         <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs sm:text-sm">
             <span className="text-gray-600">
@@ -1370,7 +1316,6 @@ const ConsumptionPieChart = ({
             </span>
           </div>
         </div>
-
       </div>
     </>
   );
