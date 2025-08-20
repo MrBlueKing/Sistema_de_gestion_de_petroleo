@@ -37,6 +37,7 @@ use App\Http\Controllers\Api\MaquinasExternasController;
 use App\Http\Controllers\Api\SolicitantesOptimizadoController;
 use App\Http\Controllers\Api\ConsumoCategoriasController;
 use App\Http\Controllers\Api\MaquinaPermisosController;
+use App\Http\Controllers\Api\RolController;
 use App\Http\Controllers\Api\TrasvasijeController;
 use App\Http\Controllers\ApiPdf\ConsumosPdfController;
 
@@ -85,6 +86,16 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/usuarios/recientes', [UserController::class, 'recientes']);
     Route::get('/user/{id}', [UserController::class, 'show']);
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | 🦖 Rol
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('/')->group(function () {
+        Route::get('/rol', [RolController::class, 'index']);
+    });
 
     /*
     |--------------------------------------------------------------------------
@@ -623,7 +634,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Estadísticas de máquinas y permisos
         Route::get('/estadisticas', [MaquinaPermisosController::class, 'estadisticas']);
-        
+
         // Obtener todas las faenas disponibles
         Route::get('/faenas', [MaquinaPermisosController::class, 'getFaenas']);
 

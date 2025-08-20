@@ -40,9 +40,12 @@ import Mantenimiento from "../pages/Mantencion/MenuPrincipalMantencion";
 import MenuPrincipalDistpach from "../pages/Distpach/MenuPrincipalDistpach";
 
 
-// ⚖️ Importaciones OperadorVehiculo (Toneladas)
+// Importaciones OperadorVehiculo 
 import OperadorVehiculo from "../pages/OperadorVehiculo/MenuPrincipalOperadorVehiculo";
 import FormularioOperador from "../components/templates/OperadorVehiculo/FormularioAsignacionVehiculo";
+
+// Importaciones AdministradorOperadorVehiculo
+import MenuPrincipalAdminOperador from "../pages/AdminOperador/MenuPrincipalAdminOperador";
 
 const AppRoutes = () => {
   return (
@@ -452,6 +455,20 @@ const AppRoutes = () => {
         }
       />
 
+
+      {/* 
+      |--------------------------------------------------------------------------
+      | 🔧 RUTAS DE ADMINISTRADOR DE OPERADOR DE VEHICULOS
+      |--------------------------------------------------------------------------
+      */}
+      <Route
+        path="/AdministradorOPeradorVehiculo"
+        element={
+          <PrivateRoute requiredRole="admin_operador">
+            <MenuPrincipalAdminOperador />
+          </PrivateRoute>
+        }
+      />
       {/* 
       |--------------------------------------------------------------------------
       | 🚫 RUTA 404 - NO ENCONTRADA

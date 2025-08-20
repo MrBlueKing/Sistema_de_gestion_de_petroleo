@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
         api: [
             __DIR__ . '/../routes/api.php',       // rutas API generales
             __DIR__ . '/../routes/api-chof.php',  // rutas para choferes
+            __DIR__ . '/../routes/api-adminOperador.php', // rutas para admin operador
         ],
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',

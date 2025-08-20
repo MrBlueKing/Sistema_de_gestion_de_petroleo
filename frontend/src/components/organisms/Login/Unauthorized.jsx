@@ -25,6 +25,15 @@ const Unauthorized = () => {
       case 'planificador':
         navigate('/Mantenimiento');
         break;
+      case 'OperadorVehiculo':
+        navigate('/OperadorVehiculo');
+        break;
+      case 'asistente_bombero':
+        navigate('/bombero');
+        break;
+      case 'admin_operador':
+        navigate('/administrador_operador');
+        break;
       default:
         navigate('/');
     }

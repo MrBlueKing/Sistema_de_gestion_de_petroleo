@@ -52,33 +52,33 @@ const UniversalHeader = ({
 
   // 🎨 CONFIGURACIÓN DE COLORES POR FAENA - ACTUALIZADA
   const FAENAS = {
-    1: { 
-      ubicacion: "Cabildo", 
-      detalle: "Región de Valparaíso", 
+    1: {
+      ubicacion: "Cabildo",
+      detalle: "Región de Valparaíso",
       color: "text-green-700",         // Para iconos de ubicación
       bgColor: "bg-green-700",         // Para fondos del perfil
       lightBg: "bg-green-100",         // Para fondos claros
       hex: "#708238"                   // Verde Oliva
     },
-    2: { 
-      ubicacion: "Catemu", 
-      detalle: "Región de Valparaíso", 
+    2: {
+      ubicacion: "Catemu",
+      detalle: "Región de Valparaíso",
       color: "text-yellow-600",        // Amarillo Mostaza
-      bgColor: "bg-yellow-600", 
+      bgColor: "bg-yellow-600",
       lightBg: "bg-yellow-100",
       hex: "#D4A017"
     },
-    3: { 
-      ubicacion: "Chincolco", 
-      detalle: "Región de Valparaíso", 
+    3: {
+      ubicacion: "Chincolco",
+      detalle: "Región de Valparaíso",
       color: "text-blue-700",          // Azul Piedra
       bgColor: "bg-blue-700",
-      lightBg: "bg-blue-100", 
+      lightBg: "bg-blue-100",
       hex: "#336699"
     },
-    4: { 
-      ubicacion: "Tiltil", 
-      detalle: "Región Metropolitana", 
+    4: {
+      ubicacion: "Tiltil",
+      detalle: "Región Metropolitana",
       color: "text-red-700",           // Rojo Arcilla
       bgColor: "bg-red-700",
       lightBg: "bg-red-100",
@@ -99,7 +99,7 @@ const UniversalHeader = ({
         hex: "#6B7280"
       };
     }
-    
+
     return {
       iconColor: faena.color,
       bgColor: faena.bgColor,
@@ -229,6 +229,20 @@ const UniversalHeader = ({
           spacerClass: "pt-14 md:pt-20",
           layout: "bombero" // ⭐ Usa el mismo layout que bombero
         };
+      case "AdminOperador":
+        return {
+          title: "Administrador Operadores de Vehículos",
+          mobileTitle: "Operador de\nVehículo",
+          hasTopBar: true,
+          hasSidebar: false,
+          isFixed: true,
+          showHomeButton: true,
+          homeRoute: "/AdministradorOPeradorVehiculo",
+          showNotifications: false,
+          headerHeight: "",
+          spacerClass: "pt-14 md:pt-20",
+          layout: "bombero" // ⭐ Usa el mismo layout que bombero
+        };
 
       case "dispatch":
         return {
@@ -306,9 +320,9 @@ const UniversalHeader = ({
         {config.showHomeButton && (
           <IconButton
             icono={
-              <FaHome 
-                size={18} 
-                className={`${getHomeIconColor()} md:w-5 md:h-5`} 
+              <FaHome
+                size={18}
+                className={`${getHomeIconColor()} md:w-5 md:h-5`}
               />
             }
             onClick={() => navigate(config.homeRoute || homeRoute)}
@@ -340,9 +354,9 @@ const UniversalHeader = ({
             {/* 🎨 UBICACIÓN CON COLOR DINÁMICO - SOLO PARA BOMBERO Y OPERADOR */}
             {(type === "bombero" || type === "operador") && faena && (
               <div className="flex items-center text-xs md:text-sm mt-0.5 md:mt-0">
-                <FaMapMarkerAlt 
-                  className={`${colors.iconColor} mr-1 flex-shrink-0`} 
-                  size={10} 
+                <FaMapMarkerAlt
+                  className={`${colors.iconColor} mr-1 flex-shrink-0`}
+                  size={10}
                 />
                 <span className="font-medium truncate">{faena.ubicacion}</span>
                 <span className="hidden md:inline text-gray-500 ml-1">• {faena.detalle}</span>

@@ -17,21 +17,22 @@ class CargaExterna extends Model
     protected $table = 'cargas_externas';
 
     protected $fillable = [
-                'id_user',
+        'id_user',
         'id_maquina',
         'numero_boleta',
         'litros',
         'costo',
         'precio_por_litro',
-        'id_faena',        
-        'ubicacion',       
+        'id_faena',
+        'ubicacion',
         'tipo_combustible',
         'observaciones',
         'estado',
         'aprobado_por',
         'fecha_aprobacion',
+        'fecha_aprobacion',
         'motivo_rechazo',
-        'medicion',       
+        'medicion',
     ];
 
     protected $casts = [

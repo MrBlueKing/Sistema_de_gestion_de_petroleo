@@ -92,12 +92,9 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - [Ready] Se mejoró la generación de PDF, añadiendo la opción de filtrado por faenas y la adaptación dinámica del ícono según la ubicación seleccionada.
 
-<<<<<<< HEAD
-=======
 - [Ready] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
 
 - [Queued] Rol de jefe de mina, bombero 2 y operador vehiculo.
->>>>>>> 78a2ee021db0d3e3a5caa0f6aa564769765fec93
 
 ### Changed
 
