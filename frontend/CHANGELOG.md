@@ -16,46 +16,63 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 - [Testing] = En fase de pruebas, pendiente de validación.
 - [Refactor] = Cambios internos que no afectan la funcionalidad.
 - [Ready] = Completado, probado y listo para entrar en la próxima versión estable
+
 ---
 
 ## [Unreleased]
 
 ### Added
+
 - [Testing] Encargado de Operaciones de Combustible: Se añadira un nuevo boton en el panel de control inicial, este boton tendra la funcionalidad de poder visualizar los consumos o trayectoria de las maquinas filtradas.
 
 - [Testing] ADMINISTRADOR: Se añadirá una nueva funcionalidad que permitirá una gestión más eficiente de los permisos asociados a las máquinas.
 
 - [Queued] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
+
 - [Queued] Rol de jefe de mina, bombero 2 y operador vehiculo.
 
-- [Testing] Encargado de Operaciones de Combustible: A traves de la solicitud de gerencia, ahora el rol "Encargado de Operaciones de Combustible" debe ser dividio en dos roles, manteniendo el rol "bombero" como rol principal y que tendra privilegios como realizar la recepcion de petroleo. mientras que el nuevo rol "asistente_bombero" sera restringido, solo pudiendo hacer ingresos de consumos.
+- [Ready] Encargado de Operaciones de Combustible: A traves de la solicitud de gerencia, ahora el rol "Encargado de Operaciones de Combustible" debe ser dividio en dos roles, manteniendo el rol "bombero" como rol principal y que tendra privilegios como realizar la recepcion de petroleo. mientras que el nuevo rol "asistente_bombero" sera restringido, solo pudiendo hacer ingresos de consumos.
+
+- [Ready] Se agregaron filtros por columnas y ordenamiento
+
+- [Testing] Agregar Hover para detalle de costo día / km. Para tendencia de más de un mes.
+
+- [Testing] Agregar graficos comparativos con periodos anteriores de consumo para la operación.
+
+- [Queued] Agregar graficos comparativos con periodos anteriores para consumos por Total / Faena/ Maquinas.
 
 ### Changed
-- [Testing] Encargado de Operaciones de Combustible: Anteriormente solo se mostraba la última medición registrada. Ahora se implementará un mini historial que muestre los dos últimos consumos, incluyendo la siguiente información: quién realizó el consumo, en qué lugar, cuánta cantidad se utilizó y cuándo ocurrió.
+
+- [Ready] Encargado de Operaciones de Combustible: Anteriormente solo se mostraba la última medición registrada. Ahora se implementará un mini historial que muestre los dos últimos consumos, incluyendo la siguiente información: quién realizó el consumo, en qué lugar, cuánta cantidad se utilizó y cuándo ocurrió.
 
 - [Planned] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
 
--[Testing] Mejorar visualización de gráficos de torta en Gerente: optimizar la distribución y legibilidad de los nombres de las máquinas.En Bombero: ajustar la presentación para mejorar la distribución y comprensión del consumo.
+-[ready] Mejorar visualización de gráficos de torta en Gerente: optimizar la distribución y legibilidad de los nombres de las máquinas.En Bombero: ajustar la presentación para mejorar la distribución y comprensión del consumo.
 
 ### Depecrated
-- Ninguno 
+
+- Ninguno
 
 ### Removed
-- [Testing] Gerente : Graficos.jsx --> Tabla --> Análisis por Máquina - ConsumoCategoriasController  --> La columna Valor Total, muestra abajo un valor de precio / l promedio, el cual es un valor repetido en la columna Precio Específico, por lo que se decide eliminar.
+
+- [Ready] Gerente : Graficos.jsx --> Tabla --> Análisis por Máquina - ConsumoCategoriasController --> La columna Valor Total, muestra abajo un valor de precio / l promedio, el cual es un valor repetido en la columna Precio Específico, por lo que se decide eliminar.
 
 ### Fixed
-- [Testing] Gerente : Graficos.jsx --> Consumo_PieChart --> Se filtra mal cuando uno selecciona todas las faenas, Se modificara el metodo para que entienda como se debe filtrar si se selecciona todas las faenas. 
 
-- [WiP] Gerente : Graficos.jsx --> Tabla --> Análisis por Máquina - ConsumoCategoriasController  --> La columna Precio Específico se calcula en base al valor promedio de los precios, y debiese calcularse de forma ponderada entre el precio y el valor de cada consumo, dividido en el total de listros consumidos.
+- [Ready] Gerente : Graficos.jsx --> Consumo_PieChart --> Se filtra mal cuando uno selecciona todas las faenas, Se modificara el metodo para que entienda como se debe filtrar si se selecciona todas las faenas.
 
+- [Ready] Gerente : Graficos.jsx --> Tabla --> Análisis por Máquina - ConsumoCategoriasController --> La columna Precio Específico se calcula en base al valor promedio de los precios, y debiese calcularse de forma ponderada entre el precio y el valor de cada consumo, dividido en el total de listros consumidos.
 
 ### Security
+
 - Ninguno
 
 ---
 
 ## [2.1.0] - 2025-07-30
-### Added   
+
+### Added
+
 - [Ready] Medición visible: Ahora, en el registro de consumo, la etiqueta de la máquina mostrará su última medición registrada.
 
 - [Ready] Numeral inicial preestablecido: El numeral inicial ahora se sugiere automáticamente como valor preestablecido (no definitivo) para facilitar el ingreso del consumo. En consumos desde estanques móviles, este valor será 0 por defecto.
@@ -66,31 +83,38 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - [Ready] Se mejoró la generación de PDF, añadiendo la opción de filtrado por faenas y la adaptación dinámica del ícono según la ubicación seleccionada.
 
-- [WIP] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
+- [Ready] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
 
-- [WIP] Rol de jefe de mina, bombero 2 y operador vehiculo.
-
+- [Queued] Rol de jefe de mina, bombero 2 y operador vehiculo.
 
 ### Changed
+
 - [Ready] Mejoras en perfil de Gerente: Se actualizó la presentación visual del perfil de Gerente, incluyendo cambios en los recuadros informativos.
 - [Ready] Gestión de Consumo Gerente: Se actualizó el módulo de Gestión de Consumo para incluir datos de la faena de Tiltil, además de los de Cabildo. Anteriormente, esta sección mostraba únicamente información relacionada con Cabildo.
 - [Ready] Dashboard Operacional Gerente: Se mejoró la visualización general, con nuevos gráficos de barras, ajustes visuales en los gráficos de torta (pie chart) y se añadió una sección de "Tendencias". Esta nueva vista permite, a través de un modal, observar tendencias por equipos de la misma categoría, su historial de consumos y un resumen por máquina.
+
 ### Depecrated
-- Ninguno 
+
+- Ninguno
 
 ### Removed
-- Ninguno 
+
+- Ninguno
 
 ### Fixed
+
 - [Ready] Filtrado de solicitantes por ubicación: Ahora se muestran únicamente los solicitantes correspondientes a la faena del usuario. Anteriormente, se listaban todos los solicitantes sin considerar su ubicación.
 
 ### Security
+
 - Ninguno
 
 ---
 
-- 
+-
+
 ## [2.0.0] - 2025-07-01
 
 ### Added
+
 - Versión Oficial En Producción.
