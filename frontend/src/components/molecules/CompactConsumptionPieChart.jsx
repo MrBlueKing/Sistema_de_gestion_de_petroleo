@@ -741,115 +741,122 @@ const CompactConsumptionPieChart = ({
     );
   };
 
-// Función para renderizar etiquetas personalizadas COMPACTAS (para dual pie charts)
-const renderCustomLabel = (props, isActual = true) => {
-  const { cx, cy, midAngle, innerRadius, outerRadius, percent, index, payload } = props;
+  // Función para renderizar etiquetas personalizadas COMPACTAS (para dual pie charts)
+  const renderCustomLabel = (props, isActual = true) => {
+    const {
+      cx,
+      cy,
+      midAngle,
+      innerRadius,
+      outerRadius,
+      percent,
+      index,
+      payload,
+    } = props;
 
-  // Solo mostrar si es mayor al 3% para evitar saturación en espacio compacto
-  if (percent < 0.03) return null;
+    // Solo mostrar si es mayor al 3% para evitar saturación en espacio compacto
+    if (percent < 0.03) return null;
 
-  const RADIAN = Math.PI / 180;
-  const normalizedAngle = ((((midAngle * 180) / Math.PI) % 360) + 360) % 360;
-  
-  // Distancia más corta para gráficos compactos - REDUCIDA AÚN MÁS
-  let labelDistance;
-  if (percent > 0.4) {
-    labelDistance = outerRadius + 20; // REDUCIDO de 35 a 20
-  } else if (percent > 0.15) {
-    labelDistance = outerRadius + 18; // REDUCIDO de 30 a 18
-  } else {
-    labelDistance = outerRadius + 15; // REDUCIDO de 25 a 15
-  }
+    const RADIAN = Math.PI / 180;
+    const normalizedAngle = ((((midAngle * 180) / Math.PI) % 360) + 360) % 360;
 
-  const baseX = cx + labelDistance * Math.cos(-midAngle * RADIAN);
-  const baseY = cy + labelDistance * Math.sin(-midAngle * RADIAN);
-
-  let finalX = baseX;
-  let finalY = baseY;
-
-  // Ajustar posición para evitar traslapes en la zona inferior
-  const isBottomRegion = normalizedAngle > 180 && normalizedAngle < 360;
-  if (isBottomRegion && percent < 0.2) {
-    finalY = finalY + (index % 2) * 12; // Escalonar ligeramente
-  }
-
-  const isLeftSide = finalX < cx;
-  const value = isActual ? payload.actual : payload.anterior;
-  
-  // Nombre de categoría con truncado inteligente
-  const itemName = payload?.nombre || payload?.name || "Sin nombre";
-  let displayName;
-  const maxLength = percent > 0.3 ? 16 : percent > 0.15 ? 14 : 12;
-  
-  if (itemName.length > maxLength) {
-    // Buscar espacio para cortar palabra completa
-    const spaceIndex = itemName.substring(0, maxLength - 1).lastIndexOf(" ");
-    if (spaceIndex > maxLength - 5) {
-      displayName = itemName.substring(0, spaceIndex);
+    // Distancia más corta para gráficos compactos - REDUCIDA AÚN MÁS
+    let labelDistance;
+    if (percent > 0.4) {
+      labelDistance = outerRadius + 20; // REDUCIDO de 35 a 20
+    } else if (percent > 0.15) {
+      labelDistance = outerRadius + 18; // REDUCIDO de 30 a 18
     } else {
-      displayName = itemName.substring(0, maxLength - 1) + "...";
+      labelDistance = outerRadius + 15; // REDUCIDO de 25 a 15
     }
-  } else {
-    displayName = itemName;
-  }
 
-  // Línea de conexión desde el borde del segmento
-  const startX = cx + (outerRadius - 1) * Math.cos(-midAngle * RADIAN);
-  const startY = cy + (outerRadius - 1) * Math.sin(-midAngle * RADIAN);
+    const baseX = cx + labelDistance * Math.cos(-midAngle * RADIAN);
+    const baseY = cy + labelDistance * Math.sin(-midAngle * RADIAN);
 
-  return (
-    <g>
-      {/* Línea de conexión */}
-      <path
-        d={`M ${startX} ${startY} L ${finalX} ${finalY}`}
-        stroke="#9ca3af"
-        strokeWidth={percent > 0.2 ? 1.5 : 1}
-        strokeOpacity={0.7}
-        fill="none"
-      />
+    let finalX = baseX;
+    let finalY = baseY;
 
-      {/* Punto de conexión */}
-      <circle
-        cx={finalX}
-        cy={finalY}
-        r={percent > 0.2 ? 2.5 : 2}
-        fill="#9ca3af"
-        opacity={0.8}
-      />
+    // Ajustar posición para evitar traslapes en la zona inferior
+    const isBottomRegion = normalizedAngle > 180 && normalizedAngle < 360;
+    if (isBottomRegion && percent < 0.2) {
+      finalY = finalY + (index % 2) * 12; // Escalonar ligeramente
+    }
 
-   
+    const isLeftSide = finalX < cx;
+    const value = isActual ? payload.actual : payload.anterior;
 
-      {/* Nombre de la categoría */}
-      <text
-        x={finalX + (isLeftSide ? -8 : 8)}
-        y={finalY - 6}
-        textAnchor={isLeftSide ? "end" : "start"}
-        dominantBaseline="central"
-        fill="#374151"
-        fontSize={percent > 0.3 ? "11" : percent > 0.15 ? "10" : "9"}
-        fontWeight="600"
-        className="drop-shadow-sm"
-      >
-        {displayName}
-      </text>
+    // Nombre de categoría con truncado inteligente
+    const itemName = payload?.nombre || payload?.name || "Sin nombre";
+    let displayName;
+    const maxLength = percent > 0.3 ? 16 : percent > 0.15 ? 14 : 12;
 
-      {/* Valor en litros Y porcentaje en la MISMA línea */}
-      <text
-        x={finalX + (isLeftSide ? -8 : 8)}
-        y={finalY + 6}
-        textAnchor={isLeftSide ? "end" : "start"}
-        dominantBaseline="central"
-        fill="#6b7280"
-        fontSize={percent > 0.3 ? "10" : percent > 0.15 ? "9" : "8"}
-        fontWeight="600"
-      >
-        {value >= 1000 
-          ? `${(value / 1000).toFixed(1)}k L • ${(percent * 100).toFixed(1)}%`
-          : `${Math.round(value)} L • ${(percent * 100).toFixed(1)}%`}
-      </text>
-    </g>
-  );
-};
+    if (itemName.length > maxLength) {
+      // Buscar espacio para cortar palabra completa
+      const spaceIndex = itemName.substring(0, maxLength - 1).lastIndexOf(" ");
+      if (spaceIndex > maxLength - 5) {
+        displayName = itemName.substring(0, spaceIndex);
+      } else {
+        displayName = itemName.substring(0, maxLength - 1) + "...";
+      }
+    } else {
+      displayName = itemName;
+    }
+
+    // Línea de conexión desde el borde del segmento
+    const startX = cx + (outerRadius - 1) * Math.cos(-midAngle * RADIAN);
+    const startY = cy + (outerRadius - 1) * Math.sin(-midAngle * RADIAN);
+
+    return (
+      <g>
+        {/* Línea de conexión */}
+        <path
+          d={`M ${startX} ${startY} L ${finalX} ${finalY}`}
+          stroke="#9ca3af"
+          strokeWidth={percent > 0.2 ? 1.5 : 1}
+          strokeOpacity={0.7}
+          fill="none"
+        />
+
+        {/* Punto de conexión */}
+        <circle
+          cx={finalX}
+          cy={finalY}
+          r={percent > 0.2 ? 2.5 : 2}
+          fill="#9ca3af"
+          opacity={0.8}
+        />
+
+        {/* Nombre de la categoría */}
+        <text
+          x={finalX + (isLeftSide ? -8 : 8)}
+          y={finalY - 6}
+          textAnchor={isLeftSide ? "end" : "start"}
+          dominantBaseline="central"
+          fill="#374151"
+          fontSize={percent > 0.3 ? "11" : percent > 0.15 ? "10" : "9"}
+          fontWeight="600"
+          className="drop-shadow-sm"
+        >
+          {displayName}
+        </text>
+
+        {/* Valor en litros Y porcentaje en la MISMA línea */}
+        <text
+          x={finalX + (isLeftSide ? -8 : 8)}
+          y={finalY + 6}
+          textAnchor={isLeftSide ? "end" : "start"}
+          dominantBaseline="central"
+          fill="#6b7280"
+          fontSize={percent > 0.3 ? "10" : percent > 0.15 ? "9" : "8"}
+          fontWeight="600"
+        >
+          {value >= 1000
+            ? `${(value / 1000).toFixed(1)}k L • ${(percent * 100).toFixed(1)}%`
+            : `${Math.round(value)} L • ${(percent * 100).toFixed(1)}%`}
+        </text>
+      </g>
+    );
+  };
 
   // Estados de carga y error
   if (loading) {
@@ -974,8 +981,7 @@ const renderCustomLabel = (props, isActual = true) => {
 
         {/* Gráficos lado a lado con leyenda en el centro */}
         <div className="grid grid-cols-5 gap-4 mb-4">
-       
-{/* Período Anterior */}
+          {/* Período Anterior */}
           <div className="col-span-2 text-center">
             <div className="h-80">
               <h4 className="text-sm font-medium text-gray-700 mb-1">
@@ -1009,7 +1015,11 @@ const renderCustomLabel = (props, isActual = true) => {
                         />
                       ))}
                   </Pie>
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip
+                    content={<CustomTooltip />}
+                    offset={35} // 👈 Mueve el tooltip 50px a la derecha
+                    position={{ x: undefined, y: undefined }}
+                  />
                   {/* Texto central con cálculo directo */}
                   <text
                     x="50%"
@@ -1102,9 +1112,7 @@ const renderCustomLabel = (props, isActual = true) => {
             </div>
           </div>
 
-        
-
-   {/* Período Actual */}
+          {/* Período Actual */}
           <div className="col-span-2 text-center">
             <div className="h-80">
               <h4 className="text-sm font-medium text-gray-700 mb-1">
@@ -1166,8 +1174,7 @@ const renderCustomLabel = (props, isActual = true) => {
               </ResponsiveContainer>
             </div>
           </div>
-
-          </div>
+        </div>
 
         {/* Footer con información adicional */}
         <div className="mt-4 pt-3 border-t border-gray-200">

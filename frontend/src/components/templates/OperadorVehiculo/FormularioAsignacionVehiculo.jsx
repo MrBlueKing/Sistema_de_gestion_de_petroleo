@@ -481,7 +481,7 @@ const FormularioAsignacionVehiculo = () => {
                     litros: formData.litros,
                     costo: formData.costo,
                     medicion: formData.medicion,
-                    estado: 'pendiente'
+                     // estado: 'pendiente'
                 });
                 setShowSuccessModal(true);
 

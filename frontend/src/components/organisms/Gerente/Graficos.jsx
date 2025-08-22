@@ -529,8 +529,8 @@ const Graficos = ({ children }) => {
           {/* Vista de tablas */}
           {vistaActiva === "tablas" && (
             <>
-              <div className="grid grid-cols-1 gap-6">
-                {/* Tabla de consumo por máquina */}
+              <div className="space-y-6">
+                {/* Tabla de consumo por máquina - ANCHO COMPLETO */}
                 <div className="bg-white p-6 rounded-lg shadow-md">
                   <h3 className="text-md font-medium text-gray-800 mb-4 flex items-center">
                     <FiBarChart2
@@ -545,36 +545,29 @@ const Graficos = ({ children }) => {
                   />
                 </div>
 
-                {/* Tabla de consumo por faena */}
-                <div className="bg-white p-6 rounded-lg shadow-md">
-                  <h3 className="text-md font-medium text-gray-800 mb-4 flex items-center">
-                    <FiPieChart className="mr-2" style={{ color: "#F67029" }} />
-                    Consumo por Faena
-                  </h3>
-                  <ConsumoPorFaenaTable
-                    {...datosFinales}
-                    refreshKey={refreshTrigger}
-                  />
-                </div>
-
-                {/* Tabla de ingresos por faena */}
-                <div className="bg-white p-6 rounded-lg shadow-md">
-                  <h3 className="text-md font-medium text-gray-800 mb-4 flex items-center">
-                    <FiTrendingUp
-                      className="mr-2"
-                      style={{ color: "#F67029" }}
+                {/* Contenedor para las dos tablas en mitad y mitad */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 ">
+                  {/* Tabla de consumo por faena - MITAD */}
+                    <div className="bg-white p-6 rounded-lg shadow-md h-full flex flex-col">
+                    
+                    <ConsumoPorFaenaTable
+                      {...datosFinales}
+                      refreshKey={refreshTrigger}
                     />
-                    Ingresos por Faena
-                  </h3>
-                  <IngresosPorFaenaTable
-                    {...datosFinales}
-                    refreshKey={refreshTrigger}
-                  />
+                  </div>
+
+                  {/* Tabla de ingresos por faena - MITAD */}
+                    <div className="bg-white p-6 rounded-lg   h-full ">
+                  
+                    <IngresosPorFaenaTable
+                      {...datosFinales}
+                      refreshKey={refreshTrigger}
+                    />
+                  </div>
                 </div>
               </div>
             </>
           )}
-
           {/* Vista de gráficos */}
           {vistaActiva === "graficos" && (
             <>
@@ -608,7 +601,6 @@ const Graficos = ({ children }) => {
                       )}
                     </div>
                   </div>
-               
 
                   {/* 🎨 GRÁFICO PRINCIPAL - ConsumptionPieChart ASIGNA LOS COLORES */}
                   <div className="mb-6">
@@ -756,41 +748,45 @@ const Graficos = ({ children }) => {
                     </div>
                   )}
 
-  <div className="mb-6">
-                  <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-100">
-                    <div className="flex items-center justify-between mb-6">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-800 flex items-center">
-                         <span className="ml-2">Dashboard Comparativo</span>
-                        </h3>
-                        
-                      </div>
-                      
-                      {/* Indicador del período anterior */}
-                      <div className="text-right">
-                        <p className="text-xs text-gray-500">Comparando con:</p>
-                        <p className="text-sm font-medium text-blue-600">Mes Anterior</p>
-                      </div>
-                    </div>
+                  <div className="mb-6">
+                    <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-100">
+                      <div className="flex items-center justify-between mb-6">
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+                            <span className="ml-2">Dashboard Comparativo</span>
+                          </h3>
+                        </div>
 
-                    {fechaDesde && fechaHasta ? (
-                      <DashboardComparativo
-                        faenaSeleccionada={faenaSeleccionada}
-                        fechaDesde={fechaDesde}
-                        fechaHasta={fechaHasta}
-                        refreshKey={refreshTrigger}
-                        chartColors={CHART_COLORS}
-                      />
-                    ) : (
-                      <div className="text-center py-12">
-                        <FiCalendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                        <p className="text-gray-600">
-                          Seleccione un rango de fechas para ver el dashboard comparativo
-                        </p>
+                        {/* Indicador del período anterior */}
+                        <div className="text-right">
+                          <p className="text-xs text-gray-500">
+                            Comparando con:
+                          </p>
+                          <p className="text-sm font-medium text-blue-600">
+                            Mes Anterior
+                          </p>
+                        </div>
                       </div>
-                    )}
+
+                      {fechaDesde && fechaHasta ? (
+                        <DashboardComparativo
+                          faenaSeleccionada={faenaSeleccionada}
+                          fechaDesde={fechaDesde}
+                          fechaHasta={fechaHasta}
+                          refreshKey={refreshTrigger}
+                          chartColors={CHART_COLORS}
+                        />
+                      ) : (
+                        <div className="text-center py-12">
+                          <FiCalendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                          <p className="text-gray-600">
+                            Seleccione un rango de fechas para ver el dashboard
+                            comparativo
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
 
                   {/* TENDENCIA */}
                   <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">

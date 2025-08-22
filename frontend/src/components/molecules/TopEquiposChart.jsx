@@ -741,6 +741,8 @@ const TopEquiposChart = ({
                     <Tooltip
                       content={<CustomTooltip />}
                       cursor={{ fill: "rgba(0,0,0,0.1)" }}
+                      offset={35} // 👈 Mueve el tooltip 50px a la derecha
+                      position={{ x: undefined, y: undefined }}
                     />
                     <Legend
                       verticalAlign="top"

@@ -49,6 +49,22 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - [WIP] Administrador Operador: desarrollo de rol + interfaz completa para gestión de cargas y asignaciones de vehículos.
 
+- [Testing] Graficos: Implementar graficos comparativos por Total / Faena / Categorias / Maquinas.
+
+- [WIP] Sistema General: Se agregaron colores a todas las vistas de consumos segun leyenda establecita.
+
+        Gerente.ConsumoView
+        Gerente.Table Consumos por faena
+        Gerente.Table Ingreso por faena
+        Gerente.Table Rendimiento Maquinas
+        Bombero.ConsumoView
+
+- [WIP] Admin Operador Vehiculos: Visualización general del sistema con funcionalidades.
+        - Consumos View con integración de boletas.
+        - Asignar Maquina a Operador(Users).
+        - Ingresar Maquinas.
+        
+
 
 ### Changed
 
@@ -71,6 +87,10 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 - [Ready] Gerente : Graficos.jsx --> Consumo_PieChart --> Se filtra mal cuando uno selecciona todas las faenas, Se modificara el metodo para que entienda como se debe filtrar si se selecciona todas las faenas.
 
 - [Ready] Gerente : Graficos.jsx --> Tabla --> Análisis por Máquina - ConsumoCategoriasController --> La columna Precio Específico se calcula en base al valor promedio de los precios, y debiese calcularse de forma ponderada entre el precio y el valor de cada consumo, dividido en el total de listros consumidos.
+
+- [Ready] Gerente : Graficos.jsx --> Se corrige ToolTip para que no cubra la Barra/Sección a la cual se le ve el detalle.
+
+- [WIP] Administrador Vehiculos : ConsumosView.jsx --> Agregar tabla que liste los consumos con sus respectivos datos de interes.
 
 ### Security
 

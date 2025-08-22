@@ -620,7 +620,11 @@ const DashboardComparativo = ({
                 tickFormatter={(value) => value}
                 domain={[0, "dataMax + 500"]}
               />
-              <Tooltip content={<CustomTooltipCombinado />} />
+              <Tooltip
+                content={<CustomTooltipCombinado />}
+                offset={100} // 👈 Mueve el tooltip 50px a la derecha
+                position={{ x: undefined, y: undefined }}
+              />
               <Legend
                 wrapperStyle={{ fontSize: "12px" }}
                 iconType="rect"
@@ -632,7 +636,7 @@ const DashboardComparativo = ({
                 fill="#3b82f6"
                 name="Período Anterior"
                 radius={[2, 2, 0, 0]}
-                 >
+              >
                 <LabelList
                   dataKey="anterior"
                   position="top"
@@ -640,7 +644,7 @@ const DashboardComparativo = ({
                   fill="#333"
                   formatter={(value) => Math.round(value)}
                 />
-                </Bar>
+              </Bar>
               <Bar
                 dataKey="actual"
                 fill="#f97316"
@@ -662,147 +666,35 @@ const DashboardComparativo = ({
     );
   };
 
-
-
   // 📊 Componente específico para gráfico de categorías
-const GraficoCategorias = ({ datos }) => {
-  // 🎯 ORDENAR DATOS POR INCIDENCIA TOTAL (MAYOR A MENOR CONSUMO)
-  const datosOrdenados = useMemo(() => {
-    return [...datos]
-      .map((cat) => ({
-        ...cat,
-        incidenciaTotal: (cat.actual || 0) + (cat.anterior || 0)
-      }))
-      .sort((a, b) => b.incidenciaTotal - a.incidenciaTotal);
-  }, [datos]);
+  const GraficoCategorias = ({ datos }) => {
+    // 🎯 ORDENAR DATOS POR INCIDENCIA TOTAL (MAYOR A MENOR CONSUMO)
+    const datosOrdenados = useMemo(() => {
+      return [...datos]
+        .map((cat) => ({
+          ...cat,
+          incidenciaTotal: (cat.actual || 0) + (cat.anterior || 0),
+        }))
+        .sort((a, b) => b.incidenciaTotal - a.incidenciaTotal);
+    }, [datos]);
 
-  return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-semibold text-gray-800 flex items-center">
-          <GiFactory className="text-green-600 mr-2" />
-          <span>Por Categorías de Equipos</span>
-        </h4>
-        <p className="text-xs text-gray-500">
-          vs {periodoAnteriorDescripcion}
-        </p>
-      </div>
-
-      <div className="h-[25rem]">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={datosOrdenados}
-            margin={{ top: 20, right: 20, left: 20, bottom: 0 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis
-              dataKey="name"
-              tick={{ fontSize: 11, fill: "#6b7280" }}
-              angle={-45}
-              textAnchor="end"
-              height={95}
-              interval={0}
-            />
-            <YAxis
-              tick={{ fontSize: 11, fill: "#6b7280" }}
-              tickFormatter={(value) => value}
-              domain={[0, "dataMax + 500"]}
-            />
-            <Tooltip content={<CustomTooltipCategorias />} />
-            <Legend
-              wrapperStyle={{ fontSize: "12px" }}
-              iconType="rect"
-              verticalAlign="top"
-              height={36} // 🎯 Esto crea el espacio
-            />
-            <Bar
-              dataKey="anterior"
-              fill="#3b82f6"
-              name="Período Anterior"
-              radius={[2, 2, 0, 0]}
-              >
-              <LabelList
-                dataKey="anterior"
-                position="top"
-                fontSize={10}
-                fill="#333"
-                formatter={(value) => Math.round(value)}
-              />
-            </Bar>
-            <Bar
-              dataKey="actual"
-              fill="#f97316"
-              name="Período Actual"
-              radius={[2, 2, 0, 0]}
-               >
-              <LabelList
-                dataKey="actual"
-                position="top"
-                fontSize={10}
-                fill="#333"
-                formatter={(value) => Math.round(value)}
-              />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-};
-
-
-
-  // 📊 Componente específico para gráfico de equipos/máquinas con scroll horizontal
-const GraficoEquipos = ({ datos }) => {
-  // 🔍 Filtrar datos según el estado
-  const datosFiltrados = useMemo(() => {
-    if (mostrarEquiposSinDatos) {
-      return datos;
-    } else {
-      return datos.filter((item) => item.actual > 0 || item.anterior > 0);
-    }
-  }, [datos, mostrarEquiposSinDatos]);
-
-  // 🎯 Calcular ancho dinámico: más datos = más ancho
-  const anchoMinimo = Math.max(datosFiltrados.length * 100, 800); // 100px por barra, mínimo 800px
-
-  return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-semibold text-gray-800 flex items-center">
-          <GiTruck className="text-purple-600 mr-2" />
-          <span>
-            Equipos con Consumo (Ordenados por Incidencia de Categoría)
-          </span>
-        </h4>
-
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={mostrarEquiposSinDatos}
-              onChange={(e) => setMostrarEquiposSinDatos(e.target.checked)}
-              className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
-            />
-            <span className="text-xs text-gray-700 font-medium">
-              Mostrar equipos sin datos (
-              {datos.length - datosFiltrados.length})
-            </span>
-          </label>
-
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="text-sm font-semibold text-gray-800 flex items-center">
+            <GiFactory className="text-green-600 mr-2" />
+            <span>Por Categorías de Equipos</span>
+          </h4>
           <p className="text-xs text-gray-500">
             vs {periodoAnteriorDescripcion}
           </p>
         </div>
-      </div>
 
-      {/* 🚀 NUEVO: Container con scroll horizontal */}
-      <div className="h-96 overflow-x-auto overflow-y-hidden">
-        <div style={{ width: `${anchoMinimo}px`, height: '100%' }}>
+        <div className="h-[25rem]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
-              data={datosFiltrados}
-              margin={{ top: 20, right: 20, left: 20, bottom: 50 }}
+              data={datosOrdenados}
+              margin={{ top: 20, right: 20, left: 20, bottom: 0 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis
@@ -818,19 +710,22 @@ const GraficoEquipos = ({ datos }) => {
                 tickFormatter={(value) => value}
                 domain={[0, "dataMax + 500"]}
               />
-              <Tooltip content={<CustomTooltipEquipos />} />
+              <Tooltip
+                content={<CustomTooltipCategorias />}
+                offset={35} // 👈 Mueve el tooltip 50px a la derecha
+                position={{ x: undefined, y: undefined }}
+              />
               <Legend
                 wrapperStyle={{ fontSize: "12px" }}
                 iconType="rect"
                 verticalAlign="top"
-                height={36}
+                height={36} // 🎯 Esto crea el espacio
               />
               <Bar
                 dataKey="anterior"
                 fill="#3b82f6"
                 name="Período Anterior"
                 radius={[2, 2, 0, 0]}
-                maxBarSize={60} // 🎯 Ancho máximo de barras
               >
                 <LabelList
                   dataKey="anterior"
@@ -845,7 +740,6 @@ const GraficoEquipos = ({ datos }) => {
                 fill="#f97316"
                 name="Período Actual"
                 radius={[2, 2, 0, 0]}
-                maxBarSize={60} // 🎯 Ancho máximo de barras
               >
                 <LabelList
                   dataKey="actual"
@@ -859,18 +753,132 @@ const GraficoEquipos = ({ datos }) => {
           </ResponsiveContainer>
         </div>
       </div>
+    );
+  };
 
-      {/* 💡 Indicador de scroll si hay muchos datos */}
-      {datosFiltrados.length > 8 && (
-        <div className="flex items-center justify-center mt-2 text-xs text-gray-500">
-          <span className="flex items-center gap-1">
-            ← Desliza horizontalmente para ver más equipos →
-          </span>
+  // 📊 Componente específico para gráfico de equipos/máquinas con scroll horizontal
+  const GraficoEquipos = ({ datos }) => {
+    // 🔍 Filtrar datos según el estado
+    const datosFiltrados = useMemo(() => {
+      if (mostrarEquiposSinDatos) {
+        return datos;
+      } else {
+        return datos.filter((item) => item.actual > 0 || item.anterior > 0);
+      }
+    }, [datos, mostrarEquiposSinDatos]);
+
+    // 🎯 Calcular ancho dinámico: más datos = más ancho
+    const anchoMinimo = Math.max(datosFiltrados.length * 100, 800); // 100px por barra, mínimo 800px
+
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="text-sm font-semibold text-gray-800 flex items-center">
+            <GiTruck className="text-purple-600 mr-2" />
+            <span>
+              Equipos con Consumo (Ordenados por Incidencia de Categoría)
+            </span>
+          </h4>
+
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={mostrarEquiposSinDatos}
+                onChange={(e) => setMostrarEquiposSinDatos(e.target.checked)}
+                className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+              />
+              <span className="text-xs text-gray-700 font-medium">
+                Mostrar equipos sin datos (
+                {datos.length - datosFiltrados.length})
+              </span>
+            </label>
+
+            <p className="text-xs text-gray-500">
+              vs {periodoAnteriorDescripcion}
+            </p>
+          </div>
         </div>
-      )}
-    </div>
-  );
-};
+
+        {/* 🚀 NUEVO: Container con scroll horizontal */}
+        <div className="h-96 overflow-x-auto overflow-y-hidden">
+          <div style={{ width: `${anchoMinimo}px`, height: "100%" }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={datosFiltrados}
+                margin={{ top: 20, right: 20, left: 20, bottom: 50 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 11, fill: "#6b7280" }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={95}
+                  interval={0}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "#6b7280" }}
+                  tickFormatter={(value) => value}
+                  domain={[0, "dataMax + 500"]}
+                />
+                <Tooltip
+                  content={<CustomTooltipEquipos />}
+                  offset={50} // 👈 Mueve el tooltip 50px a la derecha
+                  position={{ x: undefined, y: undefined }} // Permite que offset funcione
+                />
+                <Legend
+                  wrapperStyle={{ fontSize: "12px" }}
+                  iconType="rect"
+                  verticalAlign="top"
+                  height={36}
+                />
+                <Bar
+                  dataKey="anterior"
+                  fill="#3b82f6"
+                  name="Período Anterior"
+                  radius={[2, 2, 0, 0]}
+                  maxBarSize={60} // 🎯 Ancho máximo de barras
+                >
+                  <LabelList
+                    dataKey="anterior"
+                    position="top"
+                    fontSize={10}
+                    fill="#333"
+                    formatter={(value) => Math.round(value)}
+                  />
+                </Bar>
+                <Bar
+                  dataKey="actual"
+                  fill="#f97316"
+                  name="Período Actual"
+                  radius={[2, 2, 0, 0]}
+                  maxBarSize={60} // 🎯 Ancho máximo de barras
+                >
+                  <LabelList
+                    dataKey="actual"
+                    position="top"
+                    fontSize={10}
+                    fill="#333"
+                    formatter={(value) => Math.round(value)}
+                  />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* 💡 Indicador de scroll si hay muchos datos */}
+        {datosFiltrados.length > 8 && (
+          <div className="flex items-center justify-center mt-2 text-xs text-gray-500">
+            <span className="flex items-center gap-1">
+              ← Desliza horizontalmente para ver más equipos →
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   if (loading) {
     return (

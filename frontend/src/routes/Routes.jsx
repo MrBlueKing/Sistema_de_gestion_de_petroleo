@@ -46,6 +46,7 @@ import FormularioOperador from "../components/templates/OperadorVehiculo/Formula
 
 // Importaciones AdministradorOperadorVehiculo
 import MenuPrincipalAdminOperador from "../pages/AdminOperador/MenuPrincipalAdminOperador";
+import ConsumoViewAdminOperador from "../components/organisms/AdminOperador/ConsumoView";
 
 const AppRoutes = () => {
   return (
@@ -469,6 +470,15 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
+<Route
+        path="/consumos-view-AdminOperador"
+        element={
+          <PrivateRoute requiredRole="admin_operador">
+            <ConsumoViewAdminOperador />
+          </PrivateRoute>
+        }
+      />
+
       {/* 
       |--------------------------------------------------------------------------
       | 🚫 RUTA 404 - NO ENCONTRADA

@@ -20,6 +20,48 @@ import axios from "../../../lib/axios";
 import StockEstanquesFAB from "../../molecules/StockEstanquesFAB";
 import { UserContext } from "../../../context/userContext";
 
+// 🎨 COLORES POR FAENA (igual que en las otras tablas)
+const FAENA_COLORS = {
+  1: { // Cabildo
+    name: "Cabildo",
+    bg: "bg-green-50/30",
+    border: "border-l-green-400",
+    badge: "bg-green-100 text-green-800",
+    icon: "text-green-600",
+    emoji: "🌿"
+  },
+  4: { // Tiltil
+    name: "Tiltil",
+    bg: "bg-red-50/30", 
+    border: "border-l-red-400",
+    badge: "bg-red-100 text-red-800",
+    icon: "text-red-600",
+    emoji: "🏔️"
+  }
+};
+
+// 🛠️ Función para obtener colores de faena por ID
+const getFaenaColorsById = (faenaId) => {
+  const faenaInfo = FAENA_COLORS[faenaId];
+  
+  if (faenaInfo) {
+    return faenaInfo;
+  }
+
+  // Color por defecto para faenas desconocidas
+  return {
+    name: "Faena Desconocida",
+    bg: "bg-blue-50/25",
+    border: "border-l-blue-400", 
+    badge: "bg-blue-100 text-blue-800",
+    icon: "text-blue-600",
+    emoji: "🏢"
+  };
+};
+
+// 🔧 ALIAS para compatibilidad (por si se usa en otro lugar)
+const getFaenaColors = getFaenaColorsById;
+
 // Componente Button - Más sobrio con paleta de colores
 const Button = ({
   to,
@@ -92,16 +134,18 @@ const LoadingSpinner = ({ message = "Cargando..." }) => (
   </div>
 );
 
-// Componente de tarjeta móvil para consumos recientes
-const ConsumoRecenteCard = ({ consumo, formatearFecha }) => {
+// 🎨 Componente de tarjeta móvil para consumos recientes CON COLORES POR FAENA
+const ConsumoRecenteCard = ({ consumo, formatearFecha, userFaenaId }) => {
   const { fecha, hora } = formatearFecha(consumo.fecha_consumo);
+  // 👈 Obtener colores según el ID de faena del usuario
+  const colores = getFaenaColorsById(userFaenaId);
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+    <div className={`${colores.bg} ${colores.border} border-l-4 border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-200`}>
       {/* Header con fecha y litros */}
       <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
         <div className="flex items-center gap-2">
-          <FaCalendarAlt className="text-blue-600 text-sm" />
+          <FaCalendarAlt className={`${colores.icon} text-sm`} />
           <div>
             <div className="font-bold text-gray-800 text-sm">{fecha}</div>
             <div className="text-xs text-gray-500">{hora}</div>
@@ -109,7 +153,7 @@ const ConsumoRecenteCard = ({ consumo, formatearFecha }) => {
         </div>
         <div className="text-right">
           <div className="text-xs text-gray-500 mb-1">Litros</div>
-          <div className="font-bold text-base text-[#F67029]">
+          <div className={`font-bold text-base ${colores.icon}`}>
             {parseFloat(consumo.litros_consumidos).toFixed(2)} L
           </div>
         </div>
@@ -119,7 +163,7 @@ const ConsumoRecenteCard = ({ consumo, formatearFecha }) => {
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div>
           <div className="flex items-center gap-1 mb-1">
-            <FaUser className="text-purple-600 text-xs" />
+            <FaUser className={`${colores.icon} text-xs`} />
             <span className="text-xs font-medium text-gray-600 uppercase">Solicitante</span>
           </div>
           <div className="font-medium text-gray-800 text-xs">
@@ -129,7 +173,7 @@ const ConsumoRecenteCard = ({ consumo, formatearFecha }) => {
 
         <div>
           <div className="flex items-center gap-1 mb-1">
-            <FaTruck className="text-green-600 text-xs" />
+            <FaTruck className={`${colores.icon} text-xs`} />
             <span className="text-xs font-medium text-gray-600 uppercase">Equipo</span>
           </div>
           <div className="font-medium text-gray-800 text-xs">
@@ -137,9 +181,19 @@ const ConsumoRecenteCard = ({ consumo, formatearFecha }) => {
           </div>
         </div>
 
-        <div className="col-span-2">
+        <div>
           <div className="flex items-center gap-1 mb-1">
-            <FaGasPump className="text-blue-600 text-xs" />
+            <span className="text-xs">{colores.emoji}</span>
+            <span className="text-xs font-medium text-gray-600 uppercase">Faena</span>
+          </div>
+          <div className="font-medium text-gray-800 text-xs">
+            {colores.name}
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-1 mb-1">
+            <FaGasPump className={`${colores.icon} text-xs`} />
             <span className="text-xs font-medium text-gray-600 uppercase">Estanque</span>
           </div>
           <div className="font-medium text-gray-800 text-xs">
@@ -379,7 +433,7 @@ const Main = () => {
             </div>
           )}
 
-          {/* Tabla de Consumos Recientes - Optimizada */}
+          {/* Tabla de Consumos Recientes - Optimizada CON COLORES */}
           <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 shadow-sm">
             <div className="flex items-center gap-3 mb-4 sm:mb-6">
               <div className="bg-purple-600 p-2 sm:p-3 rounded-lg shadow-md">
@@ -395,7 +449,7 @@ const Main = () => {
               <LoadingSpinner message="Cargando consumos recientes..." />
             ) : (
               <>
-                {/* Vista móvil - Cards */}
+                {/* Vista móvil - Cards CON COLORES POR FAENA */}
                 <div className="block lg:hidden">
                   <div className="space-y-4">
                     {consumosRecientes.length > 0 ? (
@@ -404,6 +458,7 @@ const Main = () => {
                           key={index}
                           consumo={consumo}
                           formatearFecha={formatearFecha}
+                          userFaenaId={user?.id_faena} // 👈 Pasar ID de faena del usuario
                         />
                       ))
                     ) : (
@@ -416,13 +471,14 @@ const Main = () => {
                   </div>
                 </div>
 
-                {/* Vista escritorio - Tabla */}
+                {/* Vista escritorio - Tabla CON COLORES POR FAENA */}
                 <div className="hidden lg:block">
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-gray-200">
                           <th className="text-left py-3 px-4 font-semibold text-gray-700">📅 Fecha</th>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700">🏢 Faena</th>
                           <th className="text-left py-3 px-4 font-semibold text-gray-700">👤 Solicitante</th>
                           <th className="text-left py-3 px-4 font-semibold text-gray-700">🚛 Equipo</th>
                           <th className="text-left py-3 px-4 font-semibold text-gray-700">⛽ Litros</th>
@@ -433,15 +489,23 @@ const Main = () => {
                         {consumosRecientes.length > 0 ? (
                           consumosRecientes.map((consumo, index) => {
                             const { fecha, hora } = formatearFecha(consumo.fecha_consumo);
+                            const colores = getFaenaColorsById(user?.id_faena); // 👈 Obtener colores por ID de faena del usuario
+                            
                             return (
                               <tr
                                 key={index}
-                                className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                                className={`${colores.bg} ${colores.border} border-l-4 border-b border-gray-100 hover:shadow-sm transition-all duration-200`}
                               >
                                 <td className="py-3 px-4">
                                   <div className="text-sm">
                                     <div className="font-medium text-gray-900">{fecha}</div>
                                     <div className="text-gray-500">{hora}</div>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm">{colores.emoji}</span>
+                                    <span className="text-sm font-medium text-gray-900">{colores.name}</span>
                                   </div>
                                 </td>
                                 <td className="py-3 px-4 text-sm text-gray-900">
@@ -451,7 +515,7 @@ const Main = () => {
                                   {consumo.nombre_maquina || 'N/A'}
                                 </td>
                                 <td className="py-3 px-4">
-                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colores.badge}`}>
                                     {parseFloat(consumo.litros_consumidos).toFixed(2)} L
                                   </span>
                                 </td>
@@ -463,7 +527,7 @@ const Main = () => {
                           })
                         ) : (
                           <tr>
-                            <td colSpan="5" className="py-8 text-center">
+                            <td colSpan="6" className="py-8 text-center">
                               <div className="text-gray-500">
                                 <FaInfoCircle className="mx-auto text-3xl mb-2" />
                                 <p className="font-medium">No hay consumos recientes</p>

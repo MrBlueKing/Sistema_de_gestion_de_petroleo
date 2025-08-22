@@ -479,23 +479,27 @@ const ConsumptionPieChart = ({
   // 🎨 FUNCIÓN MEJORADA PARA OBTENER COLORES
   const getColorForIndex = (item, index) => {
     const categoryName = item.nombre || item.name || "Sin categoría";
-    
+
     // 1. Usar la función del padre si está disponible
-    if (getColorForCategory && typeof getColorForCategory === 'function') {
+    if (getColorForCategory && typeof getColorForCategory === "function") {
       const color = getColorForCategory(categoryName);
-      console.log(`🎨 Color desde función padre para "${categoryName}": ${color}`);
+      console.log(
+        `🎨 Color desde función padre para "${categoryName}": ${color}`
+      );
       return color;
     }
-    
+
     // 2. Usar el mapeo de colores del padre si está disponible
     if (coloresMapeados && Object.keys(coloresMapeados).length > 0) {
       const mappedColor = coloresMapeados[categoryName];
       if (mappedColor) {
-        console.log(`🎨 Color desde mapeo para "${categoryName}": ${mappedColor}`);
+        console.log(
+          `🎨 Color desde mapeo para "${categoryName}": ${mappedColor}`
+        );
         return mappedColor;
       }
     }
-    
+
     // 3. Fallback al array de colores
     const fallbackColor = chartColors[index % chartColors.length];
     console.log(`🎨 Color fallback para "${categoryName}": ${fallbackColor}`);
@@ -616,7 +620,8 @@ const ConsumptionPieChart = ({
     const y = finalY;
     const isLeftSide = x < cx;
 
-    let displayName, secondLine = null;
+    let displayName,
+      secondLine = null;
     const maxLength = 22;
 
     const itemName = payload?.nombre || payload?.name || "Sin nombre";
@@ -634,7 +639,8 @@ const ConsumptionPieChart = ({
       const remaining = itemName.substring(breakPoint).trim();
 
       if (remaining.length > 0) {
-        secondLine = remaining.length > 8 ? `${remaining.substring(0, 15)}` : remaining;
+        secondLine =
+          remaining.length > 8 ? `${remaining.substring(0, 15)}` : remaining;
       }
     } else {
       displayName = itemName;
@@ -650,7 +656,9 @@ const ConsumptionPieChart = ({
       const intermediateY = y;
       const endX = x - (isLeftSide ? 8 : -8);
 
-      linePath = `M ${startX} ${startY} L ${x - (isLeftSide ? 8 : 5)} ${intermediateY} L ${endX} ${intermediateY}`;
+      linePath = `M ${startX} ${startY} L ${
+        x - (isLeftSide ? 8 : 5)
+      } ${intermediateY} L ${endX} ${intermediateY}`;
     } else {
       linePath = `M ${startX} ${startY} L ${x} ${y}`;
     }
@@ -712,7 +720,15 @@ const ConsumptionPieChart = ({
           textAnchor={isLeftSide ? "end" : "start"}
           dominantBaseline="central"
           fill={textColor}
-          fontSize={useSpecialLine ? "15" : percent > 0.1 ? "15" : percent > 0.05 ? "15" : "15"}
+          fontSize={
+            useSpecialLine
+              ? "15"
+              : percent > 0.1
+              ? "15"
+              : percent > 0.05
+              ? "15"
+              : "15"
+          }
           fontWeight="650"
         >
           <tspan x={x + (isLeftSide ? -labelOffset : labelOffset)} dy="0">
@@ -731,7 +747,15 @@ const ConsumptionPieChart = ({
           textAnchor={isLeftSide ? "end" : "start"}
           dominantBaseline="central"
           fill={percentColor}
-          fontSize={useSpecialLine ? "10" : percent > 0.1 ? "11" : percent > 0.05 ? "10" : "10"}
+          fontSize={
+            useSpecialLine
+              ? "10"
+              : percent > 0.1
+              ? "11"
+              : percent > 0.05
+              ? "10"
+              : "10"
+          }
           fontWeight="700"
         >
           {(percent * 100).toFixed(1)}%
@@ -744,7 +768,15 @@ const ConsumptionPieChart = ({
             textAnchor={isLeftSide ? "end" : "start"}
             dominantBaseline="central"
             fill="#6b7280"
-            fontSize={useSpecialLine ? "11" : percent > 0.1 ? "11" : percent > 0.05 ? "10" : "9"}
+            fontSize={
+              useSpecialLine
+                ? "11"
+                : percent > 0.1
+                ? "11"
+                : percent > 0.05
+                ? "10"
+                : "9"
+            }
             fontWeight="700"
           >
             {itemValue >= 1000
@@ -850,10 +882,14 @@ const ConsumptionPieChart = ({
         // 🎨 NOTIFICAR AL PADRE SOLO SI NO HAY COLORES MAPEADOS
         if (onCategoriesLoad && typeof onCategoriesLoad === "function") {
           if (Object.keys(coloresMapeados).length === 0) {
-            console.log("🎨 ConsumptionPieChart: Notificando categorías al padre para asignar colores");
+            console.log(
+              "🎨 ConsumptionPieChart: Notificando categorías al padre para asignar colores"
+            );
             onCategoriesLoad(formattedData);
           } else {
-            console.log("🎨 ConsumptionPieChart: Usando colores ya mapeados del padre");
+            console.log(
+              "🎨 ConsumptionPieChart: Usando colores ya mapeados del padre"
+            );
           }
         }
 
@@ -886,7 +922,10 @@ const ConsumptionPieChart = ({
       setLoading(true);
       setError(null);
 
-      console.log("ConsumptionPieChart: Cargando máquinas para categoría:", categoria);
+      console.log(
+        "ConsumptionPieChart: Cargando máquinas para categoría:",
+        categoria
+      );
 
       const requestBody = {
         fecha_inicio: fechaDesde,
@@ -996,7 +1035,8 @@ const ConsumptionPieChart = ({
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       const total = currentData.reduce((sum, item) => sum + item.value, 0);
-      const percentage = total > 0 ? ((data.value / total) * 100).toFixed(1) : 0;
+      const percentage =
+        total > 0 ? ((data.value / total) * 100).toFixed(1) : 0;
 
       return (
         <div className="bg-white p-3 border border-gray-300 rounded-lg shadow-lg">
@@ -1159,7 +1199,11 @@ const ConsumptionPieChart = ({
                     />
                   ))}
                 </Pie>
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip
+                  content={<CustomTooltip />}
+                  offset={35} // 👈 Mueve el tooltip 50px a la derecha
+                  position={{ x: undefined, y: undefined }}
+                />
 
                 <text
                   x="48%"

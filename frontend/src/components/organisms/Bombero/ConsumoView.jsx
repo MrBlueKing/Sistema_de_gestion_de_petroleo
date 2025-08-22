@@ -20,6 +20,64 @@ import Header from "../Bombero/Header";
 // Importar componente desde pdf/components
 import PDFGenerator from '../../../pdf/components/PDFGenerator';
 
+// 🎨 CONFIGURACIÓN DE COLORES POR FAENA - IGUAL QUE HistorialMaquinasView
+const FAENA_COLORS = {
+    'Cabildo': {
+        id: 1,
+        primary: 'from-green-700 to-green-800',
+        light: 'bg-green-50',
+        border: 'border-green-200',
+        text: 'text-green-800',
+        badge: 'bg-green-100 text-green-800',
+        icon: '🌿',
+        gradient: 'bg-gradient-to-r from-green-600 to-green-700'
+    },
+    'Tiltil': {
+        id: 4,
+        primary: 'from-red-700 to-red-800',
+        light: 'bg-red-50',
+        border: 'border-red-200',
+        text: 'text-red-800',
+        badge: 'bg-red-100 text-red-800',
+        icon: '🏔️',
+        gradient: 'bg-gradient-to-r from-red-600 to-red-700'
+    }
+};
+
+// 🛠️ Función para obtener colores de una faena
+const getFaenaColors = (faenaName) => {
+    if (!faenaName || typeof faenaName !== 'string') {
+        return {
+            primary: 'from-gray-600 to-gray-700',
+            light: 'bg-gray-50',
+            border: 'border-gray-200',
+            text: 'text-gray-800',
+            badge: 'bg-gray-100 text-gray-800',
+            icon: '🏢',
+            gradient: 'bg-gradient-to-r from-gray-500 to-gray-600'
+        };
+    }
+
+    const normalizedName = faenaName.trim();
+    
+    for (const [key, colors] of Object.entries(FAENA_COLORS)) {
+        if (key.toLowerCase() === normalizedName.toLowerCase()) {
+            return colors;
+        }
+    }
+
+    // Color por defecto para faenas desconocidas (azul para bomberos)
+    return {
+        primary: 'from-blue-600 to-blue-700',
+        light: 'bg-blue-50',
+        border: 'border-blue-200',
+        text: 'text-blue-800',
+        badge: 'bg-blue-100 text-blue-800',
+        icon: '🏢',
+        gradient: 'bg-gradient-to-r from-blue-500 to-blue-600'
+    };
+};
+
 // Configuración de paginación
 const ITEMS_PER_PAGE = 10;
 
@@ -65,17 +123,14 @@ const Pagination = ({
   if (totalPages <= 1) return null;
 
   return (
-    <div className="flex items-center justify-between flex-col sm:flex-row gap-4 mt-6 pt-4 border-t border-gray-200">
-      {/* Información de elementos */}
+    <div className="flex items-center justify-between flex-col sm:flex-row gap-4 pt-4 border-t border-gray-200">
       <div className="text-sm text-gray-600">
         Mostrando <span className="font-medium">{startItem}</span> a{" "}
         <span className="font-medium">{endItem}</span> de{" "}
         <span className="font-medium">{totalItems}</span> resultados
       </div>
 
-      {/* Controles de paginación */}
       <div className="flex items-center gap-1">
-        {/* Botón anterior */}
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
@@ -87,7 +142,6 @@ const Pagination = ({
           <FaChevronLeft className="w-3 h-3" />
         </button>
 
-        {/* Números de página */}
         {getPageNumbers().map((page, index) => (
           <button
             key={index}
@@ -104,7 +158,6 @@ const Pagination = ({
           </button>
         ))}
 
-        {/* Botón siguiente */}
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
@@ -120,7 +173,7 @@ const Pagination = ({
   );
 };
 
-// Componente DateFilter con filtro de equipo agregado
+// Filtro de fecha para bomberos (sin selector de faena)
 const DateFilter = ({
   onFilterChange,
   initialDateFrom = "",
@@ -133,87 +186,83 @@ const DateFilter = ({
   const [dateTo, setDateTo] = useState(initialDateTo);
   const [equipoFilter, setEquipoFilter] = useState(initialEquipoFilter);
 
-  const getQuickDates = () => {
-    const today = new Date();
-    const formatDate = (date) => date.toISOString().split("T")[0];
-
-    return {
-      today: formatDate(today),
-      yesterday: formatDate(new Date(today.getTime() - 24 * 60 * 60 * 1000)),
-      weekStart: formatDate(
-        new Date(today.setDate(today.getDate() - today.getDay()))
-      ),
-      monthStart: formatDate(
-        new Date(today.getFullYear(), today.getMonth(), 1)
-      ),
-      lastMonth: formatDate(
-        new Date(today.getFullYear(), today.getMonth() - 1, 1)
-      ),
-      lastMonthEnd: formatDate(
-        new Date(today.getFullYear(), today.getMonth(), 0)
-      ),
-    };
-  };
-
-  const quickDates = getQuickDates();
-
   const notifyChange = (newDateFrom, newDateTo, newEquipoFilter) => {
     if (onFilterChange) {
       onFilterChange({
         dateFrom: newDateFrom,
         dateTo: newDateTo,
-        equipoFilter: newEquipoFilter
+        equipoFilter: newEquipoFilter,
       });
     }
   };
 
-  const handleDateFromChange = (value) => {
+  const handleDateFromChange = (e) => {
+    const value = e.target.value;
     setDateFrom(value);
     notifyChange(value, dateTo, equipoFilter);
   };
 
-  const handleDateToChange = (value) => {
+  const handleDateToChange = (e) => {
+    const value = e.target.value;
     setDateTo(value);
     notifyChange(dateFrom, value, equipoFilter);
   };
 
-  const handleEquipoFilterChange = (value) => {
+  const handleEquipoFilterChange = (e) => {
+    const value = e.target.value;
     setEquipoFilter(value);
     notifyChange(dateFrom, dateTo, value);
   };
 
-  const applyQuickFilter = (period) => {
-    let newDateFrom = "";
-    let newDateTo = "";
+  const applyQuickFilter = (filterType) => {
+    const today = new Date();
+    let from, to;
 
-    switch (period) {
+    switch (filterType) {
       case "today":
-        newDateFrom = quickDates.today;
-        newDateTo = quickDates.today;
+        from = to = today.toISOString().split("T")[0];
         break;
       case "yesterday":
-        newDateFrom = quickDates.yesterday;
-        newDateTo = quickDates.yesterday;
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+        from = to = yesterday.toISOString().split("T")[0];
         break;
-      case "week":
-        newDateFrom = quickDates.weekStart;
-        newDateTo = quickDates.today;
+      case "thisWeek":
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay());
+        from = startOfWeek.toISOString().split("T")[0];
+        to = today.toISOString().split("T")[0];
         break;
-      case "month":
-        newDateFrom = quickDates.monthStart;
-        newDateTo = quickDates.today;
+      case "thisMonth":
+        from = new Date(today.getFullYear(), today.getMonth(), 1)
+          .toISOString()
+          .split("T")[0];
+        to = today.toISOString().split("T")[0];
+        break;
+      case "lastWeek":
+        const lastWeekEnd = new Date(today);
+        lastWeekEnd.setDate(today.getDate() - today.getDay() - 1);
+        const lastWeekStart = new Date(lastWeekEnd);
+        lastWeekStart.setDate(lastWeekEnd.getDate() - 6);
+        from = lastWeekStart.toISOString().split("T")[0];
+        to = lastWeekEnd.toISOString().split("T")[0];
         break;
       case "lastMonth":
-        newDateFrom = quickDates.lastMonth;
-        newDateTo = quickDates.lastMonthEnd;
+        const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1);
+        from = new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 1)
+          .toISOString()
+          .split("T")[0];
+        to = new Date(lastMonth.getFullYear(), lastMonth.getMonth() + 1, 0)
+          .toISOString()
+          .split("T")[0];
         break;
       default:
-        break;
+        return;
     }
 
-    setDateFrom(newDateFrom);
-    setDateTo(newDateTo);
-    notifyChange(newDateFrom, newDateTo, equipoFilter);
+    setDateFrom(from);
+    setDateTo(to);
+    notifyChange(from, to, equipoFilter);
   };
 
   const clearFilters = () => {
@@ -223,74 +272,53 @@ const DateFilter = ({
     notifyChange("", "", "");
   };
 
-  const hasActiveFilters = dateFrom || dateTo || equipoFilter;
-
   return (
-    <div
-      className={`bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-4 sm:p-6 mb-6 sm:mb-8 ${className}`}
-    >
-      <div className="flex items-center gap-3 mb-4 sm:mb-6">
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-2 sm:p-3 rounded-xl shadow-lg">
-          <FaCalendarAlt className="text-white text-base sm:text-lg" />
-        </div>
+    <div className={`bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 p-4 sm:p-6 mb-6 ${className}`}>
+      <div className="mb-4 sm:mb-6">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 flex items-center gap-2">
+          <FaSearch className="text-blue-600" />
+          Filtros de Búsqueda
+        </h2>
+        <p className="text-gray-600 text-sm">
+          Filtra por fecha y nombre de equipo
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
         <div>
-          <h3 className="text-lg sm:text-xl font-bold text-gray-800">
-            🔍 Filtros de Búsqueda
-          </h3>
-          <p className="text-gray-600 text-xs sm:text-sm">
-            Filtra por fecha y nombre de equipo
-          </p>
-        </div>
-      </div>
-
-      {/* Filtro por nombre de equipo */}
-      <div className="mb-4 bg-gray-50 rounded-lg p-4">
-        <label className="text-xs sm:text-sm font-medium text-gray-700 mb-2 block flex items-center gap-2">
-          <FaTruck className="text-blue-600" />
-          Filtrar por Nombre de Equipo
-        </label>
-        <div className="relative">
-          <input
-            type="text"
-            value={equipoFilter}
-            onChange={(e) => handleEquipoFilterChange(e.target.value)}
-            placeholder="Ejemplo: Excavadora, Camión, patente, etc..."
-            className="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white shadow-sm text-sm sm:text-base"
-          />
-          <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-          {equipoFilter && (
-            <button
-              onClick={() => handleEquipoFilterChange("")}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            >
-              <FaTimes />
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
-        <div className="flex flex-col">
-          <label className="text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
-            Fecha Desde
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            📅 Fecha Desde
           </label>
           <input
             type="date"
             value={dateFrom}
-            onChange={(e) => handleDateFromChange(e.target.value)}
-            className="px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white shadow-sm text-sm sm:text-base"
+            onChange={handleDateFromChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
 
-        <div className="flex flex-col">
-          <label className="text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
-            Fecha Hasta
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            📅 Fecha Hasta
           </label>
           <input
             type="date"
             value={dateTo}
-            onChange={(e) => handleDateToChange(e.target.value)}
-            className="px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white shadow-sm text-sm sm:text-base"
+            onChange={handleDateToChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            🚛 Buscar Equipo
+          </label>
+          <input
+            type="text"
+            value={equipoFilter}
+            onChange={handleEquipoFilterChange}
+            placeholder="Ejemplo: Excavadora, Camión, patente, etc..."
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
       </div>
@@ -314,13 +342,19 @@ const DateFilter = ({
               Ayer
             </button>
             <button
-              onClick={() => applyQuickFilter("week")}
+              onClick={() => applyQuickFilter("thisWeek")}
               className="px-2 sm:px-3 py-1 sm:py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs sm:text-sm font-medium"
             >
               Esta Semana
             </button>
             <button
-              onClick={() => applyQuickFilter("month")}
+              onClick={() => applyQuickFilter("lastWeek")}
+              className="px-2 sm:px-3 py-1 sm:py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs sm:text-sm font-medium"
+            >
+              Semana Pasada
+            </button>
+            <button
+              onClick={() => applyQuickFilter("thisMonth")}
               className="px-2 sm:px-3 py-1 sm:py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs sm:text-sm font-medium"
             >
               Este Mes
@@ -329,112 +363,76 @@ const DateFilter = ({
               onClick={() => applyQuickFilter("lastMonth")}
               className="px-2 sm:px-3 py-1 sm:py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs sm:text-sm font-medium"
             >
-              Mes Anterior
+              Mes Pasado
             </button>
-          </div>
+          </div>  
         </div>
       )}
 
-      <div className="flex flex-wrap gap-3 pt-3 sm:pt-4 border-t border-gray-200">
+      <div className="flex justify-end">
         <button
           onClick={clearFilters}
-          className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-all duration-200 font-medium text-xs sm:text-sm"
+          className="px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-xs sm:text-sm font-medium flex items-center gap-2"
         >
-          <FaTimes />
+          <FaTimes className="text-xs" />
           Limpiar Filtros
         </button>
       </div>
-
-      {hasActiveFilters && (
-        <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex flex-wrap items-center gap-2 text-blue-700 text-xs sm:text-sm">
-            <span className="font-medium">Filtros activos:</span>
-            {dateFrom && (
-              <span className="bg-blue-100 px-2 py-1 rounded">
-                Desde: <strong>{new Date(dateFrom).toLocaleDateString("es-CL")}</strong>
-              </span>
-            )}
-            {dateTo && (
-              <span className="bg-blue-100 px-2 py-1 rounded">
-                Hasta: <strong>{new Date(dateTo).toLocaleDateString("es-CL")}</strong>
-              </span>
-            )}
-            {equipoFilter && (
-              <span className="bg-blue-100 px-2 py-1 rounded">
-                Equipo: <strong>{equipoFilter}</strong>
-              </span>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
 // Componente Button
 const Button = ({
-  to,
-  color,
-  icon,
   text,
-  className = "",
-  size = "normal",
-  disabled = false,
   onClick,
+  color = "blue",
+  disabled = false,
+  size = "medium",
+  icon = null,
 }) => {
-  const baseClasses =
-    "relative overflow-hidden flex items-center justify-center gap-2 sm:gap-3 rounded-xl font-semibold transition-all duration-300 transform group";
-
+  const baseClasses = "font-medium rounded-lg transition-all duration-300 transform";
+  
   const sizeClasses = {
-    small: "px-3 sm:px-4 py-2 text-xs sm:text-sm",
-    normal: "px-4 sm:px-6 py-3 sm:py-4 text-sm sm:text-base",
-    large: "px-6 sm:px-8 py-4 sm:py-5 text-base sm:text-lg",
+    small: "px-3 py-2 text-sm",
+    medium: "px-4 py-2 text-sm sm:text-base",
+    large: "px-6 py-3 text-base sm:text-lg",
   };
 
   const colorClasses = {
-    orange:
-      "bg-gradient-to-r from-orange-500 via-orange-600 to-orange-700 hover:from-orange-600 hover:via-orange-700 hover:to-orange-800 text-white shadow-lg hover:shadow-xl hover:shadow-orange-200/50 hover:scale-105",
-    blue: "bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 hover:from-blue-600 hover:via-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl hover:shadow-blue-200/50 hover:scale-105",
-    green:
-      "bg-gradient-to-r from-green-500 via-green-600 to-green-700 hover:from-green-600 hover:via-green-700 hover:to-green-800 text-white shadow-lg hover:shadow-xl hover:shadow-green-200/50 hover:scale-105",
-    gray: "bg-gray-500 text-white cursor-not-allowed opacity-50",
-  };
-
-  const handleClick = (e) => {
-    if (disabled) {
-      e.preventDefault();
-      return;
-    }
-    if (onClick) {
-      e.preventDefault();
-      onClick();
-    } else if (to) {
-      window.location.href = to;
-    }
+    blue: disabled
+      ? "bg-blue-300 text-blue-100 cursor-not-allowed"
+      : "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 hover:scale-105 shadow-lg hover:shadow-xl group",
+    orange: disabled
+      ? "bg-orange-300 text-orange-100 cursor-not-allowed"
+      : "bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700 hover:scale-105 shadow-lg hover:shadow-xl group",
+    green: disabled
+      ? "bg-green-300 text-green-100 cursor-not-allowed"
+      : "bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 hover:scale-105 shadow-lg hover:shadow-xl group",
+    red: disabled
+      ? "bg-red-300 text-red-100 cursor-not-allowed"
+      : "bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 hover:scale-105 shadow-lg hover:shadow-xl group",
   };
 
   return (
     <button
-      onClick={handleClick}
-      className={`${baseClasses} ${sizeClasses[size]} ${disabled ? colorClasses.gray : colorClasses[color]
-        } ${className}`}
+      onClick={onClick}
       disabled={disabled}
+      className={`${baseClasses} ${sizeClasses[size]} ${colorClasses[color]} flex items-center gap-2 justify-center`}
     >
-      {!disabled && (
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-      )}
-
       {icon && (
         <span
-          className={`text-lg sm:text-xl transition-transform duration-300 z-10 ${!disabled ? "group-hover:rotate-6" : ""
-            }`}
+          className={`transition-transform duration-300 ${
+            !disabled ? "group-hover:rotate-6" : ""
+          }`}
         >
           {icon}
         </span>
       )}
       <span
-        className={`font-medium z-10 transition-all duration-300 ${!disabled ? "group-hover:tracking-wide" : ""
-          }`}
+        className={`font-medium z-10 transition-all duration-300 ${
+          !disabled ? "group-hover:tracking-wide" : ""
+        }`}
       >
         {text}
       </span>
@@ -455,12 +453,23 @@ const LoadingSpinner = ({ message = "Cargando..." }) => (
   </div>
 );
 
-// Componente de tarjeta móvil para consumos
+// Componente de tarjeta móvil para consumos CON COLORES
 const ConsumoCard = ({ consumo, formatearFecha, formatNumber }) => {
   const { fecha, hora } = formatearFecha(consumo.fecha_consumo);
+  
+  // 🆕 AGREGAR: Obtener colores de la faena
+  const faenaColors = getFaenaColors(consumo.faena);
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+    <div className={`${faenaColors.light} border ${faenaColors.border} border-l-4 rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 group relative`}>
+      {/* 🆕 AGREGAR: Badge de faena en la esquina superior derecha */}
+      <div className="absolute top-2 right-2 z-10">
+        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${faenaColors.badge} shadow-md transform group-hover:scale-105 transition-transform duration-200`}>
+          <span className="text-xs">{faenaColors.icon}</span>
+          {consumo.faena}
+        </span>
+      </div>
+
       {/* Header con fecha y litros */}
       <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
         <div className="flex items-center gap-2">
@@ -470,7 +479,7 @@ const ConsumoCard = ({ consumo, formatearFecha, formatNumber }) => {
             <div className="text-xs text-gray-500">{hora}</div>
           </div>
         </div>
-        <div className="text-right">
+        <div className="text-right mr-16"> {/* Margen para no solapar con badge */}
           <div className="text-xs text-gray-500 mb-1">Litros</div>
           <div className="font-bold text-lg text-orange-600">
             {formatNumber(consumo.litros_consumidos)} L
@@ -545,7 +554,7 @@ const ConsumosView = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
-  // 🆕 NUEVO: Estados para estadísticas de la API
+  // Estados para estadísticas de la API
   const [stats, setStats] = useState({
     total_consumos: 0,
     total_litros: 0,
@@ -557,7 +566,33 @@ const ConsumosView = () => {
     porcentaje_multiples: 0
   });
 
-  // 🔧 FUNCIÓN CORREGIDA para obtener consumos con paginación
+  // Formatear números
+  const formatNumber = (num) => {
+    if (num === null || num === undefined) return "0";
+    return parseFloat(num).toLocaleString("es-CL", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
+  };
+
+  // Formatear fecha
+  const formatearFecha = (fechaString) => {
+    if (!fechaString) return { fecha: "N/A", hora: "N/A" };
+    
+    const fecha = new Date(fechaString);
+    const fechaFormateada = fecha.toLocaleDateString("es-CL");
+    const horaFormateada = fecha.toLocaleTimeString("es-CL", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    
+    return { fecha: fechaFormateada, hora: horaFormateada };
+  };
+
+  // Calcular número total de páginas
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+
+  // Función para obtener consumos de la API
   const fetchConsumos = async (filterParams = {}, page = 1) => {
     if (!user?.id_faena) {
       console.log("Usuario sin faena asignada:", user);
@@ -574,14 +609,14 @@ const ConsumosView = () => {
         throw new Error("No se encontró token de autenticación");
       }
 
-      // 🔧 CONSTRUCCIÓN CORRECTA de parámetros de consulta
+      // Construcción correcta de parámetros de consulta
       const params = new URLSearchParams({
         faena: user.id_faena,
         page: page.toString(),
         per_page: ITEMS_PER_PAGE.toString(),
       });
 
-      // 🔧 AGREGAR FILTROS correctamente
+      // Agregar filtros correctamente
       if (filterParams.dateFrom) {
         params.append('dateFrom', filterParams.dateFrom);
       }
@@ -590,7 +625,7 @@ const ConsumosView = () => {
         params.append('dateTo', filterParams.dateTo);
       }
 
-      // 🆕 AGREGAR FILTRO POR EQUIPO
+      // Agregar filtro por equipo
       if (filterParams.equipoFilter) {
         params.append('equipoFilter', filterParams.equipoFilter);
       }
@@ -612,17 +647,17 @@ const ConsumosView = () => {
 
       console.log("Consumos recibidos:", response.data);
 
-      // 🔧 MANEJO CORRECTO de la respuesta según la estructura de tu API modificada
+      // Manejo correcto de la respuesta según la estructura de tu API
       if (response.data.success) {
         const consumosData = response.data.data || [];
         setConsumos(consumosData);
 
-        // 🆕 MANEJAR ESTADÍSTICAS de la API
+        // Manejar estadísticas de la API
         if (response.data.stats) {
           setStats(response.data.stats);
         }
 
-        // 🔧 CAMBIAR POR ESTO (priorizar pagination.total):
+        // Priorizar pagination.total
         const total = response.data.pagination?.total ||
           response.data.stats?.total_consumos ||
           0;
@@ -635,11 +670,6 @@ const ConsumosView = () => {
           "total_calculado": total,
           "consumos_en_pagina": consumosData.length
         });
-
-        // 🆕 AGREGAR ESTOS LOGS ADICIONALES:
-        console.log("🔍 PAGINATION COMPLETA:", JSON.stringify(response.data.pagination, null, 2));
-        console.log("🔍 STATS COMPLETAS:", JSON.stringify(response.data.stats, null, 2));
-        console.log("🔍 RESPUESTA COMPLETA:", JSON.stringify(response.data, null, 2));
 
       } else {
         throw new Error(response.data.message || 'Error en la respuesta del servidor');
@@ -660,18 +690,18 @@ const ConsumosView = () => {
       }
 
       setError(errorMessage);
+      setConsumos([]);
+      setTotalItems(0);
     } finally {
       setLoadingConsumos(false);
     }
   };
 
-  // Resto del código permanece igual...
-
-  // Manejar cambios en filtros
+  // Manejar cambios de filtros
   const handleFilterChange = (newFilters) => {
-    console.log("Aplicando filtros:", newFilters);
+    console.log("🔄 Aplicando filtros:", newFilters);
     setFilters(newFilters);
-    setCurrentPage(1); // Resetear a la primera página
+    setCurrentPage(1);
     fetchConsumos(newFilters, 1);
   };
 
@@ -679,68 +709,29 @@ const ConsumosView = () => {
   const handlePageChange = (page) => {
     setCurrentPage(page);
     fetchConsumos(filters, page);
-    // Scroll suave hacia arriba
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // useEffect para cargar datos cuando el usuario esté disponible
   useEffect(() => {
-    if (!loading && user?.id_faena) {
-      console.log("Usuario disponible, cargando consumos...", user);
-      fetchConsumos();
+    if (user?.id_faena) {
+      console.log("🔄 [useEffect] Usuario disponible, cargando datos...");
+      fetchConsumos(filters, currentPage);
     }
-  }, [user, loading]);
+  }, [user?.id_faena]);
 
-  // Función para formatear fecha
-  const formatearFecha = (fechaString) => {
-    const fecha = new Date(fechaString);
-    const fechaFormateada = fecha.toLocaleDateString("es-CL", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-    const horaFormateada = fecha.toLocaleTimeString("es-CL", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    return { fecha: fechaFormateada, hora: horaFormateada };
-  };
-
-  // Función para formatear números
-  const formatNumber = (num) => {
-    return parseFloat(num || 0).toLocaleString("es-CL", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  };
-
-  // Cálculo de páginas totales
-  const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
-
-  // Loading state del usuario
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-100 flex items-center justify-center p-4">
-        <div className="text-center bg-white rounded-3xl shadow-2xl p-8 sm:p-12 max-w-md mx-4">
-          <LoadingSpinner message="Obteniendo información del usuario..." />
-        </div>
-      </div>
-    );
+    return <LoadingSpinner message="Verificando acceso..." />;
   }
 
-  // Error state si no hay usuario
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-red-50/30 to-gray-100 flex items-center justify-center p-4">
-        <div className="text-center bg-white rounded-3xl shadow-2xl p-6 sm:p-8 max-w-md mx-4 border-2 border-red-200">
-          <div className="text-red-500 text-5xl sm:text-6xl mb-4">
-            <FaExclamationTriangle className="mx-auto animate-bounce" />
-          </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">
-            Error de Autenticación
-          </h2>
-          <p className="text-gray-600 mb-6 text-sm sm:text-base">
-            No se pudo cargar la información del usuario.
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-lg shadow-md text-center">
+          <FaExclamationTriangle className="text-red-500 text-4xl mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Acceso Restringido</h2>
+          <p className="text-gray-600 mb-4">
+            Debes iniciar sesión para acceder a esta sección.
           </p>
           <Button
             color="orange"
@@ -765,7 +756,7 @@ const ConsumosView = () => {
           initialEquipoFilter={filters.equipoFilter}
         />
 
-        {/* 🆕 TARJETAS DE ESTADÍSTICAS */}
+        {/* TARJETAS DE ESTADÍSTICAS */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 rounded-xl text-white">
             <div className="flex items-center justify-between">
@@ -825,7 +816,7 @@ const ConsumosView = () => {
                     " con filtros aplicados"}
                 </p>
 
-                {/* 🆕 INFORMACIÓN ADICIONAL DE TIPOS DE CONSUMO */}
+                {/* INFORMACIÓN ADICIONAL DE TIPOS DE CONSUMO */}
                 {stats.consumos_multiples > 0 && (
                   <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                     <span>Simples: {stats.consumos_simples}</span>
@@ -837,14 +828,13 @@ const ConsumosView = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-             
               <PDFGenerator
                 consumos={consumos}
                 stats={stats}
                 filters={filters}
                 totalItems={totalItems}
                 currentPage={currentPage}
-                user={user}  // 👈 AGREGAR ESTA LÍNEA
+                user={user}
                 size="small"
                 disabled={loadingConsumos}
               />
@@ -877,7 +867,7 @@ const ConsumosView = () => {
             </div>
           ) : (
             <>
-              {/* Vista móvil - Cards */}
+              {/* Vista móvil - Cards CON COLORES */}
               <div className="block lg:hidden">
                 <div className="space-y-4">
                   {consumos.length > 0 ? (
@@ -905,7 +895,7 @@ const ConsumosView = () => {
                 </div>
               </div>
 
-              {/* Vista escritorio - Tabla con columnas reorganizadas */}
+              {/* Vista escritorio - Tabla CON COLORES */}
               <div className="hidden lg:block">
                 <div className="overflow-x-auto rounded-2xl shadow-inner">
                   <table className="w-full">
@@ -929,22 +919,32 @@ const ConsumosView = () => {
                         <th className="text-left py-4 sm:py-5 px-4 sm:px-6 font-bold text-gray-700 text-sm sm:text-base">
                           📊 Medición
                         </th>
-
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {consumos.length > 0 ? (
                         consumos.map((consumo, index) => {
-                          const { fecha, hora } = formatearFecha(
-                            consumo.fecha_consumo
-                          );
+                          const { fecha, hora } = formatearFecha(consumo.fecha_consumo);
+                          
+                          // 🆕 OBTENER COLORES DE LA FAENA
+                          const faenaColors = getFaenaColors(consumo.faena);
 
                           return (
                             <tr
                               key={consumo.id_consumo || index}
-                              className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-300"
+                              className={`relative ${faenaColors.light} border-l-4 ${faenaColors.border} hover:shadow-lg hover:bg-opacity-80 transition-all duration-200 group`}
                             >
-                              <td className="py-4 sm:py-5 px-4 sm:px-6 text-sm">
+                              {/* 🆕 CELDA CON BADGE DE FAENA */}
+                              <td className="relative py-4 sm:py-5 px-4 sm:px-6 text-sm">
+                                {/* Badge de faena en la esquina superior derecha */}
+                                <div className="absolute top-1 right-1 z-10">
+                                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${faenaColors.badge} shadow-md transform group-hover:scale-105 transition-transform duration-200`}>
+                                    <span className="text-xs">{faenaColors.icon}</span>
+                                    {consumo.faena}
+                                  </span>
+                                </div>
+                                
+                                {/* Contenido original de fecha */}
                                 <div className="font-bold text-gray-800">
                                   {fecha}
                                 </div>
@@ -952,6 +952,7 @@ const ConsumosView = () => {
                                   {hora}
                                 </div>
                               </td>
+
                               <td className="py-4 sm:py-5 px-4 sm:px-6 text-sm font-semibold text-gray-800">
                                 <div className="font-bold">
                                   {consumo.nombre_maquina || "N/A"}
@@ -960,17 +961,18 @@ const ConsumosView = () => {
                                   Patente: {consumo.patente || "N/A"}
                                 </div>
                               </td>
+                              
                               <td className="py-4 sm:py-5 px-4 sm:px-6 text-sm">
-                                <span className="font-bold text-lg bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+                                <span className="font-bold text-lg bg-gradient-to-r from-orange-600 to-orange-600 bg-clip-text text-transparent">
                                   {formatNumber(consumo.litros_consumidos)} L
                                 </span>
-                                {/* 🆕 MOSTRAR COSTO SI ESTÁ DISPONIBLE */}
                                 {consumo.costo_total && (
                                   <div className="text-xs text-gray-500">
                                     ${formatNumber(consumo.costo_total)}
                                   </div>
                                 )}
                               </td>
+                              
                               <td className="py-4 sm:py-5 px-4 sm:px-6 text-sm">
                                 <div className="font-semibold text-gray-800">
                                   {consumo.solicitante_nombre || "N/A"}
@@ -978,43 +980,42 @@ const ConsumosView = () => {
                                 <div className="text-xs text-gray-500">
                                   RUT: {consumo.id_dotacion || "N/A"}
                                 </div>
-                                {/* 🆕 MOSTRAR TIPO DE PERSONAL */}
+                                {/* Mostrar tipo de personal */}
                                 {consumo.solicitante_tipo && (
                                   <div className="text-xs text-blue-600">
                                     {consumo.solicitante_tipo}
                                   </div>
                                 )}
                               </td>
+                              
                               <td className="py-4 sm:py-5 px-4 sm:px-6 text-sm text-gray-600 font-medium">
                                 {consumo.estanque || "N/A"}
-                                {/* 🆕 MOSTRAR INDICADOR DE MÚLTIPLES ESTANQUES */}
+                                {/* Mostrar indicador de múltiples estanques */}
                                 {consumo.cantidad_estanques > 1 && (
                                   <div className="text-xs text-purple-600 font-semibold">
                                     ({consumo.cantidad_estanques} estanques)
                                   </div>
                                 )}
                               </td>
+                              
                               <td className="py-4 sm:py-5 px-4 sm:px-6 text-sm text-gray-600">
                                 {consumo.medicion ? (
                                   <span className="font-medium">
                                     {formatNumber(consumo.medicion)}
                                     <span className="text-xs ml-1">
-                                      {consumo.tipo_medicion === "Kilometraje"
-                                        ? "km"
-                                        : "hrs"}
+                                      {consumo.tipo_medicion === "Kilometraje" ? "km" : "hrs"}
                                     </span>
                                   </span>
                                 ) : (
                                   <span className="text-gray-400">N/A</span>
                                 )}
                               </td>
-
                             </tr>
                           );
                         })
                       ) : (
                         <tr>
-                          <td colSpan="7" className="py-12 text-center">
+                          <td colSpan="6" className="py-12 text-center">
                             <div className="text-gray-500 text-lg font-medium">
                               📭 No hay consumos para mostrar
                             </div>
@@ -1053,4 +1054,5 @@ const ConsumosView = () => {
     </div>
   );
 };
+
 export default ConsumosView;

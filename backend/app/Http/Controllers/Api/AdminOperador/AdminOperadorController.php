@@ -3,200 +3,509 @@
 namespace App\Http\Controllers\Api\AdminOperador;
 
 use App\Http\Controllers\Controller;
-use App\Models\Faena;
-use App\Models\Maquinas;
-use App\Models\OperadorVehiculo\AsignacionPersonalMaquina;
 use App\Models\OperadorVehiculo\CargaExterna;
 use App\Models\User;
+use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class AdminOperadorController extends Controller
 {
-     /**
-     * 📋 LISTAR TODAS LAS CARGAS EXTERNAS
-     * Solo para consulta del admin
+    /**
+     * 📋 Listar todas las cargas externas con información completa
+     * Endpoint: GET /api/adminOperador/cargas
      */
-    public function index(Request $request)
+    public function index(): JsonResponse
     {
         try {
-            // Obtener todas las cargas con sus relaciones
+            // Obtener cargas externas con relaciones cargadas
             $cargas = CargaExterna::with([
-                'user:id,nombre,apellido,email,rut',
-                'maquina:id_maquina,nombre_maquina,patente',
-                'faena:id_faena,ubicacion',
-                'aprobadoPor:id,nombre,apellido'
+                'user:id,nombre,apellido,rut,id_faena',
+                'user.faena:id_faena,ubicacion', // ✅ NUEVO: Traer también la faena del usuario
+                'maquina:id_maquina,nombre_maquina,patente,id_categoria',
+                'maquina.categoria:id_categoria,nombre_categoria',
+                'faena:id_faena,ubicacion'
             ])
-            ->orderBy('created_at', 'desc')
-            ->get();
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            // Formatear los datos para el frontend
+            $cargasFormateadas = $cargas->map(function ($carga) {
+                return [
+                    'id' => $carga->id,
+                    'numero_boleta' => $carga->numero_boleta,
+                    'litros' => (float) $carga->litros,
+                    'costo' => (float) $carga->costo,
+                    'precio_por_litro' => (float) $carga->precio_por_litro,
+                    'medicion' => $carga->medicion,
+                    'ubicacion' => $carga->ubicacion,
+                    'tipo_combustible' => $carga->tipo_combustible,
+                    'observaciones' => $carga->observaciones,
+                    'estado' => $carga->estado,
+                    'created_at' => $carga->created_at,
+                    'fecha_aprobacion' => $carga->fecha_aprobacion,
+                    'motivo_rechazo' => $carga->motivo_rechazo,
+                    'id_faena' => $carga->id_faena, // ✅ AGREGAR ESTA LÍNEA
+
+
+                    // Información del usuario
+                    'user' => [
+                        'id' => $carga->user->id ?? null,
+                        'nombre' => $carga->user->nombre ?? 'Usuario no encontrado',
+                        'apellido' => $carga->user->apellido ?? '',
+                        'rut' => $carga->user->rut ?? 'Sin RUT',
+                        'id_faena' => $carga->user->id_faena ?? null, // ✅ NUEVO: ID de faena del usuario
+                        'faena_usuario' => $carga->user->faena->ubicacion ?? 'Sin faena asignada', // ✅ NUEVO: Nombre de la faena del usuario
+                        'nombre_completo' => ($carga->user->nombre ?? 'Usuario') . ' ' . ($carga->user->apellido ?? 'no encontrado')
+                    ],
+
+                    // Información de la máquina
+                    'maquina' => [
+                        'id' => $carga->maquina->id_maquina ?? null,
+                        'nombre_maquina' => $carga->maquina->nombre_maquina ?? 'Máquina no encontrada',
+                        'patente' => $carga->maquina->patente ?? 'Sin patente',
+                        'categoria' => [
+                            'id' => $carga->maquina->categoria->id_categoria ?? null,
+                            'nombre' => $carga->maquina->categoria->nombre_categoria ?? 'Sin categoría'
+                        ]
+                    ],
+
+                    // Información de la faena
+                    'faena' => [
+                        'id' => $carga->faena->id_faena ?? 6, // Default para cargas externas
+                        'ubicacion' => $carga->faena->ubicacion ?? 'Cargas Externas'
+                    ]
+                ];
+            });
+
+            // Calcular estadísticas
+            $estadisticas = [
+                'total' => $cargas->count(),
+                'pendientes' => $cargas->where('estado', 'pendiente')->count(),
+                'aprobadas' => $cargas->where('estado', 'aprobado')->count(),
+                'rechazadas' => $cargas->where('estado', 'rechazado')->count(),
+                'total_litros' => $cargas->sum('litros'),
+                'total_costo' => $cargas->sum('costo'),
+                'promedio_precio_litro' => $cargas->count() > 0 ? $cargas->avg('precio_por_litro') : 0
+            ];
+
+            // Estadísticas del mes actual
+            $mesActual = Carbon::now()->format('Y-m');
+            $cargasMes = $cargas->filter(function ($carga) use ($mesActual) {
+                return Carbon::parse($carga->created_at)->format('Y-m') === $mesActual;
+            });
+
+            $estadisticasMes = [
+                'total_mes' => $cargasMes->count(),
+                'pendientes_mes' => $cargasMes->where('estado', 'pendiente')->count(),
+                'aprobadas_mes' => $cargasMes->where('estado', 'aprobado')->count(),
+                'rechazadas_mes' => $cargasMes->where('estado', 'rechazado')->count(),
+                'litros_mes' => $cargasMes->sum('litros'),
+                'costo_mes' => $cargasMes->sum('costo')
+            ];
 
             return response()->json([
-                'success' => true,
-                'data' => $cargas,
-                'total' => $cargas->count(),
-                'resumen' => [
-                    'pendientes' => $cargas->where('estado', 'pendiente')->count(),
-                    'aprobadas' => $cargas->where('estado', 'aprobado')->count(),
-                    'rechazadas' => $cargas->where('estado', 'rechazado')->count(),
+                'status' => 'success',
+                'message' => 'Cargas externas obtenidas correctamente',
+                'data' => $cargasFormateadas,
+                'estadisticas' => array_merge($estadisticas, $estadisticasMes),
+                'meta' => [
+                    'total_registros' => $cargas->count(),
+                    'fecha_consulta' => now()->toISOString()
                 ]
             ]);
-
         } catch (\Exception $e) {
+            Log::error('Error al obtener cargas externas para admin:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
-                'success' => false,
-                'message' => 'Error al obtener las cargas',
-                'error' => $e->getMessage()
+                'status' => 'error',
+                'message' => 'Error al obtener cargas externas: ' . $e->getMessage(),
+                'data' => []
             ], 500);
         }
     }
 
     /**
-     * 👁️ VER UNA CARGA ESPECÍFICA
-     * Detalles completos para el admin
+     * 🔍 Mostrar detalle de una carga específica
+     * Endpoint: GET /api/adminOperador/cargas/{id}
      */
-    public function show($id)
+    public function show($id): JsonResponse
     {
         try {
             $carga = CargaExterna::with([
-                'user:id,nombre,apellido,email,rut',
-                'maquina:id_maquina,nombre_maquina,patente,modelo,marca',
+                'user:id,nombre,apellido,rut,email,id_faena',
+                'user.faena:id_faena,ubicacion', // ✅ NUEVO: Traer también la faena del usuario
+                'maquina:id_maquina,nombre_maquina,patente,id_categoria',
+                'maquina.categoria:id_categoria,nombre_categoria',
                 'faena:id_faena,ubicacion',
-                'aprobadoPor:id,nombre,apellido,email'
-            ])->find($id);
+                'aprobadoPor:id,nombre,apellido' // Usuario que aprobó/rechazó
+            ])->findOrFail($id);
 
-            if (!$carga) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Carga no encontrada'
-                ], 404);
-            }
+            // Formatear los datos igual que en index() pero con más detalles
+            $cargaFormateada = [
+                'id' => $carga->id,
+                'numero_boleta' => $carga->numero_boleta,
+                'litros' => (float) $carga->litros,
+                'costo' => (float) $carga->costo,
+                'precio_por_litro' => (float) $carga->precio_por_litro,
+                'medicion' => $carga->medicion,
+                'ubicacion' => $carga->ubicacion,
+                'tipo_combustible' => $carga->tipo_combustible,
+                'observaciones' => $carga->observaciones,
+                'estado' => $carga->estado,
+                'created_at' => $carga->created_at,
+                'fecha_aprobacion' => $carga->fecha_aprobacion,
+                'motivo_rechazo' => $carga->motivo_rechazo,
+
+                // Información del usuario (más completa)
+                'user' => [
+                    'id' => $carga->user->id ?? null,
+                    'nombre' => $carga->user->nombre ?? 'Usuario no encontrado',
+                    'apellido' => $carga->user->apellido ?? '',
+                    'rut' => $carga->user->rut ?? 'Sin RUT',
+                    'email' => $carga->user->email ?? 'Sin email',
+                    'nombre_completo' => ($carga->user->nombre ?? 'Usuario') . ' ' . ($carga->user->apellido ?? 'no encontrado')
+                ],
+
+                // Información de la máquina (más completa)
+                'maquina' => [
+                    'id' => $carga->maquina->id_maquina ?? null,
+                    'nombre_maquina' => $carga->maquina->nombre_maquina ?? 'Máquina no encontrada',
+                    'patente' => $carga->maquina->patente ?? 'Sin patente',
+                    'categoria' => [
+                        'id' => $carga->maquina->categoria->id_categoria ?? null,
+                        'nombre' => $carga->maquina->categoria->nombre_categoria ?? 'Sin categoría'
+                    ]
+                ],
+
+                // Información de la faena
+                'faena' => [
+                    'id' => $carga->faena->id_faena ?? 6,
+                    'ubicacion' => $carga->faena->ubicacion ?? 'Cargas Externas'
+                ],
+
+                // Información de quien aprobó/rechazó
+                'aprobadoPor' => $carga->aprobadoPor ? [
+                    'id' => $carga->aprobadoPor->id,
+                    'nombre' => $carga->aprobadoPor->nombre,
+                    'apellido' => $carga->aprobadoPor->apellido,
+                    'nombre_completo' => $carga->aprobadoPor->nombre . ' ' . $carga->aprobadoPor->apellido
+                ] : null
+            ];
 
             return response()->json([
-                'success' => true,
-                'data' => $carga
+                'status' => 'success',
+                'message' => 'Detalle de carga obtenido correctamente',
+                'data' => $cargaFormateada
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener detalle de carga:', [
+                'carga_id' => $id,
+                'error' => $e->getMessage()
             ]);
 
-        } catch (\Exception $e) {
             return response()->json([
-                'success' => false,
-                'message' => 'Error al obtener la carga',
-                'error' => $e->getMessage()
-            ], 500);
+                'status' => 'error',
+                'message' => 'Carga no encontrada'
+            ], 404);
         }
     }
 
     /**
-     * ✅ APROBAR CARGA
-     * Solo el admin puede aprobar
+     * ✅ Aprobar una carga externa
+     * Endpoint: POST /api/adminOperador/cargas/{id}/aprobar
      */
-    public function aprobar(Request $request, $id)
+    public function aprobar(Request $request, $id): JsonResponse
     {
         try {
-            $carga = CargaExterna::find($id);
+            $user = $request->user();
+            $carga = CargaExterna::findOrFail($id);
 
-            if (!$carga) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Carga no encontrada'
-                ], 404);
-            }
-
-            // Verificar que esté pendiente
+            // Verificar que la carga esté pendiente
             if ($carga->estado !== 'pendiente') {
                 return response()->json([
-                    'success' => false,
-                    'message' => 'Solo se pueden aprobar cargas pendientes'
+                    'status' => 'error',
+                    'message' => 'Solo se pueden aprobar cargas pendientes. Estado actual: ' . $carga->estado
                 ], 400);
             }
 
-            // Aprobar la carga
+            // Actualizar el estado de la carga
             $carga->update([
                 'estado' => 'aprobado',
-                'aprobado_por' => $request->user()->id,
+                'aprobado_por' => $user->id,
                 'fecha_aprobacion' => now(),
-                'motivo_rechazo' => null // Limpiar motivo si existía
+                'motivo_rechazo' => null // Limpiar motivo de rechazo si existía
             ]);
 
-            // Cargar relaciones para la respuesta
-            $carga->load([
-                'user:id,nombre,apellido,email',
-                'maquina:id_maquina,nombre_maquina,patente',
-                'faena:id_faena,ubicacion',
-                'aprobadoPor:id,nombre,apellido'
+            // Crear registro en consumos_unificados
+            $this->crearConsumoUnificado($carga);
+
+            Log::info('Carga externa aprobada', [
+                'carga_id' => $carga->id,
+                'numero_boleta' => $carga->numero_boleta,
+                'aprobado_por' => $user->id,
+                'fecha_aprobacion' => now()
             ]);
 
             return response()->json([
-                'success' => true,
-                'message' => 'Carga aprobada exitosamente',
-                'data' => $carga
+                'status' => 'success',
+                'message' => 'Carga aprobada correctamente',
+                'data' => $carga->fresh(['user', 'maquina', 'faena'])
             ]);
-
         } catch (\Exception $e) {
+            Log::error('Error al aprobar carga:', [
+                'carga_id' => $id,
+                'error' => $e->getMessage(),
+                'user_id' => $request->user()->id ?? null
+            ]);
+
             return response()->json([
-                'success' => false,
-                'message' => 'Error al aprobar la carga',
-                'error' => $e->getMessage()
+                'status' => 'error',
+                'message' => 'Error al aprobar carga: ' . $e->getMessage()
             ], 500);
         }
     }
 
     /**
-     * ❌ RECHAZAR CARGA
-     * Solo el admin puede rechazar (con motivo obligatorio)
+     * ❌ Rechazar una carga externa
+     * Endpoint: POST /api/adminOperador/cargas/{id}/rechazar
      */
-    public function rechazar(Request $request, $id)
+    public function rechazar(Request $request, $id): JsonResponse
     {
         try {
-            // Validar que venga el motivo
-            $request->validate([
-                'motivo_rechazo' => 'required|string|max:500'
+            // Validar que se proporcione un motivo
+            $validated = $request->validate([
+                'motivo_rechazo' => 'required|string|max:500|min:10'
+            ], [
+                'motivo_rechazo.required' => 'El motivo del rechazo es obligatorio',
+                'motivo_rechazo.min' => 'El motivo debe tener al menos 10 caracteres',
+                'motivo_rechazo.max' => 'El motivo no puede exceder 500 caracteres'
             ]);
 
-            $carga = CargaExterna::find($id);
+            $user = $request->user();
+            $carga = CargaExterna::findOrFail($id);
 
-            if (!$carga) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Carga no encontrada'
-                ], 404);
-            }
-
-            // Verificar que esté pendiente
+            // Verificar que la carga esté pendiente
             if ($carga->estado !== 'pendiente') {
                 return response()->json([
-                    'success' => false,
-                    'message' => 'Solo se pueden rechazar cargas pendientes'
+                    'status' => 'error',
+                    'message' => 'Solo se pueden rechazar cargas pendientes. Estado actual: ' . $carga->estado
                 ], 400);
             }
 
-            // Rechazar la carga
+            // Actualizar el estado de la carga
             $carga->update([
                 'estado' => 'rechazado',
-                'aprobado_por' => $request->user()->id,
+                'aprobado_por' => $user->id,
                 'fecha_aprobacion' => now(),
-                'motivo_rechazo' => $request->motivo_rechazo
+                'motivo_rechazo' => $validated['motivo_rechazo']
             ]);
 
-            // Cargar relaciones para la respuesta
-            $carga->load([
-                'user:id,nombre,apellido,email',
-                'maquina:id_maquina,nombre_maquina,patente',
-                'faena:id_faena,ubicacion',
-                'aprobadoPor:id,nombre,apellido'
+            Log::info('Carga externa rechazada', [
+                'carga_id' => $carga->id,
+                'numero_boleta' => $carga->numero_boleta,
+                'rechazado_por' => $user->id,
+                'motivo' => $validated['motivo_rechazo'],
+                'fecha_rechazo' => now()
             ]);
 
             return response()->json([
-                'success' => true,
-                'message' => 'Carga rechazada exitosamente',
-                'data' => $carga
+                'status' => 'success',
+                'message' => 'Carga rechazada correctamente',
+                'data' => $carga->fresh(['user', 'maquina', 'faena'])
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Errores de validación',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error al rechazar carga:', [
+                'carga_id' => $id,
+                'error' => $e->getMessage(),
+                'user_id' => $request->user()->id ?? null
             ]);
 
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al rechazar carga: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * 📊 Obtener estadísticas del dashboard (opcional)
+     * Endpoint: GET /api/adminOperador/estadisticas
+     */
+    public function estadisticas(Request $request): JsonResponse
+    {
+        try {
+            $fechaDesde = $request->get('fecha_desde', now()->startOfMonth());
+            $fechaHasta = $request->get('fecha_hasta', now()->endOfMonth());
+
+            $cargas = CargaExterna::whereBetween('created_at', [$fechaDesde, $fechaHasta])->get();
+
+            $resumen = [
+                'periodo' => [
+                    'desde' => $fechaDesde,
+                    'hasta' => $fechaHasta
+                ],
+                'totales' => [
+                    'cargas' => $cargas->count(),
+                    'litros' => $cargas->sum('litros'),
+                    'costo' => $cargas->sum('costo'),
+                    'precio_promedio_litro' => $cargas->count() > 0 ? $cargas->avg('precio_por_litro') : 0
+                ],
+                'por_estado' => [
+                    'pendientes' => $cargas->where('estado', 'pendiente')->count(),
+                    'aprobadas' => $cargas->where('estado', 'aprobado')->count(),
+                    'rechazadas' => $cargas->where('estado', 'rechazado')->count()
+                ],
+                'top_operadores' => $cargas->groupBy('id_user')->map(function ($grupo) {
+                    $usuario = $grupo->first()->user ?? null;
+                    return [
+                        'usuario' => $usuario ? $usuario->nombre . ' ' . $usuario->apellido : 'Usuario desconocido',
+                        'cargas' => $grupo->count(),
+                        'litros' => $grupo->sum('litros'),
+                        'costo' => $grupo->sum('costo')
+                    ];
+                })->sortByDesc('cargas')->take(5)->values()
+            ];
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $resumen
+            ]);
         } catch (\Exception $e) {
             return response()->json([
-                'success' => false,
-                'message' => 'Error al rechazar la carga',
-                'error' => $e->getMessage()
+                'status' => 'error',
+                'message' => 'Error al obtener estadísticas: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * 🔄 Crear registro en consumos_unificados cuando se aprueba una carga
+     * (Método privado para integrar con el sistema de consumos unificados)
+     */
+    private function crearConsumoUnificado(CargaExterna $carga): void
+    {
+        try {
+            DB::table('consumos_unificados')->insert([
+                'id_dotacion' => null, // No aplica para cargas externas
+                'id_equipo' => $carga->id_maquina,
+                'id_usuario' => $carga->id_user,
+                'fecha_consumo' => $carga->created_at,
+                'litros_consumidos' => $carga->litros,
+                'medicion' => $carga->medicion,
+                'numeral_inicial' => null, // No aplica para cargas externas
+                'numeral_final' => null, // No aplica para cargas externas
+                'precio_litro' => $carga->precio_por_litro,
+                'id_faena' => $carga->id_faena ?? 6, // Default: Cargas Externas
+                'id_estanque' => null, // No aplica para cargas externas
+                'observacion' => $carga->observaciones,
+                'created_at' => now(),
+                'updated_at' => now(),
+                'tipo_consumo' => 'externa', // ✅ Distinguir de consumos internos
+                'tipo_operacion' => 'carga_externa',
+                'tipo_consumo_origen' => 'cargas_externas'
+            ]);
+
+            Log::info('✅ Consumo unificado creado para carga externa aprobada', [
+                'carga_id' => $carga->id,
+                'numero_boleta' => $carga->numero_boleta,
+                'litros' => $carga->litros,
+                'costo' => $carga->costo,
+                'id_maquina' => $carga->id_maquina,
+                'id_user' => $carga->id_user
+            ]);
+        } catch (\Exception $e) {
+            Log::error('❌ Error al crear consumo unificado para carga externa', [
+                'carga_id' => $carga->id,
+                'numero_boleta' => $carga->numero_boleta,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            // No lanzar excepción para no afectar la aprobación
+            // Solo registrar el error para revisión posterior
+        }
+    }
+
+    /**
+     * 📄 Obtener cargas paginadas con filtros (opcional - para uso futuro)
+     * Endpoint: GET /api/adminOperador/cargas/paginadas
+     */
+    public function paginadas(Request $request): JsonResponse
+    {
+        try {
+            $perPage = $request->get('per_page', 15);
+            $estado = $request->get('estado'); // pendiente, aprobado, rechazado
+            $fechaDesde = $request->get('fecha_desde');
+            $fechaHasta = $request->get('fecha_hasta');
+            $busqueda = $request->get('busqueda');
+
+            $query = CargaExterna::with([
+                'user:id,nombre,apellido,rut',
+                'maquina:id_maquina,nombre_maquina,patente',
+                'faena:id_faena,ubicacion'
+            ]);
+
+            // Aplicar filtros
+            if ($estado) {
+                $query->where('estado', $estado);
+            }
+
+            if ($fechaDesde) {
+                $query->whereDate('created_at', '>=', $fechaDesde);
+            }
+
+            if ($fechaHasta) {
+                $query->whereDate('created_at', '<=', $fechaHasta);
+            }
+
+            if ($busqueda) {
+                $query->where(function ($q) use ($busqueda) {
+                    $q->where('numero_boleta', 'like', "%{$busqueda}%")
+                        ->orWhere('ubicacion', 'like', "%{$busqueda}%")
+                        ->orWhere('observaciones', 'like', "%{$busqueda}%")
+                        ->orWhereHas('user', function ($userQuery) use ($busqueda) {
+                            $userQuery->where('nombre', 'like', "%{$busqueda}%")
+                                ->orWhere('apellido', 'like', "%{$busqueda}%")
+                                ->orWhere('rut', 'like', "%{$busqueda}%");
+                        })
+                        ->orWhereHas('maquina', function ($maquinaQuery) use ($busqueda) {
+                            $maquinaQuery->where('nombre_maquina', 'like', "%{$busqueda}%")
+                                ->orWhere('patente', 'like', "%{$busqueda}%");
+                        });
+                });
+            }
+
+            $cargas = $query->orderBy('created_at', 'desc')->paginate($perPage);
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $cargas->items(),
+                'pagination' => [
+                    'current_page' => $cargas->currentPage(),
+                    'last_page' => $cargas->lastPage(),
+                    'per_page' => $cargas->perPage(),
+                    'total' => $cargas->total(),
+                    'from' => $cargas->firstItem(),
+                    'to' => $cargas->lastItem()
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al obtener cargas paginadas: ' . $e->getMessage()
             ], 500);
         }
     }

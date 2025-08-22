@@ -6,7 +6,6 @@ import React, {
   useCallback,
 } from "react";
 import axios from "../../lib/axios";
-
 import {
   FiLoader,
   FiTrendingUp,
@@ -20,8 +19,54 @@ import {
   FiFilter,
   FiX,
 } from "react-icons/fi";
-
 import UniversalTableFilter from "../../components/molecules/UniversalTableFilter";
+const FAENA_COLORS_SUBTLE = {
+  Cabildo: {
+    id: 1,
+    light: "bg-green-50/30", // Verde muy suave con transparencia
+    border: "border-l-green-300/40", // Borde izquierdo sutil
+    hover: "hover:bg-green-50/50", // Hover ligeramente más visible
+    badge: "bg-green-100/70 text-green-700/80", // Badge con transparencia
+    icon: "🌿",
+  },
+  Tiltil: {
+    id: 4,
+    light: "bg-red-50/30", // Rojo muy suave con transparencia
+    border: "border-l-red-300/40", // Borde izquierdo sutil
+    hover: "hover:bg-red-50/50", // Hover ligeramente más visible
+    badge: "bg-red-100/70 text-red-700/80", // Badge con transparencia
+    icon: "🏔️",
+  },
+};
+// 🛠️ Función para obtener colores SUTILES de una faena
+const getFaenaColorsSutil = (faenaName) => {
+  if (!faenaName || typeof faenaName !== "string") {
+    return {
+      light: "bg-gray-50/20", // Gris muy suave
+      border: "border-l-gray-300/30", // Borde gris sutil
+      hover: "hover:bg-gray-50/40", // Hover sutil
+      badge: "bg-gray-100/60 text-gray-700/70",
+      icon: "🏢",
+    };
+  }
+
+  const normalizedName = faenaName.trim();
+
+  for (const [key, colors] of Object.entries(FAENA_COLORS_SUBTLE)) {
+    if (key.toLowerCase() === normalizedName.toLowerCase()) {
+      return colors;
+    }
+  }
+
+  // Color por defecto MUY SUTIL para faenas desconocidas
+  return {
+    light: "bg-blue-50/25", // Azul muy suave para gráficos
+    border: "border-l-blue-300/35", // Borde azul sutil
+    hover: "hover:bg-blue-50/45", // Hover sutil
+    badge: "bg-blue-100/65 text-blue-700/75",
+    icon: "🏢",
+  };
+};
 
 const ColumnaValorTotal = ({ maquina }) => {
   const [showTooltip, setShowTooltip] = useState(false);
@@ -193,7 +238,6 @@ const ColumnaValorTotal = ({ maquina }) => {
       </div>
     );
   }
-
   // 🚀 CORREGIDO: Calcular estadísticas según tipo de medición
   const costosArray = meses.map(([_, datos]) =>
     esKilometraje ? datos.costo_por_km || 0 : datos.costo_por_dia || 0
@@ -1161,7 +1205,6 @@ const ConsumoPorMaquinaPureTable = ({
               </th>
             </tr>
           </thead>
-
           {/* 🆕 TBODY CON ALTURA MÍNIMA Y TRANSICIONES SUAVES */}
           <tbody
             className="bg-white divide-y divide-gray-200 transition-all duration-300 ease-in-out"
@@ -1170,146 +1213,182 @@ const ConsumoPorMaquinaPureTable = ({
             }}
           >
             {/* Usar datos procesados (filtrados y ordenados) */}
-            {datosProcesados.map((maquina, index) => (
-              <tr
-                key={`${maquina.id_maquina}-${index}`}
-                className="hover:bg-gray-50 transition-all duration-200 ease-in-out transform" // 🆕 Transiciones suaves
-                style={{
-                  // 🆕 Animación de entrada staggered para efecto profesional
-                  animationDelay: `${index * 50}ms`,
-                  animation: "fadeInUp 0.4s ease-out forwards",
-                }}
-              >
-                {/* Columna Máquina */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex flex-col">
-                    <div className="font-medium text-gray-900">
-                      {maquina.nombre_maquina}
+            {datosProcesados.map((maquina, index) => {
+              // 🆕 AGREGAR: Obtener colores sutiles de la faena
+              const faenaColors = getFaenaColorsSutil(maquina.faena);
+              return (
+                <tr
+                  key={`${maquina.id_maquina}-${index}`}
+                  // 🎨 NUEVA LÍNEA: Aplicar colores sutiles
+                  className={`${faenaColors.light} ${faenaColors.border} ${faenaColors.hover} transition-all duration-200 ease-in-out transform group`}
+                  style={{
+                    animationDelay: `${index * 50}ms`,
+                    animation: "fadeInUp 0.4s ease-out forwards",
+                  }}
+                >
+                  {/* Columna Máquina */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex flex-col">
+                      <div
+                        className="font-medium text-gray-900"
+                        title={maquina.nombre_maquina}
+                      >
+                        {" "}
+                        {/* 👈 title para mostrar completo en hover */}
+                        {maquina.nombre_maquina.length > 20
+                          ? `${maquina.nombre_maquina.substring(0, 20)}...`
+                          : maquina.nombre_maquina}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {maquina.patente}
+                      </div>
+                      <div className="text-xs text-gray-500 text-left">
+                        {maquina.categoria}
+                      </div>
                     </div>
-                    <div className="text-sm text-gray-500">
-                      {maquina.patente}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex flex-col space-y-2">
+                      <div>
+                        {maquina.tipo_medicion === "Horometro" ? (
+                          <span className="px-2 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                            Horómetro:{" "}
+                            {maquina.rendimiento?.medicion_total
+                              ?.ultima_medicion
+                              ? Number(
+                                  maquina.rendimiento.medicion_total
+                                    .ultima_medicion
+                                ).toLocaleString()
+                              : "N/A"}{" "}
+                            hrs
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full  bg-blue-100 text-blue-800">
+                            Kilometraje:{" "}
+                            {maquina.rendimiento?.medicion_total
+                              ?.ultima_medicion
+                              ? Number(
+                                  maquina.rendimiento.medicion_total
+                                    .ultima_medicion
+                                ).toLocaleString()
+                              : "N/A"}{" "}
+                            km
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-500 text-left">
-                      {maquina.categoria}
+                  </td>
+                  <td className="px-6  text-center">
+                    <div className="flex flex-col ">
+                      <span
+                        
+                      >
+                        <span className="text-xs mr-1">{faenaColors.icon}</span>
+                        {maquina.faena}
+                      </span>
                     </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex flex-col space-y-2">
-                    <div>
-                      {maquina.tipo_medicion === "Horometro" ? (
-                        <span className="px-2 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                          Horómetro:{" "}
-                          {maquina.rendimiento?.medicion_total?.ultima_medicion
-                            ? Number(
-                                maquina.rendimiento.medicion_total
-                                  .ultima_medicion
-                              ).toLocaleString()
-                            : "N/A"}{" "}
-                          hrs
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full  bg-blue-100 text-blue-800">
-                          Kilometraje:{" "}
-                          {maquina.rendimiento?.medicion_total?.ultima_medicion
-                            ? Number(
-                                maquina.rendimiento.medicion_total
-                                  .ultima_medicion
-                              ).toLocaleString()
-                            : "N/A"}{" "}
-                          km
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </td>
-                {/* Columna Faena */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">
-                    {maquina.faena}
-                  </div>
-                </td>
-                {/* Columna Consumo Total */}
-                <td className="px-6 py-4 whitespace-nowrap text-right">
-                  <div className="flex flex-col items-end">
-                    <div className="text-sm font-bold text-gray-900">
-                      {maquina.litros_totales.toLocaleString("es-CL", {
-                        maximumFractionDigits: 1,
-                      })}
-                      L
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {maquina.litros_confirmados > 0 && (
-                        <span className="text-green-600">
-                          {maquina.litros_confirmados}L conf.
-                        </span>
-                      )}
-                      {maquina.litros_simulados > 0 && (
-                        <span className="text-blue-600 ml-1">
-                          +{maquina.litros_simulados}L sim.
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </td>
-                {/* Columna Precio Específico */}
-                <td className="px-6 py-4 whitespace-nowrap text-right">
-                  <div className="text-sm font-medium text-gray-900">
-                    ${maquina.precio_promedio_litro.toLocaleString("es-CL")}
-                  </div>
-                  <div className="text-xs text-gray-500">por litro</div>
-                </td>
-
-                <td className="px-6 py-4 whitespace-nowrap text-right">
-                  <ColumnaValorTotal maquina={maquina} />
-                </td>
-
-                {/* Columna Rendimiento */}
-                <td className="px-6 py-4 whitespace-nowrap text-right">
-                  {maquina.rendimiento && maquina.rendimiento.valor > 0 ? (
+                    
+                  </td>
+                  {/* Columna Consumo Total */}
+                  <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="flex flex-col items-end">
                       <div className="text-sm font-bold text-gray-900">
-                        {maquina.rendimiento.formateado}
+                        {maquina.litros_totales.toLocaleString("es-CL", {
+                          maximumFractionDigits: 1,
+                        })}
+                        L
                       </div>
-                      <div
-                        className={`text-xs px-2 py-1 rounded-full ${getBadgeRendimiento(
-                          maquina.rendimiento.interpretacion
-                        )}`}
-                      >
-                        {maquina.rendimiento.interpretacion
-                          .replace("Consumo ", "")
-                          .replace(" - revisar eficiencia", "")
-                          .replace(" - revisar condiciones operativas", "")}
+                      <div className="text-xs text-gray-500">
+                        {maquina.litros_confirmados > 0 && (
+                          <span className="text-green-600">
+                            {maquina.litros_confirmados}L conf.
+                          </span>
+                        )}
+                        {maquina.litros_simulados > 0 && (
+                          <span className="text-blue-600 ml-1">
+                            +{maquina.litros_simulados}L sim.
+                          </span>
+                        )}
                       </div>
                     </div>
-                  ) : (
-                    <div className="text-sm text-gray-400 italic">
-                      Sin datos
+                  </td>
+                  {/* Columna Precio Específico */}
+                  <td className="px-6 py-4 whitespace-nowrap text-right">
+                    <div className="text-sm font-medium text-gray-900">
+                      ${maquina.precio_promedio_litro.toLocaleString("es-CL")}
                     </div>
-                  )}
-                </td>
-                {/* Columna Precisión */}
-                <td className="px-6 py-4 whitespace-nowrap text-center">
-                  <div
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getColorPrecision(
-                      maquina.porcentaje_confirmado
-                    )}`}
-                  >
-                    {maquina.porcentaje_confirmado.toFixed(1)}%
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {maquina.porcentaje_confirmado >= 80
-                      ? "Alta"
-                      : maquina.porcentaje_confirmado >= 60
-                      ? "Media"
-                      : maquina.porcentaje_confirmado > 0
-                      ? "Baja"
-                      : "Solo simulación"}
-                  </div>
-                </td>
-              </tr>
-            ))}
+                    <div className="text-xs text-gray-500">por litro</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right">
+                    <ColumnaValorTotal maquina={maquina} />
+                  </td>
+                  {/* Columna Rendimiento */}
+                  <td className="px-6 py-4 whitespace-nowrap text-right">
+                    {maquina.rendimiento && maquina.rendimiento.valor > 0 ? (
+                      <div className="flex flex-col items-end">
+                        <div className="text-sm font-bold text-gray-900">
+                          {maquina.rendimiento.formateado}
+                        </div>
+                        <div
+                          className={`text-xs px-2 py-1 rounded-full ${getBadgeRendimiento(
+                            maquina.rendimiento.interpretacion
+                          )}`}
+                        >
+                          {(() => {
+                            // 🔧 PROCESAR TEXTO Y DIVIDIR POR GUIÓN
+                            const textoLimpio =
+                              maquina.rendimiento.interpretacion
+                                .replace("Consumo ", "")
+                                .replace(" - revisar eficiencia", "")
+                                .replace(
+                                  " - revisar condiciones operativas",
+                                  ""
+                                );
 
+                            // 👈 SI CONTIENE GUIÓN, DIVIDIR EN DOS LÍNEAS
+                            if (textoLimpio.includes(" - ")) {
+                              const partes = textoLimpio.split(" - ");
+                              return (
+                                <div className="text-center">
+                                  <div>{partes[0]}</div>
+                                  <div>{partes[1]}</div>
+                                </div>
+                              );
+                            }
+
+                            // 👈 SI NO TIENE GUIÓN, MOSTRAR NORMAL
+                            return textoLimpio;
+                          })()}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-400 italic">
+                        Sin datos
+                      </div>
+                    )}
+                  </td>
+                  {/* Columna Precisión */}
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <div
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getColorPrecision(
+                        maquina.porcentaje_confirmado
+                      )}`}
+                    >
+                      {maquina.porcentaje_confirmado.toFixed(1)}%
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {maquina.porcentaje_confirmado >= 80
+                        ? "Alta"
+                        : maquina.porcentaje_confirmado >= 60
+                        ? "Media"
+                        : maquina.porcentaje_confirmado > 0
+                        ? "Baja"
+                        : "Solo simulación"}
+                    </div>
+                  </td>
+                </tr>
+              ); // 🆕 Cerrar el return
+            })}
             {/* 🆕 FILAS VACÍAS PARA MANTENER ALTURA MÍNIMA */}
             {datosProcesados.length < 4 &&
               Array.from({ length: 4 - datosProcesados.length }).map(
@@ -1326,15 +1405,12 @@ const ConsumoPorMaquinaPureTable = ({
           </tbody>
         </table>
       </div>
-
       {/* Footer con información actualizada */}
       <div className="bg-gray-50 px-6 py-4 border-t">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-2 md:space-y-0">
           <div className="text-sm text-gray-600">
-            <span className="font-medium">🎯 Fuente única:</span>
-            <span className="ml-1">
-              ConsumoCategoriasController - Precios específicos por máquina
-            </span>
+            
+            
             <div className="text-xs text-blue-600 mt-1 flex items-center">
               <FiClock className="h-3 w-3 mr-1" />
               Período: {formatearFechaHora(fechaDesde, horaDesde)} -{" "}
@@ -1381,5 +1457,4 @@ const ConsumoPorMaquinaPureTable = ({
     </div>
   );
 };
-
 export default ConsumoPorMaquinaPureTable;
