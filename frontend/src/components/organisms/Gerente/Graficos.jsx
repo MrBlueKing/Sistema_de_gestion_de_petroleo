@@ -548,8 +548,7 @@ const Graficos = ({ children }) => {
                 {/* Contenedor para las dos tablas en mitad y mitad */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 ">
                   {/* Tabla de consumo por faena - MITAD */}
-                    <div className="bg-white p-6 rounded-lg shadow-md h-full flex flex-col">
-                    
+                  <div className="bg-white p-6 rounded-lg shadow-md h-full flex flex-col">
                     <ConsumoPorFaenaTable
                       {...datosFinales}
                       refreshKey={refreshTrigger}
@@ -557,8 +556,7 @@ const Graficos = ({ children }) => {
                   </div>
 
                   {/* Tabla de ingresos por faena - MITAD */}
-                    <div className="bg-white p-6 rounded-lg   h-full ">
-                  
+                  <div className="bg-white p-6 rounded-lg   h-full ">
                     <IngresosPorFaenaTable
                       {...datosFinales}
                       refreshKey={refreshTrigger}
@@ -654,15 +652,26 @@ const Graficos = ({ children }) => {
                           getColorForCategoryFunction: !!getColorForCategory,
                         }
                       );
-
                       return (
                         <div className="mb-6">
+                          
                           <CompactConsumptionPieChart
                             faenaSeleccionada={faenaSeleccionada}
                             fechaDesde={fechaDesde}
                             fechaHasta={fechaHasta}
                             refreshKey={refreshTrigger}
-                            titulo="Comparación de Consumo por Categoría"
+                            titulo={
+                              <div className="text-center">
+                                <div className="font-semibold text-gray-800">
+                                  Comparación de Consumo por Categoría de
+                                  Operación
+                                </div>
+                                <div className="text-xs text-gray-500 font-normal mt-1">
+                                  Sin considerar Micro y considerando el 30% del
+                                  consumo de las camionetas
+                                </div>
+                              </div>
+                            }
                             // 🎨 PASAR LA FUNCIÓN PARA OBTENER COLORES CONSISTENTES
                             getColorForCategory={getColorForCategory}
                             categoryColorMapping={categoryColorMapping}

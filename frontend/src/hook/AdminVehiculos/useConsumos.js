@@ -118,22 +118,30 @@ const useConsumos = (opciones = {}) => {
     }
   }, []);
 
-  // 🔄 Función para manejar ordenamiento con lógica optimizada
-  const manejarCambioOrdenamiento = useCallback((columna) => {
-    setOrdenColumna((prevColumna) => {
-      if (prevColumna === columna) {
-        setDireccionOrden((prevDireccion) =>
-          prevDireccion === "asc" ? "desc" : "asc"
-        );
-        return columna;
-      } else {
-        setDireccionOrden("asc");
-        return columna;
-      }
-    });
-    // Resetear a la primera página al cambiar ordenamiento
-    setPaginaActual(1);
-  }, []);
+// ✅ OPCIÓN 3: Función súper explícita y debuggeable
+const manejarCambioOrdenamiento = useCallback((columna, direccionEspecifica = null) => {
+  console.log('🔧 Click en ordenamiento:', { 
+    columna, 
+    direccionEspecifica, 
+    columnaActual: ordenColumna, 
+    direccionActual: direccionOrden 
+  });
+  
+  if (ordenColumna === columna) {
+    // 🔄 MISMA COLUMNA: Alternar SIEMPRE (ignorar direccionEspecifica)
+    const nuevaDireccion = direccionOrden === "asc" ? "desc" : "asc";
+    console.log('🔄 Alternando dirección:', direccionOrden, '→', nuevaDireccion);
+    setDireccionOrden(nuevaDireccion);
+  } else {
+    // 🆕 NUEVA COLUMNA: Empezar con una dirección por defecto
+    console.log('🆕 Nueva columna, empezando con DESC');
+    setOrdenColumna(columna);
+    setDireccionOrden("desc"); // Siempre empezar con descendente
+  }
+  
+  setPaginaActual(1);
+}, [ordenColumna, direccionOrden]);
+
 
   // 🔍 Datos procesados con filtros y ordenamiento
   const cargasProcesadas = useMemo(() => {

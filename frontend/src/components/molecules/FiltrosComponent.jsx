@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { FiCalendar, FiClock, FiSearch, FiX } from "react-icons/fi";
-import { FaBuilding, FaTruck } from "react-icons/fa";
+import { FaBuilding, FaTruck, FaMapMarkerAlt } from "react-icons/fa";
 
 const FiltrosComponent = ({
   // Props básicas (MANTENIENDO COMPATIBILIDAD con la API existente)
@@ -19,6 +19,9 @@ const FiltrosComponent = ({
   mostrarEquipoFilter = false,
   equipoFilter = "",
   placeholderEquipo = "Buscar equipo...",
+  
+  // 🆕 NUEVA PROP: Modo de operación
+  modo = "faenas", // "faenas" o "ubicaciones"
   
   // Props de configuración (mantenidas para compatibilidad)
   incluirHoras = false,
@@ -46,6 +49,27 @@ const FiltrosComponent = ({
     valido: true,
     mensaje: ""
   });
+
+  // 🆕 Configuración dinámica basada en el modo
+  const configuracion = {
+    faenas: {
+      icono: FaBuilding,
+      iconoColor: "text-orange-500",
+      label: "Faena",
+      placeholder: "Todas las faenas",
+      todasLabel: "Todas las faenas"
+    },
+    ubicaciones: {
+      icono: FaMapMarkerAlt,
+      iconoColor: "text-blue-500", 
+      label: "Ubicación",
+      placeholder: "Todas las ubicaciones",
+      todasLabel: "Todas las ubicaciones"
+    }
+  };
+
+  const config = configuracion[modo] || configuracion.faenas;
+  const IconoFaena = config.icono;
 
   // Sincronizar estado interno con prop externa
   useEffect(() => {
@@ -189,11 +213,11 @@ const FiltrosComponent = ({
     });
   };
 
-  // Función para obtener nombre de faena
-  const getNombreFaena = (idFaena) => {
-    if (idFaena === "todas") return "Todas las faenas";
-    const faena = faenas.find(f => f.value === idFaena || f.value === idFaena.toString());
-    return faena ? faena.label : `Faena ${idFaena}`;
+  // 🆕 Función para obtener nombre según el modo
+  const getNombreOpcion = (id) => {
+    if (id === "todas") return config.todasLabel;
+    const opcion = faenas.find(f => f.value === id || f.value === id.toString());
+    return opcion ? opcion.label : `${config.label} ${id}`;
   };
 
   // Determinar si hay filtros activos
@@ -201,9 +225,6 @@ const FiltrosComponent = ({
 
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* Título e información de filtros activos */}
-      
-    
       {/* ✅ Warning de validación */}
       {!estadoValidacion.valido && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3">
@@ -230,12 +251,12 @@ const FiltrosComponent = ({
                   : 'grid-cols-1 md:grid-cols-2'
         }`}>
 
-          {/* Faena - Solo si está habilitado */}
+          {/* 🆕 MEJORADO: Faena/Ubicación - Dinámico según el modo */}
           {mostrarFaenas && (
             <div className={incluirHoras ? "" : "md:col-span-1"}>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                <FaBuilding className="inline mr-2 text-orange-500" />
-                Faena
+                <IconoFaena className={`inline mr-2 ${config.iconoColor}`} />
+                {config.label}
               </label>
               <select
                 value={faenaSeleccionada}
@@ -245,13 +266,20 @@ const FiltrosComponent = ({
                   cargando ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >
-                <option value="todas">Todas las faenas</option>
-                {faenas.map((faena) => (
-                  <option key={faena.value} value={faena.value}>
-                    {faena.label}
+                <option value="todas">{config.todasLabel}</option>
+                {faenas.map((opcion) => (
+                  <option key={opcion.value} value={opcion.value}>
+                    {opcion.label}
                   </option>
                 ))}
               </select>
+              
+              {/* 🆕 Indicador del modo activo */}
+              {modo === "ubicaciones" && faenas.length > 0 && (
+                <div className="text-xs text-blue-600 mt-1">
+                  📍 Modo ubicaciones activo ({faenas.length} disponibles)
+                </div>
+              )}
             </div>
           )}
 
