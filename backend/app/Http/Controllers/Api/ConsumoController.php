@@ -1653,7 +1653,7 @@ class ConsumoController extends Controller
                 ->first();
             // 🔍 Último numeral_final de CUALQUIER MÁQUINA en esta faena (para numeral inicial)
             // 🆕 Numeral final MÁS RECIENTE de TODOS los consumos CON TIPO DE OPERACIÓN
-            $numeralMasReciente = DB::table('consumos')
+            $numeralMasReciente = DB::table('consumos_unificados')
                 ->where('id_faena', $idFaena)
                 ->orderBy('fecha_consumo', 'desc')
                 ->orderBy('id_consumo', 'desc')

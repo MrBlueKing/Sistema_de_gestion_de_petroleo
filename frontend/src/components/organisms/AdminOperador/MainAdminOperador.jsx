@@ -44,9 +44,9 @@ const FAENA_COLORS = {
     icon: "text-red-600",
     emoji: "🏔️",
   },
-  6: {
+  5: {
     // Cargas Externas - Estilo Copec
-    name: "Cargas Externas",
+    name: "Estacion de Servicio",
     bg: "bg-blue-50/40",
     border: "border-l-blue-500",
     badge: "bg-blue-100 text-blue-800",
@@ -133,7 +133,7 @@ const CargaExternaCard = ({
   getEstadoBadge,
 }) => {
   const colores = getFaenaColorsById(carga.id_faena);
-  const esCargaExterna = carga.id_faena === 6;
+  const esCargaExterna = carga.id_faena === 5;
 
   return (
     <div
@@ -730,7 +730,7 @@ const MainAdminOperador = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {cargasFiltradas.map((carga) => {
                   const colores = getFaenaColorsById(carga.id_faena);
-                  const esCargaExterna = carga.id_faena === 6;
+                  const esCargaExterna = carga.id_faena === 5;
 
                   return (
                     <tr
@@ -783,7 +783,7 @@ const MainAdminOperador = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         <div className="flex items-center gap-2">
-                          {carga.id_faena === 6 && (
+                          {carga.id_faena === 5 && (
                             <CopecStyleIcon className="w-5 h-5" />
                           )}
                           {carga.ubicacion || "No especificada"}

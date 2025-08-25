@@ -1,24 +1,40 @@
-import React, { useState, useMemo } from "react";
-import {
-  FaGasPump,
-  FaCheckCircle,
-  FaTimesCircle,
-  FaClock,
-  FaEye,
-  FaSearch,
-  FaFilter,
-  FaDownload,
-  FaUser,
-  FaTruck,
-  FaCalendarAlt,
-  FaExclamationTriangle,
-  FaChevronLeft,
-  FaChevronRight,
-} from "react-icons/fa";
-import { FiFileText, FiTrendingUp, FiX } from "react-icons/fi";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import useConsumos from "../../../hook/AdminVehiculos/useConsumos";
 import UniversalTableFilter from "../../molecules/UniversalTableFilter";
-import DetalleCargaModal from "../../molecules/DetalleCargaModal";
-import useConsumos from "../../../hook/AdminVehiculos/useConsumos"; // Ajusta la ruta según tu estructura
+import FiltrosComponent from "../../molecules/FiltrosComponent";
+import { 
+  FaCheck, 
+  FaClock, 
+  FaSearch,
+  FaCalendarAlt,
+  FaTimes, 
+  FaEye, 
+  FaTimesCircle,
+  FaCheckCircle,
+  FaExclamationTriangle 
+} from "react-icons/fa";
+
+// Configuración de estados
+const estadosConfig = {
+  pendiente: {
+    texto: "Pendiente",
+    icono: FaClock,
+    color: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    iconColor: "text-yellow-600",
+  },
+  aprobado: {
+    texto: "Aprobado",
+    icono: FaCheckCircle,
+    color: "bg-green-100 text-green-800 border-green-200",
+    iconColor: "text-green-600",
+  },
+  rechazado: {
+    texto: "Rechazado",
+    icono: FaTimesCircle,
+    color: "bg-red-100 text-red-800 border-red-200",
+    iconColor: "text-red-600",
+  },
+};
 
 // 🎨 COLORES POR FAENA
 const FAENA_COLORS = {
@@ -27,6 +43,7 @@ const FAENA_COLORS = {
     bg: "bg-green-50/30",
     border: "border-l-green-400",
     badge: "bg-green-100 text-green-800",
+    icon: "text-green-600",
     emoji: "🌿",
   },
   4: {
@@ -34,41 +51,74 @@ const FAENA_COLORS = {
     bg: "bg-red-50/30",
     border: "border-l-red-400",
     badge: "bg-red-100 text-red-800",
+    icon: "text-red-600",
     emoji: "🏔️",
   },
-  6: {
-    name: "Cargas Externas",
+  5: {
+    name: "Estacion de Servicio",
     bg: "bg-blue-50/40",
     border: "border-l-blue-500",
     badge: "bg-blue-100 text-blue-800",
+    icon: "text-blue-600",
+    copecBlue: "text-[#0066cc]",
+    copecBg: "bg-gradient-to-r from-blue-50 to-blue-100/50",
+    copecBorder: "border-l-[#0066cc]",
+    copecBadge: "bg-[#0066cc]/10 text-[#0066cc]",
     emoji: "⛽",
   },
 };
 
-// 🔄 Estados de carga
-const ESTADOS_CARGA = {
-  pendiente: {
-    label: "Pendiente",
-    icon: FaClock,
-    color: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    iconColor: "text-yellow-600",
-  },
-  aprobado: {
-    label: "Aprobado",
-    icon: FaCheckCircle,
-    color: "bg-green-100 text-green-800 border-green-200",
-    iconColor: "text-green-600",
-  },
-  rechazado: {
-    label: "Rechazado",
-    icon: FaTimesCircle,
-    color: "bg-red-100 text-red-800 border-red-200",
-    iconColor: "text-red-600",
-  },
+// 🛠️ Función para obtener colores de faena por ID
+const getFaenaColorsById = (faenaId) => {
+  const faenaInfo = FAENA_COLORS[faenaId];
+  if (faenaInfo) {
+    return faenaInfo;
+  }
+  // Color por defecto para faenas desconocidas
+  return {
+    name: "Faena Desconocida",
+    bg: "bg-gray-50/25",
+    border: "border-l-gray-400",
+    badge: "bg-gray-100 text-gray-800",
+    icon: "text-gray-600",
+    emoji: "🏢",
+  };
 };
 
+// 🆕 Fallback de ubicaciones por defecto
+const faenasPorDefecto = [
+  { 
+    value: "todas", 
+    label: "📍 Todas las ubicaciones",
+    ubicacionesOriginales: [],
+    representativo: "Todas las ubicaciones",
+    faenaId: null
+  },
+  { 
+    value: "copec san felipe", 
+    label: "📍 Copec San Felipe",
+    ubicacionesOriginales: ["Copec San Felipe", "copec san felipe", "COPEC SAN FELIPE"],
+    representativo: "Copec San Felipe",
+    faenaId: 5
+  },
+  { 
+    value: "copec la ligua", 
+    label: "📍 Copec La Ligua",
+    ubicacionesOriginales: ["Copec La Ligua", "copec la ligua", "COPEC LA LIGUA"],
+    representativo: "Copec La Ligua",
+    faenaId: 5
+  },
+  { 
+    value: "copec cabildo", 
+    label: "📍 Copec Cabildo",
+    ubicacionesOriginales: ["Copec Cabildo", "copec cabildo", "COPEC CABILDO"],
+    representativo: "Copec Cabildo",
+    faenaId: 5
+  }
+];
+
 const ConsumosViewOptimized = () => {
-  // 🚀 Usar el hook personalizado CON FILTROS AVANZADOS
+  // 🚀 Hook useConsumos - SIN filtros de fecha iniciales
   const {
     cargas,
     cargasCompletas,
@@ -79,18 +129,16 @@ const ConsumosViewOptimized = () => {
     setSearchTerm,
     filtroEstado,
     setFiltroEstado,
-    filtroFaena,
-    setFiltroFaena,
-    filtroFecha,
-    setFiltroFecha,
+    filtroFaena: filtroFaenaHook,
+    setFiltroFaena: setFiltroFaenaHook,
     ordenColumna,
     direccionOrden,
-    manejarCambioOrdenamiento,
+    manejarCambioOrdenamiento: manejarCambioOrdenamientoHook,
     paginaActual,
     infoPaginacion,
     irAPagina,
     refrescarDatos,
-    limpiarFiltros,
+    limpiarFiltros: limpiarFiltrosHook,
     actualizarCarga,
     exportarDatos,
     hayFiltrosActivos,
@@ -105,979 +153,744 @@ const ConsumosViewOptimized = () => {
   const [cargaSeleccionada, setCargaSeleccionada] = useState(null);
   const [modalDetalle, setModalDetalle] = useState(false);
 
-  // 🆕 NUEVOS ESTADOS PARA FILTROS AVANZADOS (como en ConsumoPorMaquinaPureTable)
+  // 🆕 Estado para ubicaciones disponibles
+  const [ubicacionesDisponibles, setUbicacionesDisponibles] = useState([]);
+
+  // 🆕 Estados para FiltrosComponent
+  const [filtrosFecha, setFiltrosFecha] = useState({
+    fechaDesde: "",
+    fechaHasta: "",
+    faenaSeleccionada: "todas",
+  });
+
+  // 🆕 Estados para filtros avanzados de tabla - CORREGIDO
   const [filtrosAvanzados, setFiltrosAvanzados] = useState({
     numero_boleta: "",
     usuario: "",
     maquina: "",
     patente: "",
     ubicacion: "",
+    estado: "",
   });
 
-  // 🆕 NUEVOS ESTADOS PARA FILTROS DE FECHAS PERSONALIZADAS
-  const [filtrosFecha, setFiltrosFecha] = useState({
+  // 🆕 Estados para filtros de fecha CON HORAS
+  const [filtrosFechaPersonalizados, setFiltrosFechaPersonalizados] = useState({
     fechaDesde: "",
     fechaHasta: "",
     horaDesde: "00",
     horaHasta: "23",
   });
 
-  // 🆕 FUNCIÓN PARA MANEJAR FILTROS AVANZADOS
-  const manejarCambioFiltroAvanzado = (columna, valor) => {
+  // 🆕 FUNCIÓN PARA MANEJAR FILTROS AVANZADOS - CORREGIDO
+  const manejarCambioFiltroAvanzado = useCallback((columna, valor) => {
     console.log("🔧 Filtro avanzado:", { columna, valor });
     setFiltrosAvanzados((prev) => ({
       ...prev,
       [columna]: valor,
     }));
-  };
+  }, []);
 
-  // 🆕 FUNCIÓN PARA MANEJAR FILTROS DE FECHA
-  const manejarCambioFiltroFecha = (campo, valor) => {
-    console.log("📅 Filtro fecha:", { campo, valor });
-    setFiltrosFecha((prev) => ({
+  // 🧠 Función inteligente para normalizar y agrupar ubicaciones
+  const normalizarUbicaciones = useCallback((ubicaciones) => {
+    console.log('🧠 Normalizando ubicaciones:', ubicaciones);
+    
+    // Paso 1: Normalizar cada ubicación
+    const ubicacionesNormalizadas = ubicaciones.map(ubicacion => {
+      const original = ubicacion;
+      
+      // Limpiar espacios y normalizar
+      let limpia = ubicacion
+        .trim()
+        .replace(/\s+/g, ' ')
+        .toLowerCase()
+        .replace(/[0-9]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      console.log(`🔄 "${original}" → "${limpia}"`);
+      
+      return {
+        original,
+        normalizada: limpia,
+        palabras: limpia.split(' ').filter(p => p.length > 2)
+      };
+    });
+    
+    // Paso 2: Agrupar por similitud
+    const grupos = new Map();
+    
+    ubicacionesNormalizadas.forEach(({ original, normalizada, palabras }) => {
+      let grupoEncontrado = null;
+      
+      // Buscar si ya existe un grupo similar
+      for (let [clave, grupo] of grupos) {
+        // Criterio 1: Coincidencia exacta normalizada
+        if (clave === normalizada) {
+          grupoEncontrado = grupo;
+          break;
+        }
+        
+        // Criterio 2: Coincidencia de palabras principales
+        const palabrasGrupo = grupo.palabrasRepresentativas;
+        const coincidencias = palabras.filter(p => palabrasGrupo.includes(p));
+        
+        // Si coinciden más del 60% de las palabras principales
+        if (palabras.length > 0 && coincidencias.length / palabras.length > 0.6) {
+          grupoEncontrado = grupo;
+          break;
+        }
+      }
+      
+      if (grupoEncontrado) {
+        // Agregar al grupo existente
+        grupoEncontrado.ubicaciones.push(original);
+        grupoEncontrado.conteo++;
+        
+        // Actualizar el representativo si es más común o más limpio
+        if (original.length < grupoEncontrado.representativo.length || 
+            grupoEncontrado.conteo === 1) {
+          grupoEncontrado.representativo = original;
+        }
+      } else {
+        // Crear nuevo grupo
+        grupos.set(normalizada, {
+          representativo: original,
+          ubicaciones: [original],
+          conteo: 1,
+          palabrasRepresentativas: palabras,
+          normalizada
+        });
+      }
+    });
+    
+    // Paso 3: Crear opciones agrupadas
+    const opcionesAgrupadas = Array.from(grupos.values())
+      .sort((a, b) => a.representativo.localeCompare(b.representativo))
+      .map(grupo => {
+        const etiqueta = grupo.conteo > 1 
+          ? `📍 ${grupo.representativo} (${grupo.conteo} variantes)`
+          : `📍 ${grupo.representativo}`;
+          
+        return {
+          value: grupo.normalizada,
+          label: etiqueta,
+          ubicacionesOriginales: grupo.ubicaciones,
+          representativo: grupo.representativo,
+          faenaId: 5
+        };
+      });
+    
+    console.log('✅ Ubicaciones agrupadas con originales:', opcionesAgrupadas);
+    return opcionesAgrupadas;
+  }, []);
+
+  // 🔧 Actualizar la función de extracción para usar normalización
+  const extraerUbicaciones = useCallback((cargas) => {
+    const ubicacionesUnicas = new Set();
+    
+    cargas.forEach(carga => {
+      if (carga.ubicacion) {
+        ubicacionesUnicas.add(carga.ubicacion);
+      }
+    });
+
+    // Convertir a array y normalizar
+    const ubicacionesArray = Array.from(ubicacionesUnicas);
+    const ubicacionesAgrupadas = normalizarUbicaciones(ubicacionesArray);
+
+    console.log('🗺️ Ubicaciones extraídas y agrupadas:', ubicacionesAgrupadas);
+    return ubicacionesAgrupadas;
+  }, [normalizarUbicaciones]);
+
+  // 🔄 Actualizar ubicaciones cuando cambien las cargas
+  useEffect(() => {
+    if (cargas.length > 0) {
+      const ubicacionesExtraidas = extraerUbicaciones(cargas);
+      setUbicacionesDisponibles(ubicacionesExtraidas);
+      console.log('✅ Ubicaciones disponibles actualizadas:', ubicacionesExtraidas);
+    } else {
+      setUbicacionesDisponibles([]);
+    }
+  }, [cargas, extraerUbicaciones]);
+
+  // 🔧 Función de ordenamiento mejorada
+  const manejarCambioOrdenamiento = useCallback((columna, direccionEspecifica = null) => {
+    console.log('🔧 Click en ordenamiento:', { 
+      columna, 
+      direccionEspecifica, 
+      columnaActual: ordenColumna, 
+      direccionActual: direccionOrden 
+    });
+    
+    if (ordenColumna === columna) {
+      // 🔄 MISMA COLUMNA: Alternar SIEMPRE
+      const nuevaDireccion = direccionOrden === "asc" ? "desc" : "asc";
+      console.log('🔄 Alternando dirección:', direccionOrden, '→', nuevaDireccion);
+      manejarCambioOrdenamientoHook(columna);
+    } else {
+      // 🆕 NUEVA COLUMNA: Usar la función del hook
+      console.log('🆕 Nueva columna:', columna);
+      manejarCambioOrdenamientoHook(columna);
+    }
+  }, [ordenColumna, direccionOrden, manejarCambioOrdenamientoHook]);
+
+  // 🆕 Función para manejar cambios en FiltrosComponent
+  const handleFiltrosChange = useCallback((nuevosFiltros) => {
+    console.log('🔧 Cambio en filtros recibidos:', nuevosFiltros);
+    
+    setFiltrosFecha(prev => ({
       ...prev,
-      [campo]: valor,
+      ...nuevosFiltros
     }));
-  };
 
-  // 🆕 FUNCIÓN PARA LIMPIAR FILTROS AVANZADOS
-  const limpiarFiltrosAvanzados = () => {
+    // Sincronizar con el hook useConsumos
+    if (nuevosFiltros.faenaSeleccionada !== undefined) {
+      setFiltroFaenaHook("todas");
+    }
+  }, [setFiltroFaenaHook]);
+
+  // 🔄 Sincronizar estado inicial
+  useEffect(() => {
+    if (ubicacionesDisponibles.length > 0 && filtrosFecha.faenaSeleccionada === "todas") {
+      setFiltroFaenaHook("todas");
+    }
+  }, [ubicacionesDisponibles, filtrosFecha.faenaSeleccionada, setFiltroFaenaHook]);
+
+  // 🆕 Función para manejar filtros de fecha personalizados CON HORAS
+  const manejarCambioFiltroFechaPersonalizado = useCallback((campo, valor) => {
+    console.log("📅 Filtro fecha personalizado:", { campo, valor });
+    setFiltrosFechaPersonalizados(prev => ({
+      ...prev,
+      [campo]: valor
+    }));
+  }, []);
+
+  // 🔧 Aplicar filtros de fecha Y ubicación a los datos del hook
+  const datosConFiltrosFecha = useMemo(() => {
+    let resultado = [...cargas];
+
+    // Aplicar filtro de fecha personalizada
+    if (filtrosFecha.fechaDesde || filtrosFecha.fechaHasta) {
+      resultado = resultado.filter(carga => {
+        const fechaCarga = new Date(carga.created_at);
+        
+        const fechaDesde = filtrosFecha.fechaDesde ? new Date(filtrosFecha.fechaDesde + 'T00:00:00') : null;
+        const fechaHasta = filtrosFecha.fechaHasta ? new Date(filtrosFecha.fechaHasta + 'T23:59:59') : null;
+
+        if (fechaDesde && fechaCarga < fechaDesde) return false;
+        if (fechaHasta && fechaCarga > fechaHasta) return false;
+        
+        return true;
+      });
+    }
+
+    // Aplicar filtro de ubicación
+    if (filtrosFecha.faenaSeleccionada && filtrosFecha.faenaSeleccionada !== "todas") {
+      resultado = resultado.filter(carga => {
+        if (!carga.ubicacion) return false;
+        
+        const opcionSeleccionada = ubicacionesDisponibles.find(
+          opcion => opcion.value === filtrosFecha.faenaSeleccionada
+        );
+        
+        if (opcionSeleccionada?.ubicacionesOriginales) {
+          return opcionSeleccionada.ubicacionesOriginales.includes(carga.ubicacion);
+        } else {
+          const ubicacionNormalizada = carga.ubicacion
+            .trim()
+            .replace(/\s+/g, ' ')
+            .toLowerCase()
+            .replace(/[0-9]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+          
+          return ubicacionNormalizada === filtrosFecha.faenaSeleccionada;
+        }
+      });
+    }
+
+    return resultado;
+  }, [cargas, filtrosFecha.fechaDesde, filtrosFecha.fechaHasta, filtrosFecha.faenaSeleccionada, ubicacionesDisponibles]);
+
+  // 🔧 GENERAR OPCIONES PARA LOS FILTROS DE COLUMNAS
+  const opcionesFiltros = useMemo(() => {
+    const datos = datosConFiltrosFecha;
+    
+    return {
+      numeroBoletas: [...new Set(datos.map(c => c.numero_boleta).filter(Boolean))].sort(),
+      usuarios: [...new Set(datos.map(c => `${c.user?.nombre || ''} ${c.user?.apellido || ''}`.trim()).filter(Boolean))].sort(),
+      maquinas: [...new Set(datos.map(c => c.maquina?.nombre_maquina).filter(Boolean))].sort(),
+      patentes: [...new Set(datos.map(c => c.maquina?.patente).filter(Boolean))].sort(),
+      ubicaciones: [...new Set(datos.map(c => c.ubicacion).filter(Boolean))].sort(),
+      estados: [...new Set(datos.map(c => c.estado).filter(Boolean))].sort()
+    };
+  }, [datosConFiltrosFecha]);
+
+  // 🔧 Aplicar filtros avanzados de tabla
+  const datosFiltrados = useMemo(() => {
+    let resultado = [...datosConFiltrosFecha];
+
+    // Filtro por número de boleta (múltiple)
+    if (filtrosAvanzados.numero_boleta) {
+      const boletasSeleccionadas = filtrosAvanzados.numero_boleta.split(',').map(b => b.trim()).filter(Boolean);
+      if (boletasSeleccionadas.length > 0) {
+        resultado = resultado.filter(carga =>
+  carga.numero_boleta?.toLowerCase().includes(filtrosAvanzados.numero_boleta.toLowerCase())
+);
+      }
+    }
+
+    // Filtro por usuario (múltiple)
+    if (filtrosAvanzados.usuario) {
+      const usuariosSeleccionados = filtrosAvanzados.usuario.split(',').map(u => u.trim()).filter(Boolean);
+      if (usuariosSeleccionados.length > 0) {
+        resultado = resultado.filter(carga => {
+  const nombreCompleto = `${carga.user?.nombre || ''} ${carga.user?.apellido || ''}`.trim();
+  return nombreCompleto.toLowerCase().includes(filtrosAvanzados.usuario.toLowerCase());
+});
+      }
+    }
+
+    // Filtro por máquina (múltiple)
+    if (filtrosAvanzados.maquina) {
+      const maquinasSeleccionadas = filtrosAvanzados.maquina.split(',').map(m => m.trim()).filter(Boolean);
+      if (maquinasSeleccionadas.length > 0) {
+        resultado = resultado.filter(carga =>
+  carga.maquina?.nombre_maquina?.toLowerCase().includes(filtrosAvanzados.maquina.toLowerCase())
+);
+
+      }
+    }
+
+    // Filtro por patente (múltiple)
+    if (filtrosAvanzados.patente) {
+      const patentesSeleccionadas = filtrosAvanzados.patente.split(',').map(p => p.trim()).filter(Boolean);
+      if (patentesSeleccionadas.length > 0) {
+        resultado = resultado.filter(carga =>
+  carga.maquina?.patente?.toLowerCase().includes(filtrosAvanzados.patente.toLowerCase())
+);
+      }
+    }
+
+    // Filtro por ubicación (múltiple)
+    if (filtrosAvanzados.ubicacion) {
+      const ubicacionesSeleccionadas = filtrosAvanzados.ubicacion.split(',').map(u => u.trim()).filter(Boolean);
+      if (ubicacionesSeleccionadas.length > 0) {
+       resultado = resultado.filter(carga =>
+  carga.ubicacion?.toLowerCase().includes(filtrosAvanzados.ubicacion.toLowerCase())
+);
+      }
+    }
+
+    // Filtro por estado
+    if (filtrosAvanzados.estado) {
+      resultado = resultado.filter(carga =>
+        carga.estado === filtrosAvanzados.estado
+      );
+    }
+
+    return resultado;
+  }, [datosConFiltrosFecha, filtrosAvanzados]);
+
+  // 🧹 Función para limpiar todos los filtros
+  const limpiarTodosLosFiltros = useCallback(() => {
+    // Limpiar filtros del hook
+    limpiarFiltrosHook();
+    
+    // Limpiar filtros de fecha
+    setFiltrosFecha({
+      fechaDesde: "",
+      fechaHasta: "",
+      faenaSeleccionada: "todas",
+    });
+    
+    // Limpiar filtros de fecha personalizados
+    setFiltrosFechaPersonalizados({
+      fechaDesde: "",
+      fechaHasta: "",
+      horaDesde: "00",
+      horaHasta: "23",
+    });
+    
+    // Limpiar filtros avanzados
     setFiltrosAvanzados({
       numero_boleta: "",
       usuario: "",
       maquina: "",
       patente: "",
       ubicacion: "",
+      estado: "",
     });
-    setFiltrosFecha({
-      fechaDesde: "",
-      fechaHasta: "",
-      horaDesde: "00",
-      horaHasta: "23",
-    });
-    limpiarFiltros(); // También limpiar filtros básicos
-  };
+  }, [limpiarFiltrosHook]);
 
-  // 🆕 GENERAR OPCIONES ÚNICAS PARA LOS FILTROS SELECT
-  const opcionesFiltros = useMemo(() => {
-    const usuarios = [
-      ...new Set(
-        cargasCompletas
-          .map((c) => `${c.user?.nombre} ${c.user?.apellido}`)
-          .filter(Boolean)
-      ),
-    ].sort();
+  // Determinar si hay filtros activos
+  const hayFiltrosActivosTotal = useMemo(() => {
+    return hayFiltrosActivos || 
+           filtrosFecha.fechaDesde || 
+           filtrosFecha.fechaHasta ||
+           filtrosFecha.faenaSeleccionada !== "todas" ||
+           filtrosFechaPersonalizados.fechaDesde ||
+           filtrosFechaPersonalizados.fechaHasta ||
+           Object.values(filtrosAvanzados).some(valor => valor !== "");
+  }, [hayFiltrosActivos, filtrosFecha, filtrosFechaPersonalizados, filtrosAvanzados]);
 
-    const maquinas = [
-      ...new Set(
-        cargasCompletas.map((c) => c.maquina?.nombre_maquina).filter(Boolean)
-      ),
-    ].sort();
-
-    const patentes = [
-      ...new Set(
-        cargasCompletas.map((c) => c.maquina?.patente).filter(Boolean)
-      ),
-    ].sort();
-
-    const ubicaciones = [
-      ...new Set(cargasCompletas.map((c) => c.ubicacion).filter(Boolean)),
-    ].sort();
-
-    const numeroBoletas = [
-      ...new Set(cargasCompletas.map((c) => c.numero_boleta).filter(Boolean)),
-    ].sort();
-
-    return { usuarios, maquinas, patentes, ubicaciones, numeroBoletas };
-  }, [cargasCompletas]);
-
-  // 🆕 FUNCIÓN PARA APLICAR FILTRO DE FECHAS PERSONALIZADAS
-  const aplicarFiltroFechas = (carga) => {
-    if (!filtrosFecha.fechaDesde && !filtrosFecha.fechaHasta) {
-      return true; // Sin filtro de fechas
-    }
-
-    const fechaCarga = new Date(carga.created_at);
-    
-    // Crear fecha desde con hora
-    let fechaDesdeCompleta = null;
-    if (filtrosFecha.fechaDesde) {
-      fechaDesdeCompleta = new Date(`${filtrosFecha.fechaDesde}T${filtrosFecha.horaDesde}:00:00`);
-    }
-
-    // Crear fecha hasta con hora
-    let fechaHastaCompleta = null;
-    if (filtrosFecha.fechaHasta) {
-      fechaHastaCompleta = new Date(`${filtrosFecha.fechaHasta}T${filtrosFecha.horaHasta}:59:59`);
-    }
-
-    // Aplicar filtros
-    if (fechaDesdeCompleta && fechaCarga < fechaDesdeCompleta) {
-      return false;
-    }
-    if (fechaHastaCompleta && fechaCarga > fechaHastaCompleta) {
-      return false;
-    }
-
-    return true;
-  };
-
-  // 🆕 APLICAR FILTROS AVANZADOS Y ORDENAMIENTO A LOS DATOS
-  const datosConFiltrosAvanzados = useMemo(() => {
-    let resultado = cargas.filter((carga) => {
-      // Filtro por número de boleta
-      const cumpleNumeroBoleta =
-        !filtrosAvanzados.numero_boleta ||
-        (filtrosAvanzados.numero_boleta.includes(",")
-          ? filtrosAvanzados.numero_boleta
-              .split(",")
-              .some((nb) => nb.trim() === carga.numero_boleta)
-          : carga.numero_boleta
-              .toLowerCase()
-              .includes(filtrosAvanzados.numero_boleta.toLowerCase()));
-
-      // Filtro por usuario
-      const cumpleUsuario =
-        !filtrosAvanzados.usuario ||
-        (filtrosAvanzados.usuario.includes(",")
-          ? filtrosAvanzados.usuario
-              .split(",")
-              .some(
-                (u) =>
-                  u.trim() === `${carga.user?.nombre} ${carga.user?.apellido}`
-              )
-          : `${carga.user?.nombre} ${carga.user?.apellido}`
-              .toLowerCase()
-              .includes(filtrosAvanzados.usuario.toLowerCase()));
-
-      // Filtro por máquina
-      const cumpleMaquina =
-        !filtrosAvanzados.maquina ||
-        (filtrosAvanzados.maquina.includes(",")
-          ? filtrosAvanzados.maquina
-              .split(",")
-              .some((m) => m.trim() === carga.maquina?.nombre_maquina)
-          : carga.maquina?.nombre_maquina
-              ?.toLowerCase()
-              .includes(filtrosAvanzados.maquina.toLowerCase()));
-
-      // Filtro por patente
-      const cumplePatente =
-        !filtrosAvanzados.patente ||
-        (filtrosAvanzados.patente.includes(",")
-          ? filtrosAvanzados.patente
-              .split(",")
-              .some((p) => p.trim() === carga.maquina?.patente)
-          : carga.maquina?.patente
-              ?.toLowerCase()
-              .includes(filtrosAvanzados.patente.toLowerCase()));
-
-      // Filtro por ubicación
-      const cumpleUbicacion =
-        !filtrosAvanzados.ubicacion ||
-        (filtrosAvanzados.ubicacion.includes(",")
-          ? filtrosAvanzados.ubicacion
-              .split(",")
-              .some((ub) => ub.trim() === carga.ubicacion)
-          : carga.ubicacion
-              ?.toLowerCase()
-              .includes(filtrosAvanzados.ubicacion.toLowerCase()));
-
-      // 🆕 Filtro por fechas personalizadas
-      const cumpleFechas = aplicarFiltroFechas(carga);
-
-      return (
-        cumpleNumeroBoleta &&
-        cumpleUsuario &&
-        cumpleMaquina &&
-        cumplePatente &&
-        cumpleUbicacion &&
-        cumpleFechas
-      );
-    });
-
-    // 🔧 APLICAR ORDENAMIENTO (CORREGIDO)
-    if (ordenColumna) {
-      resultado.sort((a, b) => {
-        let valorA, valorB;
-
-        switch (ordenColumna) {
-          case "fecha":
-          case "created_at":
-            valorA = new Date(a.created_at);
-            valorB = new Date(b.created_at);
-            break;
-          case "numero_boleta":
-            valorA = a.numero_boleta?.toLowerCase() || "";
-            valorB = b.numero_boleta?.toLowerCase() || "";
-            break;
-          case "usuario":
-            valorA = `${a.user?.nombre} ${a.user?.apellido}`.toLowerCase();
-            valorB = `${b.user?.nombre} ${b.user?.apellido}`.toLowerCase();
-            break;
-          case "maquina":
-            valorA = a.maquina?.nombre_maquina?.toLowerCase() || "";
-            valorB = b.maquina?.nombre_maquina?.toLowerCase() || "";
-            break;
-          case "litros":
-            valorA = Number(a.litros) || 0;
-            valorB = Number(b.litros) || 0;
-            break;
-          case "costo":
-            valorA = Number(a.costo) || 0;
-            valorB = Number(b.costo) || 0;
-            break;
-          default:
-            return 0;
-        }
-
-        if (typeof valorA === "string") {
-          const resultado = valorA.localeCompare(valorB);
-          return direccionOrden === "asc" ? resultado : -resultado;
-        } else {
-          const resultado = valorA - valorB;
-          return direccionOrden === "asc" ? resultado : -resultado;
-        }
-      });
-    }
-
-    return resultado;
-  }, [cargas, filtrosAvanzados, filtrosFecha, ordenColumna, direccionOrden]);
-
-  // 🆕 CONTAR FILTROS ACTIVOS (ACTUALIZADO)
-  const filtrosAvanzadosActivos = Object.values(filtrosAvanzados).filter(
-    (f) => f !== ""
-  ).length;
-  const filtrosFechaActivos = Object.values(filtrosFecha).filter(
-    (f) => f !== "" && f !== "00" && f !== "23"
-  ).length;
-  const totalFiltrosActivos = filtrosAvanzadosActivos + filtrosFechaActivos + (hayFiltrosActivos ? 1 : 0);
-
-  // 💰 Funciones de formato
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("es-CL", {
-      style: "currency",
-      currency: "CLP",
-    }).format(amount);
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("es-CL", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const formatNumber = (number) => {
-    return new Intl.NumberFormat("es-CL").format(number);
-  };
-
-  // 🎨 Funciones utilitarias
-  const getFaenaColors = (faenaId) => {
-    return FAENA_COLORS[faenaId] || {
-      name: "Faena Desconocida",
-      bg: "bg-gray-50/25",
-      border: "border-l-gray-400",
-      badge: "bg-gray-100 text-gray-800",
-      emoji: "🏢",
-    };
-  };
-
-  const getEstadoBadge = (estado) => {
-    const estadoInfo = ESTADOS_CARGA[estado] || ESTADOS_CARGA.pendiente;
-    const IconComponent = estadoInfo.icon;
-
-    return (
-      <span
-        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${estadoInfo.color}`}
-      >
-        <IconComponent className={`w-3 h-3 mr-1 ${estadoInfo.iconColor}`} />
-        {estadoInfo.label}
-      </span>
-    );
-  };
-
-  // 📱 Funciones del modal
-  const abrirDetalleCarga = (carga) => {
-    setCargaSeleccionada(carga);
-    setModalDetalle(true);
-  };
-
-  const cerrarModal = () => {
-    setModalDetalle(false);
-    setCargaSeleccionada(null);
-  };
-
-  // 📤 Función para exportar con notificación
-  const manejarExportacion = () => {
-    const datos = exportarDatos("json");
-    console.log("📊 Datos exportados:", datos);
-    // Aquí puedes implementar la descarga real del archivo
-    alert(`✅ ${datos.length} registros listos para exportar`);
-  };
-
-  // 📱 Componente de paginación
-  const ComponentePaginacion = () => {
-    if (infoPaginacion.totalPaginas <= 1) return null;
-
-    const getPaginasVisibles = () => {
-      const delta = 2;
-      const left = paginaActual - delta;
-      const right = paginaActual + delta + 1;
-      const range = [];
-      const rangeWithDots = [];
-
-      for (let i = Math.max(2, left); i < Math.min(infoPaginacion.totalPaginas, right); i++) {
-        range.push(i);
-      }
-
-      if (paginaActual - delta > 2) {
-        rangeWithDots.push(1, '...');
-      } else {
-        rangeWithDots.push(1);
-      }
-
-      rangeWithDots.push(...range);
-
-      if (paginaActual + delta + 1 < infoPaginacion.totalPaginas) {
-        rangeWithDots.push('...', infoPaginacion.totalPaginas);
-      } else if (infoPaginacion.totalPaginas > 1) {
-        rangeWithDots.push(infoPaginacion.totalPaginas);
-      }
-
-      return rangeWithDots;
-    };
-
-    return (
-      <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 rounded-lg shadow">
-        <div className="flex-1 flex justify-between sm:hidden">
-          <button
-            onClick={() => irAPagina(paginaActual - 1)}
-            disabled={!infoPaginacion.hayAnterior}
-            className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <FaChevronLeft className="w-4 h-4 mr-1" />
-            Anterior
-          </button>
-          <button
-            onClick={() => irAPagina(paginaActual + 1)}
-            disabled={!infoPaginacion.haySiguiente}
-            className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Siguiente
-            <FaChevronRight className="w-4 h-4 ml-1" />
-          </button>
-        </div>
-        
-        <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-gray-700">
-              Mostrando <span className="font-medium">{infoPaginacion.inicio}</span> a{" "}
-              <span className="font-medium">{infoPaginacion.fin}</span> de{" "}
-              <span className="font-medium">{infoPaginacion.totalRegistros}</span> resultados
-            </p>
-          </div>
-          
-          <div>
-            <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-              <button
-                onClick={() => irAPagina(paginaActual - 1)}
-                disabled={!infoPaginacion.hayAnterior}
-                className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <FaChevronLeft className="w-4 h-4" />
-              </button>
-              
-              {getPaginasVisibles().map((pagina, index) => (
-                <button
-                  key={index}
-                  onClick={() => typeof pagina === 'number' ? irAPagina(pagina) : null}
-                  disabled={pagina === '...'}
-                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                    pagina === paginaActual
-                      ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                      : pagina === '...'
-                      ? 'border-gray-300 bg-white text-gray-500 cursor-default'
-                      : 'border-gray-300 bg-white text-gray-500 hover:bg-gray-50'
-                  }`}
-                >
-                  {pagina}
-                </button>
-              ))}
-              
-              <button
-                onClick={() => irAPagina(paginaActual + 1)}
-                disabled={!infoPaginacion.haySiguiente}
-                className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <FaChevronRight className="w-4 h-4" />
-              </button>
-            </nav>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando consumos...</p>
-        </div>
-      </div>
-    );
-  }
+  // Wrapper para el ordenamiento
+  const manejarOrdenamientoWrapper = useCallback((columna, direccion) => {
+    manejarCambioOrdenamiento(columna, direccion);
+  }, [manejarCambioOrdenamiento]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 📊 Header principal */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="py-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 flex items-center">
-                  <FaGasPump className="text-blue-600 mr-3" />
-                  Vista de Consumos
-                </h1>
-                <p className="mt-1 text-sm text-gray-600">
-                  Gestión completa de cargas externas de combustible ({totalFiltrado} registros)
-                </p>
-                {error && (
-                  <div className="mt-2 text-sm text-red-600 bg-red-50 px-3 py-1 rounded">
-                    ⚠️ {error}
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center space-x-3">
-                <button
-                  onClick={refrescarDatos}
-                  className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  <FaCalendarAlt className="w-4 h-4 mr-1" />
-                  Actualizar
-                </button>
-                <button
-                  onClick={manejarExportacion}
-                  disabled={totalFiltrado === 0}
-                  className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <FaDownload className="w-4 h-4 mr-1" />
-                  Exportar ({totalFiltrado})
-                </button>
-              </div>
+    <div className="space-y-6 p-6">
+      {/* 🆕 TÍTULO Y ESTADÍSTICAS */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Gestión de Consumos</h1>
+          <p className="text-sm text-gray-600 mt-1">
+            Administra y supervisa todos los consumos de combustible
+          </p>
+        </div>
+        
+        {/* Estadísticas rápidas */}
+        <div className="flex gap-4 mt-4 sm:mt-0">
+          <div className="text-center">
+            <div className="text-lg font-bold text-blue-600">{totalFiltrado}</div>
+            <div className="text-xs text-gray-500">Registros</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-bold text-green-600">
+              ${estadisticas.totalCosto?.toLocaleString() || 0}
             </div>
+            <div className="text-xs text-gray-500">Costo Total</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-bold text-orange-600">
+              {estadisticas.totalLitros?.toLocaleString() || 0}L
+            </div>
+            <div className="text-xs text-gray-500">Litros Total</div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* 📊 Tarjetas de estadísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <FiFileText className="h-6 w-6 text-gray-400" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Total Registros
-                    </dt>
-                    <dd className="text-lg font-medium text-gray-900">
-                      {formatNumber(estadisticas.total)}
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
+      {/* 🆕 FILTROS COMPONENT - MODO UBICACIONES */}
+      <FiltrosComponent
+        fechaDesde={filtrosFecha.fechaDesde}
+        fechaHasta={filtrosFecha.fechaHasta}
+        faenaSeleccionada={filtrosFecha.faenaSeleccionada}
+        faenas={ubicacionesDisponibles.length > 0 ? ubicacionesDisponibles : faenasPorDefecto}
+        modo="ubicaciones"
+        mostrarFaenas={true}
+        incluirHoras={false}
+        mostrarTitulo={false}
+        cargando={loading}
+        onChange={handleFiltrosChange}
+        className="mb-6"
+      />
+
+      {/* 🔧 Separador */}
+      <div className="border-t border-gray-200 my-6"></div>
+
+      {/* 🆕 NUEVA SECCIÓN: Filtros Avanzados por Columna */}
+      <div className="mb-6">
+        <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+          <FaSearch className="text-blue-500" />
+          🔍 Filtros Avanzados por Columna
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+          {/* Filtro Número de Boleta */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Número de Boleta
+            </label>
+            <input
+              type="text"
+              value={filtrosAvanzados.numero_boleta}
+              onChange={(e) =>
+                manejarCambioFiltroAvanzado("numero_boleta", e.target.value)
+              }
+              placeholder="Ej: BOL-001"
+              className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            />
           </div>
 
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <FaClock className="h-6 w-6 text-yellow-400" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Pendientes
-                    </dt>
-                    <dd className="text-lg font-medium text-yellow-600">
-                      {formatNumber(estadisticas.pendientes)}
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
+          {/* Filtro Usuario */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Usuario
+            </label>
+            <input
+              type="text"
+              value={filtrosAvanzados.usuario}
+              onChange={(e) =>
+                manejarCambioFiltroAvanzado("usuario", e.target.value)
+              }
+              placeholder="Nombre del usuario"
+              className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            />
           </div>
 
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <FaGasPump className="h-6 w-6 text-blue-400" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Total Litros
-                    </dt>
-                    <dd className="text-lg font-medium text-blue-600">
-                      {formatNumber(Math.round(estadisticas.totalLitros))} L
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
+          {/* Filtro Máquina */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Máquina
+            </label>
+            <input
+              type="text"
+              value={filtrosAvanzados.maquina}
+              onChange={(e) =>
+                manejarCambioFiltroAvanzado("maquina", e.target.value)
+              }
+              placeholder="Nombre de máquina"
+              className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            />
           </div>
 
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <FiTrendingUp className="h-6 w-6 text-green-400" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Total Costo
-                    </dt>
-                    <dd className="text-lg font-medium text-green-600">
-                      {formatCurrency(estadisticas.totalCosto)}
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
+          {/* Filtro Patente */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Patente
+            </label>
+            <input
+              type="text"
+              value={filtrosAvanzados.patente}
+              onChange={(e) =>
+                manejarCambioFiltroAvanzado("patente", e.target.value)
+              }
+              placeholder="Ej: AA-BB-12"
+              className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            />
+          </div>
+
+          {/* Filtro Ubicación */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Ubicación
+            </label>
+            <input
+              type="text"
+              value={filtrosAvanzados.ubicacion}
+              onChange={(e) =>
+                manejarCambioFiltroAvanzado("ubicacion", e.target.value)
+              }
+              placeholder="Ubicación"
+              className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            />
+          </div>
+
+          {/* Filtro Estado */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Estado
+            </label>
+            <select
+              value={filtrosAvanzados.estado}
+              onChange={(e) =>
+                manejarCambioFiltroAvanzado("estado", e.target.value)
+              }
+              className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            >
+              <option value="">Todos los estados</option>
+              <option value="pendiente">Pendiente</option>
+              <option value="aprobado">Aprobado</option>
+              <option value="rechazado">Rechazado</option>
+            </select>
           </div>
         </div>
+      </div>
 
-        {/* 🔍 Panel de filtros MEJORADO */}
-        <div className="bg-white shadow rounded-lg mb-8">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 flex items-center">
-                <FaFilter className="text-gray-500 mr-2" />
-                Filtros y Búsqueda
-                {totalFiltrosActivos > 0 && (
-                  <span className="ml-2 text-sm bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
-                    {totalFiltrosActivos} filtro{totalFiltrosActivos !== 1 ? "s" : ""} activo{totalFiltrosActivos !== 1 ? "s" : ""}
-                  </span>
-                )}
-              </h3>
-              {totalFiltrosActivos > 0 && (
+    
+
+      {/* 🔍 BARRA DE FILTROS ACTIVOS */}
+      {hayFiltrosActivosTotal && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-blue-700 flex items-center gap-1">
+              <FaSearch className="w-3 h-3" />
+              Filtros activos:
+            </span>
+            
+            {/* Filtros básicos del hook */}
+            {searchTerm && (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
+                Búsqueda: "{searchTerm}"
                 <button
-                  onClick={limpiarFiltrosAvanzados}
-                  className="text-sm text-red-600 hover:text-red-800 font-medium"
+                  onClick={() => setSearchTerm("")}
+                  className="ml-1 text-blue-600 hover:text-blue-800"
                 >
-                  Limpiar todos los filtros
+                  <FaTimes size={10} />
                 </button>
-              )}
-            </div>
-          </div>
-
-          <div className="p-6">
-            {/* Filtros básicos */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              {/* Búsqueda general */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Búsqueda General
-                </label>
-                <div className="relative">
-                  <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Buscar en todo..."
-                    className="pl-10 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                </div>
-              </div>
-
-              {/* Filtro Estado */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Estado
-                </label>
-                <select
-                  value={filtroEstado}
-                  onChange={(e) => setFiltroEstado(e.target.value)}
-                  className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                >
-                  <option value="todos">Todos los estados</option>
-                  <option value="pendiente">Pendientes</option>
-                  <option value="aprobado">Aprobados</option>
-                  <option value="rechazado">Rechazados</option>
-                </select>
-              </div>
-
-              {/* Filtro Faena */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Faena
-                </label>
-                <select
-                  value={filtroFaena}
-                  onChange={(e) => setFiltroFaena(e.target.value)}
-                  className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                >
-                  <option value="todas">Todas las faenas</option>
-                  <option value="1">🌿 Cabildo</option>
-                  <option value="4">🏔️ Tiltil</option>
-                  <option value="6">⛽ Cargas Externas</option>
-                </select>
-              </div>
-
-              {/* Filtro Fecha (período predefinido) */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Período Predefinido
-                </label>
-                <select
-                  value={filtroFecha}
-                  onChange={(e) => setFiltroFecha(e.target.value)}
-                  className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                >
-                  <option value="todas">Todas las fechas</option>
-                  <option value="hoy">Hoy</option>
-                  <option value="semana">Última semana</option>
-                  <option value="mes">Último mes</option>
-                  <option value="trimestre">Último trimestre</option>
-                  <option value="anio">Último año</option>
-                </select>
-              </div>
-            </div>
-
-            {/* 🆕 NUEVA SECCIÓN: Filtros de Fechas Personalizadas */}
-            <div className="mb-6">
-              <h4 className="text-sm font-medium text-gray-700 mb-3">
-                📅 Filtros de Fechas Personalizadas
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                {/* Fecha Desde */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Fecha Desde
-                  </label>
-                  <input
-                    type="date"
-                    value={filtrosFecha.fechaDesde}
-                    onChange={(e) => manejarCambioFiltroFecha("fechaDesde", e.target.value)}
-                    className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                </div>
-
-                {/* Hora Desde */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Hora Desde
-                  </label>
-                  <select
-                    value={filtrosFecha.horaDesde}
-                    onChange={(e) => manejarCambioFiltroFecha("horaDesde", e.target.value)}
-                    className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  >
-                    {Array.from({ length: 24 }, (_, i) => (
-                      <option key={i} value={i.toString().padStart(2, '0')}>
-                        {i.toString().padStart(2, '0')}:00
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Fecha Hasta */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Fecha Hasta
-                  </label>
-                  <input
-                    type="date"
-                    value={filtrosFecha.fechaHasta}
-                    onChange={(e) => manejarCambioFiltroFecha("fechaHasta", e.target.value)}
-                    className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                </div>
-
-                {/* Hora Hasta */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Hora Hasta
-                  </label>
-                  <select
-                    value={filtrosFecha.horaHasta}
-                    onChange={(e) => manejarCambioFiltroFecha("horaHasta", e.target.value)}
-                    className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  >
-                    {Array.from({ length: 24 }, (_, i) => (
-                      <option key={i} value={i.toString().padStart(2, '0')}>
-                        {i.toString().padStart(2, '0')}:59
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Información del rango de fechas activo */}
-              {(filtrosFecha.fechaDesde || filtrosFecha.fechaHasta) && (
-                <div className="mt-3 p-3 bg-blue-100 rounded-lg border border-blue-300">
-                  <div className="flex items-center text-blue-800">
-                    <FaCalendarAlt className="mr-2" />
-                    <span className="text-sm font-medium">
-                      Rango activo: 
-                      {filtrosFecha.fechaDesde ? 
-                        ` ${filtrosFecha.fechaDesde} ${filtrosFecha.horaDesde}:00` : 
-                        " (sin límite inicial)"
-                      } hasta 
-                      {filtrosFecha.fechaHasta ? 
-                        ` ${filtrosFecha.fechaHasta} ${filtrosFecha.horaHasta}:59` : 
-                        " (sin límite final)"
-                      }
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Separador */}
-            <div className="border-t border-gray-200 my-6"></div>
-
-            {/* Filtros avanzados por columna */}
-            <div className="mb-4">
-              <h4 className="text-sm font-medium text-gray-700 mb-3">
-                Filtros Avanzados por Columna
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {/* Filtro Número de Boleta */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Número de Boleta
-                  </label>
-                  <input
-                    type="text"
-                    value={filtrosAvanzados.numero_boleta}
-                    onChange={(e) =>
-                      manejarCambioFiltroAvanzado("numero_boleta", e.target.value)
-                    }
-                    placeholder="Ej: BOL-001"
-                    className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                </div>
-
-                {/* Filtro Usuario */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Usuario
-                  </label>
-                  <input
-                    type="text"
-                    value={filtrosAvanzados.usuario}
-                    onChange={(e) =>
-                      manejarCambioFiltroAvanzado("usuario", e.target.value)
-                    }
-                    placeholder="Nombre del usuario"
-                    className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                </div>
-
-                {/* Filtro Máquina */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Máquina
-                  </label>
-                  <input
-                    type="text"
-                    value={filtrosAvanzados.maquina}
-                    onChange={(e) =>
-                      manejarCambioFiltroAvanzado("maquina", e.target.value)
-                    }
-                    placeholder="Nombre de máquina"
-                    className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                </div>
-
-                {/* Filtro Patente */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Patente
-                  </label>
-                  <input
-                    type="text"
-                    value={filtrosAvanzados.patente}
-                    onChange={(e) =>
-                      manejarCambioFiltroAvanzado("patente", e.target.value)
-                    }
-                    placeholder="Ej: AA-BB-12"
-                    className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                </div>
-
-                {/* Filtro Ubicación */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Ubicación
-                  </label>
-                  <input
-                    type="text"
-                    value={filtrosAvanzados.ubicacion}
-                    onChange={(e) =>
-                      manejarCambioFiltroAvanzado("ubicacion", e.target.value)
-                    }
-                    placeholder="Ubicación"
-                    className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Barra de filtros activos */}
-            {totalFiltrosActivos > 0 && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-medium text-blue-700">
-                    Filtros activos:
-                  </span>
-                  
-                  {/* Filtros básicos activos */}
-                  {filtroEstado !== "todos" && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
-                      Estado: {filtroEstado}
-                      <button
-                        onClick={() => setFiltroEstado("todos")}
-                        className="ml-1 text-blue-600 hover:text-blue-800"
-                      >
-                        <FiX size={12} />
-                      </button>
-                    </span>
-                  )}
-
-                  {filtroFaena !== "todas" && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
-                      Faena: {filtroFaena === "1" ? "Cabildo" : filtroFaena === "4" ? "Tiltil" : "Cargas Externas"}
-                      <button
-                        onClick={() => setFiltroFaena("todas")}
-                        className="ml-1 text-blue-600 hover:text-blue-800"
-                      >
-                        <FiX size={12} />
-                      </button>
-                    </span>
-                  )}
-
-                  {filtroFecha !== "todas" && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
-                      Período: {filtroFecha}
-                      <button
-                        onClick={() => setFiltroFecha("todas")}
-                        className="ml-1 text-blue-600 hover:text-blue-800"
-                      >
-                        <FiX size={12} />
-                      </button>
-                    </span>
-                  )}
-
-                  {/* Filtros avanzados activos */}
-                  {Object.entries(filtrosAvanzados).map(([key, value]) => 
-                    value && (
-                      <span key={key} className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
-                        {key.replace('_', ' ')}: {value.length > 20 ? `${value.substring(0, 20)}...` : value}
-                        <button
-                          onClick={() => manejarCambioFiltroAvanzado(key, "")}
-                          className="ml-1 text-blue-600 hover:text-blue-800"
-                        >
-                          <FiX size={12} />
-                        </button>
-                      </span>
-                    )
-                  )}
-
-                  {/* 🆕 Filtros de fechas activos */}
-                  {filtrosFecha.fechaDesde && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
-                      Desde: {filtrosFecha.fechaDesde} {filtrosFecha.horaDesde}:00
-                      <button
-                        onClick={() => {
-                          manejarCambioFiltroFecha("fechaDesde", "");
-                          manejarCambioFiltroFecha("horaDesde", "00");
-                        }}
-                        className="ml-1 text-blue-600 hover:text-blue-800"
-                      >
-                        <FiX size={12} />
-                      </button>
-                    </span>
-                  )}
-
-                  {filtrosFecha.fechaHasta && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
-                      Hasta: {filtrosFecha.fechaHasta} {filtrosFecha.horaHasta}:59
-                      <button
-                        onClick={() => {
-                          manejarCambioFiltroFecha("fechaHasta", "");
-                          manejarCambioFiltroFecha("horaHasta", "23");
-                        }}
-                        className="ml-1 text-blue-600 hover:text-blue-800"
-                      >
-                        <FiX size={12} />
-                      </button>
-                    </span>
-                  )}
-                </div>
-              </div>
+              </span>
             )}
+
+            {filtroEstado !== "todos" && (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
+                Estado: {filtroEstado}
+                <button
+                  onClick={() => setFiltroEstado("todos")}
+                  className="ml-1 text-blue-600 hover:text-blue-800"
+                >
+                  <FaTimes size={10} />
+                </button>
+              </span>
+            )}
+
+            {/* Filtros de ubicación */}
+            {filtrosFecha.faenaSeleccionada !== "todas" && (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
+                Ubicación: {ubicacionesDisponibles.find(u => u.value === filtrosFecha.faenaSeleccionada)?.representativo || filtrosFecha.faenaSeleccionada}
+                <button
+                  onClick={() => setFiltrosFecha(prev => ({ ...prev, faenaSeleccionada: "todas" }))}
+                  className="ml-1 text-blue-600 hover:text-blue-800"
+                >
+                  <FaTimes size={10} />
+                </button>
+              </span>
+            )}
+
+            {/* Filtros de fecha personalizados */}
+            {filtrosFechaPersonalizados.fechaDesde && (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
+                Desde: {filtrosFechaPersonalizados.fechaDesde} {filtrosFechaPersonalizados.horaDesde}:00
+                <button
+                  onClick={() => {
+                    manejarCambioFiltroFechaPersonalizado("fechaDesde", "");
+                    manejarCambioFiltroFechaPersonalizado("horaDesde", "00");
+                  }}
+                  className="ml-1 text-blue-600 hover:text-blue-800"
+                >
+                  <FaTimes size={10} />
+                </button>
+              </span>
+            )}
+
+            {filtrosFechaPersonalizados.fechaHasta && (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
+                Hasta: {filtrosFechaPersonalizados.fechaHasta} {filtrosFechaPersonalizados.horaHasta}:59
+                <button
+                  onClick={() => {
+                    manejarCambioFiltroFechaPersonalizado("fechaHasta", "");
+                    manejarCambioFiltroFechaPersonalizado("horaHasta", "23");
+                  }}
+                  className="ml-1 text-blue-600 hover:text-blue-800"
+                >
+                  <FaTimes size={10} />
+                </button>
+              </span>
+            )}
+
+            {/* Filtros avanzados simples */}
+            {Object.entries(filtrosAvanzados).map(([key, value]) => 
+              value && (
+                <span key={key} className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
+                  {key === 'numero_boleta' ? 'Boleta' : 
+                   key === 'usuario' ? 'Usuario' : 
+                   key === 'maquina' ? 'Máquina' : 
+                   key === 'patente' ? 'Patente' : 
+                   key === 'ubicacion' ? 'Ubicación' :
+                   key === 'estado' ? 'Estado' : key}: {value.length > 20 ? `${value.substring(0, 20)}...` : value}
+                  <button
+                    onClick={() => manejarCambioFiltroAvanzado(key, "")}
+                    className="ml-1 text-blue-600 hover:text-blue-800"
+                  >
+                    <FaTimes size={10} />
+                  </button>
+                </span>
+              )
+            )}
+
+            {/* Botón limpiar todos */}
+            <button
+              onClick={limpiarTodosLosFiltros}
+              className="ml-2 px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            >
+              Limpiar todos
+            </button>
           </div>
         </div>
+      )}
 
-        {/* 📋 Tabla principal CON UniversalTableFilter Y DATOS CORREGIDOS */}
-        <div className="bg-white shadow overflow-hidden sm:rounded-md">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg leading-6 font-medium text-gray-900">
-              Registros de Consumos ({formatNumber(datosConFiltrosAvanzados.length)} de {formatNumber(estadisticas.totalOriginal)})
+      {/* Estado de carga y errores */}
+      {loading && (
+        <div className="text-center py-8">
+          <div className="inline-flex items-center text-gray-600">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600 mr-3"></div>
+            Cargando consumos...
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-start">
+            <FaExclamationTriangle className="text-red-500 mt-0.5 mr-3 flex-shrink-0" />
+            <div>
+              <h3 className="text-sm font-medium text-red-800">Error al cargar los datos</h3>
+              <p className="text-sm text-red-700 mt-1">{error}</p>
+              <button
+                onClick={refrescarDatos}
+                className="mt-2 text-sm bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded"
+              >
+                Reintentar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TABLA DE DATOS */}
+      {!loading && !error && (
+        <div className="bg-white rounded-lg shadow">
+          {/* 📊 Información de tabla y filtros */}
+          <div className="px-6 py-3 border-b border-gray-200 bg-gray-50">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm text-gray-700">
+                  Mostrando <strong>{datosFiltrados.length}</strong> de <strong>{cargas.length}</strong> registros
+                  {hayFiltrosActivosTotal && (
+                    <span className="text-blue-600 ml-2">
+                      ({Object.values(filtrosAvanzados).filter(v => v).length + 
+                        (filtrosFecha.fechaDesde || filtrosFecha.fechaHasta || filtrosFecha.faenaSeleccionada !== "todas" ? 1 : 0) +
+                        (filtrosFechaPersonalizados.fechaDesde || filtrosFechaPersonalizados.fechaHasta ? 1 : 0) +
+                        (searchTerm ? 1 : 0) + 
+                        (filtroEstado !== "todos" ? 1 : 0)} filtros activos)
+                    </span>
+                  )}
+                </span>
+              </div>
+              
+              {/* Información de ordenamiento */}
               {ordenColumna && (
-                <span className="ml-2 text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                  Ordenado por: {
-                    ordenColumna === "fecha" ? "Fecha" :
-                    ordenColumna === "numero_boleta" ? "N° Boleta" :
-                    ordenColumna === "usuario" ? "Usuario" :
-                    ordenColumna === "maquina" ? "Máquina" :
-                    ordenColumna === "litros" ? "Litros" :
-                    ordenColumna === "costo" ? "Costo" :
-                    ordenColumna
-                  } {direccionOrden === "desc" ? "↓" : "↑"}
+                <span className="text-sm text-gray-600">
+                  Ordenando por: <strong>
+                    {ordenColumna === "created_at" ? "Fecha" :
+                     ordenColumna === "numero_boleta" ? "N° Boleta" :
+                     ordenColumna === "usuario" ? "Usuario" :
+                     ordenColumna === "maquina" ? "Máquina" :
+                     ordenColumna === "litros" ? "Litros" :
+                     ordenColumna === "costo" ? "Costo" :
+                     ordenColumna === "estado" ? "Estado" :
+                     ordenColumna}
+                  </strong> {direccionOrden === "desc" ? "↓" : "↑"}
                 </span>
               )}
-            </h3>
+            </div>
           </div>
           
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  {/* FECHA con UniversalTableFilter */}
+                  {/* FECHA */}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     <UniversalTableFilter
                       titulo="Fecha"
-                      columna="fecha"
-                      onOrdenamientoChange={(columna, direccion) => {
-                        if (direccion) {
-                          manejarCambioOrdenamiento(columna, direccion);
-                        } else {
-                          manejarCambioOrdenamiento(columna);
-                        }
-                      }}
+                      columna="created_at"
+                      onOrdenamientoChange={manejarOrdenamientoWrapper}
                       ordenColumna={ordenColumna}
                       direccionOrden={direccionOrden}
                     />
                   </th>
 
-                  {/* N° BOLETA con UniversalTableFilter */}
+                  {/* N° BOLETA - CON FILTRO AVANZADO */}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     <UniversalTableFilter
                       titulo="N° Boleta"
@@ -1087,13 +900,7 @@ const ConsumosViewOptimized = () => {
                       opciones={opcionesFiltros.numeroBoletas}
                       valorFiltro={filtrosAvanzados.numero_boleta}
                       onFiltroChange={manejarCambioFiltroAvanzado}
-                      onOrdenamientoChange={(columna, direccion) => {
-                        if (direccion) {
-                          manejarCambioOrdenamiento(columna, direccion);
-                        } else {
-                          manejarCambioOrdenamiento(columna);
-                        }
-                      }}
+                      onOrdenamientoChange={manejarOrdenamientoWrapper}
                       ordenColumna={ordenColumna}
                       direccionOrden={direccionOrden}
                       mostrarBusqueda={true}
@@ -1102,7 +909,7 @@ const ConsumosViewOptimized = () => {
                     />
                   </th>
 
-                  {/* USUARIO con UniversalTableFilter */}
+                  {/* USUARIO - CON FILTRO AVANZADO */}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     <UniversalTableFilter
                       titulo="Usuario"
@@ -1112,13 +919,7 @@ const ConsumosViewOptimized = () => {
                       opciones={opcionesFiltros.usuarios}
                       valorFiltro={filtrosAvanzados.usuario}
                       onFiltroChange={manejarCambioFiltroAvanzado}
-                      onOrdenamientoChange={(columna, direccion) => {
-                        if (direccion) {
-                          manejarCambioOrdenamiento(columna, direccion);
-                        } else {
-                          manejarCambioOrdenamiento(columna);
-                        }
-                      }}
+                      onOrdenamientoChange={manejarOrdenamientoWrapper}
                       ordenColumna={ordenColumna}
                       direccionOrden={direccionOrden}
                       mostrarBusqueda={true}
@@ -1127,23 +928,17 @@ const ConsumosViewOptimized = () => {
                     />
                   </th>
 
-                  {/* MÁQUINA con UniversalTableFilter */}
+                  {/* MÁQUINA - CON FILTRO AVANZADO */}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     <UniversalTableFilter
-                      titulo="Máquina"
+                      titulo="Máquina / Ubicación"
                       columna="maquina"
                       tipo="select"
                       esMultiple={true}
                       opciones={opcionesFiltros.maquinas}
                       valorFiltro={filtrosAvanzados.maquina}
                       onFiltroChange={manejarCambioFiltroAvanzado}
-                      onOrdenamientoChange={(columna, direccion) => {
-                        if (direccion) {
-                          manejarCambioOrdenamiento(columna, direccion);
-                        } else {
-                          manejarCambioOrdenamiento(columna);
-                        }
-                      }}
+                      onOrdenamientoChange={manejarOrdenamientoWrapper}
                       ordenColumna={ordenColumna}
                       direccionOrden={direccionOrden}
                       mostrarBusqueda={true}
@@ -1152,246 +947,201 @@ const ConsumosViewOptimized = () => {
                     />
                   </th>
 
-                  {/* LITROS con UniversalTableFilter */}
+                  {/* LITROS - SOLO ORDENAMIENTO */}
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     <UniversalTableFilter
                       titulo="Litros"
                       columna="litros"
-                      onOrdenamientoChange={(columna, direccion) => {
-                        if (direccion) {
-                          manejarCambioOrdenamiento(columna, direccion);
-                        } else {
-                          manejarCambioOrdenamiento(columna);
-                        }
-                      }}
+                      onOrdenamientoChange={manejarOrdenamientoWrapper}
                       ordenColumna={ordenColumna}
                       direccionOrden={direccionOrden}
                     />
                   </th>
 
-                  {/* COSTO con UniversalTableFilter */}
+                  {/* COSTO - SOLO ORDENAMIENTO */}
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     <UniversalTableFilter
                       titulo="Costo"
                       columna="costo"
-                      onOrdenamientoChange={(columna, direccion) => {
-                        if (direccion) {
-                          manejarCambioOrdenamiento(columna, direccion);
-                        } else {
-                          manejarCambioOrdenamiento(columna);
-                        }
-                      }}
+                      onOrdenamientoChange={manejarOrdenamientoWrapper}
                       ordenColumna={ordenColumna}
                       direccionOrden={direccionOrden}
                     />
                   </th>
 
-                  {/* ESTADO - Solo ordenamiento */}
+                  {/* ESTADO - CON FILTRO AVANZADO */}
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Estado
+                    <UniversalTableFilter
+                      titulo="Estado"
+                      columna="estado"
+                      tipo="select"
+                      opciones={opcionesFiltros.estados}
+                      valorFiltro={filtrosAvanzados.estado}
+                      onFiltroChange={manejarCambioFiltroAvanzado}
+                      onOrdenamientoChange={manejarOrdenamientoWrapper}
+                      ordenColumna={ordenColumna}
+                      direccionOrden={direccionOrden}
+                    />
                   </th>
 
-                  {/* ACCIONES - Sin filtros ni ordenamiento */}
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Acciones
                   </th>
                 </tr>
               </thead>
-              
-              <tbody className="bg-white divide-y divide-gray-200 transition-all duration-300 ease-in-out">
-                {/* 🔧 CAMBIO CRÍTICO: Usar datosConFiltrosAvanzados en lugar de cargas */}
-                {datosConFiltrosAvanzados.map((carga, index) => {
-                  const faenaColors = getFaenaColors(carga.id_faena);
+              <tbody className="bg-white divide-y divide-gray-200">
+                {datosFiltrados.map(carga => {
+                  const configEstado = estadosConfig[carga.estado] || estadosConfig.pendiente;
+                  const IconoEstado = configEstado.icono;
+                  
+                  // 🎨 Obtener colores de faena
+                  const coloresFaena = getFaenaColorsById(carga.id_faena);
+                  const esCargaExterna = carga.id_faena === 5;
+                  
                   return (
-                    <tr
-                      key={carga.id}
-                      className={`hover:bg-gray-50 transition-colors ${faenaColors.bg} ${faenaColors.border} border-l-4`}
-                      style={{
-                        animationDelay: `${index * 50}ms`,
-                        animation: "fadeInUp 0.4s ease-out forwards",
-                      }}
+                    <tr 
+                      key={carga.id} 
+                      className={`hover:bg-gray-50 transition-colors ${esCargaExterna ? coloresFaena.copecBg : coloresFaena.bg} ${esCargaExterna ? coloresFaena.copecBorder : coloresFaena.border} border-l-4`}
                     >
-                      {/* Fecha */}
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <div className="flex items-center">
-                          <FaCalendarAlt className="text-gray-400 mr-2" />
-                          {formatDate(carga.created_at)}
-                        </div>
+                        {new Date(carga.created_at).toLocaleDateString("es-CL", {
+                          day: "2-digit",
+                          month: "2-digit", 
+                          year: "numeric"
+                        })}
                       </td>
-
-                      {/* N° Boleta */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          {carga.numero_boleta}
-                        </div>
-                        <div className={`text-xs ${faenaColors.badge} px-2 py-1 rounded-full inline-block mt-1`}>
-                          {faenaColors.emoji} {faenaColors.name}
-                        </div>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {carga.numero_boleta}
                       </td>
-
-                      {/* Usuario */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <FaUser className="text-gray-400 mr-2" />
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {carga.user?.nombre} {carga.user?.apellido}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {carga.user?.rut}
-                            </div>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {`${carga.user?.nombre || ''} ${carga.user?.apellido || ''}`}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <div>
+                          <div className="font-medium">{carga.maquina?.nombre_maquina}</div>
+                          <div className="text-xs text-gray-500">{carga.maquina?.patente}</div>
+                          {/* Mostrar ubicación real con estilo de faena */}
+                          <div className={`text-xs font-medium flex items-center gap-1 ${esCargaExterna ? coloresFaena.copecBlue : coloresFaena.icon}`}>
+                            <span>{coloresFaena.emoji}</span>
+                            {carga.ubicacion || "Sin ubicación"}
+                          </div>
+                          {/* Mostrar nombre de faena con estilo */}
+                          <div className="text-xs text-gray-400">
+                            📍 {carga.faena?.ubicacion || coloresFaena.name}
                           </div>
                         </div>
                       </td>
-
-                      {/* Máquina */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <FaTruck className="text-gray-400 mr-2" />
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {carga.maquina?.nombre_maquina}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {carga.maquina?.patente}
-                            </div>
-                          </div>
-                        </div>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${esCargaExterna ? coloresFaena.copecBadge : coloresFaena.badge}`}>
+                          {Number(carga.litros).toLocaleString()}
+                        </span>
+                        <span className="text-gray-500 ml-1">L</span>
                       </td>
-
-                      {/* Litros */}
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <div className="text-sm font-medium text-gray-900 flex items-center justify-center">
-                          <FaGasPump className="text-blue-500 mr-1" />
-                          {formatNumber(carga.litros)} L
-                        </div>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                        <span className={`font-semibold ${esCargaExterna ? coloresFaena.copecBlue : coloresFaena.icon}`}>
+                          ${Number(carga.costo).toLocaleString()}
+                        </span>
                       </td>
-
-                      {/* Costo */}
                       <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <div className="text-sm font-medium text-gray-900">
-                          {formatCurrency(carga.costo)}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {formatCurrency(carga.precio_por_litro)}/L
-                        </div>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${configEstado.color}`}>
+                          <IconoEstado className={`w-3 h-3 mr-1 ${configEstado.iconColor}`} />
+                          {configEstado.texto}
+                        </span>
                       </td>
-
-                      {/* Estado */}
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        {getEstadoBadge(carga.estado)}
-                      </td>
-
-                      {/* Acciones */}
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                         <button
-                          onClick={() => abrirDetalleCarga(carga)}
-                          className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md text-blue-600 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                          onClick={() => {
+                            setCargaSeleccionada(carga);
+                            setModalDetalle(true);
+                          }}
+                          className="text-orange-600 hover:text-orange-900 transition-colors"
+                          title="Ver detalles"
                         >
-                          <FaEye className="w-3 h-3 mr-1" />
-                          Ver
+                          <FaEye className="w-4 h-4" />
                         </button>
                       </td>
                     </tr>
                   );
                 })}
-
-                {/* Filas vacías para mantener altura mínima */}
-                {datosConFiltrosAvanzados.length < 4 &&
-                  Array.from({ length: 4 - datosConFiltrosAvanzados.length }).map(
-                    (_, index) => (
-                      <tr
-                        key={`empty-${index}`}
-                        className="h-20"
-                        style={{ opacity: 0 }}
-                      >
-                        <td colSpan="8">&nbsp;</td>
-                      </tr>
-                    )
-                  )}
               </tbody>
             </table>
           </div>
 
-          {/* 📊 Mensaje si no hay datos */}
-          {datosConFiltrosAvanzados.length === 0 && (
-            <div className="text-center py-12">
-              <FaExclamationTriangle className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                No hay consumos disponibles
-              </h3>
-              <p className="text-gray-500 mb-4">
-                {totalFiltrosActivos > 0
-                  ? "No se encontraron resultados con los filtros aplicados."
-                  : "No hay registros de consumos para mostrar."}
-              </p>
-              {totalFiltrosActivos > 0 && (
+          {/* 📱 Información de paginación mejorada */}
+          <div className="px-6 py-3 border-t border-gray-200 bg-gray-50">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-700">
+                <div className="flex items-center space-x-4">
+                  <span>
+                    <strong>{Math.min(datosFiltrados.length, infoPaginacion.fin)}</strong> de <strong>{datosFiltrados.length}</strong> registros filtrados
+                  </span>
+                  {datosFiltrados.length !== infoPaginacion.totalRegistros && (
+                    <>
+                      <span>•</span>
+                      <span className="text-orange-600">
+                        <strong>{infoPaginacion.totalRegistros}</strong> registros totales
+                      </span>
+                    </>
+                  )}
+                  <span>•</span>
+                  <span>
+                    <strong>{datosFiltrados.filter((c) => c.estado === "pendiente").length}</strong> pendientes
+                  </span>
+                  <span>•</span>
+                  <span>
+                    <strong>{datosFiltrados.filter((c) => c.estado === "aprobado").length}</strong> aprobados
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
                 <button
-                  onClick={limpiarFiltrosAvanzados}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-600 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  onClick={() => irAPagina(paginaActual - 1)}
+                  disabled={!infoPaginacion.hayAnterior}
+                  className="px-3 py-1 border rounded text-sm disabled:opacity-50 hover:bg-gray-100 transition-colors"
                 >
-                  Limpiar Todos los Filtros
+                  Anterior
                 </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* 📱 Componente de paginación ACTUALIZADO */}
-        {datosConFiltrosAvanzados.length > 25 && (
-          <div className="mt-8">
-            <ComponentePaginacion />
-          </div>
-        )}
-
-        {/* 📊 Footer con información actualizada */}
-        <div className="bg-gray-50 px-6 py-4 border-t rounded-lg mt-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-2 md:space-y-0">
-            <div className="text-sm text-gray-600">
-              <div className="flex items-center space-x-4">
-                <span>
-                  <strong>{datosConFiltrosAvanzados.length}</strong> de{" "}
-                  <strong>{estadisticas.totalOriginal}</strong> registro{estadisticas.totalOriginal !== 1 ? "s" : ""} mostrado{datosConFiltrosAvanzados.length !== 1 ? "s" : ""}
+                <span className="px-3 py-1 text-sm">
+                  Página <strong>{paginaActual}</strong> de <strong>{infoPaginacion.totalPaginas}</strong>
                 </span>
-                {totalFiltrosActivos > 0 && (
-                  <>
-                    <span>•</span>
-                    <span className="text-orange-600">
-                      <strong>{totalFiltrosActivos}</strong> filtro{totalFiltrosActivos !== 1 ? "s" : ""} activo{totalFiltrosActivos !== 1 ? "s" : ""}
-                    </span>
-                  </>
-                )}
-                <span>•</span>
-                <span>
-                  <strong>{datosConFiltrosAvanzados.filter((c) => c.estado === "pendiente").length}</strong> pendientes
-                </span>
-                <span>•</span>
-                <span>
-                  <strong>{datosConFiltrosAvanzados.filter((c) => c.estado === "aprobado").length}</strong> aprobados
-                </span>
+                <button
+                  onClick={() => irAPagina(paginaActual + 1)}
+                  disabled={!infoPaginacion.haySiguiente}
+                  className="px-3 py-1 border rounded text-sm disabled:opacity-50 hover:bg-gray-100 transition-colors"
+                >
+                  Siguiente
+                </button>
               </div>
             </div>
-            <div className="text-sm text-gray-500">
-              Actualizado: {new Date().toLocaleTimeString("es-CL")}
-            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* 📱 Modal de detalle */}
-      {modalDetalle && cargaSeleccionada && (
-        <DetalleCargaModal
-          carga={cargaSeleccionada}
-          isOpen={modalDetalle}
-          onClose={cerrarModal}
-          onEstadoChange={(nuevaCarga) => {
-            actualizarCarga(nuevaCarga);
-            cerrarModal();
-          }}
-        />
+      {/* Mensaje cuando no hay datos */}
+      {!loading && !error && datosFiltrados.length === 0 && (
+        <div className="text-center py-12">
+          <div className="text-gray-500">
+            <FaExclamationTriangle className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No se encontraron registros</h3>
+            <p className="text-sm text-gray-500">
+              {hayFiltrosActivosTotal 
+                ? "Prueba ajustando los filtros o limpiándolos para ver más resultados"
+                : "No hay consumos registrados en el sistema"
+              }
+            </p>
+            {hayFiltrosActivosTotal && (
+              <button
+                onClick={limpiarTodosLosFiltros}
+                className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+              >
+                Limpiar filtros
+              </button>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
 };
 
-export default ConsumosViewOptimized;
+export default ConsumosViewOptimized; 

@@ -19,6 +19,7 @@ import {
   FiFilter,
   FiX,
 } from "react-icons/fi";
+
 import UniversalTableFilter from "../../components/molecules/UniversalTableFilter";
 const FAENA_COLORS_SUBTLE = {
   Cabildo: {

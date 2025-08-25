@@ -358,6 +358,7 @@ const DateFilter = ({
       {/* FiltrosComponent integrado */}
       <FiltrosComponent
         fechaDesde={dateFrom}
+        modo="faenas"
         fechaHasta={dateTo}
         faenaSeleccionada={faenaSeleccionada}
         faenas={faenas}
