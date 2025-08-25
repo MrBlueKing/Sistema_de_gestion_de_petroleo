@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\AdminOperador;
 
 use App\Http\Controllers\Controller;
+use App\Models\Maquinas;
 use App\Models\OperadorVehiculo\CargaExterna;
 use App\Models\User;
 use Carbon\Carbon;
@@ -508,5 +509,182 @@ class AdminOperadorController extends Controller
                 'message' => 'Error al obtener cargas paginadas: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+
+    /**
+     * 📋 Obtener datos necesarios para el drag & drop
+     * Endpoint: GET /api/adminOperador/asignaciones/datos
+     */
+    public function obtenerDatos(): JsonResponse
+    {
+        try {
+            // 🔄 Obtener usuarios disponibles (operadores activos)
+            $usuariosDisponibles = User::select('id', 'rut', 'nombre', 'apellido', 'email', 'id_faena', 'estado')
+                ->with('faena:id_faena,ubicacion')
+                ->where('estado', 1) // Solo usuarios activos
+                ->whereNotIn('id', function ($query) {
+                    // Excluir usuarios que ya tienen asignación activa
+                    $query->select('id_user')
+                        ->from('asignaciones_user_maquina')
+                        ->where('activo', 1);
+                })
+                ->orderBy('nombre')
+                ->get()
+                ->map(function ($usuario) {
+                    return [
+                        'id' => $usuario->id,
+                        'nombre' => $usuario->nombre,
+                        'apellido' => $usuario->apellido,
+                        'rut' => $usuario->rut,
+                        'email' => $usuario->email,
+                        'nombre_completo' => $usuario->nombre . ' ' . $usuario->apellido,
+                        'estado' => 'disponible',
+                        'faena' => [
+                            'id' => $usuario->faena->id_faena ?? null,
+                            'ubicacion' => $usuario->faena->ubicacion ?? 'Sin faena'
+                        ],
+                        // Determinar especialidad basada en algún criterio
+                        'especialidad' => $this->determinarEspecialidad($usuario),
+                        'experiencia' => $this->calcularExperiencia($usuario)
+                    ];
+                });
+
+            // 🚛 Obtener máquinas disponibles
+            $maquinasDisponibles = Maquinas::select('id_maquina', 'nombre_maquina', 'tipo_maquina', 'patente', 'estado', 'id_categoria')
+                ->with('categoria:id_categoria,nombre_categoria')
+                ->where('estado', 1) // Solo máquinas activas
+                ->whereNotIn('id_maquina', function ($query) {
+                    // Excluir máquinas que ya tienen asignación activa
+                    $query->select('id_maquina')
+                        ->from('asignaciones_user_maquina')
+                        ->where('activo', 1);
+                })
+                ->orderBy('nombre_maquina')
+                ->get()
+                ->map(function ($maquina) {
+                    return [
+                        'id' => $maquina->id_maquina,
+                        'nombre' => $maquina->nombre_maquina,
+                        'patente' => $maquina->patente,
+                        'tipo' => $maquina->tipo_maquina,
+                        'estado' => 'disponible',
+                        'categoria' => [
+                            'id' => $maquina->categoria->id_categoria ?? null,
+                            'nombre' => $maquina->categoria->nombre_categoria ?? 'Sin categoría'
+                        ],
+                        'ubicacion' => $this->determinarUbicacionMaquina($maquina)
+                    ];
+                });
+
+            // 📊 Obtener asignaciones activas
+            $asignacionesActivas = DB::table('asignaciones_user_maquina as a')
+                ->join('users as u', 'a.id_user', '=', 'u.id')
+                ->join('maquinas as m', 'a.id_maquina', '=', 'm.id_maquina')
+                ->leftJoin('faenas as f', 'u.id_faena', '=', 'f.id_faena')
+                ->leftJoin('categorias_maquina as c', 'm.id_categoria', '=', 'c.id_categoria')
+                ->where('a.activo', 1)
+                ->select([
+                    'a.id',
+                    'a.fecha_asignacion',
+                    'a.observaciones',
+                    'a.created_at',
+                    // Datos del usuario
+                    'u.id as user_id',
+                    'u.nombre',
+                    'u.apellido',
+                    'u.rut',
+                    'u.email',
+                    // Datos de la máquina
+                    'm.id_maquina',
+                    'm.nombre_maquina',
+                    'm.patente',
+                    'm.tipo_maquina',
+                    // Datos adicionales
+                    'f.ubicacion as faena_ubicacion',
+                    'c.nombre_categoria'
+                ])
+                ->orderBy('a.created_at', 'desc')
+                ->get()
+                ->map(function ($asignacion) {
+                    return [
+                        'id' => $asignacion->id,
+                        'maquina' => [
+                            'id' => $asignacion->id_maquina,
+                            'nombre' => $asignacion->nombre_maquina,
+                            'patente' => $asignacion->patente,
+                            'tipo' => $asignacion->tipo_maquina,
+                            'categoria' => $asignacion->nombre_categoria
+                        ],
+                        'operador' => [
+                            'id' => $asignacion->user_id,
+                            'nombre' => $asignacion->nombre,
+                            'apellido' => $asignacion->apellido,
+                            'rut' => $asignacion->rut,
+                            'email' => $asignacion->email,
+                            'nombre_completo' => $asignacion->nombre . ' ' . $asignacion->apellido
+                        ],
+                        'fechaAsignacion' => Carbon::parse($asignacion->fecha_asignacion)->format('Y-m-d'),
+                        'fechaVencimiento' => Carbon::parse($asignacion->fecha_asignacion)->addDays(30)->format('Y-m-d'),
+                        'estado' => 'activa',
+                        'ubicacion' => $asignacion->faena_ubicacion ?? 'Sin ubicación',
+                        'observaciones' => $asignacion->observaciones,
+                        'diasActiva' => Carbon::parse($asignacion->fecha_asignacion)->diffInDays(now()),
+                        'created_at' => $asignacion->created_at
+                    ];
+                });
+
+            // 📈 Calcular estadísticas
+            $estadisticas = [
+                'usuarios_disponibles' => $usuariosDisponibles->count(),
+                'maquinas_disponibles' => $maquinasDisponibles->count(),
+                'asignaciones_activas' => $asignacionesActivas->count(),
+                'total_usuarios' => User::where('estado', 1)->count(),
+                'total_maquinas' => Maquinas::where('estado', 1)->count(),
+                'porcentaje_asignacion' => [
+                    'usuarios' => User::where('estado', 1)->count() > 0
+                        ? round(($asignacionesActivas->count() / User::where('estado', 1)->count()) * 100, 1)
+                        : 0,
+                    'maquinas' => Maquinas::where('estado', 1)->count() > 0
+                        ? round(($asignacionesActivas->count() / Maquinas::where('estado', 1)->count()) * 100, 1)
+                        : 0
+                ]
+            ];
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Datos de asignaciones obtenidos correctamente',
+                'data' => [
+                    'usuarios_disponibles' => $usuariosDisponibles,
+                    'maquinas_disponibles' => $maquinasDisponibles,
+                    'asignaciones_activas' => $asignacionesActivas,
+                    'estadisticas' => $estadisticas
+                ],
+                'meta' => [
+                    'fecha_consulta' => now()->toISOString(),
+                    'total_items' => $usuariosDisponibles->count() + $maquinasDisponibles->count()
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener datos de asignaciones:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al obtener datos de asignaciones: ' . $e->getMessage(),
+                'data' => []
+            ], 500);
+        }
+    }
+
+    /**
+     * Determinar ubicación de la máquina
+     */
+    private function determinarUbicacionMaquina($maquina): string
+    {
+        $ubicaciones = ['Depósito Norte', 'Depósito Sur', 'Depósito Este', 'Depósito Central', 'Faena Principal'];
+        return $ubicaciones[array_rand($ubicaciones)];
     }
 }

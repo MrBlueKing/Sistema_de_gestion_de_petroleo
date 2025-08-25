@@ -266,31 +266,68 @@ const Consumo = ({
       : patenteSeleccionada;
   };
 
-  const renderSuccessScreen = () => (
-    <div className="flex flex-col items-center justify-center py-6 px-4 text-center space-y-6">
-      <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
-        <FaCheck className="text-green-600 w-10 h-10" />
-      </div>
-      <h2 className="text-2xl font-bold text-gray-800">¡Consumo registrado exitosamente!</h2>
-      <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md mt-4">
-        <button
-          onClick={handleBackToStart}
-          className="w-full sm:w-1/2 bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg flex items-center justify-center"
-        >
-          <FaPlus className="mr-2" />
-          <span>Nuevo registro</span>
-        </button>
-        <button
-          onClick={() => navigate('/bombero')}
-          className="w-full sm:w-1/2 bg-gray-100 hover:bg-gray-200 text-gray-800 py-3 px-4 rounded-lg flex items-center justify-center"
-        >
-          <FaHome className="mr-2" />
-          <span>Volver al inicio</span>
-        </button>
-      </div>
-    </div>
-  );
+const renderSuccessScreen = () => {
+    return (
+      <div className="flex flex-col items-center justify-center py-6 px-4 text-center space-y-6">
+        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
+          <FaCheck className="text-green-600 w-10 h-10" />
+        </div>
 
+        <h2 className="text-2xl font-bold text-gray-800">¡Consumo registrado exitosamente!</h2>
+
+        <div className="bg-white rounded-lg shadow-md p-4 w-full max-w-md">
+          <div className="grid grid-cols-2 gap-4 text-left">
+            <div className="col-span-2 border-b pb-2 mb-2">
+              <p className="text-sm text-gray-500">Número de registro</p>
+              <p className="font-semibold">{successData?.id || 'N/A'}</p>
+            </div>
+
+            <div>
+              <p className="text-sm text-gray-500">Litros consumidos</p>
+              <p className="font-semibold">{successData?.litros || 'N/A'} L</p>
+            </div>
+
+            <div>
+              <p className="text-sm text-gray-500">Fecha y hora</p>
+              <p className="font-semibold">{successData?.fecha || 'N/A'}</p>
+            </div>
+
+            <div className="col-span-2 mt-2">
+              <p className="text-sm text-gray-500">Solicitante</p>
+              <p className="font-semibold">{successData?.solicitante || 'N/A'}</p>
+            </div>
+
+            <div className="col-span-2">
+              <p className="text-sm text-gray-500">Equipo/Vehículo</p>
+              <p className="font-semibold">{successData?.equipo || 'N/A'}</p>
+            </div>
+            <div className="col-span-2">
+              <p className="text-sm text-gray-500">Observación</p>
+              <p className="font-semibold">{successData?.observacion || 'N/A'}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md mt-4">
+          <button
+            onClick={handleBackToStart}
+            className="w-full sm:w-1/2 bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg flex items-center justify-center"
+          >
+            <FaPlus className="mr-2" />
+            <span>Nuevo registro</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/bombero')}
+            className="w-full sm:w-1/2 bg-gray-100 hover:bg-gray-200 text-gray-800 py-3 px-4 rounded-lg flex items-center justify-center"
+          >
+            <FaHome className="mr-2" />
+            <span>Volver al inicio</span>
+          </button>
+        </div>
+      </div>
+    );
+  };
   // Variables derivadas
   const tipoMedicion = categoriaSeleccionada?.tipo_medicion || "Kilometraje";
   const hasVehicleInfo = Boolean(patenteSeleccionada?.nombre);

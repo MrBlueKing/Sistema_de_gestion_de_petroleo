@@ -44,5 +44,12 @@ Route::prefix('adminOperador')->group(function () {
 
         // Rechazar carga pendiente (requiere motivo)
         Route::post('/cargas/{id}/rechazar', [AdminOperadorController::class, 'rechazar']);
+
+        // ✅ ==========================================
+        // 🎯 GESTIÓN DE ASIGNACIONES MÁQUINA-OPERADOR (NUEVOS ENDPOINTS)
+        // ✅ ==========================================
+
+        // Obtener todos los datos necesarios para el drag & drop
+        Route::get('/asignaciones/datos', [AdminOperadorController::class, 'obtenerDatos']);
     });
 });

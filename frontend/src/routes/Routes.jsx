@@ -470,7 +470,7 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
-<Route
+      <Route
         path="/consumos-view-AdminOperador"
         element={
           <PrivateRoute requiredRole="admin_operador">
