@@ -30,7 +30,6 @@ import FiltroMaquinasMobileFriendly from '../../molecules/FiltroMaquinasMobileFr
 const DEBUG = true;
 const ITEMS_PER_PAGE = 10;
 
-// 🎨 CONFIGURACIÓN DE COLORES POR FAENA
 const FAENA_COLORS = {
     'Cabildo': {
         id: 1,
@@ -51,6 +50,22 @@ const FAENA_COLORS = {
         badge: 'bg-red-100 text-red-800',
         icon: '🏔️',
         gradient: 'bg-gradient-to-r from-red-600 to-red-700'
+    },
+    // 🆕 NUEVA FAENA: Estación de Servicio (ID=5)
+    'Estacion de Servicio': {
+        id: 5,
+        primary: 'from-blue-700 to-blue-800',
+        light: 'bg-blue-50',
+        border: 'border-blue-200',
+        text: 'text-blue-800',
+        badge: 'bg-blue-100 text-blue-800',
+        icon: '⛽',
+        gradient: 'bg-gradient-to-r from-blue-600 to-blue-700',
+        // 🎨 Opcional: Estilo Copec específico
+        copecBlu: 'text-[#0066cc]',
+        copecBg: 'bg-gradient-to-r from-blue-50 to-blue-100/50',
+        copecBorder: 'border-l-[#0066cc]',
+        copecBadge: 'bg-[#0066cc]/10 text-[#0066cc]'
     }
 };
 
@@ -620,7 +635,7 @@ const HistorialMaquinasView = () => {
     });
 
     // Estado para faenas seleccionadas
-    const [selectedFaenas, setSelectedFaenas] = useState(['Cabildo', 'Tiltil']);
+    const [selectedFaenas, setSelectedFaenas] = useState(['Cabildo', 'Tiltil', 'Estacion de Servicio']);
 
     // Estados de paginación
     const [currentPage, setCurrentPage] = useState(1);
@@ -1217,7 +1232,7 @@ const HistorialMaquinasView = () => {
                                     currentPage={currentPage}
                                     user={user}
                                     size="small"
-                                    disabled={loading}
+                                    disabled={true}
                                 />
                             </div>
                         </div>

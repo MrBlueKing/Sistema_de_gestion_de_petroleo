@@ -1,11 +1,11 @@
 import React from "react";
 import GestionarPersonalExterno from "../../organisms/Administrador/GestionarPersonalExterno";
-import Header from "../../organisms/Administrador/Header";
+import UniversalHeader from "../../organisms/Todos/UniversalHeader";
 
 const GestionarPersonalExternoTemplate = () => {
   return (
     <div>
-      <Header/>
+      <UniversalHeader type="admin" />
       <GestionarPersonalExterno />
     </div>
   );

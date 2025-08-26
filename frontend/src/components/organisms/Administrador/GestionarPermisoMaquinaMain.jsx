@@ -24,7 +24,7 @@ const ZonaMaquinas = React.memo(({
     titulo,
     descripcion,
     maquinas,
-    color = "blue",
+    color = "orange",
     icon: IconComponent = FaIndustry,
     busquedaLocal,
     onBusquedaChange,
@@ -75,7 +75,7 @@ const ZonaMaquinas = React.memo(({
 
                     <button
                         onClick={() => onTransferirMaquina(maquina)}
-                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        className="p-1.5 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
                         title="Transferir máquina"
                     >
                         <FaExchangeAlt className="w-3 h-3" />
@@ -121,7 +121,7 @@ const ZonaMaquinas = React.memo(({
                             value={busquedaLocal}
                             onChange={(e) => onBusquedaChange(id, e.target.value)}
                             placeholder="Buscar máquina..."
-                            className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                             autoComplete="off"
                             spellCheck="false"
                         />
@@ -333,7 +333,7 @@ const GestionarMaquinasPermisos = () => {
     const getIconoMaquina = useCallback((tipo) => {
         switch (tipo?.toLowerCase()) {
             case 'camión':
-                return <FaTruck className="w-4 h-4 text-blue-600" />;
+                return <FaTruck className="w-4 h-4 text-orange-600" />;
             case 'excavadora':
                 return <FaIndustry className="w-4 h-4 text-green-600" />;
             case 'bulldozer':
@@ -384,7 +384,7 @@ const GestionarMaquinasPermisos = () => {
                         <select
                             value={faenaDestino}
                             onChange={(e) => setFaenaDestino(e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                         >
                             <option value="">Seleccionar faena...</option>
                             {opcionesFaenas.map(opcion => (
@@ -406,7 +406,7 @@ const GestionarMaquinasPermisos = () => {
                         <button
                             onClick={confirmarTransferencia}
                             disabled={!faenaDestino || transfiriendo}
-                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                            className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                         >
                             {transfiriendo && <FaSpinner className="animate-spin" />}
                             {transfiriendo ? 'Transfiriendo...' : 'Confirmar'}
@@ -421,7 +421,7 @@ const GestionarMaquinasPermisos = () => {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
                 <div className="text-center">
-                    <FaSpinner className="animate-spin h-8 w-8 text-blue-600 mx-auto mb-4" />
+                    <FaSpinner className="animate-spin h-8 w-8 text-orange-600 mx-auto mb-4" />
                     <p className="text-gray-600">Cargando máquinas y permisos...</p>
                 </div>
             </div>
@@ -443,7 +443,7 @@ const GestionarMaquinasPermisos = () => {
                     <button
                         onClick={refrescarDatos}
                         disabled={refreshing}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+                        className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors flex items-center gap-2"
                     >
                         {refreshing ? <FaSpinner className="animate-spin" /> : <FaCheckCircle />}
                         {refreshing ? 'Actualizando...' : 'Actualizar'}
@@ -459,7 +459,7 @@ const GestionarMaquinasPermisos = () => {
                     value={busquedaGlobal}
                     onChange={(e) => setBusquedaGlobal(e.target.value)}
                     placeholder="Buscar en todas las máquinas..."
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 />
                 {busquedaGlobal && (
                     <button
@@ -500,7 +500,7 @@ const GestionarMaquinasPermisos = () => {
                         titulo={faena.ubicacion}
                         descripcion={faena.detalle}
                         maquinas={faena.maquinas}
-                        color="blue"
+                        color="orange"
                         icon={FaIndustry}
                         busquedaLocal={busquedaFaenas[faena.id_faena.toString()] || ''}
                         onBusquedaChange={handleBusquedaChange}
@@ -539,14 +539,14 @@ const GestionarMaquinasPermisos = () => {
             <ModalTransferencia />
 
             {/* Instrucciones */}
-            <div className="mt-8 p-4 md:p-6 bg-blue-50 rounded-xl border border-blue-200">
+            <div className="mt-8 p-4 md:p-6 bg-orange-50 rounded-xl border border-orange-200">
                 <div className="flex items-start gap-4">
-                    <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
-                        <FaExclamationCircle className="w-5 h-5 text-blue-600" />
+                    <div className="p-2 bg-orange-100 rounded-lg flex-shrink-0">
+                        <FaExclamationCircle className="w-5 h-5 text-orange-600" />
                     </div>
                     <div>
-                        <h4 className="font-semibold text-blue-900 mb-2">Cómo usar:</h4>
-                        <ul className="text-sm text-blue-800 space-y-1">
+                        <h4 className="font-semibold text-orange-900 mb-2">Cómo usar:</h4>
+                        <ul className="text-sm text-orange-800 space-y-1">
                             <li>• Haz clic en el botón <FaExchangeAlt className="inline w-3 h-3 mx-1" /> junto a cualquier máquina</li>
                             <li>• Selecciona la faena de destino en el modal que aparece</li>
                             <li>• Confirma la transferencia - los cambios se guardan inmediatamente</li>

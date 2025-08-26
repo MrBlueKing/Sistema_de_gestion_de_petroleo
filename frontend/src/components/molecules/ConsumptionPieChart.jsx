@@ -14,6 +14,7 @@ import {
   BarChart,
   Bar,
 } from "recharts";
+import { useChartColors } from "./../../context/ChartColorsContext";
 import {
   FiAlertTriangle,
   FiRefreshCw,
@@ -451,6 +452,7 @@ const ConsumptionPieChart = ({
   getColorForCategory = null, // Función para obtener color por categoría
   coloresMapeados = {}, // Mapeo de colores del componente padre
 }) => {
+  const { handleMainChartLoad } = useChartColors();
   const [categorias, setCategorias] = useState([]);
   const [maquinas, setMaquinas] = useState([]);
   const [selectedCategoria, setSelectedCategoria] = useState(null);
@@ -476,36 +478,25 @@ const ConsumptionPieChart = ({
     refreshKey,
   });
 
-  // 🎨 FUNCIÓN MEJORADA PARA OBTENER COLORES
   const getColorForIndex = (item, index) => {
-    const categoryName = item.nombre || item.name || "Sin categoría";
-
-    // 1. Usar la función del padre si está disponible
-    if (getColorForCategory && typeof getColorForCategory === "function") {
-      const color = getColorForCategory(categoryName);
-      console.log(
-        `🎨 Color desde función padre para "${categoryName}": ${color}`
-      );
-      return color;
+    // Si el objeto ya tiene color (que debería ser siempre después de nuestros cambios)
+    if (item.color) {
+      return item.color;
     }
 
-    // 2. Usar el mapeo de colores del padre si está disponible
-    if (coloresMapeados && Object.keys(coloresMapeados).length > 0) {
-      const mappedColor = coloresMapeados[categoryName];
-      if (mappedColor) {
-        console.log(
-          `🎨 Color desde mapeo para "${categoryName}": ${mappedColor}`
-        );
-        return mappedColor;
-      }
+    if (item.assignedColor) {
+      return item.assignedColor;
     }
 
-    // 3. Fallback al array de colores
+    // Fallback solo si algo salió mal
     const fallbackColor = chartColors[index % chartColors.length];
-    console.log(`🎨 Color fallback para "${categoryName}": ${fallbackColor}`);
+    console.warn(
+      `🎨 ConsumptionPieChart: ⚠️ Fallback inesperado para "${
+        item.nombre || item.name
+      }": ${fallbackColor}`
+    );
     return fallbackColor;
   };
-
   useEffect(() => {
     isMounted.current = true;
     return () => {
@@ -851,23 +842,37 @@ const ConsumptionPieChart = ({
       if (!isMounted.current) return;
 
       if (response.data && response.data.success && response.data.categorias) {
-        const formattedData = response.data.categorias
-          .map((item) => ({
+        // Ordenar por valor descendente ANTES de asignar colores
+        const datosOrdenados = response.data.categorias
+          .filter((item) => (item.value || 0) > 0)
+          .sort((a, b) => (b.value || 0) - (a.value || 0));
+
+        // Formatear datos CON colores asignados
+        const formattedData = datosOrdenados.map((item, index) => {
+          const nombre = item.name || item.nombre || "Sin categoría";
+          const valor = Math.round((item.value || 0) * 100) / 100;
+
+          // ASIGNAR COLOR POR ÍNDICE (ya que están ordenados por importancia)
+          const color = chartColors[index % chartColors.length];
+
+          return {
             id: item.id,
-            nombre: item.name || item.nombre || "Sin categoría",
-            name: item.name || item.nombre || "Sin categoría",
-            value: Math.round((item.value || 0) * 100) / 100,
+            nombre: nombre,
+            name: nombre,
+            value: valor,
             maquinas_count: item.maquinas_count || 0,
             maquinas_internas: item.maquinas_internas || 0,
             maquinas_externas: item.maquinas_externas || 0,
             tipo_medicion: item.tipo_medicion,
             promedio_consumo: item.promedio_consumo || 0,
             total_registros: item.total_registros || 0,
-          }))
-          .filter((item) => item.value > 0)
-          .sort((a, b) => b.value - a.value);
+            // COLORES INCLUIDOS EN EL OBJETO
+            color: color,
+            assignedColor: color,
+          };
+        });
 
-        console.log("🔍 DATOS FORMATEADOS CON NOMBRES:", formattedData);
+        console.log("DATOS FORMATEADOS CON NOMBRES Y COLORES:", formattedData);
         setCategorias(formattedData);
 
         const metadata = response.data.resumen || response.data.metadata;
@@ -879,18 +884,17 @@ const ConsumptionPieChart = ({
         setFechaActualizacion(new Date());
         initialLoadDone.current = true;
 
-        // 🎨 NOTIFICAR AL PADRE SOLO SI NO HAY COLORES MAPEADOS
-        if (onCategoriesLoad && typeof onCategoriesLoad === "function") {
-          if (Object.keys(coloresMapeados).length === 0) {
-            console.log(
-              "🎨 ConsumptionPieChart: Notificando categorías al padre para asignar colores"
-            );
-            onCategoriesLoad(formattedData);
-          } else {
-            console.log(
-              "🎨 ConsumptionPieChart: Usando colores ya mapeados del padre"
-            );
-          }
+        // NOTIFICAR AL CONTEXTO INMEDIATAMENTE CON LOS DATOS QUE YA TIENEN COLORES
+        if (handleMainChartLoad && typeof handleMainChartLoad === "function") {
+          console.log(
+            "Notificando al contexto con",
+            formattedData.length,
+            "categorías con colores asignados"
+          );
+          handleMainChartLoad(formattedData);
+          console.log("Contexto notificado exitosamente");
+        } else {
+          console.warn("handleMainChartLoad no está disponible");
         }
 
         console.log("ConsumptionPieChart: Datos formateados:", formattedData);

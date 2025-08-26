@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   FiX,
   FiList,
@@ -12,12 +12,12 @@ import {
   FiDownload,
   FiRefreshCw,
   FiLoader,
-  FiInfo
+  FiInfo,
 } from "react-icons/fi";
-import axios from '../../lib/axios';
+import axios from "../../lib/axios";
 
 // Importar el componente de tendencias
-import EquipmentTrendChart from './EquipmentTrendChart';
+import EquipmentTrendChart from "./EquipmentTrendChart";
 
 // Componente Modal Mejorado para mostrar detalles de consumos con pestañas
 const EnhancedConsumoDetailsModal = ({
@@ -26,7 +26,7 @@ const EnhancedConsumoDetailsModal = ({
   categoria,
   fechaDesde,
   fechaHasta,
-  faenaSeleccionada
+  faenaSeleccionada,
 }) => {
   // Estados para datos
   const [consumos, setConsumos] = useState([]);
@@ -41,7 +41,7 @@ const EnhancedConsumoDetailsModal = ({
   const itemsPerPage = 10;
 
   // Estados para control de vista
-  const [activeTab, setActiveTab] = useState('trend'); // 'list' o 'trend'
+  const [activeTab, setActiveTab] = useState("trend"); // 'list' o 'trend'
   const [refreshKey, setRefreshKey] = useState(0);
 
   // 🆕 ESTADO PARA CONSUMOS COMPLETOS (para tendencias)
@@ -55,15 +55,15 @@ const EnhancedConsumoDetailsModal = ({
   useEffect(() => {
     if (isOpen) {
       // 🔒 OCULTAR SCROLL de la pantalla padre
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflow = "hidden";
     } else {
       // 🔓 RESTAURAR SCROLL de la pantalla padre
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = "unset";
     }
 
     // 🧹 CLEANUP: Restaurar scroll al desmontar el componente
     return () => {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = "unset";
     };
   }, [isOpen]);
 
@@ -72,7 +72,14 @@ const EnhancedConsumoDetailsModal = ({
     if (isOpen && categoria) {
       fetchConsumosDeCategoria(1);
     }
-  }, [isOpen, categoria, fechaDesde, fechaHasta, faenaSeleccionada, refreshKey]);
+  }, [
+    isOpen,
+    categoria,
+    fechaDesde,
+    fechaHasta,
+    faenaSeleccionada,
+    refreshKey,
+  ]);
 
   // En EnhancedConsumoDetailsModal.jsx
   const fetchAllConsumosForTrends = async () => {
@@ -88,39 +95,48 @@ const EnhancedConsumoDetailsModal = ({
       const params = new URLSearchParams({
         fecha_inicio: fechaDesde,
         fecha_fin: fechaHasta,
-        per_page: '1000' // Obtener muchos registros para el gráfico
+        per_page: "1000", // Obtener muchos registros para el gráfico
       });
 
       // 🔑 LÓGICA CORRECTA PARA FAENAS
-      if (faenaSeleccionada && faenaSeleccionada !== 'todas') {
-        params.append('id_faena', faenaSeleccionada);
+      if (faenaSeleccionada && faenaSeleccionada !== "todas") {
+        params.append("id_faena", faenaSeleccionada);
       }
       // Si es 'todas', NO enviar id_faena
 
-      console.log("📊 [TENDENCIAS] Usando nueva API de consumos individuales:", params.toString());
+      console.log(
+        "📊 [TENDENCIAS] Usando nueva API de consumos individuales:",
+        params.toString()
+      );
 
       // En tu frontend, verifica que estés enviando:
-      const response = await axios.get(`/api/categorias-chart/categorias/${categoria.id}/consumos-individuales`, {
-        params: {
-          fecha_inicio: fechaDesde,  // ← Asegúrate de que estas variables
-          fecha_fin: fechaHasta,     // ← tengan los valores correctos
-          id_faena: faenaSeleccionada
+      const response = await axios.get(
+        `/api/categorias-chart/categorias/${categoria.id}/consumos-individuales`,
+        {
+          params: {
+            fecha_inicio: fechaDesde, // ← Asegúrate de que estas variables
+            fecha_fin: fechaHasta, // ← tengan los valores correctos
+            id_faena: faenaSeleccionada,
+          },
         }
-      });
+      );
 
       if (response.data && response.data.success) {
         const consumosIndividuales = response.data.data || [];
 
         console.log("✅ [TENDENCIAS] Consumos individuales obtenidos:", {
           total: consumosIndividuales.length,
-          equipos: [...new Set(consumosIndividuales.map(c => c.nombre_maquina))]
+          equipos: [
+            ...new Set(consumosIndividuales.map((c) => c.nombre_maquina)),
+          ],
         });
 
         return consumosIndividuales;
       } else {
-        throw new Error(response.data.message || 'Error al obtener consumos individuales');
+        throw new Error(
+          response.data.message || "Error al obtener consumos individuales"
+        );
       }
-
     } catch (err) {
       console.error("❌ [TENDENCIAS] Error:", err);
       return [];
@@ -130,7 +146,7 @@ const EnhancedConsumoDetailsModal = ({
   // 🆕 CARGAR TODOS LOS CONSUMOS cuando sea necesario para tendencias
   useEffect(() => {
     const loadAllConsumos = async () => {
-      if (isOpen && categoria && activeTab === 'trend') {
+      if (isOpen && categoria && activeTab === "trend") {
         setLoadingAllConsumos(true);
         const data = await fetchAllConsumosForTrends();
         setAllConsumos(data);
@@ -139,7 +155,15 @@ const EnhancedConsumoDetailsModal = ({
     };
 
     loadAllConsumos();
-  }, [isOpen, categoria, activeTab, fechaDesde, fechaHasta, faenaSeleccionada, refreshKey]);
+  }, [
+    isOpen,
+    categoria,
+    activeTab,
+    fechaDesde,
+    fechaHasta,
+    faenaSeleccionada,
+    refreshKey,
+  ]);
 
   const fetchConsumosDeCategoria = async (page = 1) => {
     if (!categoria || !isOpen) return;
@@ -159,22 +183,33 @@ const EnhancedConsumoDetailsModal = ({
         fecha_inicio: fechaDesde,
         fecha_fin: fechaHasta,
         id_categoria: categoria.id,
-        modo: 'maquinas'
+        modo: "maquinas",
       };
 
       // 🔑 LÓGICA IGUAL QUE EL PIECHART
-      if (faenaSeleccionada && faenaSeleccionada !== 'todas') {
+      if (faenaSeleccionada && faenaSeleccionada !== "todas") {
         requestBody.id_faena = faenaSeleccionada;
       }
 
-      console.log("📊 [TABLA MODAL] Request para datos paginados:", requestBody);
+      console.log(
+        "📊 [TABLA MODAL] Request para datos paginados:",
+        requestBody
+      );
 
-      const response = await axios.post('/api/categorias-chart/datos', requestBody, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
+      const response = await axios.get(
+        `/api/categorias-chart/categorias/${categoria.id}/consumos-individuales`,
+        {
+          params: {
+            fecha_inicio: fechaDesde,
+            fecha_fin: fechaHasta,
+            id_faena:
+              faenaSeleccionada !== "todas" ? faenaSeleccionada : undefined,
+          },
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
-      });
+      );
 
       if (response.data && response.data.success) {
         const allData = response.data.data || [];
@@ -184,28 +219,35 @@ const EnhancedConsumoDetailsModal = ({
         const endIndex = startIndex + itemsPerPage;
         const paginatedData = allData.slice(startIndex, endIndex);
 
-        // 🔄 TRANSFORMAR DATOS para la tabla
-        const transformedData = paginatedData.map(item => ({
-          id_consumo: item.id,
-          fecha_consumo: new Date().toISOString(),
-          litros_consumidos: item.value || 0,
-          nombre_maquina: item.name || item.nombre || 'Sin nombre',
-          patente: item.patente || 'S/P',
-          solicitante_nombre: `Resumen ${item.tipo_maquina || 'N/A'}`,
-          id_dotacion: 'RESUMEN',
-          observacion: `${item.total_registros || 0} registros de consumo`,
-          tipo_maquina: item.tipo_maquina || 'N/A',
-          estado: item.estado,
-          estanque: 'Múltiples estanques',
-          categoria_nombre: categoria.nombre
-        }));
+     // 🔄 TRANSFORMAR DATOS para la tabla usando los campos reales
+const transformedData = paginatedData.map((item) => ({
+  id_consumo: item.id_consumo,
+  fecha_consumo: item.fecha_consumo,               // ← usar fecha real
+  litros_consumidos: item.litros_consumidos || 0,
+  nombre_maquina: item.nombre_maquina || "Sin nombre",
+  patente: item.patente || "S/P",
+  solicitante_nombre: item.solicitante_nombre || "Sin nombre",
+  id_dotacion: item.id_dotacion || "-",
+  observacion: item.observacion || "-",
+  tipo_maquina: item.tipo_maquina || "N/A",
+  estado: item.estado,
+  estanque: item.estanque || "-",                  // si existe
+  categoria_nombre: categoria.nombre,
+}));
+
 
         // 📊 CALCULAR ESTADÍSTICAS
-        const totalConsumo = allData.reduce((sum, item) => sum + (item.value || 0), 0);
-        const promedioConsumo = allData.length > 0 ? totalConsumo / allData.length : 0;
-        const equipoMasUsado = allData.length > 0
-          ? allData.sort((a, b) => (b.value || 0) - (a.value || 0))[0]?.name || 'N/A'
-          : 'N/A';
+        const totalConsumo = allData.reduce(
+          (sum, item) => sum + (item.value || 0),
+          0
+        );
+        const promedioConsumo =
+          allData.length > 0 ? totalConsumo / allData.length : 0;
+        const equipoMasUsado =
+          allData.length > 0
+            ? allData.sort((a, b) => (b.value || 0) - (a.value || 0))[0]
+                ?.name || "N/A"
+            : "N/A";
 
         const calculatedStats = {
           total_consumos: allData.length,
@@ -215,21 +257,26 @@ const EnhancedConsumoDetailsModal = ({
           equipo_mas_usado: equipoMasUsado,
           consumos_simples: allData.length, // Aproximación
           consumos_multiples: 0,
-          porcentaje_multiples: 0
+          porcentaje_multiples: 0,
         };
 
         // 📊 USAR METADATA de la respuesta si está disponible
         const metadata = response.data.metadata;
-        const finalStats = metadata?.resumen ? {
-          total_consumos: metadata.resumen.total_maquinas || allData.length,
-          total_litros: metadata.resumen.total_consumo_litros || totalConsumo,
-          promedio_consumo: metadata.resumen.promedio_por_maquina || promedioConsumo,
-          costo_total: 0,
-          equipo_mas_usado: metadata.resumen.maquina_mayor_consumo || equipoMasUsado,
-          consumos_simples: allData.length,
-          consumos_multiples: 0,
-          porcentaje_multiples: 0
-        } : calculatedStats;
+        const finalStats = metadata?.resumen
+          ? {
+              total_consumos: metadata.resumen.total_maquinas || allData.length,
+              total_litros:
+                metadata.resumen.total_consumo_litros || totalConsumo,
+              promedio_consumo:
+                metadata.resumen.promedio_por_maquina || promedioConsumo,
+              costo_total: 0,
+              equipo_mas_usado:
+                metadata.resumen.maquina_mayor_consumo || equipoMasUsado,
+              consumos_simples: allData.length,
+              consumos_multiples: 0,
+              porcentaje_multiples: 0,
+            }
+          : calculatedStats;
 
         // ✅ ACTUALIZAR ESTADOS
         setConsumos(transformedData);
@@ -241,13 +288,11 @@ const EnhancedConsumoDetailsModal = ({
         console.log("✅ [TABLA MODAL] Datos procesados:", {
           totalItems: allData.length,
           paginatedItems: transformedData.length,
-          stats: finalStats
+          stats: finalStats,
         });
-
       } else {
-        throw new Error(response.data.message || 'Error al obtener consumos');
+        throw new Error(response.data.message || "Error al obtener consumos");
       }
-
     } catch (err) {
       console.error("❌ [TABLA MODAL] Error:", err);
       setError(err.message || "Error al cargar detalles de consumos");
@@ -264,7 +309,7 @@ const EnhancedConsumoDetailsModal = ({
 
   // Función para refrescar datos
   const handleRefresh = () => {
-    setRefreshKey(prev => prev + 1);
+    setRefreshKey((prev) => prev + 1);
   };
 
   // Función para formatear fechas
@@ -279,7 +324,7 @@ const EnhancedConsumoDetailsModal = ({
       hora: fecha.toLocaleTimeString("es-CL", {
         hour: "2-digit",
         minute: "2-digit",
-      })
+      }),
     };
   };
 
@@ -295,7 +340,6 @@ const EnhancedConsumoDetailsModal = ({
   return (
     <>
       <div className="fixed inset-0 bg-transparent bg-opacity-50 backdrop-blur-3xl flex items-center justify-center z-50 p-2">
-
         <div className="bg-white rounded-lg shadow-xl w-full h-full max-w-[98vw] max-h-[98vh] flex flex-col">
           {/* Header del Modal */}
           <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
@@ -305,7 +349,7 @@ const EnhancedConsumoDetailsModal = ({
               </h2>
               <p className="text-sm text-gray-600 mt-1">
                 Período: {fechaDesde} al {fechaHasta}
-                {faenaSeleccionada && faenaSeleccionada !== 'todas' && (
+                {faenaSeleccionada && faenaSeleccionada !== "todas" && (
                   <span> • Faena: {faenaSeleccionada}</span>
                 )}
               </p>
@@ -318,7 +362,9 @@ const EnhancedConsumoDetailsModal = ({
                 className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                 title="Refrescar datos"
               >
-                <FiRefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                <FiRefreshCw
+                  className={`w-5 h-5 ${loading ? "animate-spin" : ""}`}
+                />
               </button>
 
               <button
@@ -333,30 +379,38 @@ const EnhancedConsumoDetailsModal = ({
           {/* Pestañas de navegación */}
           <div className="border-b border-gray-200 flex-shrink-0">
             <nav className="px-4 flex space-x-8">
-
-
               <button
-                onClick={() => setActiveTab('trend')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'trend'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                onClick={() => setActiveTab("trend")}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === "trend"
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
               >
                 <FiTrendingUp className="inline w-4 h-4 mr-2" />
                 Tendencia por Equipo
-                {(activeTab === 'trend' ? allConsumos : consumos).length > 0 && (
+                {(activeTab === "trend" ? allConsumos : consumos).length >
+                  0 && (
                   <span className="ml-2 bg-gray-100 text-gray-600 py-1 px-2 rounded-full text-xs">
-                    {new Set((activeTab === 'trend' ? allConsumos : consumos).map(c => c.nombre_maquina)).size} equipos
+                    {
+                      new Set(
+                        (activeTab === "trend" ? allConsumos : consumos).map(
+                          (c) => c.nombre_maquina
+                        )
+                      ).size
+                    }{" "}
+                    equipos
                   </span>
                 )}
               </button>
 
               <button
-                onClick={() => setActiveTab('list')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'list'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                onClick={() => setActiveTab("list")}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === "list"
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
               >
                 <FiList className="inline w-4 h-4 mr-2" />
                 Lista de Consumos
@@ -372,7 +426,7 @@ const EnhancedConsumoDetailsModal = ({
           {/* Contenido del Modal */}
           <div className="flex-1 overflow-hidden min-h-0">
             {/* Pestaña de Lista de Consumos */}
-            {activeTab === 'list' && (
+            {activeTab === "list" && (
               <div className="h-full flex flex-col min-h-0">
                 {/* Estadísticas rápidas */}
                 {stats && (
@@ -382,9 +436,12 @@ const EnhancedConsumoDetailsModal = ({
                         <div className="flex items-center">
                           <FiDroplet className="text-blue-500 w-5 h-5 mr-2" />
                           <div>
-                            <p className="text-xs text-gray-500">Total Litros</p>
+                            <p className="text-xs text-gray-500">
+                              Total Litros
+                            </p>
                             <p className="text-lg font-semibold text-gray-800">
-                              {stats.total_litros?.toLocaleString('es-CL') || '0'}
+                              {stats.total_litros?.toLocaleString("es-CL") ||
+                                "0"}
                             </p>
                           </div>
                         </div>
@@ -394,9 +451,14 @@ const EnhancedConsumoDetailsModal = ({
                         <div className="flex items-center">
                           <FiTruck className="text-green-500 w-5 h-5 mr-2" />
                           <div>
-                            <p className="text-xs text-gray-500">Equipos Únicos</p>
+                            <p className="text-xs text-gray-500">
+                              Equipos Únicos
+                            </p>
                             <p className="text-lg font-semibold text-gray-800">
-                              {new Set(consumos.map(c => c.nombre_maquina)).size}
+                              {
+                                new Set(consumos.map((c) => c.nombre_maquina))
+                                  .size
+                              }
                             </p>
                           </div>
                         </div>
@@ -406,10 +468,11 @@ const EnhancedConsumoDetailsModal = ({
                         <div className="flex items-center">
                           <FiCalendar className="text-purple-500 w-5 h-5 mr-2" />
                           <div>
-                            <p className="text-xs text-gray-500">Promedio Diario</p>
+                            <p className="text-xs text-gray-500">
+                              Promedio Diario
+                            </p>
                             <p className="text-lg font-semibold text-gray-800">
                               {stats.promedio_consumo?.toFixed(2)} L
-
                             </p>
                           </div>
                         </div>
@@ -419,7 +482,9 @@ const EnhancedConsumoDetailsModal = ({
                         <div className="flex items-center">
                           <FiUser className="text-orange-500 w-5 h-5 mr-2" />
                           <div>
-                            <p className="text-xs text-gray-500">Total Registros</p>
+                            <p className="text-xs text-gray-500">
+                              Total Registros
+                            </p>
                             <p className="text-lg font-semibold text-gray-800">
                               {totalItems}
                             </p>
@@ -457,8 +522,12 @@ const EnhancedConsumoDetailsModal = ({
                     <div className="flex items-center justify-center h-64">
                       <div className="text-center text-gray-500">
                         <FiList className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                        <p className="font-medium">No se encontraron consumos</p>
-                        <p className="text-sm mt-1">para los filtros seleccionados</p>
+                        <p className="font-medium">
+                          No se encontraron consumos
+                        </p>
+                        <p className="text-sm mt-1">
+                          para los filtros seleccionados
+                        </p>
                       </div>
                     </div>
                   ) : (
@@ -485,7 +554,9 @@ const EnhancedConsumoDetailsModal = ({
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                           {consumos.map((consumo, index) => {
-                            const { fecha, hora } = formatearFecha(consumo.fecha_consumo);
+                            const { fecha, hora } = formatearFecha(
+                              consumo.fecha_consumo
+                            );
                             return (
                               <tr key={index} className="hover:bg-gray-50">
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -495,28 +566,32 @@ const EnhancedConsumoDetailsModal = ({
                                 <td className="px-6 py-4 text-sm text-gray-900">
                                   <div>
                                     <p className="font-medium">
-                                      {consumo.nombre_maquina || 'Sin nombre'}
+                                      {consumo.nombre_maquina || "Sin nombre"}
                                     </p>
                                     <p className="text-gray-500 text-xs">
-                                      {consumo.patente || 'S/P'}
+                                      {consumo.patente || "S/P"}
                                     </p>
                                   </div>
                                 </td>
                                 <td className="px-6 py-4 text-sm text-gray-900">
                                   <div>
                                     <p className="font-medium">
-                                      {consumo.solicitante_nombre || 'Sin nombre'}
+                                      {consumo.solicitante_nombre ||
+                                        "Sin nombre"}
                                     </p>
                                     <p className="text-gray-500 text-xs">
-                                      {consumo.id_dotacion || 'Sin RUT'}
+                                      {consumo.id_dotacion || "Sin RUT"}
                                     </p>
                                   </div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900">
-                                  {parseFloat(consumo.litros_consumidos || 0).toLocaleString('es-CL')} L
+                                  {parseFloat(
+                                    consumo.litros_consumidos || 0
+                                  ).toLocaleString("es-CL")}{" "}
+                                  L
                                 </td>
                                 <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                                  {consumo.observacion || '-'}
+                                  {consumo.observacion || "-"}
                                 </td>
                               </tr>
                             );
@@ -532,8 +607,8 @@ const EnhancedConsumoDetailsModal = ({
                   <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 flex-shrink-0">
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-gray-700">
-                        Mostrando {((currentPage - 1) * itemsPerPage) + 1} a{' '}
-                        {Math.min(currentPage * itemsPerPage, totalItems)} de{' '}
+                        Mostrando {(currentPage - 1) * itemsPerPage + 1} a{" "}
+                        {Math.min(currentPage * itemsPerPage, totalItems)} de{" "}
                         {totalItems} resultados
                       </div>
 
@@ -565,7 +640,7 @@ const EnhancedConsumoDetailsModal = ({
             )}
 
             {/* Pestaña de Tendencia por Equipo */}
-            {activeTab === 'trend' && (
+            {activeTab === "trend" && (
               <div className="h-full overflow-auto p-4 min-h-0">
                 {loadingAllConsumos ? (
                   <div className="flex items-center justify-center h-64">
@@ -582,7 +657,7 @@ const EnhancedConsumoDetailsModal = ({
                       fechaDesde={fechaDesde}
                       fechaHasta={fechaHasta}
                       isVisible={true}
-                      showExpandedSelector={showExpandedSelector}      // ✅ Ahora está definido
+                      showExpandedSelector={showExpandedSelector} // ✅ Ahora está definido
                       setShowExpandedSelector={setShowExpandedSelector} // ✅ Ahora está definido
                     />
                   </>
@@ -611,12 +686,16 @@ const EnhancedConsumoDetailsModal = ({
 
             <div className="flex-1 overflow-auto p-4">
               <p className="text-sm text-gray-600 mb-4">
-                Seleccione los equipos que desea mostrar en el gráfico de tendencias.
-                Esta funcionalidad se maneja automáticamente desde el componente EquipmentTrendChart.
+                Seleccione los equipos que desea mostrar en el gráfico de
+                tendencias. Esta funcionalidad se maneja automáticamente desde
+                el componente EquipmentTrendChart.
               </p>
               <div className="text-center text-gray-500 py-8">
                 <FiInfo className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>La selección de equipos se realiza directamente en el gráfico de tendencias.</p>
+                <p>
+                  La selección de equipos se realiza directamente en el gráfico
+                  de tendencias.
+                </p>
               </div>
             </div>
 

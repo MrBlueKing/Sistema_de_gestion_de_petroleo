@@ -1,11 +1,11 @@
 import React from "react";
 import GestionarMaquinaCategoria from "../../organisms/Administrador/GestionarMaquinaCategoria";
-import Header from "../../organisms/Administrador/Header";
+import UniversalHeader from "../../organisms/Todos/UniversalHeader";
 
 const GestionarTipoMaquinaTemplate = () => {
   return (
     <div>
-      <Header />
+      <UniversalHeader type="admin" />
       <GestionarMaquinaCategoria />
     </div>
   );
