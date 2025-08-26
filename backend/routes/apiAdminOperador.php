@@ -51,5 +51,33 @@ Route::prefix('adminOperador')->group(function () {
 
         // Obtener todos los datos necesarios para el drag & drop
         Route::get('/asignaciones/datos', [AdminOperadorController::class, 'obtenerDatos']);
+
+        // Crear nueva asignación
+        Route::post('/asignaciones', [AdminOperadorController::class, 'crearAsignacion']);
+
+        // Finalizar asignación activa
+        Route::post('/asignaciones/{id}/finalizar', [AdminOperadorController::class, 'finalizarAsignacion']);
+
+        // ✅ ==========================================
+        // 🚛 GESTIÓN DE MÁQUINAS (REGISTRO Y ADMINISTRACIÓN)
+        // ✅ ==========================================
+
+        // Obtener datos necesarios para el formulario (categorías, faenas, máquinas)
+        Route::get('/maquinas/datos', [AdminOperadorController::class, 'obtenerDatosMaquinas']);
+
+        // Listar todas las máquinas registradas
+        Route::get('/maquinas/lista', [AdminOperadorController::class, 'listarMaquinas']);
+
+        // Registrar nueva máquina (interna o externa)
+        Route::post('/maquinas', [AdminOperadorController::class, 'registrarMaquina']);
+
+        // Actualizar máquina existente
+        Route::put('/maquinas/{id}', [AdminOperadorController::class, 'actualizarMaquina']);
+
+        // Eliminar máquina
+        Route::delete('/maquinas/{id}', [AdminOperadorController::class, 'eliminarMaquina']);
+
+        // Ver detalle de una máquina específica
+        Route::get('/maquinas/{id}', [AdminOperadorController::class, 'verMaquina']);
     });
 });

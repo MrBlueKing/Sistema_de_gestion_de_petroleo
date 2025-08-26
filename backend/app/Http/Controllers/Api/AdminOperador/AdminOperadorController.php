@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 class AdminOperadorController extends Controller
@@ -521,12 +522,13 @@ class AdminOperadorController extends Controller
         try {
             // 🔄 Obtener usuarios disponibles (operadores activos)
             $usuariosDisponibles = User::select('id', 'rut', 'nombre', 'apellido', 'email', 'id_faena', 'estado')
-                ->with('faena:id_faena,ubicacion')
+                ->with('faena:id_faena,ubicacion') // Cargar relación con faena si existe
                 ->where('estado', 1) // Solo usuarios activos
+                ->where('id_rol', 6) // Solo rol operador (id_rol = 6)
                 ->whereNotIn('id', function ($query) {
                     // Excluir usuarios que ya tienen asignación activa
                     $query->select('id_user')
-                        ->from('asignaciones_user_maquina')
+                        ->from('asignaciones_user_maquinas')
                         ->where('activo', 1);
                 })
                 ->orderBy('nombre')
@@ -544,20 +546,18 @@ class AdminOperadorController extends Controller
                             'id' => $usuario->faena->id_faena ?? null,
                             'ubicacion' => $usuario->faena->ubicacion ?? 'Sin faena'
                         ],
-                        // Determinar especialidad basada en algún criterio
-                        'especialidad' => $this->determinarEspecialidad($usuario),
-                        'experiencia' => $this->calcularExperiencia($usuario)
                     ];
                 });
 
             // 🚛 Obtener máquinas disponibles
-            $maquinasDisponibles = Maquinas::select('id_maquina', 'nombre_maquina', 'tipo_maquina', 'patente', 'estado', 'id_categoria')
-                ->with('categoria:id_categoria,nombre_categoria')
+            $maquinasDisponibles = Maquinas::select('id_maquina', 'nombre_maquina', 'tipo_maquina', 'patente', 'estado', 'id_categoria', 'chc_maquina')
+                ->with('categoria:id_categoria,nombre_categoria') // Cargar relación con categoría si existe
                 ->where('estado', 1) // Solo máquinas activas
+                ->whereIn('id_categoria', [11, 2]) // Solo rol operador (id_rol = 6)
                 ->whereNotIn('id_maquina', function ($query) {
                     // Excluir máquinas que ya tienen asignación activa
                     $query->select('id_maquina')
-                        ->from('asignaciones_user_maquina')
+                        ->from('asignaciones_user_maquinas')
                         ->where('activo', 1);
                 })
                 ->orderBy('nombre_maquina')
@@ -569,26 +569,27 @@ class AdminOperadorController extends Controller
                         'patente' => $maquina->patente,
                         'tipo' => $maquina->tipo_maquina,
                         'estado' => 'disponible',
+                        'chc_maquina' => $maquina->chc_maquina, // Consumo por Hora de Combustible
                         'categoria' => [
                             'id' => $maquina->categoria->id_categoria ?? null,
                             'nombre' => $maquina->categoria->nombre_categoria ?? 'Sin categoría'
                         ],
-                        'ubicacion' => $this->determinarUbicacionMaquina($maquina)
                     ];
                 });
 
             // 📊 Obtener asignaciones activas
-            $asignacionesActivas = DB::table('asignaciones_user_maquina as a')
+            $asignacionesActivas = DB::table('asignaciones_user_maquinas as a')
                 ->join('users as u', 'a.id_user', '=', 'u.id')
                 ->join('maquinas as m', 'a.id_maquina', '=', 'm.id_maquina')
                 ->leftJoin('faenas as f', 'u.id_faena', '=', 'f.id_faena')
-                ->leftJoin('categorias_maquina as c', 'm.id_categoria', '=', 'c.id_categoria')
+                ->leftJoin('categorias_maquinas as c', 'm.id_categoria', '=', 'c.id_categoria')
                 ->where('a.activo', 1)
                 ->select([
                     'a.id',
                     'a.fecha_asignacion',
                     'a.observaciones',
                     'a.created_at',
+                    'a.updated_at',
                     // Datos del usuario
                     'u.id as user_id',
                     'u.nombre',
@@ -600,6 +601,7 @@ class AdminOperadorController extends Controller
                     'm.nombre_maquina',
                     'm.patente',
                     'm.tipo_maquina',
+                    'm.chc_maquina',
                     // Datos adicionales
                     'f.ubicacion as faena_ubicacion',
                     'c.nombre_categoria'
@@ -607,6 +609,10 @@ class AdminOperadorController extends Controller
                 ->orderBy('a.created_at', 'desc')
                 ->get()
                 ->map(function ($asignacion) {
+                    $created = Carbon::parse($asignacion->created_at);
+                    $now = now();
+                    $diff = $created->diff($now); // objeto DateInterval
+
                     return [
                         'id' => $asignacion->id,
                         'maquina' => [
@@ -614,6 +620,7 @@ class AdminOperadorController extends Controller
                             'nombre' => $asignacion->nombre_maquina,
                             'patente' => $asignacion->patente,
                             'tipo' => $asignacion->tipo_maquina,
+                            'chc_maquina' => $asignacion->chc_maquina,
                             'categoria' => $asignacion->nombre_categoria
                         ],
                         'operador' => [
@@ -629,8 +636,10 @@ class AdminOperadorController extends Controller
                         'estado' => 'activa',
                         'ubicacion' => $asignacion->faena_ubicacion ?? 'Sin ubicación',
                         'observaciones' => $asignacion->observaciones,
-                        'diasActiva' => Carbon::parse($asignacion->fecha_asignacion)->diffInDays(now()),
-                        'created_at' => $asignacion->created_at
+                        // Aquí diasActiva será legible directamente
+                        'diasActiva' => "{$diff->d} días, {$diff->h} horas, {$diff->i} minutos",
+                        'created_at' => $asignacion->created_at,
+                        'updated_at' => $asignacion->updated_at
                     ];
                 });
 
@@ -639,8 +648,12 @@ class AdminOperadorController extends Controller
                 'usuarios_disponibles' => $usuariosDisponibles->count(),
                 'maquinas_disponibles' => $maquinasDisponibles->count(),
                 'asignaciones_activas' => $asignacionesActivas->count(),
-                'total_usuarios' => User::where('estado', 1)->count(),
-                'total_maquinas' => Maquinas::where('estado', 1)->count(),
+                'total_usuarios' => User::where('estado', 1)
+                    ->where('id_rol', 6)
+                    ->count(),
+                'total_maquinas' => Maquinas::where('estado', 1)
+                    ->whereIn('id_categoria', [2, 11])
+                    ->count(),
                 'porcentaje_asignacion' => [
                     'usuarios' => User::where('estado', 1)->count() > 0
                         ? round(($asignacionesActivas->count() / User::where('estado', 1)->count()) * 100, 1)
@@ -674,17 +687,876 @@ class AdminOperadorController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Error al obtener datos de asignaciones: ' . $e->getMessage(),
-                'data' => []
+                'data' => [
+                    'usuarios_disponibles' => [],
+                    'maquinas_disponibles' => [],
+                    'asignaciones_activas' => [],
+                    'estadisticas' => [
+                        'usuarios_disponibles' => 0,
+                        'maquinas_disponibles' => 0,
+                        'asignaciones_activas' => 0,
+                        'total_usuarios' => 0,
+                        'total_maquinas' => 0,
+                        'porcentaje_asignacion' => [
+                            'usuarios' => 0,
+                            'maquinas' => 0
+                        ]
+                    ]
+                ]
             ], 500);
         }
     }
 
     /**
-     * Determinar ubicación de la máquina
+     * 🆕 Crear nueva asignación máquina-operador
+     * Endpoint: POST /api/adminOperador/asignaciones
      */
-    private function determinarUbicacionMaquina($maquina): string
+    public function crearAsignacion(Request $request): JsonResponse
     {
-        $ubicaciones = ['Depósito Norte', 'Depósito Sur', 'Depósito Este', 'Depósito Central', 'Faena Principal'];
-        return $ubicaciones[array_rand($ubicaciones)];
+        try {
+            // 🔍 Validar datos de entrada
+            $validator = Validator::make($request->all(), [
+                'id_maquina' => 'required|integer|exists:maquinas,id_maquina',
+                'id_operador' => 'required|integer|exists:users,id',
+                'fecha_asignacion' => 'nullable|date',
+                'observaciones' => 'nullable|string|max:500'
+            ], [
+                'id_maquina.required' => 'La máquina es obligatoria',
+                'id_maquina.exists' => 'La máquina seleccionada no existe',
+                'id_operador.required' => 'El operador es obligatorio',
+                'id_operador.exists' => 'El operador seleccionado no existe',
+                'fecha_asignacion.date' => 'La fecha de asignación debe ser una fecha válida',
+                'observaciones.max' => 'Las observaciones no pueden exceder 500 caracteres'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Datos de entrada inválidos',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $idMaquina = $request->id_maquina;
+            $idOperador = $request->id_operador;
+            $fechaAsignacion = $request->fecha_asignacion ?? now();
+            $observaciones = $request->observaciones;
+
+            $existe = DB::table('asignaciones_user_maquinas')
+                ->where('id_user', $idOperador)
+                ->where('id_maquina', $idMaquina)
+                ->where('activo', 1)
+                ->exists();
+
+            if ($existe) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Ya existe una asignación activa para este operador y máquina'
+                ], 422);
+            }
+
+            // 🔒 Verificar que la máquina esté disponible
+            $maquinaDisponible = !DB::table('asignaciones_user_maquinas')
+                ->where('id_maquina', $idMaquina)
+                ->where('activo', 1)
+                ->exists();
+
+            if (!$maquinaDisponible) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'La máquina seleccionada ya está asignada a otro operador'
+                ], 422);
+            }
+
+            // 🔒 Verificar que el operador esté disponible
+            $operadorDisponible = !DB::table('asignaciones_user_maquinas')
+                ->where('id_user', $idOperador)
+                ->where('activo', 1)
+                ->exists();
+
+            if (!$operadorDisponible) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'El operador seleccionado ya tiene una máquina asignada'
+                ], 422);
+            }
+
+            // 🔍 Verificar que la máquina y operador existan
+            $maquina = Maquinas::find($idMaquina);
+            $operador = User::find($idOperador);
+
+            if (!$maquina) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'La máquina seleccionada no existe'
+                ], 404);
+            }
+
+            if (!$operador) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'El operador seleccionado no existe'
+                ], 404);
+            }
+
+            // ✅ Crear la asignación
+            DB::beginTransaction();
+
+            $asignacionId = DB::table('asignaciones_user_maquinas')->insertGetId([
+                'id_user' => $idOperador,
+                'id_maquina' => $idMaquina,
+                'fecha_asignacion' => $fechaAsignacion,
+                'activo' => 1,
+                'observaciones' => $observaciones,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            DB::commit();
+
+            // 📄 Obtener datos completos de la asignación creada
+            $asignacionCompleta = DB::table('asignaciones_user_maquinas as a')
+                ->join('users as u', 'a.id_user', '=', 'u.id')
+                ->join('maquinas as m', 'a.id_maquina', '=', 'm.id_maquina')
+                ->leftJoin('faenas as f', 'u.id_faena', '=', 'f.id_faena')
+                ->leftJoin('categorias_maquinas as c', 'm.id_categoria', '=', 'c.id_categoria')
+                ->where('a.id', $asignacionId)
+                ->select([
+                    'a.id',
+                    'a.fecha_asignacion',
+                    'a.observaciones',
+                    'a.created_at',
+                    // Datos del usuario
+                    'u.id as user_id',
+                    'u.nombre',
+                    'u.apellido',
+                    'u.rut',
+                    'u.email',
+                    // Datos de la máquina
+                    'm.id_maquina',
+                    'm.nombre_maquina',
+                    'm.patente',
+                    'm.tipo_maquina',
+                    'm.chc_maquina',
+                    // Datos adicionales
+                    'f.ubicacion as faena_ubicacion',
+                    'c.nombre_categoria'
+                ])
+                ->first();
+
+            $resultado = [
+                'id' => $asignacionCompleta->id,
+                'maquina' => [
+                    'id' => $asignacionCompleta->id_maquina,
+                    'nombre' => $asignacionCompleta->nombre_maquina,
+                    'patente' => $asignacionCompleta->patente,
+                    'tipo' => $asignacionCompleta->tipo_maquina,
+                    'chc_maquina' => $asignacionCompleta->chc_maquina,
+                    'categoria' => $asignacionCompleta->nombre_categoria
+                ],
+                'operador' => [
+                    'id' => $asignacionCompleta->user_id,
+                    'nombre' => $asignacionCompleta->nombre,
+                    'apellido' => $asignacionCompleta->apellido,
+                    'rut' => $asignacionCompleta->rut,
+                    'email' => $asignacionCompleta->email,
+                    'nombre_completo' => $asignacionCompleta->nombre . ' ' . $asignacionCompleta->apellido
+                ],
+                'fechaAsignacion' => Carbon::parse($asignacionCompleta->fecha_asignacion)->format('Y-m-d'),
+                'fechaVencimiento' => Carbon::parse($asignacionCompleta->fecha_asignacion)->addDays(30)->format('Y-m-d'),
+                'estado' => 'activa',
+                'ubicacion' => $asignacionCompleta->faena_ubicacion ?? 'Sin ubicación',
+                'observaciones' => $asignacionCompleta->observaciones,
+                'diasActiva' => 0,
+                'created_at' => $asignacionCompleta->created_at
+            ];
+
+            Log::info('Asignación creada exitosamente:', [
+                'asignacion_id' => $asignacionId,
+                'maquina' => $maquina->nombre_maquina,
+                'operador' => $operador->nombre . ' ' . $operador->apellido
+            ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Asignación creada exitosamente',
+                'data' => $resultado
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollback();
+
+            Log::error('Error al crear asignación:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al crear la asignación: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    /**
+     * 🔚 Finalizar asignación activa
+     * Endpoint: POST /api/adminOperador/asignaciones/{id}/finalizar
+     */
+    public function finalizarAsignacion($id, Request $request): JsonResponse
+    {
+        try {
+            // 🔍 Validar datos opcionales
+            $validator = Validator::make($request->all(), [
+                'motivo_finalizacion' => 'nullable|string|max:500',
+                'fecha_finalizacion' => 'nullable|date'
+            ], [
+                'motivo_finalizacion.max' => 'El motivo no puede exceder 500 caracteres',
+                'fecha_finalizacion.date' => 'La fecha de finalización debe ser una fecha válida'
+            ]);
+
+            Log::info(
+                'Motivo de finalizacion recibido:',
+                ['motivo_finalizacion' => $request->motivo_finalizacion ?? 'No proporcionado']
+            );
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Datos de entrada inválidos',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // 🔍 Verificar que la asignación existe y está activa
+            $asignacion = DB::table('asignaciones_user_maquinas as a')
+                ->join('users as u', 'a.id_user', '=', 'u.id')
+                ->join('maquinas as m', 'a.id_maquina', '=', 'm.id_maquina')
+                ->leftJoin('faenas as f', 'u.id_faena', '=', 'f.id_faena')
+                ->where('a.id', $id)
+                ->where('a.activo', 1)
+                ->select([
+                    'a.id',
+                    'a.fecha_asignacion',
+                    'a.observaciones',
+                    'u.nombre',
+                    'u.apellido',
+                    'm.nombre_maquina',
+                    'm.patente',
+                    'f.ubicacion as faena_ubicacion'
+                ])
+                ->first();
+
+            if (!$asignacion) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'La asignación no existe o ya ha sido finalizada'
+                ], 404);
+            }
+
+            $motivoFinalizacion = $request->motivo_finalizacion ?? 'Finalizada por administrador';
+            $fechaFinalizacion = $request->fecha_finalizacion ?? now();
+
+            // ✅ Finalizar la asignación (marcar como inactiva)
+            DB::beginTransaction();
+
+            $updated = DB::table('asignaciones_user_maquinas')
+                ->where('id', $id)
+                ->where('activo', 1)
+                ->update([
+                    'activo' => 0,
+                    'observaciones' => $asignacion->observaciones
+                        . "\n[FINALIZADO el " . now()->format('d/m/Y H:i') . "] Motivo: " . $motivoFinalizacion,
+                    'updated_at' => now()
+                ]);
+
+            if ($updated === 0) {
+                DB::rollback();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No se pudo finalizar la asignación. Puede que ya esté finalizada.'
+                ], 422);
+            }
+
+            DB::commit();
+
+            Log::info('Asignación finalizada exitosamente:', [
+                'asignacion_id' => $id,
+                'maquina' => $asignacion->nombre_maquina,
+                'operador' => $asignacion->nombre . ' ' . $asignacion->apellido,
+                'motivo' => $motivoFinalizacion
+            ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Asignación finalizada exitosamente',
+                'data' => [
+                    'id' => $id,
+                    'fecha_finalizacion' => Carbon::parse($fechaFinalizacion)->format('Y-m-d H:i:s'),
+                    'motivo_finalizacion' => $motivoFinalizacion,
+                    'maquina_liberada' => $asignacion->nombre_maquina,
+                    'operador_liberado' => $asignacion->nombre . ' ' . $asignacion->apellido
+                ]
+            ]);
+        } catch (\Exception $e) {
+            DB::rollback();
+
+            Log::error('Error al finalizar asignación:', [
+                'asignacion_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al finalizar la asignación: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * 📋 Obtener datos necesarios para el formulario de máquinas
+     * Endpoint: GET /api/adminOperador/maquinas/datos
+     */
+    public function obtenerDatosMaquinas(): JsonResponse
+    {
+        try {
+            // Obtener categorías
+            $categorias = DB::table('categorias_maquinas')
+                ->select('id_categoria', 'nombre_categoria', 'tipo_medicion', 'chc', 'hrc')
+                ->orderBy('nombre_categoria')
+                ->whereIn('id_categoria', [2, 11])
+                ->get();
+
+            // Obtener faenas disponibles
+            $faenas = DB::table('faenas')
+                ->select('id_faena', 'ubicacion', 'detalle')
+                ->orderBy('ubicacion')
+                ->get();
+
+            // Obtener máquinas existentes
+            $maquinas = $this->obtenerMaquinasCompletas();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Datos de máquinas obtenidos correctamente',
+                'data' => [
+                    'categorias' => $categorias,
+                    'faenas' => $faenas,
+                    'maquinas' => $maquinas
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener datos de máquinas:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al obtener datos de máquinas: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * 📋 Listar todas las máquinas registradas
+     * Endpoint: GET /api/adminOperador/maquinas/lista
+     */
+    public function listarMaquinas(): JsonResponse
+    {
+        try {
+            $maquinas = $this->obtenerMaquinasCompletas();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Máquinas obtenidas correctamente',
+                'data' => $maquinas,
+                'meta' => [
+                    'total_maquinas' => $maquinas->count(),
+                    'maquinas_internas' => $maquinas->where('tipo_maquina', 'Interno')->count(),
+                    'maquinas_externas' => $maquinas->where('tipo_maquina', 'Externo')->count()
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al listar máquinas:', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al listar máquinas: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * 🆕 Registrar nueva máquina (MEJORADO)
+     * Endpoint: POST /api/adminOperador/maquinas
+     */
+    public function registrarMaquina(Request $request): JsonResponse
+    {
+        // Validaciones solo para los campos del formulario
+        $request->validate([
+            'nombre_maquina' => 'required|string|max:255',
+            'tipo_maquina' => 'required|in:Interno,Externo',
+            'patente' => 'required|string|max:20|unique:maquinas,patente',
+            'id_categoria' => 'required|exists:categorias_maquinas,id_categoria'
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            Log::info('Iniciando registro de máquina:', [
+                'nombre' => $request->nombre_maquina,
+                'tipo' => $request->tipo_maquina,
+                'patente' => $request->patente,
+                'categoria' => $request->id_categoria
+            ]);
+
+            // ✅ VALORES AUTOMÁTICOS (sin formulario)
+            $datosBasicos = [
+                'nombre_maquina' => $request->nombre_maquina,
+                'tipo_maquina' => $request->tipo_maquina,
+                'patente' => $request->patente,
+                'id_categoria' => $request->id_categoria,
+                // 🚀 VALORES POR DEFECTO AUTOMÁTICOS
+                'estado' => 'operativo',           // Siempre operativo
+                'chc_maquina' => null,            // Sin CHC individual
+                'created_at' => now(),
+                'updated_at' => now()
+            ];
+
+            // Insertar en tabla maquinas
+            $idMaquina = DB::table('maquinas')->insertGetId($datosBasicos);
+
+            // Si es máquina interna, agregar registros adicionales
+            if ($request->tipo_maquina === 'Interno') {
+                // Insertar en maquinas_internas
+                DB::table('maquinas_internas')->insert([
+                    'id_maquina' => $idMaquina,
+                    'patente' => $request->patente,
+                    'nombre' => $request->nombre_maquina,
+                    'categoria' => $request->id_categoria,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+            }
+
+            DB::commit();
+
+            // Obtener datos completos de la máquina recién creada
+            $maquinaCompleta = $this->obtenerMaquinaCompleta($idMaquina);
+
+            Log::info('Máquina registrada exitosamente:', [
+                'id_maquina' => $idMaquina,
+                'nombre' => $request->nombre_maquina,
+                'tipo' => $request->tipo_maquina
+            ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Máquina registrada exitosamente',
+                'data' => [
+                    'id_maquina' => $idMaquina,
+                    'nombre_maquina' => $request->nombre_maquina,
+                    'patente' => $request->patente,
+                    'tipo_maquina' => $request->tipo_maquina,
+                    'estado' => 'operativo',
+                    'chc_maquina' => null,
+                    'faena_asignada' => $request->tipo_maquina === 'Interno' ? 6 : null,
+                    'maquina_completa' => $maquinaCompleta
+                ]
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollback();
+
+            Log::error('Error al registrar máquina:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al registrar máquina: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * 🗑️ Eliminar máquina
+     * Endpoint: DELETE /api/adminOperador/maquinas/{id}
+     */
+    public function eliminarMaquina($id): JsonResponse
+    {
+        try {
+            DB::beginTransaction();
+
+            // Verificar que la máquina existe
+            $maquina = DB::table('maquinas')->where('id_maquina', $id)->first();
+            if (!$maquina) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Máquina no encontrada'
+                ], 404);
+            }
+
+            // Verificar si tiene asignaciones activas
+            $tieneAsignacionesActivas = DB::table('asignaciones_user_maquinas')
+                ->where('id_maquina', $id)
+                ->where('activo', 1)
+                ->exists();
+
+            if ($tieneAsignacionesActivas) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No se puede eliminar la máquina porque tiene asignaciones activas'
+                ], 422);
+            }
+
+            // Verificar si tiene consumos registrados
+            $tieneConsumos = DB::table('consumos')
+                ->where('id_equipo', $id)
+                ->exists();
+
+            if ($tieneConsumos) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No se puede eliminar la máquina porque tiene registros de consumo asociados'
+                ], 422);
+            }
+
+            // Log antes de eliminar
+            Log::warning('Eliminando máquina:', [
+                'id_maquina' => $id,
+                'datos_maquina' => $maquina
+            ]);
+
+            // Eliminar registros relacionados
+            if ($maquina->tipo_maquina === 'Interno') {
+                // Eliminar permisos de faenas
+                DB::table('permisos_maquinas_faenas')->where('id_maquina', $id)->delete();
+
+                // Eliminar de maquinas_internas
+                DB::table('maquinas_internas')->where('id_maquina', $id)->delete();
+            }
+
+            // Eliminar asignaciones históricas (inactivas)
+            DB::table('asignaciones_user_maquinas')->where('id_maquina', $id)->delete();
+
+            // Eliminar la máquina principal
+            DB::table('maquinas')->where('id_maquina', $id)->delete();
+
+            DB::commit();
+
+            Log::info('Máquina eliminada exitosamente:', [
+                'id_maquina' => $id,
+                'nombre' => $maquina->nombre_maquina,
+                'patente' => $maquina->patente
+            ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Máquina eliminada exitosamente'
+            ]);
+        } catch (\Exception $e) {
+            DB::rollback();
+
+            Log::error('Error al eliminar máquina:', [
+                'id_maquina' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al eliminar máquina: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * 👁️ Ver detalle de una máquina específica
+     * Endpoint: GET /api/adminOperador/maquinas/{id}
+     */
+    public function verMaquina($id): JsonResponse
+    {
+        try {
+            $maquina = DB::table('maquinas as m')
+                ->leftJoin('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
+                ->leftJoin('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria')
+                ->leftJoin('permisos_maquinas_faenas as pmf', 'm.id_maquina', '=', 'pmf.id_maquina')
+                ->leftJoin('faenas as f', 'pmf.id_faena', '=', 'f.id_faena')
+                ->where('m.id_maquina', $id)
+                ->select([
+                    'm.id_maquina',
+                    'm.nombre_maquina',
+                    'm.tipo_maquina',
+                    'm.estado',
+                    'm.chc_maquina',
+                    'm.patente',
+                    'm.created_at',
+                    'cm.nombre_categoria',
+                    'cm.chc as chc_categoria',
+                    'mi.id_maquina_interna',
+                    'f.ubicacion as faena_ubicacion',
+                    'f.id_faena'
+                ])
+                ->first();
+
+            if (!$maquina) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Máquina no encontrada'
+                ], 404);
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $maquina
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al obtener máquina: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * 🔧 Método auxiliar para obtener máquinas completas
+     */
+    private function obtenerMaquinasCompletas()
+    {
+        $maquinas = DB::table('maquinas as m')
+            ->leftJoin('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
+            ->leftJoin('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria')
+            ->leftJoin('permisos_maquinas_faenas as pmf', 'm.id_maquina', '=', 'pmf.id_maquina')
+            ->leftJoin('faenas as f', 'pmf.id_faena', '=', 'f.id_faena')
+            ->whereIn('m.id_categoria', [2, 11])
+            ->select([
+                'm.id_maquina',
+                'm.nombre_maquina',
+                'm.tipo_maquina',
+                'm.estado',
+                'm.chc_maquina',
+                'm.patente',
+                'm.created_at',
+                'cm.nombre_categoria as categoria',
+                'mi.id_maquina_interna',
+                'mi.nombre as nombre_interno',
+                'f.ubicacion as faena_ubicacion'
+            ])
+            ->orderBy('m.created_at', 'desc')
+            ->get()
+            ->groupBy('id_maquina')  // Agrupa por máquina
+            ->map(function ($items) {
+                $first = $items->first();
+                return [
+                    'id_maquina' => $first->id_maquina,
+                    'nombre_maquina' => $first->nombre_maquina,
+                    'tipo_maquina' => $first->tipo_maquina,
+                    'estado' => $first->estado,
+                    'chc_maquina' => $first->chc_maquina,
+                    'patente' => $first->patente,
+                    'created_at' => $first->created_at,
+                    'categoria' => $first->categoria,
+                    'id_maquina_interna' => $first->id_maquina_interna,
+                    'nombre_interno' => $first->nombre_interno,
+                    'faenas' => $items->pluck('faena_ubicacion')->filter()->values()  // Array de faenas
+                ];
+            })
+            ->values();  // Reindexa el array
+
+        return $maquinas;
+    }
+
+    /**
+     * ✏️ Actualizar máquina existente
+     * Endpoint: PUT /api/adminOperador/maquinas/{id}
+     */
+    public function actualizarMaquina(Request $request, $id): JsonResponse
+    {
+        // Validaciones solo para los campos que se pueden editar
+        $request->validate([
+            'nombre_maquina' => 'required|string|max:255',
+            'tipo_maquina' => 'required|in:Interno,Externo',
+            'patente' => 'required|string|max:20|unique:maquinas,patente,' . $id . ',id_maquina',
+            'id_categoria' => 'required|exists:categorias_maquinas,id_categoria'
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            // Verificar que la máquina existe
+            $maquinaExistente = DB::table('maquinas')->where('id_maquina', $id)->first();
+            if (!$maquinaExistente) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Máquina no encontrada'
+                ], 404);
+            }
+
+            // Log de la actualización
+            Log::info('Actualizando máquina:', [
+                'id_maquina' => $id,
+                'valores_anteriores' => [
+                    'nombre_maquina' => $maquinaExistente->nombre_maquina,
+                    'tipo_maquina' => $maquinaExistente->tipo_maquina,
+                    'patente' => $maquinaExistente->patente,
+                    'id_categoria' => $maquinaExistente->id_categoria
+                ],
+                'valores_nuevos' => [
+                    'nombre_maquina' => $request->nombre_maquina,
+                    'tipo_maquina' => $request->tipo_maquina,
+                    'patente' => $request->patente,
+                    'id_categoria' => $request->id_categoria
+                ]
+            ]);
+
+            // Actualizar la máquina principal
+            $updated = DB::table('maquinas')
+                ->where('id_maquina', $id)
+                ->update([
+                    'nombre_maquina' => $request->nombre_maquina,
+                    'tipo_maquina' => $request->tipo_maquina,
+                    'patente' => $request->patente,
+                    'id_categoria' => $request->id_categoria,
+                    'updated_at' => now()
+                ]);
+
+            if ($updated === 0) {
+                DB::rollback();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No se pudieron actualizar los datos de la máquina'
+                ], 500);
+            }
+
+            // Si cambió de Externo a Interno, crear registro en maquinas_internas
+            if ($maquinaExistente->tipo_maquina === 'Externo' && $request->tipo_maquina === 'Interno') {
+                // Verificar si ya existe en maquinas_internas
+                $existeInterno = DB::table('maquinas_internas')->where('id_maquina', $id)->exists();
+
+                if (!$existeInterno) {
+                    DB::table('maquinas_internas')->insert([
+                        'id_maquina' => $id,
+                        'patente' => $request->patente,
+                        'nombre' => $request->nombre_maquina,
+                        'categoria' => $request->id_categoria,
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+
+                    // Agregar permiso para la faena por defecto (ID: 6)
+                    $existePermiso = DB::table('permisos_maquinas_faenas')
+                        ->where('id_maquina', $id)
+                        ->where('id_faena', 6)
+                        ->exists();
+
+                    if (!$existePermiso) {
+                        DB::table('permisos_maquinas_faenas')->insert([
+                            'id_maquina' => $id,
+                            'id_faena' => 6, // Faena por defecto
+                            'created_at' => now(),
+                            'updated_at' => now()
+                        ]);
+                    }
+
+                    Log::info('Máquina convertida de Externa a Interna:', [
+                        'id_maquina' => $id,
+                        'faena_asignada' => 6
+                    ]);
+                }
+            }
+
+            // Si cambió de Interno a Externo, eliminar de maquinas_internas
+            if ($maquinaExistente->tipo_maquina === 'Interno' && $request->tipo_maquina === 'Externo') {
+                // Eliminar de maquinas_internas
+                DB::table('maquinas_internas')->where('id_maquina', $id)->delete();
+
+                // Eliminar permisos de faenas
+                DB::table('permisos_maquinas_faenas')->where('id_maquina', $id)->delete();
+
+                Log::info('Máquina convertida de Interna a Externa:', [
+                    'id_maquina' => $id,
+                    'permisos_eliminados' => true
+                ]);
+            }
+
+            // Si sigue siendo Interno, actualizar datos en maquinas_internas
+            if ($maquinaExistente->tipo_maquina === 'Interno' && $request->tipo_maquina === 'Interno') {
+                DB::table('maquinas_internas')
+                    ->where('id_maquina', $id)
+                    ->update([
+                        'patente' => $request->patente,
+                        'nombre' => $request->nombre_maquina,
+                        'categoria' => $request->id_categoria,
+                        'updated_at' => now()
+                    ]);
+            }
+
+            DB::commit();
+
+            // Obtener la máquina actualizada con sus relaciones
+            $maquinaActualizada = $this->obtenerMaquinaCompleta($id);
+
+            Log::info('Máquina actualizada exitosamente:', [
+                'id_maquina' => $id,
+                'nombre' => $request->nombre_maquina,
+                'patente' => $request->patente,
+                'tipo' => $request->tipo_maquina
+            ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Máquina actualizada exitosamente',
+                'data' => $maquinaActualizada
+            ]);
+        } catch (\Exception $e) {
+            DB::rollback();
+
+            Log::error('Error al actualizar máquina:', [
+                'id_maquina' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al actualizar máquina: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * 🔍 Método auxiliar para obtener una máquina específica con sus relaciones
+     */
+    private function obtenerMaquinaCompleta($idMaquina)
+    {
+        return DB::table('maquinas as m')
+            ->leftJoin('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
+            ->leftJoin('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria')
+            ->leftJoin('permisos_maquinas_faenas as pmf', 'm.id_maquina', '=', 'pmf.id_maquina')
+            ->leftJoin('faenas as f', 'pmf.id_faena', '=', 'f.id_faena')
+            ->where('m.id_maquina', $idMaquina)
+            ->select([
+                'm.id_maquina',
+                'm.nombre_maquina',
+                'm.tipo_maquina',
+                'm.estado',
+                'm.chc_maquina',
+                'm.patente',
+                'm.id_categoria',
+                'm.created_at',
+                'm.updated_at',
+                'cm.nombre_categoria as categoria',
+                'cm.chc as chc_categoria',
+                'mi.id_maquina_interna',
+                'f.ubicacion as faena_ubicacion',
+                'f.id_faena'
+            ])
+            ->first();
     }
 }
