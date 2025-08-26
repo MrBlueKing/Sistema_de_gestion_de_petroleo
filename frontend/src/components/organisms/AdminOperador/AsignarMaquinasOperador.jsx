@@ -1,4 +1,4 @@
-// 🚀 ASIGNAR MÁQUINAS CON DRAG & DROP ESTILO ATLASSIAN
+// 🚀 ASIGNAR MÁQUINAS CON DRAG & DROP - IMPLEMENTACIÓN COMPLETA
 import React, { useState, useEffect } from 'react';
 import {
   FaUserPlus,
@@ -11,477 +11,377 @@ import {
   FaExclamationTriangle,
   FaHistory,
   FaTrash,
-  FaEdit
+  FaEdit,
+  FaSpinner,
+  FaStop
 } from 'react-icons/fa';
+import axios from '../../../lib/axios';
+import FinalizarAsignacionModal from '../../molecules/FinalizarAsignacionModal';
 
 // Importar el layout base y sus componentes
-import AdminLayoutBase, { 
-  MetricsSection, 
+import AdminLayoutBase, {
+  MetricsSection,
   MetricCard,
-  AdditionalSection 
+  AdditionalSection
 } from './AdminLayoutBase';
 
-const AsignarMaquinasOperador = () => {
-  // Estados principales
-  const [draggedItem, setDraggedItem] = useState(null);
-  const [draggedType, setDraggedType] = useState(null); // 'maquina' o 'operador'
-  const [dropZoneActive, setDropZoneActive] = useState(false);
-  const [tempAssignment, setTempAssignment] = useState({ maquina: null, operador: null });
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState(null);
-
-  // Datos de máquinas disponibles
-  const [maquinasDisponibles, setMaquinasDisponibles] = useState([
-    { 
-      id: 1, 
-      nombre: 'Excavadora CAT 320', 
-      patente: 'AA-BB-12', 
-      tipo: 'Excavadora',
-      estado: 'disponible',
-      ubicacion: 'Depósito Norte'
-    },
-    { 
-      id: 2, 
-      nombre: 'Camión Volvo FH', 
-      patente: 'CC-DD-34', 
-      tipo: 'Camión',
-      estado: 'disponible',
-      ubicacion: 'Depósito Sur'
-    },
-    { 
-      id: 3, 
-      nombre: 'Bulldozer CAT D6', 
-      patente: 'GG-HH-78', 
-      tipo: 'Bulldozer',
-      estado: 'disponible',
-      ubicacion: 'Depósito Este'
-    },
-    { 
-      id: 4, 
-      nombre: 'Grúa Liebherr', 
-      patente: 'II-JJ-90', 
-      tipo: 'Grúa',
-      estado: 'disponible',
-      ubicacion: 'Depósito Central'
-    }
-  ]);
-
-  // Datos de operadores disponibles
-  const [operadoresDisponibles, setOperadoresDisponibles] = useState([
-    { 
-      id: 1, 
-      nombre: 'Juan Pérez', 
-      rut: '12.345.678-9', 
-      especialidad: 'Excavación',
-      estado: 'disponible',
-      experiencia: '5 años'
-    },
-    { 
-      id: 2, 
-      nombre: 'María González', 
-      rut: '11.222.333-4', 
-      especialidad: 'Transporte',
-      estado: 'disponible',
-      experiencia: '8 años'
-    },
-    { 
-      id: 3, 
-      nombre: 'Carlos Silva', 
-      rut: '15.678.901-2', 
-      especialidad: 'Minería',
-      estado: 'disponible',
-      experiencia: '3 años'
-    },
-    { 
-      id: 4, 
-      nombre: 'Ana Torres', 
-      rut: '18.765.432-1', 
-      especialidad: 'Construcción',
-      estado: 'disponible',
-      experiencia: '6 años'
-    }
-  ]);
-
-  // Asignaciones activas
-  const [asignacionesActivas, setAsignacionesActivas] = useState([
-    {
-      id: 1,
-      maquina: { id: 5, nombre: 'Retroexcavadora JCB', patente: 'EE-FF-56' },
-      operador: { id: 5, nombre: 'Pedro Morales', rut: '16.789.123-4' },
-      fechaAsignacion: '2025-01-20',
-      fechaVencimiento: '2025-02-20',
-      estado: 'activa',
-      ubicacion: 'Faena Norte'
-    }
-  ]);
-
-  // 🔧 Agregar useEffect para debugging y limpieza
-  useEffect(() => {
-    console.log('🔄 Estado actualizado:', {
-      draggedItem: draggedItem?.nombre || null,
-      draggedType,
-      dropZoneActive,
-      tempAssignment: {
-        maquina: tempAssignment.maquina?.nombre || null,
-        operador: tempAssignment.operador?.nombre || null
-      }
-    });
-  }, [draggedItem, draggedType, dropZoneActive, tempAssignment]);
-
-  // 🔧 Limpiar estados en caso de errores
-  useEffect(() => {
-    const handleGlobalMouseUp = () => {
-      // Si no hay elemento siendo arrastrado, limpiar estados
-      if (!draggedItem) {
-        setDropZoneActive(false);
-      }
-    };
-
-    document.addEventListener('mouseup', handleGlobalMouseUp);
-    return () => {
-      document.removeEventListener('mouseup', handleGlobalMouseUp);
-    };
-  }, [draggedItem]);
-  const stats = {
-    maquinasDisponibles: maquinasDisponibles.length,
-    operadoresDisponibles: operadoresDisponibles.length,
-    asignacionesActivas: asignacionesActivas.length,
-    totalItems: maquinasDisponibles.length + operadoresDisponibles.length
-  };
-
-  // Funciones de Drag & Drop optimizadas (menos spam de logs)
-  const handleDragStart = (e, item, type) => {
-    console.log('🚀 Drag Start:', { item: item.nombre, type, id: item.id });
-    
-    // Verificar que tenemos la información necesaria
-    if (!item || !type) {
-      console.error('❌ Error en dragStart: item o type faltante', { item, type });
-      return;
-    }
-
-    try {
-      setDraggedItem(item);
-      setDraggedType(type);
-      
-      e.dataTransfer.effectAllowed = 'move';
-      
-      // 🔧 Mejorar compatibilidad con diferentes navegadores
-      e.dataTransfer.setData('text/plain', JSON.stringify({ item, type }));
-      e.dataTransfer.setData('application/json', JSON.stringify({ item, type }));
-      
-      // Efecto visual
-      e.target.style.opacity = '0.5';
-      e.target.style.transform = 'scale(0.95)';
-      
-      console.log('✅ Drag iniciado correctamente');
-    } catch (error) {
-      console.error('❌ Error en handleDragStart:', error);
+// 🎯 COMPONENTE DRAGGABLE ITEM
+const DraggableItem = ({ item, type, children, onDragStart, onDragEnd }) => {
+  const handleDragStart = (e) => {
+    if (onDragStart) {
+      onDragStart(item, type, e);
     }
   };
 
   const handleDragEnd = (e) => {
-    console.log('🏁 Drag End - Limpiando estados');
-    
-    try {
-      // Restaurar estilos
-      e.target.style.opacity = '1';
-      e.target.style.transform = 'scale(1)';
-      
-      // Limpiar estados (con delay para evitar bugs)
-      setTimeout(() => {
-        setDraggedItem(null);
-        setDraggedType(null);
-        setDropZoneActive(false);
-      }, 100);
-      
-      console.log('✅ Drag finalizado y estados limpiados');
-    } catch (error) {
-      console.error('❌ Error en handleDragEnd:', error);
+    if (onDragEnd) {
+      onDragEnd(e);
     }
   };
 
-  // 🔧 Throttle para dragOver para reducir spam
-  const [dragOverThrottle, setDragOverThrottle] = useState(false);
-  
+  return (
+    <div
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      className="cursor-grab active:cursor-grabbing"
+    >
+      {children}
+    </div>
+  );
+};
+
+const AsignarMaquinasOperador = () => {
+  // Estados principales
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [draggedType, setDraggedType] = useState(null);
+  const [dropZoneActive, setDropZoneActive] = useState(false);
+  const [tempAssignment, setTempAssignment] = useState({ maquina: null, operador: null });
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState(null);
+
+  // Estados para datos reales
+  const [maquinasDisponibles, setMaquinasDisponibles] = useState([]);
+  const [operadoresDisponibles, setOperadoresDisponibles] = useState([]);
+  const [asignacionesActivas, setAsignacionesActivas] = useState([]);
+  const [estadisticas, setEstadisticas] = useState({
+    usuarios_disponibles: 0,
+    maquinas_disponibles: 0,
+    asignaciones_activas: 0,
+    total_usuarios: 0,
+    total_maquinas: 0,
+    porcentaje_asignacion: { usuarios: 0, maquinas: 0 }
+  });
+
+  // ⭐ NUEVOS ESTADOS PARA EL MODAL DE FINALIZAR
+  const [modalFinalizarOpen, setModalFinalizarOpen] = useState(false);
+  const [asignacionAFinalizar, setAsignacionAFinalizar] = useState(null);
+
+  // 🔄 Cargar datos desde la API
+  const fetchDatos = async () => {
+    try {
+      setLoading(true);
+      console.log('🔄 Obteniendo datos de asignaciones...');
+
+      const response = await axios.get('/api/adminOperador/asignaciones/datos');
+
+      if (response.data.status === 'success') {
+        const { data } = response.data;
+
+        console.log('✅ Datos obtenidos:', data);
+
+        setMaquinasDisponibles(data.maquinas_disponibles || []);
+        setOperadoresDisponibles(data.usuarios_disponibles || []);
+        setAsignacionesActivas(data.asignaciones_activas || []);
+        setEstadisticas(data.estadisticas || estadisticas);
+
+        setMessage({
+          type: 'success',
+          text: `Datos cargados: ${data.maquinas_disponibles?.length || 0} máquinas, ${data.usuarios_disponibles?.length || 0} operadores disponibles`
+        });
+      } else {
+        console.error('❌ Error en respuesta:', response.data);
+        setMessage({
+          type: 'error',
+          text: response.data.message || 'Error al cargar datos'
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error al obtener datos:', error);
+      setMessage({
+        type: 'error',
+        text: error.response?.data?.message || 'Error de conexión al cargar datos'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ⭐ NUEVA FUNCIÓN: Abrir modal para finalizar asignación
+  const handleAbrirModalFinalizar = (asignacion) => {
+    console.log('🔚 Preparando finalización de asignación:', asignacion);
+    setAsignacionAFinalizar(asignacion);
+    setModalFinalizarOpen(true);
+  };
+
+  // ⭐ NUEVA FUNCIÓN: Cerrar modal
+  const handleCerrarModalFinalizar = () => {
+    setModalFinalizarOpen(false);
+    setAsignacionAFinalizar(null);
+  };
+
+  // ⭐ FUNCIÓN ACTUALIZADA: Finalizar asignación (ahora recibe los parámetros del modal)
+  const handleFinalizarAsignacion = async (asignacionId, motivoFinalizacion = '') => {
+    try {
+      setLoading(true);
+      console.log('🔚 Finalizando asignación:', asignacionId);
+
+      const response = await axios.post(`/api/adminOperador/asignaciones/${asignacionId}/finalizar`, {
+        motivo_finalizacion: motivoFinalizacion || 'Finalizada por administrador',
+        fecha_finalizacion: new Date().toISOString()
+      });
+
+      if (response.data.status === 'success') {
+        console.log('✅ Asignación finalizada:', response.data.data);
+
+        setMessage({
+          type: 'success',
+          text: `Asignación finalizada exitosamente. ${response.data.data.maquina_liberada} y ${response.data.data.operador_liberado} están ahora disponibles.`
+        });
+
+        // Recargar datos
+        await fetchDatos();
+
+        // Auto-limpiar mensaje
+        setTimeout(() => setMessage(null), 5000);
+      } else {
+        setMessage({
+          type: 'error',
+          text: response.data.message || 'Error al finalizar asignación'
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error al finalizar asignación:', error);
+      setMessage({
+        type: 'error',
+        text: error.response?.data?.message || 'Error de conexión al finalizar asignación'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 🎯 FUNCIÓN CREAR ASIGNACIÓN
+  const handleCrearAsignacion = async () => {
+    if (!tempAssignment.maquina || !tempAssignment.operador) {
+      setMessage({
+        type: 'error',
+        text: 'Debe seleccionar una máquina y un operador'
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log('🆕 Creando asignación:', tempAssignment);
+
+      const response = await axios.post('/api/adminOperador/asignaciones', {
+        id_maquina: tempAssignment.maquina.id,
+        id_operador: tempAssignment.operador.id,
+        fecha_asignacion: new Date().toISOString().split('T')[0],
+        observaciones: `Asignación creada mediante drag & drop el ${new Date().toLocaleDateString()}`
+      });
+
+      if (response.data.status === 'success') {
+        console.log('✅ Asignación creada:', response.data.data);
+
+        setMessage({
+          type: 'success',
+          text: `¡Asignación creada exitosamente! ${tempAssignment.maquina.nombre} → ${tempAssignment.operador.nombre_completo}`
+        });
+
+        // Limpiar formulario temporal
+        setTempAssignment({ maquina: null, operador: null });
+
+        // Recargar datos
+        await fetchDatos();
+
+        // Auto-limpiar mensaje después de 5 segundos
+        setTimeout(() => setMessage(null), 5000);
+      } else {
+        setMessage({
+          type: 'error',
+          text: response.data.message || 'Error al crear asignación'
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error al crear asignación:', error);
+      setMessage({
+        type: 'error',
+        text: error.response?.data?.message || 'Error de conexión al crear asignación'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 🧹 FUNCIÓN LIMPIAR ASIGNACIÓN TEMPORAL
+  const handleLimpiarAsignacion = () => {
+    setTempAssignment({ maquina: null, operador: null });
+    setMessage({
+      type: 'info',
+      text: 'Formulario de asignación limpiado'
+    });
+
+    // Auto-limpiar mensaje
+    setTimeout(() => setMessage(null), 2000);
+  };
+
+  // 🎯 MANEJADORES DE DRAG & DROP
+  const handleDragStart = (item, type, e) => {
+    console.log('🎯 Drag iniciado:', { item: item.nombre || item.nombre_maquina || item.nombre_completo, type });
+    setDraggedItem(item);
+    setDraggedType(type);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragEnd = () => {
+    console.log('🎯 Drag finalizado');
+    setDraggedItem(null);
+    setDraggedType(null);
+    setDropZoneActive(false);
+  };
+
   const handleDragOver = (e) => {
     e.preventDefault();
-    e.stopPropagation();
-    
-    // Solo log una vez cada 500ms para evitar spam
-    if (!dragOverThrottle) {
-      console.log('📍 Drag Over - Drop zone activa');
-      setDragOverThrottle(true);
-      setTimeout(() => setDragOverThrottle(false), 500);
-    }
-    
     e.dataTransfer.dropEffect = 'move';
     setDropZoneActive(true);
   };
 
-  const handleDragEnter = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    console.log('🎯 Entrando a drop zone');
-    setDropZoneActive(true);
-  };
-
   const handleDragLeave = (e) => {
-    // Verificación más robusta para drag leave
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX;
-    const y = e.clientY;
-    
-    // Si el cursor está fuera del área del drop zone
-    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
-      console.log('🚪 Saliendo del drop zone');
+    // Solo desactivar si realmente salimos del drop zone
+    if (!e.currentTarget.contains(e.relatedTarget)) {
       setDropZoneActive(false);
     }
   };
 
   const handleDrop = (e) => {
-    console.log('💧 DROP - Procesando elementos...');
-    
     e.preventDefault();
-    e.stopPropagation();
-    
     setDropZoneActive(false);
 
-    try {
-      // Intentar obtener datos de múltiples fuentes
-      let dropData = null;
-      
-      // Método 1: desde el estado (preferido)
-      if (draggedItem && draggedType) {
-        dropData = { item: draggedItem, type: draggedType };
-        console.log('✅ Datos obtenidos desde estado React');
-      }
-      
-      // Método 2: desde dataTransfer como fallback
-      if (!dropData) {
-        try {
-          const jsonData = e.dataTransfer.getData('application/json');
-          if (jsonData) {
-            dropData = JSON.parse(jsonData);
-            console.log('✅ Datos obtenidos desde dataTransfer');
-          }
-        } catch (parseError) {
-          console.warn('⚠️ No se pudo parsear datos de dataTransfer');
-        }
-      }
-
-      if (!dropData || !dropData.item || !dropData.type) {
-        console.error('❌ No hay datos válidos para el drop');
-        setMessage({ type: 'error', text: 'Error en el arrastre. Intenta de nuevo.' });
-        return;
-      }
-
-      const { item, type } = dropData;
-      
-      console.log(`🎯 ÉXITO: ${type === 'maquina' ? '🚛' : '👤'} ${item.nombre} añadido a la asignación`);
-
-      if (type === 'maquina') {
-        setTempAssignment(prev => ({ ...prev, maquina: item }));
-      } else if (type === 'operador') {
-        setTempAssignment(prev => ({ ...prev, operador: item }));
-      }
-
-      // Limpiar estados
-      setDraggedItem(null);
-      setDraggedType(null);
-      
-      console.log('🎉 Drop completado exitosamente');
-      
-    } catch (error) {
-      console.error('❌ Error en handleDrop:', error);
-      setMessage({ type: 'error', text: 'Error al procesar el arrastre. Intenta nuevamente.' });
-    }
-  };
-
-  // Función para crear asignación
-  const handleCrearAsignacion = async () => {
-    if (!tempAssignment.maquina || !tempAssignment.operador) {
-      setMessage({ type: 'error', text: 'Necesitas una máquina Y un operador para crear la asignación' });
+    if (!draggedItem || !draggedType) {
+      console.log('❌ No hay item arrastrado');
       return;
     }
 
-    setLoading(true);
-    try {
-      // Simular llamada API
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    console.log('📦 Drop realizado:', { item: draggedItem, type: draggedType });
 
-      const nuevaAsignacion = {
-        id: Date.now(),
-        maquina: tempAssignment.maquina,
-        operador: tempAssignment.operador,
-        fechaAsignacion: new Date().toISOString().split('T')[0],
-        fechaVencimiento: new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0],
-        estado: 'activa',
-        ubicacion: tempAssignment.maquina.ubicacion
-      };
-
-      setAsignacionesActivas(prev => [...prev, nuevaAsignacion]);
-
-      // Remover de disponibles
-      setMaquinasDisponibles(prev => prev.filter(m => m.id !== tempAssignment.maquina.id));
-      setOperadoresDisponibles(prev => prev.filter(o => o.id !== tempAssignment.operador.id));
-
-      // Limpiar asignación temporal
-      setTempAssignment({ maquina: null, operador: null });
-      setMessage({ type: 'success', text: '¡Asignación creada exitosamente!' });
-
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Error al crear la asignación' });
-    } finally {
-      setLoading(false);
+    if (draggedType === 'maquina') {
+      setTempAssignment(prev => ({
+        ...prev,
+        maquina: draggedItem
+      }));
+      setMessage({
+        type: 'info',
+        text: `Máquina "${draggedItem.nombre}" agregada. Ahora arrastra un operador.`
+      });
+    } else if (draggedType === 'operador') {
+      setTempAssignment(prev => ({
+        ...prev,
+        operador: draggedItem
+      }));
+      setMessage({
+        type: 'info',
+        text: `Operador "${draggedItem.nombre_completo}" agregado. ${tempAssignment.maquina ? 'Ya puedes crear la asignación.' : 'Ahora arrastra una máquina.'}`
+      });
     }
+
+    // Limpiar después del drop
+    setTimeout(() => {
+      setMessage(null);
+    }, 3000);
   };
 
-  // Función para limpiar asignación temporal
-  const handleLimpiarAsignacion = () => {
-    setTempAssignment({ maquina: null, operador: null });
-  };
-
-  // Función para finalizar asignación
-  const handleFinalizarAsignacion = async (asignacionId) => {
-    setLoading(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const asignacion = asignacionesActivas.find(a => a.id === asignacionId);
-      
-      // Devolver a disponibles
-      setMaquinasDisponibles(prev => [...prev, { 
-        ...asignacion.maquina, 
-        estado: 'disponible' 
-      }]);
-      setOperadoresDisponibles(prev => [...prev, { 
-        ...asignacion.operador, 
-        estado: 'disponible' 
-      }]);
-
-      // Remover de asignaciones activas
-      setAsignacionesActivas(prev => prev.filter(a => a.id !== asignacionId));
-
-      setMessage({ type: 'success', text: 'Asignación finalizada exitosamente' });
-
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Error al finalizar asignación' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Función para formatear fecha
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('es-CL');
-  };
-
-  // Componente para items arrastrables mejorado
-  const DraggableItem = ({ item, type, children }) => {
-    // 🔧 Agregar manejo de eventos de mouse para mejor UX
-    const handleMouseDown = (e) => {
-      console.log('🖱️ Mouse down en:', item.nombre);
-      e.currentTarget.style.cursor = 'grabbing';
-    };
-
-    const handleMouseUp = (e) => {
-      e.currentTarget.style.cursor = 'grab';
-    };
-
-    return (
-      <div
-        draggable={true}
-        onDragStart={(e) => handleDragStart(e, item, type)}
-        onDragEnd={handleDragEnd}
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        className="cursor-grab hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 select-none"
-        style={{ touchAction: 'none' }} // Mejor soporte para móviles
-      >
-        {children}
-      </div>
-    );
-  };
-
-  // Componente de mensaje
-  const MessageAlert = ({ message }) => {
-    if (!message) return null;
-
-    const bgColor = message.type === 'success' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
-    const textColor = message.type === 'success' ? 'text-green-800' : 'text-red-800';
-    const Icon = message.type === 'success' ? FaCheck : FaExclamationTriangle;
-
-    return (
-      <div className={`${bgColor} border rounded-lg p-4 mb-6`}>
-        <div className="flex items-center">
-          <Icon className={`w-5 h-5 ${textColor} mr-3`} />
-          <p className={`${textColor} text-sm font-medium`}>{message.text}</p>
-          <button
-            onClick={() => setMessage(null)}
-            className={`ml-auto ${textColor} hover:opacity-75`}
-          >
-            <FaTimes className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-    );
-  };
+  // Cargar datos al montar el componente
+  useEffect(() => {
+    fetchDatos();
+  }, []);
 
   return (
     <AdminLayoutBase
-      title="Asignar Máquinas con Drag & Drop"
-      icon={FaUserPlus}
-      description="Arrastra y suelta para crear asignaciones de manera intuitiva"
+      title="Asignar Máquinas a Operadores"
+      subtitle="Gestiona las asignaciones de máquinas mediante drag & drop"
+      showBackButton={true}
+      loading={loading}
     >
-      {/* Mensaje de estado */}
-      <MessageAlert message={message} />
+      {/* Mostrar mensajes */}
+      {message && (
+        <div className={`mb-6 p-4 rounded-lg border ${message.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' :
+          message.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
+            'bg-blue-50 border-blue-200 text-blue-800'
+          }`}>
+          <div className="flex items-center">
+            {message.type === 'success' && <FaCheck className="w-4 h-4 mr-2" />}
+            {message.type === 'error' && <FaTimes className="w-4 h-4 mr-2" />}
+            {message.type === 'info' && <FaExclamationTriangle className="w-4 h-4 mr-2" />}
+            <p className="text-sm font-medium">{message.text}</p>
+          </div>
+        </div>
+      )}
 
-      {/* Métricas principales */}
+      {/* Métricas */}
       <MetricsSection>
         <MetricCard
-          title="Máquinas Disponibles"
-          value={stats.maquinasDisponibles}
-          icon={FaTruck}
-          color="blue"
+          title="Operadores Disponibles"
+          value={estadisticas.usuarios_disponibles}
+          icon={FaUsers}
+          color="bg-green-500"
+          subtitle={`${estadisticas.total_usuarios} total`}
         />
         <MetricCard
-          title="Operadores Disponibles"
-          value={stats.operadoresDisponibles}
-          icon={FaUsers}
-          color="green"
+          title="Máquinas Disponibles"
+          value={estadisticas.maquinas_disponibles}
+          icon={FaTruck}
+          color="bg-blue-500"
+          subtitle={`${estadisticas.total_maquinas} total`}
         />
         <MetricCard
           title="Asignaciones Activas"
-          value={stats.asignacionesActivas}
+          value={estadisticas.asignaciones_activas}
           icon={FaUserPlus}
-          color="yellow"
+          color="bg-purple-500"
+          subtitle={`${estadisticas.porcentaje_asignacion.usuarios}% usuarios asignados`}
         />
         <MetricCard
-          title="Total Items"
-          value={stats.totalItems}
-          icon={FaPlus}
-          color="purple"
+          title="Utilización Máquinas"
+          value={`${estadisticas.porcentaje_asignacion.maquinas}%`}
+          icon={FaHistory}
+          color="bg-orange-500"
+          subtitle="Porcentaje de máquinas en uso"
         />
       </MetricsSection>
 
-      {/* Zona principal de Drag & Drop */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
-        
+      {/* Panel principal con drag & drop */}
+      <div className="grid grid-cols-1 lg:grid-cols-9 gap-6 mb-8">
         {/* Panel izquierdo - Máquinas */}
         <div className="lg:col-span-3">
           <AdditionalSection title="Máquinas Disponibles" className="h-fit">
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {maquinasDisponibles.map(maquina => (
-                <DraggableItem key={maquina.id} item={maquina} type="maquina">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center hover:bg-blue-100 transition-colors">
+                <DraggableItem
+                  key={maquina.id}
+                  item={maquina}
+                  type="maquina"
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                >
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center hover:bg-blue-100 transition-colors cursor-grab active:cursor-grabbing">
                     <FaGripVertical className="text-gray-400 mr-3" />
                     <FaTruck className="text-blue-600 mr-3" />
                     <div className="flex-1">
                       <p className="font-medium text-gray-900 text-sm">{maquina.nombre}</p>
                       <p className="text-xs text-gray-600">{maquina.patente}</p>
-                      <p className="text-xs text-blue-600">{maquina.tipo}</p>
+                      <p className="text-xs text-blue-600">{maquina.categoria?.nombre || 'Sin categoría'}</p>
                     </div>
                   </div>
                 </DraggableItem>
@@ -496,34 +396,20 @@ const AsignarMaquinasOperador = () => {
           </AdditionalSection>
         </div>
 
-        {/* Zona central - Drop Zone */}
-        <div className="lg:col-span-6">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">
-              Zona de Asignación
-            </h3>
-            
-            {/* Drop Zone mejorado */}
+        {/* Panel central - Zona de asignación */}
+        <div className="lg:col-span-3">
+          <div className="bg-white rounded-lg border-2 border-dashed border-gray-300 p-6">
             <div
+              className={`min-h-96 flex flex-col items-center justify-center text-center transition-all relative
+                ${dropZoneActive ?
+                  'bg-blue-50 border-blue-300'
+                  : tempAssignment.maquina && tempAssignment.operador ?
+                    'bg-green-50 border-green-300'
+                    : ''
+                }`}
               onDragOver={handleDragOver}
-              onDragEnter={handleDragEnter}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={`
-                border-2 border-dashed rounded-lg p-8 text-center transition-all duration-300 min-h-[300px] relative
-                ${dropZoneActive 
-                  ? 'border-blue-500 bg-blue-50 scale-105' 
-                  : 'border-gray-300 bg-gray-50'
-                }
-                ${tempAssignment.maquina || tempAssignment.operador 
-                  ? 'bg-green-50 border-green-300' 
-                  : ''
-                }
-              `}
-              style={{ 
-                position: 'relative',
-                overflow: 'hidden'
-              }}
             >
               {/* Indicador visual cuando se está arrastrando */}
               {dropZoneActive && (
@@ -533,6 +419,7 @@ const AsignarMaquinasOperador = () => {
                   </div>
                 </div>
               )}
+
               {!tempAssignment.maquina && !tempAssignment.operador ? (
                 <div className="space-y-4">
                   <div className="text-6xl text-gray-300">🎯</div>
@@ -546,64 +433,82 @@ const AsignarMaquinasOperador = () => {
                   </div>
                 </div>
               ) : (
-                <div className="space-y-6">
+                <div className="space-y-6 w-full">
                   <h4 className="text-lg font-medium text-gray-900">
                     Creando Asignación
                   </h4>
-                  
+
                   {/* Máquina seleccionada */}
-                  <div className={`p-4 rounded-lg border-2 ${tempAssignment.maquina ? 'bg-blue-100 border-blue-300' : 'bg-gray-100 border-gray-300 border-dashed'}`}>
-                    {tempAssignment.maquina ? (
+                  <div className={`p-4 rounded-lg border-2 ${tempAssignment.maquina ?
+                    'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200 border-dashed'
+                    }`}>
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center">
                         <FaTruck className="text-blue-600 mr-3" />
                         <div>
-                          <p className="font-medium text-gray-900">{tempAssignment.maquina.nombre}</p>
-                          <p className="text-sm text-gray-600">{tempAssignment.maquina.patente} • {tempAssignment.maquina.tipo}</p>
+                          <p className="font-medium text-gray-900">Máquina</p>
+                          {tempAssignment.maquina ? (
+                            <div>
+                              <p className="text-sm text-gray-700">{tempAssignment.maquina.nombre}</p>
+                              <p className="text-xs text-gray-500">{tempAssignment.maquina.patente}</p>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-500">Arrastra una máquina aquí</p>
+                          )}
                         </div>
                       </div>
-                    ) : (
-                      <div className="text-gray-500 text-center">
-                        <FaTruck className="mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">Arrastra una máquina aquí</p>
-                      </div>
-                    )}
+                      {tempAssignment.maquina && (
+                        <button
+                          onClick={() => setTempAssignment(prev => ({ ...prev, maquina: null }))}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <FaTimes />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Operador seleccionado */}
-                  <div className={`p-4 rounded-lg border-2 ${tempAssignment.operador ? 'bg-green-100 border-green-300' : 'bg-gray-100 border-gray-300 border-dashed'}`}>
-                    {tempAssignment.operador ? (
+                  <div className={`p-4 rounded-lg border-2 ${tempAssignment.operador ?
+                    'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200 border-dashed'
+                    }`}>
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center">
                         <FaUsers className="text-green-600 mr-3" />
                         <div>
-                          <p className="font-medium text-gray-900">{tempAssignment.operador.nombre}</p>
-                          <p className="text-sm text-gray-600">{tempAssignment.operador.especialidad} • {tempAssignment.operador.experiencia}</p>
+                          <p className="font-medium text-gray-900">Operador</p>
+                          {tempAssignment.operador ? (
+                            <div>
+                              <p className="text-sm text-gray-700">{tempAssignment.operador.nombre_completo}</p>
+                              <p className="text-xs text-gray-500">{tempAssignment.operador.rut}</p>
+                              <p className="text-xs text-blue-500">{tempAssignment.operador.faena?.ubicacion}</p>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-500">Arrastra un operador aquí</p>
+                          )}
                         </div>
                       </div>
-                    ) : (
-                      <div className="text-gray-500 text-center">
-                        <FaUsers className="mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">Arrastra un operador aquí</p>
-                      </div>
-                    )}
+                      {tempAssignment.operador && (
+                        <button
+                          onClick={() => setTempAssignment(prev => ({ ...prev, operador: null }))}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <FaTimes />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Botones de acción */}
-                  <div className="flex space-x-3 justify-center">
-                    <button
-                      onClick={handleLimpiarAsignacion}
-                      className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                    >
-                      <FaTimes className="w-4 h-4 mr-2" />
-                      Limpiar
-                    </button>
+                  <div className="flex space-x-3">
                     <button
                       onClick={handleCrearAsignacion}
                       disabled={!tempAssignment.maquina || !tempAssignment.operador || loading}
-                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                      className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {loading ? (
                         <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          <FaSpinner className="animate-spin w-4 h-4 mr-2" />
                           Creando...
                         </>
                       ) : (
@@ -612,6 +517,13 @@ const AsignarMaquinasOperador = () => {
                           Crear Asignación
                         </>
                       )}
+                    </button>
+                    <button
+                      onClick={handleLimpiarAsignacion}
+                      className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                      <FaTimes className="w-4 h-4 mr-2 inline" />
+                      Limpiar
                     </button>
                   </div>
                 </div>
@@ -625,14 +537,20 @@ const AsignarMaquinasOperador = () => {
           <AdditionalSection title="Operadores Disponibles" className="h-fit">
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {operadoresDisponibles.map(operador => (
-                <DraggableItem key={operador.id} item={operador} type="operador">
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center hover:bg-green-100 transition-colors">
+                <DraggableItem
+                  key={operador.id}
+                  item={operador}
+                  type="operador"
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                >
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center hover:bg-green-100 transition-colors cursor-grab active:cursor-grabbing">
                     <FaGripVertical className="text-gray-400 mr-3" />
                     <FaUsers className="text-green-600 mr-3" />
                     <div className="flex-1">
-                      <p className="font-medium text-gray-900 text-sm">{operador.nombre}</p>
+                      <p className="font-medium text-gray-900 text-sm">{operador.nombre_completo}</p>
                       <p className="text-xs text-gray-600">{operador.rut}</p>
-                      <p className="text-xs text-green-600">{operador.especialidad}</p>
+                      <p className="text-xs text-green-600">{operador.faena?.ubicacion || 'Sin faena'}</p>
                     </div>
                   </div>
                 </DraggableItem>
@@ -649,82 +567,99 @@ const AsignarMaquinasOperador = () => {
       </div>
 
       {/* Lista de asignaciones activas */}
-      <AdditionalSection title={`Asignaciones Activas (${asignacionesActivas.length})`}>
-        {asignacionesActivas.length > 0 ? (
-          <div className="space-y-4">
-            {asignacionesActivas.map(asignacion => (
-              <div key={asignacion.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+      <AdditionalSection title="Asignaciones Activas" className="mb-8">
+        <div className="space-y-4">
+          {asignacionesActivas.length > 0 ? (
+            asignacionesActivas.map(asignacion => (
+              <div key={asignacion.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
                     {/* Máquina */}
-                    <div className="flex items-center">
-                      <FaTruck className="text-blue-600 mr-3" />
-                      <div>
-                        <p className="font-medium text-gray-900">{asignacion.maquina.nombre}</p>
-                        <p className="text-xs text-gray-600">{asignacion.maquina.patente}</p>
+                    <div>
+                      <div className="flex items-center mb-2">
+                        <FaTruck className="text-blue-600 mr-2" />
+                        <span className="text-sm font-medium text-gray-900">Máquina</span>
                       </div>
+                      <p className="text-sm text-gray-700">{asignacion.maquina.nombre}</p>
+                      <p className="text-xs text-gray-500">{asignacion.maquina.patente}</p>
                     </div>
 
                     {/* Operador */}
-                    <div className="flex items-center">
-                      <FaUsers className="text-green-600 mr-3" />
-                      <div>
-                        <p className="font-medium text-gray-900">{asignacion.operador.nombre}</p>
-                        <p className="text-xs text-gray-600">{asignacion.operador.rut}</p>
+                    <div>
+                      <div className="flex items-center mb-2">
+                        <FaUsers className="text-green-600 mr-2" />
+                        <span className="text-sm font-medium text-gray-900">Operador</span>
                       </div>
+                      <p className="text-sm text-gray-700">{asignacion.operador.nombre_completo}</p>
+                      <p className="text-xs text-gray-500">{asignacion.operador.rut}</p>
                     </div>
 
                     {/* Fechas */}
                     <div>
-                      <p className="text-sm text-gray-900">
-                        <strong>Asignado:</strong> {formatDate(asignacion.fechaAsignacion)}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        <strong>Vence:</strong> {formatDate(asignacion.fechaVencimiento)}
-                      </p>
+                      <div className="flex items-center mb-2">
+                        <FaHistory className="text-purple-600 mr-2" />
+                        <span className="text-sm font-medium text-gray-900">Fechas</span>
+                      </div>
+                      <p className="text-sm text-gray-700">Inicio: {asignacion.fechaAsignacion}</p>
+                      <p className="text-xs text-gray-500">{asignacion.diasActiva} días activa</p>
                     </div>
 
                     {/* Ubicación */}
                     <div>
-                      <p className="text-sm text-gray-900">
-                        <strong>Ubicación:</strong> {asignacion.ubicacion}
-                      </p>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        {asignacion.estado}
-                      </span>
+                      <div className="flex items-center mb-2">
+                        <span className="text-sm font-medium text-gray-900">Ubicación</span>
+                      </div>
+                      <p className="text-sm text-gray-700">{asignacion.ubicacion}</p>
+                      <p className="text-xs text-green-600">Estado: {asignacion.estado}</p>
                     </div>
                   </div>
 
                   {/* Acciones */}
-                  <div className="flex space-x-2 ml-4">
+                  <div className="ml-4">
                     <button
-                      onClick={() => handleFinalizarAsignacion(asignacion.id)}
+                      onClick={() => handleAbrirModalFinalizar(asignacion)}
                       disabled={loading}
-                      className="inline-flex items-center px-3 py-1 border border-red-300 shadow-sm text-xs font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                      className="inline-flex items-center px-3 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                      <FaTimes className="w-3 h-3 mr-1" />
-                      Finalizar
+                      {loading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600 mr-2"></div>
+                          Procesando...
+                        </>
+                      ) : (
+                        <>
+                          <FaStop className="w-4 h-4 mr-2" />
+                          Finalizar
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
+
+                {/* Observaciones */}
+                {asignacion.observaciones && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <p className="text-xs text-gray-600">
+                      <strong>Observaciones:</strong> {asignacion.observaciones}
+                    </p>
+                  </div>
+                )}
+
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <FaUserPlus className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No hay asignaciones activas
-            </h3>
-            <p className="text-gray-600">
-              Usa la zona de drag & drop para crear tu primera asignación
-            </p>
-          </div>
-        )}
+            ))
+          ) : (
+            <div className="text-center py-12 text-gray-500">
+              <FaUserPlus className="mx-auto h-12 w-12 mb-4 opacity-50" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No hay asignaciones activas</h3>
+              <p className="text-sm">Las asignaciones que crees aparecerán aquí</p>
+            </div>
+          )}
+
+        </div>
       </AdditionalSection>
 
       {/* Instrucciones */}
-      <AdditionalSection 
+      <AdditionalSection
         title="Cómo usar el Drag & Drop"
         className="mt-8"
         collapsible={true}
@@ -748,6 +683,13 @@ const AsignarMaquinasOperador = () => {
           </div>
         </div>
       </AdditionalSection>
+      <FinalizarAsignacionModal
+        isOpen={modalFinalizarOpen}
+        onClose={handleCerrarModalFinalizar}
+        onConfirm={handleFinalizarAsignacion}
+        asignacion={asignacionAFinalizar}
+        loading={loading}
+      />
     </AdminLayoutBase>
   );
 };

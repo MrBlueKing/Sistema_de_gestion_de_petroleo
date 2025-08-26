@@ -32,10 +32,10 @@ const DetalleCargaModal = ({ cargaId, isOpen, onClose, onActionComplete }) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       // ✅ ADAPTADO: Usar tus rutas actuales
       const response = await axios.get(`/api/adminOperador/cargas/${cargaId}`);
-      
+
       if (response.data.status === 'success') {
         setCarga(response.data.data);
       } else {
@@ -53,7 +53,7 @@ const DetalleCargaModal = ({ cargaId, isOpen, onClose, onActionComplete }) => {
     try {
       // ✅ ADAPTADO: Usar tus rutas actuales con POST
       const response = await axios.post(`/api/adminOperador/cargas/${cargaId}/aprobar`);
-      
+
       if (response.data.status === 'success') {
         setCarga(prev => ({ ...prev, estado: 'aprobado', fecha_aprobacion: new Date().toISOString() }));
         onActionComplete && onActionComplete();
@@ -74,11 +74,11 @@ const DetalleCargaModal = ({ cargaId, isOpen, onClose, onActionComplete }) => {
       const response = await axios.post(`/api/adminOperador/cargas/${cargaId}/rechazar`, {
         motivo_rechazo: motivoRechazo
       });
-      
+
       if (response.data.status === 'success') {
-        setCarga(prev => ({ 
-          ...prev, 
-          estado: 'rechazado', 
+        setCarga(prev => ({
+          ...prev,
+          estado: 'rechazado',
           fecha_aprobacion: new Date().toISOString(),
           motivo_rechazo: motivoRechazo
         }));
@@ -114,7 +114,7 @@ const DetalleCargaModal = ({ cargaId, isOpen, onClose, onActionComplete }) => {
       aprobado: 'bg-green-100 text-green-800 border-green-200',
       rechazado: 'bg-red-100 text-red-800 border-red-200'
     };
-    
+
     const icons = {
       pendiente: <FaClock className="w-4 h-4" />,
       aprobado: <FaCheckCircle className="w-4 h-4" />,
@@ -132,8 +132,11 @@ const DetalleCargaModal = ({ cargaId, isOpen, onClose, onActionComplete }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onClick={onClose}>
+
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <h2 className="text-xl font-bold text-gray-900">
@@ -291,11 +294,13 @@ const DetalleCargaModal = ({ cargaId, isOpen, onClose, onActionComplete }) => {
                     {carga.medicion && (
                       <div className="flex justify-between">
                         <span className="text-gray-600">Medición:</span>
-                        <span className="font-medium">{carga.medicion}</span>
+                        <span className="font-medium">
+                          {Number(carga.medicion).toLocaleString("es-CL")} km
+                        </span>
                       </div>
                     )}
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Faena:</span>
+                      <span className="text-gray-600">Lugar:</span>
                       <span className="font-medium">
                         {carga.faena?.ubicacion || 'Cargas Externas'}
                       </span>
@@ -354,12 +359,6 @@ const DetalleCargaModal = ({ cargaId, isOpen, onClose, onActionComplete }) => {
         {/* Actions */}
         {carga && carga.estado === 'pendiente' && !mostrarRechazo && (
           <div className="flex items-center justify-end space-x-4 p-6 border-t border-gray-200">
-            <button
-              onClick={() => setMostrarRechazo(true)}
-              className="px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition-colors"
-            >
-              Rechazar
-            </button>
             <button
               onClick={handleAprobar}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"

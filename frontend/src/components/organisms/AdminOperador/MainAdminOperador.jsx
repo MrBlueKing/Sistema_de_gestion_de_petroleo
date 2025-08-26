@@ -17,13 +17,13 @@ import {
 import { FiAlertTriangle, FiTrendingUp, FiFileText } from "react-icons/fi";
 
 // Importar el layout base y sus componentes
-import AdminLayoutBase, { 
-  MetricsSection, 
-  MetricCard, 
-  TableSection, 
+import AdminLayoutBase, {
+  MetricsSection,
+  MetricCard,
+  TableSection,
   SearchInput,
   ResponsiveTable,
-  AdditionalSection 
+  AdditionalSection
 } from './AdminLayoutBase';
 
 // Importar modal de detalle
@@ -52,12 +52,12 @@ const FAENA_COLORS = {
   5: {
     // Cargas Externas - Estilo Copec
     name: "Estacion de Servicio",
-    bg: "bg-blue-50/40",
-    border: "border-l-blue-500",
-    badge: "bg-blue-100 text-blue-800",
-    icon: "text-blue-600",
-    copecBlue: "text-[#0066cc]",
-    copecBg: "bg-gradient-to-r from-blue-50 to-blue-100/50",
+    bg: "bg-orange-50/40",
+    border: "border-l-orange-500",
+    badge: "bg-orange-100 text-orange-800",
+    icon: "text-orange-600",
+    copecorange: "text-[#0066cc]",
+    copecBg: "bg-gradient-to-r from-orange-50 to-orange-100/50",
     copecBorder: "border-l-[#0066cc]",
     copecBadge: "bg-[#0066cc]/10 text-[#0066cc]",
     emoji: "⛽",
@@ -181,17 +181,16 @@ const MainAdminOperador = () => {
           prev.map((carga) =>
             carga.id === cargaId
               ? {
-                  ...carga,
-                  estado: accion,
-                  fecha_aprobacion: new Date().toISOString(),
-                }
+                ...carga,
+                estado: accion,
+                fecha_aprobacion: new Date().toISOString(),
+              }
               : carga
           )
         );
 
         console.log(
-          `✅ Carga ${
-            accion === "aprobado" ? "aprobada" : "rechazada"
+          `✅ Carga ${accion === "aprobado" ? "aprobada" : "rechazada"
           } correctamente`
         );
       } else {
@@ -200,8 +199,7 @@ const MainAdminOperador = () => {
     } catch (error) {
       console.error(`❌ Error al ${accion} carga:`, error);
       setError(
-        `Error al ${accion === "aprobado" ? "aprobar" : "rechazar"} la carga: ${
-          error.response?.data?.message || error.message
+        `Error al ${accion === "aprobado" ? "aprobar" : "rechazar"} la carga: ${error.response?.data?.message || error.message
         }`
       );
     }
@@ -380,9 +378,8 @@ const MainAdminOperador = () => {
           <div className="text-right">
             <div className="text-xs text-gray-500 mb-1">Costo</div>
             <div
-              className={`font-bold text-base ${
-                esCargaExterna ? colores.copecBlue : colores.icon
-              }`}
+              className={`font-bold text-base ${esCargaExterna ? colores.copecorange : colores.icon
+                }`}
             >
               {formatCurrency(carga.costo)}
             </div>
@@ -394,9 +391,8 @@ const MainAdminOperador = () => {
           <div>
             <div className="flex items-center gap-1 mb-1">
               <FaUser
-                className={`${
-                  esCargaExterna ? colores.copecBlue : colores.icon
-                } text-xs`}
+                className={`${esCargaExterna ? colores.copecorange : colores.icon
+                  } text-xs`}
               />
               <span className="text-xs font-medium text-gray-600 uppercase">
                 Operador
@@ -410,9 +406,8 @@ const MainAdminOperador = () => {
           <div>
             <div className="flex items-center gap-1 mb-1">
               <FaTruck
-                className={`${
-                  esCargaExterna ? colores.copecBlue : colores.icon
-                } text-xs`}
+                className={`${esCargaExterna ? colores.copecorange : colores.icon
+                  } text-xs`}
               />
               <span className="text-xs font-medium text-gray-600 uppercase">
                 Vehículo
@@ -438,9 +433,8 @@ const MainAdminOperador = () => {
           <div>
             <div className="flex items-center gap-1 mb-1">
               <FaGasPump
-                className={`${
-                  esCargaExterna ? colores.copecBlue : colores.icon
-                } text-xs`}
+                className={`${esCargaExterna ? colores.copecorange : colores.icon
+                  } text-xs`}
               />
               <span className="text-xs font-medium text-gray-600 uppercase">
                 Litros
@@ -455,10 +449,10 @@ const MainAdminOperador = () => {
         {/* Estado y acciones */}
         <div className="mt-3 pt-2 border-t border-gray-100 flex items-center justify-between">
           {getEstadoBadge(carga.estado, esCargaExterna)}
-          
+
           <div className="flex items-center space-x-2">
             <button
-              className="text-blue-600 hover:text-blue-900 flex items-center space-x-1 text-xs"
+              className="text-orange-600 hover:text-orange-900 flex items-center space-x-1 text-xs"
               onClick={() => handleVerDetalle(carga.id)}
             >
               <FaEye className="h-3 w-3" />
@@ -490,7 +484,7 @@ const MainAdminOperador = () => {
   // Headers para la tabla (reducidos para evitar overflow)
   const tableHeaders = [
     "Boleta / Operador",
-    "Máquina / Ubicación", 
+    "Máquina / Ubicación",
     "Consumo",
     "Estado",
     "Fecha",
@@ -513,8 +507,8 @@ const MainAdminOperador = () => {
 
     // Vista desktop (optimizada para evitar overflow)
     return (
-      <tr 
-        key={carga.id} 
+      <tr
+        key={carga.id}
         className={`
           ${esCargaExterna ? colores.copecBg : colores.bg} 
           ${esCargaExterna ? colores.copecBorder : colores.border} 
@@ -533,7 +527,7 @@ const MainAdminOperador = () => {
             </div>
           </div>
         </td>
-        
+
         {/* Máquina / Ubicación */}
         <td className="px-4 py-4 text-sm">
           <div>
@@ -541,54 +535,48 @@ const MainAdminOperador = () => {
             <p className="text-xs text-gray-500">{carga.maquina?.patente} • {carga.ubicacion}</p>
           </div>
         </td>
-        
+
         {/* Consumo (Litros + Costo) */}
         <td className="px-4 py-4 text-sm">
           <div className="flex items-center">
-            <FaGasPump className="w-3 h-3 text-blue-600 mr-1" />
+            <FaGasPump className="w-3 h-3 text-orange-600 mr-1" />
             <div>
               <p className="font-medium text-gray-900">{carga.litros} L</p>
-              <p className={`text-xs font-semibold ${esCargaExterna ? colores.copecBlue : 'text-green-600'}`}>
+              <p className={`text-xs font-semibold ${esCargaExterna ? colores.copecorange : 'text-green-600'}`}>
                 {formatCurrency(carga.costo)}
               </p>
             </div>
           </div>
         </td>
-        
+
         {/* Estado */}
         <td className="px-4 py-4">
           {getEstadoBadge(carga.estado, esCargaExterna)}
         </td>
-        
+
         {/* Fecha */}
         <td className="px-4 py-4 text-xs text-gray-500">
           {formatDate(carga.created_at)}
         </td>
-        
+
         {/* Acciones */}
         <td className="px-4 py-4">
           <div className="flex items-center space-x-2">
             <button
-              className="text-blue-600 hover:text-blue-900 flex items-center space-x-1 text-xs"
               onClick={() => handleVerDetalle(carga.id)}
+              className="inline-flex items-center px-3 py-1 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              title="Ver historial y detalles completos"
             >
-              <FaEye className="h-3 w-3" />
-              <span>Ver</span>
+              <FaEye className="w-3 h-3 mr-1" />
+              Ver
             </button>
 
             {carga.estado === "pendiente" && (
               <>
                 <button
-                  className="text-green-600 hover:text-green-900 text-xs px-2 py-1 border border-green-300 rounded hover:bg-green-50"
-                  onClick={() => handleAccion(carga.id, "aprobado")}
+                  className="inline-flex items-center px-3 py-1 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
                 >
                   Aprobar
-                </button>
-                <button
-                  className="text-red-600 hover:text-red-900 text-xs px-2 py-1 border border-red-300 rounded hover:bg-red-50"
-                  onClick={() => handleRechazar(carga.id)}
-                >
-                  Rechazar
                 </button>
               </>
             )}
@@ -601,13 +589,6 @@ const MainAdminOperador = () => {
   // Componente para acciones del header
   const headerActions = (
     <>
-      <button
-        onClick={handleIrAConsumosView}
-        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors shadow-sm"
-      >
-        <FaListAlt className="w-4 h-4 mr-2" />
-        Vista de Consumos
-      </button>
       <div className="text-right">
         <p className="text-sm text-gray-500">Última actualización</p>
         <p className="text-sm font-medium text-gray-900">
@@ -627,7 +608,7 @@ const MainAdminOperador = () => {
       >
         <div className="min-h-64 flex items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto"></div>
             <p className="mt-4 text-gray-600">Cargando datos de cargas externas...</p>
           </div>
         </div>
@@ -649,7 +630,7 @@ const MainAdminOperador = () => {
           title="Total de Cargas"
           value={stats.total}
           icon={FaTruck}
-          color="blue"
+          color="orange"
         />
         <MetricCard
           title="Pendientes"
@@ -677,7 +658,7 @@ const MainAdminOperador = () => {
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">Litros totales</span>
-              <span className="text-xl font-bold text-blue-600">
+              <span className="text-xl font-bold text-orange-600">
                 {stats.totalLitros.toLocaleString()} L
               </span>
             </div>
@@ -743,7 +724,7 @@ const MainAdminOperador = () => {
           renderRow={renderTableRow}
           loading={loading}
           emptyMessage={
-            searchTerm 
+            searchTerm
               ? "No se encontraron cargas con ese criterio de búsqueda."
               : "Aún no hay cargas registradas."
           }

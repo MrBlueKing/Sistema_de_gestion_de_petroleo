@@ -2,16 +2,17 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import useConsumos from "../../../hook/AdminVehiculos/useConsumos";
 import UniversalTableFilter from "../../molecules/UniversalTableFilter";
 import FiltrosComponent from "../../molecules/FiltrosComponent";
-import { 
-  FaCheck, 
-  FaClock, 
+import DetalleCargaModal from "../../molecules/DetalleCargaModal";
+import {
+  FaCheck,
+  FaClock,
   FaSearch,
   FaCalendarAlt,
-  FaTimes, 
-  FaEye, 
+  FaTimes,
+  FaEye,
   FaTimesCircle,
   FaCheckCircle,
-  FaExclamationTriangle 
+  FaExclamationTriangle
 } from "react-icons/fa";
 
 // Configuración de estados
@@ -87,29 +88,29 @@ const getFaenaColorsById = (faenaId) => {
 
 // 🆕 Fallback de ubicaciones por defecto
 const faenasPorDefecto = [
-  { 
-    value: "todas", 
+  {
+    value: "todas",
     label: "📍 Todas las ubicaciones",
     ubicacionesOriginales: [],
     representativo: "Todas las ubicaciones",
     faenaId: null
   },
-  { 
-    value: "copec san felipe", 
+  {
+    value: "copec san felipe",
     label: "📍 Copec San Felipe",
     ubicacionesOriginales: ["Copec San Felipe", "copec san felipe", "COPEC SAN FELIPE"],
     representativo: "Copec San Felipe",
     faenaId: 5
   },
-  { 
-    value: "copec la ligua", 
+  {
+    value: "copec la ligua",
     label: "📍 Copec La Ligua",
     ubicacionesOriginales: ["Copec La Ligua", "copec la ligua", "COPEC LA LIGUA"],
     representativo: "Copec La Ligua",
     faenaId: 5
   },
-  { 
-    value: "copec cabildo", 
+  {
+    value: "copec cabildo",
     label: "📍 Copec Cabildo",
     ubicacionesOriginales: ["Copec Cabildo", "copec cabildo", "COPEC CABILDO"],
     representativo: "Copec Cabildo",
@@ -149,12 +150,34 @@ const ConsumosViewOptimized = () => {
     ordenamientoInicial: { columna: "created_at", direccion: "desc" },
   });
 
-  // 📱 Estados locales para modal
-  const [cargaSeleccionada, setCargaSeleccionada] = useState(null);
-  const [modalDetalle, setModalDetalle] = useState(false);
+  // ⭐ NUEVOS ESTADOS PARA EL MODAL DE DETALLE
+  const [selectedCargaId, setSelectedCargaId] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // 🆕 Estado para ubicaciones disponibles
   const [ubicacionesDisponibles, setUbicacionesDisponibles] = useState([]);
+
+
+  // Funciones para manejar el modal de detalle
+  const handleVerDetalle = (cargaId) => {
+    console.log('🔍 Abriendo detalle para carga ID:', cargaId);
+    setSelectedCargaId(cargaId);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedCargaId(null);
+  };
+
+  const handleActionComplete = () => {
+    // Actualizar los datos después de una acción en el modal
+    refrescarDatos();
+    // Si hay callback del componente padre, ejecutarlo
+    if (onCargaUpdate) {
+      onCargaUpdate();
+    }
+  };
 
   // 🆕 Estados para FiltrosComponent
   const [filtrosFecha, setFiltrosFecha] = useState({
@@ -193,11 +216,11 @@ const ConsumosViewOptimized = () => {
   // 🧠 Función inteligente para normalizar y agrupar ubicaciones
   const normalizarUbicaciones = useCallback((ubicaciones) => {
     console.log('🧠 Normalizando ubicaciones:', ubicaciones);
-    
+
     // Paso 1: Normalizar cada ubicación
     const ubicacionesNormalizadas = ubicaciones.map(ubicacion => {
       const original = ubicacion;
-      
+
       // Limpiar espacios y normalizar
       let limpia = ubicacion
         .trim()
@@ -206,22 +229,22 @@ const ConsumosViewOptimized = () => {
         .replace(/[0-9]/g, '')
         .replace(/\s+/g, ' ')
         .trim();
-      
+
       console.log(`🔄 "${original}" → "${limpia}"`);
-      
+
       return {
         original,
         normalizada: limpia,
         palabras: limpia.split(' ').filter(p => p.length > 2)
       };
     });
-    
+
     // Paso 2: Agrupar por similitud
     const grupos = new Map();
-    
+
     ubicacionesNormalizadas.forEach(({ original, normalizada, palabras }) => {
       let grupoEncontrado = null;
-      
+
       // Buscar si ya existe un grupo similar
       for (let [clave, grupo] of grupos) {
         // Criterio 1: Coincidencia exacta normalizada
@@ -229,26 +252,26 @@ const ConsumosViewOptimized = () => {
           grupoEncontrado = grupo;
           break;
         }
-        
+
         // Criterio 2: Coincidencia de palabras principales
         const palabrasGrupo = grupo.palabrasRepresentativas;
         const coincidencias = palabras.filter(p => palabrasGrupo.includes(p));
-        
+
         // Si coinciden más del 60% de las palabras principales
         if (palabras.length > 0 && coincidencias.length / palabras.length > 0.6) {
           grupoEncontrado = grupo;
           break;
         }
       }
-      
+
       if (grupoEncontrado) {
         // Agregar al grupo existente
         grupoEncontrado.ubicaciones.push(original);
         grupoEncontrado.conteo++;
-        
+
         // Actualizar el representativo si es más común o más limpio
-        if (original.length < grupoEncontrado.representativo.length || 
-            grupoEncontrado.conteo === 1) {
+        if (original.length < grupoEncontrado.representativo.length ||
+          grupoEncontrado.conteo === 1) {
           grupoEncontrado.representativo = original;
         }
       } else {
@@ -262,15 +285,15 @@ const ConsumosViewOptimized = () => {
         });
       }
     });
-    
+
     // Paso 3: Crear opciones agrupadas
     const opcionesAgrupadas = Array.from(grupos.values())
       .sort((a, b) => a.representativo.localeCompare(b.representativo))
       .map(grupo => {
-        const etiqueta = grupo.conteo > 1 
+        const etiqueta = grupo.conteo > 1
           ? `📍 ${grupo.representativo} (${grupo.conteo} variantes)`
           : `📍 ${grupo.representativo}`;
-          
+
         return {
           value: grupo.normalizada,
           label: etiqueta,
@@ -279,7 +302,7 @@ const ConsumosViewOptimized = () => {
           faenaId: 5
         };
       });
-    
+
     console.log('✅ Ubicaciones agrupadas con originales:', opcionesAgrupadas);
     return opcionesAgrupadas;
   }, []);
@@ -287,7 +310,7 @@ const ConsumosViewOptimized = () => {
   // 🔧 Actualizar la función de extracción para usar normalización
   const extraerUbicaciones = useCallback((cargas) => {
     const ubicacionesUnicas = new Set();
-    
+
     cargas.forEach(carga => {
       if (carga.ubicacion) {
         ubicacionesUnicas.add(carga.ubicacion);
@@ -315,13 +338,13 @@ const ConsumosViewOptimized = () => {
 
   // 🔧 Función de ordenamiento mejorada
   const manejarCambioOrdenamiento = useCallback((columna, direccionEspecifica = null) => {
-    console.log('🔧 Click en ordenamiento:', { 
-      columna, 
-      direccionEspecifica, 
-      columnaActual: ordenColumna, 
-      direccionActual: direccionOrden 
+    console.log('🔧 Click en ordenamiento:', {
+      columna,
+      direccionEspecifica,
+      columnaActual: ordenColumna,
+      direccionActual: direccionOrden
     });
-    
+
     if (ordenColumna === columna) {
       // 🔄 MISMA COLUMNA: Alternar SIEMPRE
       const nuevaDireccion = direccionOrden === "asc" ? "desc" : "asc";
@@ -337,7 +360,7 @@ const ConsumosViewOptimized = () => {
   // 🆕 Función para manejar cambios en FiltrosComponent
   const handleFiltrosChange = useCallback((nuevosFiltros) => {
     console.log('🔧 Cambio en filtros recibidos:', nuevosFiltros);
-    
+
     setFiltrosFecha(prev => ({
       ...prev,
       ...nuevosFiltros
@@ -373,13 +396,13 @@ const ConsumosViewOptimized = () => {
     if (filtrosFecha.fechaDesde || filtrosFecha.fechaHasta) {
       resultado = resultado.filter(carga => {
         const fechaCarga = new Date(carga.created_at);
-        
+
         const fechaDesde = filtrosFecha.fechaDesde ? new Date(filtrosFecha.fechaDesde + 'T00:00:00') : null;
         const fechaHasta = filtrosFecha.fechaHasta ? new Date(filtrosFecha.fechaHasta + 'T23:59:59') : null;
 
         if (fechaDesde && fechaCarga < fechaDesde) return false;
         if (fechaHasta && fechaCarga > fechaHasta) return false;
-        
+
         return true;
       });
     }
@@ -388,11 +411,11 @@ const ConsumosViewOptimized = () => {
     if (filtrosFecha.faenaSeleccionada && filtrosFecha.faenaSeleccionada !== "todas") {
       resultado = resultado.filter(carga => {
         if (!carga.ubicacion) return false;
-        
+
         const opcionSeleccionada = ubicacionesDisponibles.find(
           opcion => opcion.value === filtrosFecha.faenaSeleccionada
         );
-        
+
         if (opcionSeleccionada?.ubicacionesOriginales) {
           return opcionSeleccionada.ubicacionesOriginales.includes(carga.ubicacion);
         } else {
@@ -403,7 +426,7 @@ const ConsumosViewOptimized = () => {
             .replace(/[0-9]/g, '')
             .replace(/\s+/g, ' ')
             .trim();
-          
+
           return ubicacionNormalizada === filtrosFecha.faenaSeleccionada;
         }
       });
@@ -415,7 +438,7 @@ const ConsumosViewOptimized = () => {
   // 🔧 GENERAR OPCIONES PARA LOS FILTROS DE COLUMNAS
   const opcionesFiltros = useMemo(() => {
     const datos = datosConFiltrosFecha;
-    
+
     return {
       numeroBoletas: [...new Set(datos.map(c => c.numero_boleta).filter(Boolean))].sort(),
       usuarios: [...new Set(datos.map(c => `${c.user?.nombre || ''} ${c.user?.apellido || ''}`.trim()).filter(Boolean))].sort(),
@@ -435,8 +458,8 @@ const ConsumosViewOptimized = () => {
       const boletasSeleccionadas = filtrosAvanzados.numero_boleta.split(',').map(b => b.trim()).filter(Boolean);
       if (boletasSeleccionadas.length > 0) {
         resultado = resultado.filter(carga =>
-  carga.numero_boleta?.toLowerCase().includes(filtrosAvanzados.numero_boleta.toLowerCase())
-);
+          carga.numero_boleta?.toLowerCase().includes(filtrosAvanzados.numero_boleta.toLowerCase())
+        );
       }
     }
 
@@ -445,9 +468,9 @@ const ConsumosViewOptimized = () => {
       const usuariosSeleccionados = filtrosAvanzados.usuario.split(',').map(u => u.trim()).filter(Boolean);
       if (usuariosSeleccionados.length > 0) {
         resultado = resultado.filter(carga => {
-  const nombreCompleto = `${carga.user?.nombre || ''} ${carga.user?.apellido || ''}`.trim();
-  return nombreCompleto.toLowerCase().includes(filtrosAvanzados.usuario.toLowerCase());
-});
+          const nombreCompleto = `${carga.user?.nombre || ''} ${carga.user?.apellido || ''}`.trim();
+          return nombreCompleto.toLowerCase().includes(filtrosAvanzados.usuario.toLowerCase());
+        });
       }
     }
 
@@ -456,8 +479,8 @@ const ConsumosViewOptimized = () => {
       const maquinasSeleccionadas = filtrosAvanzados.maquina.split(',').map(m => m.trim()).filter(Boolean);
       if (maquinasSeleccionadas.length > 0) {
         resultado = resultado.filter(carga =>
-  carga.maquina?.nombre_maquina?.toLowerCase().includes(filtrosAvanzados.maquina.toLowerCase())
-);
+          carga.maquina?.nombre_maquina?.toLowerCase().includes(filtrosAvanzados.maquina.toLowerCase())
+        );
 
       }
     }
@@ -467,8 +490,8 @@ const ConsumosViewOptimized = () => {
       const patentesSeleccionadas = filtrosAvanzados.patente.split(',').map(p => p.trim()).filter(Boolean);
       if (patentesSeleccionadas.length > 0) {
         resultado = resultado.filter(carga =>
-  carga.maquina?.patente?.toLowerCase().includes(filtrosAvanzados.patente.toLowerCase())
-);
+          carga.maquina?.patente?.toLowerCase().includes(filtrosAvanzados.patente.toLowerCase())
+        );
       }
     }
 
@@ -476,9 +499,9 @@ const ConsumosViewOptimized = () => {
     if (filtrosAvanzados.ubicacion) {
       const ubicacionesSeleccionadas = filtrosAvanzados.ubicacion.split(',').map(u => u.trim()).filter(Boolean);
       if (ubicacionesSeleccionadas.length > 0) {
-       resultado = resultado.filter(carga =>
-  carga.ubicacion?.toLowerCase().includes(filtrosAvanzados.ubicacion.toLowerCase())
-);
+        resultado = resultado.filter(carga =>
+          carga.ubicacion?.toLowerCase().includes(filtrosAvanzados.ubicacion.toLowerCase())
+        );
       }
     }
 
@@ -496,14 +519,14 @@ const ConsumosViewOptimized = () => {
   const limpiarTodosLosFiltros = useCallback(() => {
     // Limpiar filtros del hook
     limpiarFiltrosHook();
-    
+
     // Limpiar filtros de fecha
     setFiltrosFecha({
       fechaDesde: "",
       fechaHasta: "",
       faenaSeleccionada: "todas",
     });
-    
+
     // Limpiar filtros de fecha personalizados
     setFiltrosFechaPersonalizados({
       fechaDesde: "",
@@ -511,7 +534,7 @@ const ConsumosViewOptimized = () => {
       horaDesde: "00",
       horaHasta: "23",
     });
-    
+
     // Limpiar filtros avanzados
     setFiltrosAvanzados({
       numero_boleta: "",
@@ -525,13 +548,13 @@ const ConsumosViewOptimized = () => {
 
   // Determinar si hay filtros activos
   const hayFiltrosActivosTotal = useMemo(() => {
-    return hayFiltrosActivos || 
-           filtrosFecha.fechaDesde || 
-           filtrosFecha.fechaHasta ||
-           filtrosFecha.faenaSeleccionada !== "todas" ||
-           filtrosFechaPersonalizados.fechaDesde ||
-           filtrosFechaPersonalizados.fechaHasta ||
-           Object.values(filtrosAvanzados).some(valor => valor !== "");
+    return hayFiltrosActivos ||
+      filtrosFecha.fechaDesde ||
+      filtrosFecha.fechaHasta ||
+      filtrosFecha.faenaSeleccionada !== "todas" ||
+      filtrosFechaPersonalizados.fechaDesde ||
+      filtrosFechaPersonalizados.fechaHasta ||
+      Object.values(filtrosAvanzados).some(valor => valor !== "");
   }, [hayFiltrosActivos, filtrosFecha, filtrosFechaPersonalizados, filtrosAvanzados]);
 
   // Wrapper para el ordenamiento
@@ -549,7 +572,7 @@ const ConsumosViewOptimized = () => {
             Administra y supervisa todos los consumos de combustible
           </p>
         </div>
-        
+
         {/* Estadísticas rápidas */}
         <div className="flex gap-4 mt-4 sm:mt-0">
           <div className="text-center">
@@ -697,7 +720,7 @@ const ConsumosViewOptimized = () => {
         </div>
       </div>
 
-    
+
 
       {/* 🔍 BARRA DE FILTROS ACTIVOS */}
       {hayFiltrosActivosTotal && (
@@ -707,7 +730,7 @@ const ConsumosViewOptimized = () => {
               <FaSearch className="w-3 h-3" />
               Filtros activos:
             </span>
-            
+
             {/* Filtros básicos del hook */}
             {searchTerm && (
               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
@@ -778,15 +801,15 @@ const ConsumosViewOptimized = () => {
             )}
 
             {/* Filtros avanzados simples */}
-            {Object.entries(filtrosAvanzados).map(([key, value]) => 
+            {Object.entries(filtrosAvanzados).map(([key, value]) =>
               value && (
                 <span key={key} className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
-                  {key === 'numero_boleta' ? 'Boleta' : 
-                   key === 'usuario' ? 'Usuario' : 
-                   key === 'maquina' ? 'Máquina' : 
-                   key === 'patente' ? 'Patente' : 
-                   key === 'ubicacion' ? 'Ubicación' :
-                   key === 'estado' ? 'Estado' : key}: {value.length > 20 ? `${value.substring(0, 20)}...` : value}
+                  {key === 'numero_boleta' ? 'Boleta' :
+                    key === 'usuario' ? 'Usuario' :
+                      key === 'maquina' ? 'Máquina' :
+                        key === 'patente' ? 'Patente' :
+                          key === 'ubicacion' ? 'Ubicación' :
+                            key === 'estado' ? 'Estado' : key}: {value.length > 20 ? `${value.substring(0, 20)}...` : value}
                   <button
                     onClick={() => manejarCambioFiltroAvanzado(key, "")}
                     className="ml-1 text-blue-600 hover:text-blue-800"
@@ -847,34 +870,34 @@ const ConsumosViewOptimized = () => {
                   Mostrando <strong>{datosFiltrados.length}</strong> de <strong>{cargas.length}</strong> registros
                   {hayFiltrosActivosTotal && (
                     <span className="text-blue-600 ml-2">
-                      ({Object.values(filtrosAvanzados).filter(v => v).length + 
+                      ({Object.values(filtrosAvanzados).filter(v => v).length +
                         (filtrosFecha.fechaDesde || filtrosFecha.fechaHasta || filtrosFecha.faenaSeleccionada !== "todas" ? 1 : 0) +
                         (filtrosFechaPersonalizados.fechaDesde || filtrosFechaPersonalizados.fechaHasta ? 1 : 0) +
-                        (searchTerm ? 1 : 0) + 
+                        (searchTerm ? 1 : 0) +
                         (filtroEstado !== "todos" ? 1 : 0)} filtros activos)
                     </span>
                   )}
                 </span>
               </div>
-              
+
               {/* Información de ordenamiento */}
               {ordenColumna && (
                 <span className="text-sm text-gray-600">
                   Ordenando por: <strong>
                     {ordenColumna === "created_at" ? "Fecha" :
-                     ordenColumna === "numero_boleta" ? "N° Boleta" :
-                     ordenColumna === "usuario" ? "Usuario" :
-                     ordenColumna === "maquina" ? "Máquina" :
-                     ordenColumna === "litros" ? "Litros" :
-                     ordenColumna === "costo" ? "Costo" :
-                     ordenColumna === "estado" ? "Estado" :
-                     ordenColumna}
+                      ordenColumna === "numero_boleta" ? "N° Boleta" :
+                        ordenColumna === "usuario" ? "Usuario" :
+                          ordenColumna === "maquina" ? "Máquina" :
+                            ordenColumna === "litros" ? "Litros" :
+                              ordenColumna === "costo" ? "Costo" :
+                                ordenColumna === "estado" ? "Estado" :
+                                  ordenColumna}
                   </strong> {direccionOrden === "desc" ? "↓" : "↑"}
                 </span>
               )}
             </div>
           </div>
-          
+
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -993,20 +1016,20 @@ const ConsumosViewOptimized = () => {
                 {datosFiltrados.map(carga => {
                   const configEstado = estadosConfig[carga.estado] || estadosConfig.pendiente;
                   const IconoEstado = configEstado.icono;
-                  
+
                   // 🎨 Obtener colores de faena
                   const coloresFaena = getFaenaColorsById(carga.id_faena);
                   const esCargaExterna = carga.id_faena === 5;
-                  
+
                   return (
-                    <tr 
-                      key={carga.id} 
+                    <tr
+                      key={carga.id}
                       className={`hover:bg-gray-50 transition-colors ${esCargaExterna ? coloresFaena.copecBg : coloresFaena.bg} ${esCargaExterna ? coloresFaena.copecBorder : coloresFaena.border} border-l-4`}
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {new Date(carga.created_at).toLocaleDateString("es-CL", {
                           day: "2-digit",
-                          month: "2-digit", 
+                          month: "2-digit",
                           year: "numeric"
                         })}
                       </td>
@@ -1050,14 +1073,12 @@ const ConsumosViewOptimized = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                         <button
-                          onClick={() => {
-                            setCargaSeleccionada(carga);
-                            setModalDetalle(true);
-                          }}
-                          className="text-orange-600 hover:text-orange-900 transition-colors"
-                          title="Ver detalles"
+                          onClick={() => handleVerDetalle(carga.id)}
+                          className="inline-flex items-center px-3 py-1 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                          title="Ver historial y detalles completos"
                         >
-                          <FaEye className="w-4 h-4" />
+                          <FaEye className="w-3 h-3 mr-1" />
+                          Ver
                         </button>
                       </td>
                     </tr>
@@ -1124,7 +1145,7 @@ const ConsumosViewOptimized = () => {
             <FaExclamationTriangle className="mx-auto h-12 w-12 text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No se encontraron registros</h3>
             <p className="text-sm text-gray-500">
-              {hayFiltrosActivosTotal 
+              {hayFiltrosActivosTotal
                 ? "Prueba ajustando los filtros o limpiándolos para ver más resultados"
                 : "No hay consumos registrados en el sistema"
               }
@@ -1140,6 +1161,13 @@ const ConsumosViewOptimized = () => {
           </div>
         </div>
       )}
+      {/* Modal de detalle de carga */}
+      <DetalleCargaModal
+        cargaId={selectedCargaId}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onActionComplete={handleActionComplete}
+      />
     </div>
   );
 };
