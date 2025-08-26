@@ -1,11 +1,11 @@
 import React from "react";
-import Header from "../../organisms/Administrador/Header";
+import UniversalHeader from "../../organisms/Todos/UniversalHeader";
 import GestionarPermisoMaquinaMain from "../../organisms/Administrador/GestionarPermisoMaquinaMain";
 
 const GestionarPersonalExternoPersonalPage = () => {
   return (
     <div>
-      <Header />
+<UniversalHeader type="admin" />
       <GestionarPermisoMaquinaMain />
     </div>    
   );

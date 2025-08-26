@@ -90,7 +90,9 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - [Ready] Gerente : Graficos.jsx --> Se corrige ToolTip para que no cubra la Barra/Sección a la cual se le ve el detalle.
 
-- [WIP] Administrador Vehiculos : ConsumosView.jsx --> Agregar tabla que liste los consumos con sus respectivos datos de interes.
+- [Testing] Administrador Vehiculos : ConsumosView.jsx --> Agregar tabla que liste los consumos con sus respectivos datos de interes.
+
+- [Testing] Gerente : Graficos.jsx → Optimización en la obtención de datos para mejorar la velocidad de carga y evitar recursión de recursos, reduciendo tiempos de espera excesivos.
 
 ### Security
 

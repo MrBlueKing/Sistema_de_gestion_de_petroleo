@@ -1,10 +1,10 @@
-import HeaderAdmin from '../../organisms/Administrador/Header';
+import UniversalHeader from "../../organisms/Todos/UniversalHeader";
 import MainUserRegister from '../../organisms/Administrador/MainUserRegister';
 
 const AdministradorUserRegister = () => {
   return (
     <div>
-      <HeaderAdmin />
+      <UniversalHeader type="admin" />
       <MainUserRegister />
     </div>
   );

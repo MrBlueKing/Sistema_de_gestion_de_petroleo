@@ -29,21 +29,10 @@ const DashboardComparativo = ({
   faenaSeleccionada = "todas",
   fechaDesde,
   fechaHasta,
-  refreshKey = 0,
-  chartColors = [
-    "#f97316",
-    "#3b82f6",
-    "#10b981",
-    "#f59e0b",
-    "#8b5cf6",
-    "#ef4444",
-    "#06b6d4",
-    "#84cc16",
-    "#f43f5e",
-    "#6366f1",
-  ],
+  refreshKey,
+  
 }) => {
-  // 🔍 Estados principales para los 4 gráficos
+  // Estados principales para los 4 gráficos
   const [datosTotal, setDatosTotal] = useState({ actual: 0, anterior: 0 });
   const [datosFaenas, setDatosFaenas] = useState([]);
   const [datosCategorias, setDatosCategorias] = useState([]);
@@ -53,26 +42,24 @@ const DashboardComparativo = ({
   const [periodoAnteriorDescripcion, setPeriodoAnteriorDescripcion] =
     useState("");
 
-  // 🆕 NUEVO: Estado para filtrar equipos (invertido)
+  // NUEVO: Estado para filtrar equipos
   const [mostrarEquiposSinDatos, setMostrarEquiposSinDatos] = useState(false);
 
-  // Ref para verificar si el componente está montado
+  // NUEVAS PROTECCIONES CONTRA CARGAS MÚLTIPLES
+  const [isLoading, setIsLoading] = useState(false);
+  const abortControllerRef = useRef(null);
+  const debounceTimeoutRef = useRef(null);
+
+  // Refs para verificar si el componente está montado
   const isMounted = useRef(true);
-  const initialLoadDone = useRef(false);
 
-  useEffect(() => {
-    isMounted.current = true;
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
 
-  // 🗓️ Función para calcular período anterior (mes anterior)
+ 
+  // Función para calcular período anterior (mes anterior)
   const calcularPeriodoAnterior = () => {
     const inicioActual = new Date(fechaDesde);
     const finActual = new Date(fechaHasta);
 
-    // Calcular mes anterior
     const inicioAnterior = new Date(inicioActual);
     inicioAnterior.setMonth(inicioAnterior.getMonth() - 1);
 
@@ -94,12 +81,13 @@ const DashboardComparativo = ({
     };
   };
 
-  // 🚀 Función para obtener datos de un período específico usando TU API - CORREGIDA
-  const obtenerDatosPeriodo = async (fechaInicio, fechaFin) => {
+  // FUNCIÓN OPTIMIZADA: Obtener datos de un período específico
+  const obtenerDatosPeriodo = async (fechaInicio, fechaFin, signal) => {
     console.log("📊 DashboardComparativo: Consultando período:", {
       fechaInicio,
       fechaFin,
       faenaSeleccionada,
+      timestamp: Date.now(),
     });
 
     const params = {
@@ -109,26 +97,32 @@ const DashboardComparativo = ({
     };
 
     try {
-      // Realizar las 4 consultas en paralelo usando TU API
+      // Realizar las 4 consultas en paralelo con cancelación
       const [totalResponse, faenasResponse, equiposResponse, kpisResponse] =
         await Promise.all([
-          // 1. KPIs generales (incluye total)
           axios.get("/api/informes-kpi", {
             params: { ...params, tipo: "kpis_consumo" },
+            signal,
           }),
-          // 2. Por faenas
           axios.get("/api/informes-kpi", {
             params: { ...params, tipo: "consumo_faenas" },
+            signal,
           }),
-          // 3. Por equipos (que incluye categorías)
           axios.get("/api/informes-kpi", {
             params: { ...params, tipo: "consumo_equipos" },
+            signal,
           }),
-          // 4. Datos adicionales
           axios.get("/api/informes-kpi", {
             params: { ...params, tipo: "kpis_consumo" },
+            signal,
           }),
         ]);
+
+      // Verificar si la request fue cancelada
+      if (signal.aborted) {
+        console.log("🚫 Request cancelada");
+        return null;
+      }
 
       console.log("📊 DashboardComparativo: Respuestas recibidas:", {
         total: totalResponse.data,
@@ -137,12 +131,12 @@ const DashboardComparativo = ({
         kpis: kpisResponse.data,
       });
 
-      // 📊 PROCESAR LOS DATOS SEGÚN LA ESTRUCTURA DE TU API
+      // PROCESAR LOS DATOS SEGÚN LA ESTRUCTURA DE LA API
 
-      // 1. Total general (de kpis_consumo)
+      // 1. Total general
       const totalConsumo = totalResponse.data?.data?.consumo_total_mes || 0;
 
-      // 2. Por faenas (directamente de consumo_faenas)
+      // 2. Por faenas
       const faenas = faenasResponse.data?.data || [];
 
       // 3. Por categorías (extraer de equipos)
@@ -156,7 +150,6 @@ const DashboardComparativo = ({
         return acc;
       }, {});
 
-      // Convertir categorías a array
       const categoriasArray = Object.entries(categorias).map(
         ([nombre, consumo]) => ({
           categoria: nombre,
@@ -164,14 +157,12 @@ const DashboardComparativo = ({
         })
       );
 
-      // 4. 🛠️ CORREGIDO: Top equipos con categoría incluida
+      // 4. Top equipos con categoría incluida
       const topEquipos = equipos
         .sort((a, b) => parseFloat(b.consumo || 0) - parseFloat(a.consumo || 0))
-
         .map((equipo) => ({
           nombre_equipo: equipo.nombre || "Sin nombre",
           patente: equipo.patente || "",
-          // 🛠️ CORRECCIÓN CRÍTICA: Incluir categoría
           categoria: equipo.categoria || "Sin categoría",
           litros_consumidos: parseFloat(equipo.consumo || 0),
         }));
@@ -193,9 +184,14 @@ const DashboardComparativo = ({
         equipos: topEquipos,
       };
     } catch (error) {
+      if (error.name === "AbortError") {
+        console.log("🚫 Request abortada por el usuario");
+        return null;
+      }
+
       console.error("❌ DashboardComparativo: Error en consulta:", error);
 
-      // 🔧 FALLBACK: Devolver datos vacíos pero válidos
+      // FALLBACK: Devolver datos vacíos pero válidos
       return {
         total: 0,
         faenas: [],
@@ -205,16 +201,44 @@ const DashboardComparativo = ({
     }
   };
 
-  // 🔄 Función principal para cargar todos los datos
+  // FUNCIÓN PRINCIPAL CON TODAS LAS PROTECCIONES
   const cargarTodosLosDatos = async () => {
-    if (!isMounted.current || !fechaDesde || !fechaHasta) return;
+    // Validaciones iniciales
+    if (!isMounted.current || !fechaDesde || !fechaHasta) {
+      console.log(
+        "🚫 Carga cancelada: componente desmontado o fechas faltantes"
+      );
+      return;
+    }
 
+    // Prevenir cargas concurrentes
+    if (isLoading) {
+      console.log("🚫 Carga cancelada: ya hay una carga en progreso");
+      return;
+    }
+
+    // Cancelar request anterior si existe
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Crear nuevo AbortController
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+
+    console.log("🚀 DashboardComparativo: Iniciando carga única:", {
+      timestamp: Date.now(),
+      fechaDesde,
+      fechaHasta,
+      faenaSeleccionada,
+      refreshKey,
+    });
+
+    setIsLoading(true);
     setLoading(true);
     setError(null);
 
     try {
-      console.log("🚀 DashboardComparativo: Iniciando carga de datos...");
-
       // Calcular período anterior
       const periodoAnterior = calcularPeriodoAnterior();
       setPeriodoAnteriorDescripcion(periodoAnterior.descripcion);
@@ -226,12 +250,19 @@ const DashboardComparativo = ({
 
       // Cargar ambos períodos en paralelo
       const [datosActuales, datosAnteriores] = await Promise.all([
-        obtenerDatosPeriodo(fechaDesde, fechaHasta),
+        obtenerDatosPeriodo(fechaDesde, fechaHasta, signal),
         obtenerDatosPeriodo(
           periodoAnterior.fechaDesde,
-          periodoAnterior.fechaHasta
+          periodoAnterior.fechaHasta,
+          signal
         ),
       ]);
+
+      // Verificar si fue cancelado o hay datos nulos
+      if (signal.aborted || !datosActuales || !datosAnteriores) {
+        console.log("🚫 Carga cancelada o datos nulos");
+        return;
+      }
 
       if (!isMounted.current) return;
 
@@ -240,13 +271,13 @@ const DashboardComparativo = ({
         anteriores: datosAnteriores,
       });
 
-      // 📊 GRÁFICO 1: Total general
+      // GRÁFICO 1: Total general
       setDatosTotal({
         actual: datosActuales.total,
         anterior: datosAnteriores.total,
       });
 
-      // 📊 GRÁFICO 2: Por faenas - unificar datos para gráfico de barras
+      // GRÁFICO 2: Por faenas - unificar datos para gráfico de barras
       const todasFaenas = new Map();
 
       datosActuales.faenas.forEach((faena, index) => {
@@ -271,7 +302,7 @@ const DashboardComparativo = ({
 
       setDatosFaenas(Array.from(todasFaenas.values()));
 
-      // 📊 GRÁFICO 3: Por categorías - unificar datos para gráfico de barras
+      // GRÁFICO 3: Por categorías - unificar datos para gráfico de barras
       const todasCategorias = new Map();
 
       datosActuales.categorias.forEach((cat, index) => {
@@ -294,14 +325,14 @@ const DashboardComparativo = ({
         }
       });
 
-      // 🆕 APLICAR ORDENAMIENTO POR INCIDENCIA TOTAL
+      // APLICAR ORDENAMIENTO POR INCIDENCIA TOTAL
       const categoriasConIncidencia = Array.from(todasCategorias.values())
         .filter((cat) => cat.actual > 0 || cat.anterior > 0)
         .map((cat) => ({
           ...cat,
-          // 🔥 CALCULAR INCIDENCIA TOTAL (suma de ambos períodos)
+          // CALCULAR INCIDENCIA TOTAL (suma de ambos períodos)
           incidenciaTotal: (cat.actual || 0) + (cat.anterior || 0),
-          // 🔥 CALCULAR CAMBIO PORCENTUAL
+          // CALCULAR CAMBIO PORCENTUAL
           cambioPorc:
             cat.anterior > 0
               ? ((cat.actual - cat.anterior) / cat.anterior) * 100
@@ -312,7 +343,7 @@ const DashboardComparativo = ({
 
       setDatosCategorias(categoriasConIncidencia);
 
-      // 📊 GRÁFICO 4: Top equipos - unificar datos para gráfico de barras - CORREGIDO
+      // GRÁFICO 4: Top equipos - unificar datos para gráfico de barras
       const todosEquipos = new Map();
 
       datosActuales.equipos.forEach((equipo) => {
@@ -320,7 +351,6 @@ const DashboardComparativo = ({
         todosEquipos.set(key, {
           name: key,
           patente: equipo.patente,
-          // 🛠️ CORRECCIÓN: Ahora sí tendremos la categoría
           categoria: equipo.categoria || "Sin categoría",
           actual: equipo.litros_consumidos,
           anterior: 0,
@@ -335,7 +365,6 @@ const DashboardComparativo = ({
           todosEquipos.set(key, {
             name: key,
             patente: equipo.patente,
-            // 🛠️ CORRECCIÓN: Ahora sí tendremos la categoría
             categoria: equipo.categoria || "Sin categoría",
             actual: 0,
             anterior: equipo.litros_consumidos,
@@ -343,7 +372,7 @@ const DashboardComparativo = ({
         }
       });
 
-      // 🆕 ORDENAR POR CATEGORÍA (SEGÚN INCIDENCIA) Y LUEGO POR CONSUMO DENTRO DE CADA CATEGORÍA
+      // ORDENAR POR CATEGORÍA (SEGÚN INCIDENCIA) Y LUEGO POR CONSUMO DENTRO DE CADA CATEGORÍA
       const equiposOrdenados = Array.from(todosEquipos.values());
 
       // 1. Calcular incidencia total por categoría
@@ -381,6 +410,11 @@ const DashboardComparativo = ({
 
       console.log("✅ DashboardComparativo: Datos cargados exitosamente");
     } catch (error) {
+      if (error.name === "AbortError") {
+        console.log("🚫 Carga abortada");
+        return;
+      }
+
       console.error("❌ DashboardComparativo: Error cargando datos:", error);
       if (isMounted.current) {
         setError(
@@ -392,18 +426,38 @@ const DashboardComparativo = ({
     } finally {
       if (isMounted.current) {
         setLoading(false);
+        setIsLoading(false);
       }
     }
   };
 
-  // Effect para cargar datos cuando cambien los filtros
+  // USEEFFECT CON DEBOUNCE Y PROTECCIÓN
   useEffect(() => {
-    if (fechaDesde && fechaHasta) {
-      cargarTodosLosDatos();
+
+    // Validación rápida
+    if (!fechaDesde || !fechaHasta) {
+      console.log("🚫 Fechas faltantes, no cargando datos");
+      return;
     }
+
+    console.log("⏱️ DashboardComparativo: Programando carga con debounce");
+
+    // Debounce de 500ms
+    debounceTimeoutRef.current = setTimeout(() => {
+      if (isMounted.current && !isLoading) {
+        cargarTodosLosDatos();
+      }
+    }, 0);
+
+    // Cleanup del timeout
+    return () => {
+      if (debounceTimeoutRef.current) {
+        (debounceTimeoutRef.current);
+      }
+    };
   }, [faenaSeleccionada, fechaDesde, fechaHasta, refreshKey]);
 
-  // 🎨 Tooltip para el gráfico combinado (Total + Faenas)
+  // Tooltip para el gráfico combinado (Total + Faenas)
   const CustomTooltipCombinado = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       const actual = payload.find((p) => p.dataKey === "actual")?.value || 0;
@@ -457,7 +511,7 @@ const DashboardComparativo = ({
     return null;
   };
 
-  // 🎨 Tooltip específico para categorías
+  // Tooltip específico para categorías
   const CustomTooltipCategorias = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       const actual = payload.find((p) => p.dataKey === "actual")?.value || 0;
@@ -508,7 +562,7 @@ const DashboardComparativo = ({
     return null;
   };
 
-  // 🎨 Tooltip específico para equipos/máquinas
+  // Tooltip específico para equipos/máquinas
   const CustomTooltipEquipos = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       const actual = payload.find((p) => p.dataKey === "actual")?.value || 0;
@@ -566,13 +620,13 @@ const DashboardComparativo = ({
     return null;
   };
 
-  // 🧮 Función para calcular cambio porcentual
+  // Función para calcular cambio porcentual
   const calcularCambio = (actual, anterior) => {
     if (anterior === 0) return actual > 0 ? 100 : 0;
     return ((actual - anterior) / anterior) * 100;
   };
 
-  // 📊 Componente para gráfico combinado Total + Faenas
+  // Componente para gráfico combinado Total + Faenas
   const GraficoCombinado = ({ datosTotal, datosFaenas }) => {
     // Combinar datos: Total como primera barra, luego faenas
     const datosCombinados = [
@@ -622,14 +676,14 @@ const DashboardComparativo = ({
               />
               <Tooltip
                 content={<CustomTooltipCombinado />}
-                offset={100} // 👈 Mueve el tooltip 50px a la derecha
+                offset={100}
                 position={{ x: undefined, y: undefined }}
               />
               <Legend
                 wrapperStyle={{ fontSize: "12px" }}
                 iconType="rect"
                 verticalAlign="top"
-                height={36} // 🎯 Esto crea el espacio
+                height={36}
               />
               <Bar
                 dataKey="anterior"

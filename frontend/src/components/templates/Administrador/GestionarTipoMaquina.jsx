@@ -1,11 +1,11 @@
 import React from "react";
 import GestionarTipoMaquina from "../../organisms/Administrador/GestionarTipoMaquina";
-import Header from "../../organisms/Administrador/Header";
+import UniversalHeader from "../../organisms/Todos/UniversalHeader";
 
 const MenuPrincipalBombero = () => {
   return (
     <div >
-      <Header />
+      <UniversalHeader type="admin" />
       <GestionarTipoMaquina />
     </div>
   );

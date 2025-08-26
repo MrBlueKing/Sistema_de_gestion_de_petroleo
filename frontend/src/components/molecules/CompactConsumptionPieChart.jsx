@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
+import { useChartColors } from "./../../context/ChartColorsContext";
 import {
   FiPieChart,
   FiLoader,
@@ -17,10 +18,6 @@ const CompactConsumptionPieChart = ({
   fechaDesde,
   fechaHasta,
   refreshKey = 0,
-  // 🎨 PROPS CORREGIDAS PARA COLORES CONSISTENTES
-  getColorForCategory = null, // Función para obtener color por categoría
-  categoryColorMapping = {},
-  getColorForCategoryName = null, // DEPRECATED - usar getColorForCategory
   chartColors = [
     "#f97316", // orange-500
     "#3b82f6", // blue-500
@@ -36,6 +33,15 @@ const CompactConsumptionPieChart = ({
   ],
   titulo = "Análisis Comparativo Mensual",
 }) => {
+  
+  // 🎨 USAR EL CONTEXTO DE COLORES
+  const {
+    getColorForCategory,
+    categoryColorMapping,
+    hasValidColorMapping,
+    isInitialized,
+  } = useChartColors();
+
   // 🔍 LOGS INICIALES PARA DEBUGGING
   console.log(
     "🔍 CompactConsumptionPieChart: Componente montándose con props:",
@@ -82,15 +88,20 @@ const CompactConsumptionPieChart = ({
     };
   }, []);
 
-  // 🔍 LOG CUANDO CAMBIAN LAS PROPS
   useEffect(() => {
-    console.log("🔍 CompactConsumptionPieChart: Props de colores cambiaron:", {
+    console.log("🔍 CompactConsumptionPieChart: Contexto de colores cambió:", {
       hasGetColorForCategory: !!getColorForCategory,
       categoryColorMappingKeys: Object.keys(categoryColorMapping || {}),
-      categoryColorMappingLength: Object.keys(categoryColorMapping || {})
-        .length,
+      categoryColorMappingLength: Object.keys(categoryColorMapping || {}),
+      hasValidColorMapping,
+      isInitialized,
     });
-  }, [getColorForCategory, categoryColorMapping]);
+  }, [
+    getColorForCategory,
+    categoryColorMapping,
+    hasValidColorMapping,
+    isInitialized,
+  ]);
 
   // Función para verificar si los filtros han cambiado realmente
   const filtersChanged = () => {
@@ -141,17 +152,6 @@ const CompactConsumptionPieChart = ({
       return color;
     }
 
-    // 2. Usar función legacy si está disponible (PRIORIDAD 2)
-    if (
-      getColorForCategoryName &&
-      typeof getColorForCategoryName === "function"
-    ) {
-      const color = getColorForCategoryName(categoryName);
-      console.log(
-        `🎨 CompactChart: Color desde función legacy para "${categoryName}": ${color}`
-      );
-      return color;
-    }
 
     // 3. Usar el mapeo de colores del padre si está disponible (PRIORIDAD 3)
     if (categoryColorMapping && Object.keys(categoryColorMapping).length > 0) {

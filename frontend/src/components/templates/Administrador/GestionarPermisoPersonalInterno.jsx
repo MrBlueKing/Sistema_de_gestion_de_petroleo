@@ -1,11 +1,11 @@
 import React from "react";
 import GestionarPermisoPersonalInterno from "../../organisms/Administrador/GestionarPermisoPersonalInterno";
-import Header from "../../organisms/Administrador/Header";
+import UniversalHeader from "../../organisms/Todos/UniversalHeader";
 
 const GestionarPermisoPersonalInternoTemplate = () => {
   return (
     <div>
-      <Header/>
+      <UniversalHeader type="admin" />
       <GestionarPermisoPersonalInterno/>
     </div>
   );

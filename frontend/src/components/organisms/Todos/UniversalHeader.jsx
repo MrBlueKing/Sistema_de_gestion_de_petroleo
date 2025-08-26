@@ -190,13 +190,14 @@ const UniversalHeader = ({
       case "admin":
         return {
           title: "Administrador",
-          hasTopBar: false,
-          hasSidebar: true,
+           hasTopBar: true,
+          hasSidebar: false,
           isFixed: true,
-          showHomeButton: false,
-          showNotifications: true,
-          headerHeight: "h-14",
-          spacerClass: "pt-14",
+          showHomeButton: true,
+          homeRoute: "/administrador",
+          showNotifications: false,
+          headerHeight: "",
+          spacerClass: "pt-4 md:pt-20",
           layout: "admin"
         };
 

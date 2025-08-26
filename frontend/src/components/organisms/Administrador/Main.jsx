@@ -4,7 +4,8 @@ import { MdCarRental } from "react-icons/md";
 import { GrLicense } from "react-icons/gr";
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import axios from '../../../lib/axios'; // Asegúrate de que la ruta sea correcta
+import axios from '../../../lib/axios'; 
+import UniversalHeader from "../../organisms/Todos/UniversalHeader";
 import { TbCategoryPlus } from "react-icons/tb";
 import { FaTruckDroplet } from "react-icons/fa6";
 import { FaUserCog } from "react-icons/fa";
@@ -14,7 +15,7 @@ const DashboardCard = ({ title, value, icon, color }) => {
     return (
         <div className="bg-white rounded-lg shadow p-4 sm:p-6 flex items-center">
             <div className={`rounded-full p-3 mr-4 ${color}`}>
-                <Icon size={24} className="text-white" />
+                <Icon size={48} className="text-white" />
             </div>
             <div>
                 <p className="text-gray-500 text-sm">{title}</p>
@@ -34,7 +35,7 @@ const ActivityItem = ({ title, time, status, statusColor, user, role }) => {
                 <div>
                     <p className="font-medium">{title}</p>
                     <p className="text-xs text-gray-500">
-                        <span className="font-medium">{user}</span> • <span className="text-blue-500">{role}</span> • {time}
+                        <span className="font-medium">{user}</span> • <span className="text-orange-500">{role}</span> • {time}
                     </p>
                 </div>
             </div>
@@ -49,7 +50,7 @@ const QuickAccessButton = ({ icon, title, to }) => {
     const Icon = icon;
     return (
         <Link to={to} className="flex flex-col items-center justify-center bg-white shadow rounded-lg p-3 sm:p-4 hover:bg-gray-50 transition-colors">
-            <Icon size={40} className="mb-2 text-blue-600" />
+            <Icon size={40} className="mb-2 text-orange-400" />
             <span className="text-sm font-medium text-center">{title}</span>
         </Link>
     );
@@ -69,7 +70,7 @@ const UserRow = ({ name, role, station, status, lastActive }) => {
     const getRoleColor = (role) => {
         switch (role) {
             case 'Gerente': return 'text-purple-600';
-            case 'Administrador': return 'text-blue-600';
+            case 'Administrador': return 'text-orange-600';
             case 'Bombero': return 'text-orange-600';
             default: return 'text-gray-600';
         }
@@ -132,14 +133,14 @@ export default function Main() {
     }, []);
 
     return (
-        <main className="p-4 sm:p-6 bg-gray-100 min-h-screen">
+        <main className="p-4  bg-gray-100 min-h-screen">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-2">
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Panel de Administración</h1>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center ">
+                   <UniversalHeader type="admin" />
             </div>
 
             {/* Accesos rápidos */}
-            <div className="mb-8 bg-white p-4 sm:p-6 rounded-xl shadow">
+            <div className="mb-4 bg-white p-4 sm:p-6 rounded-xl shadow">
                 <h2 className="text-lg font-semibold text-gray-700 mb-3">Acceso rápido</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <QuickAccessButton icon={FiUserPlus} title="Agregar Usuario" to="/registroUsuario" />
