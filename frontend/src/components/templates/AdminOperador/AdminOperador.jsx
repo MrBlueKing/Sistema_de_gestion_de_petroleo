@@ -5,6 +5,7 @@ import GestionarMaquinas from "../../organisms/AdminOperador/GestionarMaquinasOp
 import UniversalHeader from "../../organisms/Todos/UniversalHeader";
 import TabNavigation from "../../molecules/TabNavigation";
 import ConsumoViewAdminOperador from "../../organisms/AdminOperador/ConsumoView";
+import GestionarUsuariosOperador from '../../organisms/AdminOperador/GestionarUsuariosOperador';
 
 const AdminOperador = () => {
     // 🆕 Estado para manejar las pestañas
@@ -57,31 +58,7 @@ const AdminOperador = () => {
             case 'gestionar-maquinas':
                 return <GestionarMaquinas />;
             case 'gestionar-usuarios': // ✅ Ahora coincide con el ID de la pestaña
-                return (
-                    <div className="p-8">
-                        <div className="max-w-4xl mx-auto">
-                            <div className="bg-white rounded-lg shadow-lg p-8 text-center">
-                                <div className="text-6xl mb-4">👋</div>
-                                <h1 className="text-4xl font-bold text-gray-800 mb-4">¡Hola!</h1>
-                                <p className="text-xl text-gray-600 mb-8">
-                                    Esta será la sección de Gestionar Usuarios
-                                </p>
-                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                                    <p className="text-blue-800 font-medium">
-                                        🚧 Próximamente aquí podrás:
-                                    </p>
-                                    <ul className="text-blue-700 mt-4 text-left max-w-md mx-auto space-y-2">
-                                        <li>• Crear nuevos usuarios</li>
-                                        <li>• Editar perfiles existentes</li>
-                                        <li>• Asignar roles y permisos</li>
-                                        <li>• Gestionar faenas de usuarios</li>
-                                        <li>• Ver historial de actividades</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                );
+                return <GestionarUsuariosOperador />;
             default:
                 return <MainAdminOperador />;
         }

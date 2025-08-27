@@ -79,5 +79,33 @@ Route::prefix('adminOperador')->group(function () {
 
         // Ver detalle de una máquina específica
         Route::get('/maquinas/{id}', [AdminOperadorController::class, 'verMaquina']);
+
+        // ========================================================================================
+        // 👥 RUTAS PARA GESTIÓN DE USUARIOS
+        // ========================================================================================
+
+        // 📋 Obtener todos los datos necesarios (usuarios, faenas, roles, estadísticas)
+        Route::get('/usuarios/datos', [AdminOperadorController::class, 'obtenerDatosUsuarios']);
+
+        // 👤 CRUD básico de usuarios
+        Route::get('/usuarios', [AdminOperadorController::class, 'obtenerDatosUsuarios']); // Alias para compatibilidad
+        Route::post('/usuarios', [AdminOperadorController::class, 'crearUsuario']);
+        Route::get('/usuarios/{id}', [AdminOperadorController::class, 'obtenerDetalleUsuario']);
+        Route::put('/usuarios/{id}', [AdminOperadorController::class, 'actualizarUsuario']);
+
+        // 🔄 Acciones especiales
+        Route::patch('/usuarios/{id}/toggle-estado', [AdminOperadorController::class, 'toggleEstadoUsuario']);
+
+        // 🔐 Rutas adicionales (si las necesitas después)
+        Route::post('/usuarios/{id}/reset-password', [AdminOperadorController::class, 'resetearPassword']); // Para implementar después
+        Route::get('/usuarios/{id}/historial', [AdminOperadorController::class, 'obtenerHistorialUsuario']); // Para implementar después
+
+        // ========================================================================================
+        // 📊 RUTAS PARA ESTADÍSTICAS DE USUARIOS (opcionales)
+        // ========================================================================================
+
+        Route::get('/usuarios/estadisticas/resumen', [AdminOperadorController::class, 'obtenerEstadisticasUsuarios']);
+        Route::get('/usuarios/estadisticas/por-faena', [AdminOperadorController::class, 'obtenerUsuariosPorFaena']);
+        Route::get('/usuarios/estadisticas/por-rol', [AdminOperadorController::class, 'obtenerUsuariosPorRol']);
     });
 });

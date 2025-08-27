@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -1558,5 +1559,673 @@ class AdminOperadorController extends Controller
                 'f.id_faena'
             ])
             ->first();
+    }
+
+    // 👥 MÉTODOS PARA GESTIONAR USUARIOS - AdminOperadorController.php
+    // Agregar estos métodos a tu AdminOperadorController existente
+
+    /**
+     * 📋 Obtener todos los datos necesarios para gestión de usuarios
+     * Endpoint: GET /api/adminOperador/usuarios/datos
+     */
+    public function obtenerDatosUsuarios(): JsonResponse
+    {
+        try {
+            Log::info('📋 Obteniendo datos completos para gestión de usuarios');
+
+            // 👥 Obtener todos los usuarios con relaciones
+            $usuarios = DB::table('users as u')
+                ->leftJoin('faenas as f', 'u.id_faena', '=', 'f.id_faena')
+                ->leftJoin('roles as r', 'u.id_rol', '=', 'r.id_rol')
+                ->select([
+                    'u.id',
+                    'u.rut',
+                    'u.nombre',
+                    'u.apellido',
+                    'u.email',
+                    'u.id_rol',
+                    'u.id_faena',
+                    'u.estado', // 🔥 CORREGIR: estado es tinyInteger (1/0)
+                    'u.created_at',
+                    'u.updated_at',
+                    'f.ubicacion as faena_nombre',
+                    'r.rol as rol_nombre', // 🔥 CORREGIR: campo correcto es 'rol'
+                    'r.id_rol as rol_codigo'
+                ])
+                ->where('u.id_rol', 6) // 🔥 Solo usuarios con rol 6
+                ->orderBy('u.created_at', 'desc')
+                ->get()
+                ->map(function ($user) {
+                    // Calcular asignaciones activas
+                    $asignacionesActivas = DB::table('asignaciones_user_maquinas')
+                        ->where('id_user', $user->id)
+                        ->where('activo', 1)
+                        ->count();
+
+                    // Obtener último login (si tienes tabla de logs o campo last_login)
+                    $ultimoLogin = null; // Puedes implementar esto si tienes tracking de logins
+
+                    return [
+                        'id' => $user->id,
+                        'nombre' => $user->nombre,
+                        'apellido' => $user->apellido,
+                        'nombre_completo' => $user->nombre . ' ' . $user->apellido,
+                        'rut' => $user->rut,
+                        'email' => $user->email,
+                        'telefono' => null, // Si tienes campo teléfono en tu tabla
+                        'rol' => $user->rol_nombre ?: 'operador',
+                        'rol_nombre' => $user->rol_nombre ?: 'Operador',
+                        'id_faena' => $user->id_faena,
+                        'faena' => $user->faena_nombre ?: 'Sin faena',
+                        'faena_nombre' => $user->faena_nombre ?: 'Sin faena',
+                        // 🔥 CRÍTICO: Corregir la comparación del estado
+                        'activo' => $user->estado == 1, // En lugar de === 'activo'
+                        'fecha_creacion' => Carbon::parse($user->created_at)->format('Y-m-d'),
+                        'ultimo_login' => $ultimoLogin,
+                        'asignaciones_activas' => $asignacionesActivas
+                    ];
+                });
+
+            // 🏢 Obtener faenas disponibles
+            $faenas = DB::table('faenas')
+                ->select(['id_faena', 'ubicacion', 'detalle'])
+                ->orderBy('ubicacion')
+                ->get()
+                ->map(function ($faena) {
+                    return [
+                        'id' => $faena->id_faena,
+                        'id_faena' => $faena->id_faena,
+                        'nombre' => $faena->ubicacion,
+                        'ubicacion' => $faena->ubicacion,
+                        'detalle' => $faena->detalle
+                    ];
+                });
+
+            // 🛡️ Obtener roles disponibles (aunque solo uses rol 6)
+            $roles = DB::table('roles')
+                ->select(['id_rol', 'rol'])
+                ->get()
+                ->map(function ($rol) {
+                    return [
+                        'id' => $rol->id_rol,
+                        'nombre' => $rol->rol,
+                        'codigo' => $rol->rol
+                    ];
+                });
+
+            // Si no hay roles en la BD, usar datos por defecto
+            if ($roles->isEmpty()) {
+                $roles = collect([
+                    ['id' => 1, 'nombre' => 'Admin General', 'codigo' => 'admin'],
+                    ['id' => 2, 'nombre' => 'Admin Operador', 'codigo' => 'admin_operador'],
+                    ['id' => 3, 'nombre' => 'Operador', 'codigo' => 'operador'],
+                    ['id' => 4, 'nombre' => 'Bombero', 'codigo' => 'bombero'],
+                    ['id' => 5, 'nombre' => 'Gerente', 'codigo' => 'gerente'],
+                    ['id' => 6, 'nombre' => 'Operador Vehiculo', 'codigo' => 'OperadorVehiculo'],
+                ]);
+            }
+
+            // 📊 Calcular estadísticas CORREGIDAS
+            $totalUsuarios = $usuarios->count();
+            $usuariosActivos = $usuarios->where('activo', true)->count(); // Ya corregido arriba
+            $usuariosInactivos = $totalUsuarios - $usuariosActivos;
+            $operadores = $usuarios->count(); // Todos son operadores ya que filtraste por rol 6
+            $administradores = 0; // No hay admins si solo traes rol 6
+
+            // Estadísticas por faena
+            $porFaena = $usuarios->groupBy('faena_nombre')
+                ->map(function ($grupo) {
+                    return $grupo->count();
+                })
+                ->toArray();
+
+            $estadisticas = [
+                'total_usuarios' => $totalUsuarios,
+                'usuarios_activos' => $usuariosActivos,
+                'usuarios_inactivos' => $usuariosInactivos,
+                'operadores' => $operadores,
+                'administradores' => $administradores,
+                'por_faena' => $porFaena
+            ];
+
+            Log::info('✅ Datos de usuarios obtenidos exitosamente', [
+                'total_usuarios' => $totalUsuarios,
+                'usuarios_activos' => $usuariosActivos,
+                'usuarios_inactivos' => $usuariosInactivos,
+                'faenas_disponibles' => $faenas->count(),
+                'roles_disponibles' => $roles->count()
+            ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Datos obtenidos correctamente',
+                'data' => [
+                    'usuarios' => $usuarios,
+                    'faenas' => $faenas,
+                    'roles' => $roles,
+                    'estadisticas' => $estadisticas
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('❌ Error al obtener datos de usuarios:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al cargar datos de usuarios: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * 👤 Crear nuevo usuario
+     * Endpoint: POST /api/adminOperador/usuarios
+     */
+    public function crearUsuario(Request $request): JsonResponse
+    {
+        try {
+            // 🔍 Validar datos de entrada
+            $validator = Validator::make($request->all(), [
+                'nombre' => 'required|string|max:100',
+                'apellido' => 'required|string|max:100',
+                'rut' => 'required|string|max:12|unique:users,rut',
+                'email' => 'nullable|email|max:150|unique:users,email',
+                'password' => 'required|string|min:6',
+                // 🔥 ACTUALIZAR: Roles según tu base de datos real
+                'rol' => 'required|string|in:OperadorVehiculo',
+                'id_faena' => 'required|integer|exists:faenas,id_faena',
+                'activo' => 'boolean'
+            ], [
+                'nombre.required' => 'El nombre es requerido',
+                'apellido.required' => 'El apellido es requerido',
+                'rut.required' => 'El RUT es requerido',
+                'rut.unique' => 'Este RUT ya está registrado',
+                'email.unique' => 'Este email ya está registrado',
+                'password.required' => 'La contraseña es requerida',
+                'password.min' => 'La contraseña debe tener al menos 6 caracteres',
+                'id_faena.exists' => 'La faena seleccionada no existe',
+                'rol.in' => 'El rol seleccionado no es válido',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Datos de entrada inválidos',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // 🔐 Obtener ID del rol basado en el código
+            $rolId = 6;
+
+            // 🔥 VERIFICAR: Si no se encontró el rol, devolver error
+            if (!$rolId) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Rol no encontrado: ' . $request->rol
+                ], 400);
+            }
+
+            // 👤 Crear usuario
+            DB::beginTransaction();
+
+            $usuarioId = DB::table('users')->insertGetId([
+                'rut' => $request->rut,
+                'nombre' => $request->nombre,
+                'apellido' => $request->apellido,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+                'id_rol' => $rolId,
+                'id_faena' => $request->id_faena,
+                // 🔥 CORREGIR: Estado como tinyInteger (1 = activo, 0 = inactivo)
+                'estado' => $request->boolean('activo', true) ? 1 : 0,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            DB::commit();
+
+            // 📋 Obtener el usuario creado con sus relaciones
+            $usuario = DB::table('users as u')
+                ->leftJoin('faenas as f', 'u.id_faena', '=', 'f.id_faena')
+                ->leftJoin('roles as r', 'u.id_rol', '=', 'r.id_rol')
+                ->where('u.id', $usuarioId)
+                ->select([
+                    'u.id',
+                    'u.rut',
+                    'u.nombre',
+                    'u.apellido',
+                    'u.email',
+                    'u.estado',
+                    'u.created_at',
+                    'f.ubicacion as faena_nombre',
+                    'r.rol as rol_codigo'
+                ])
+                ->first();
+
+            Log::info('✅ Usuario creado exitosamente', [
+                'usuario_id' => $usuarioId,
+                'nombre_completo' => $request->nombre . ' ' . $request->apellido,
+                'email' => $request->email,
+                'rol' => $request->rol,
+                'faena' => $request->id_faena
+            ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Usuario creado exitosamente',
+                'data' => [
+                    'id' => $usuario->id,
+                    'nombre_completo' => $usuario->nombre . ' ' . $usuario->apellido,
+                    'email' => $usuario->email,
+                    'rol' => $usuario->rol_codigo,
+                    'faena' => $usuario->faena_nombre,
+                    'activo' => $usuario->estado == 1
+                ]
+            ]);
+        } catch (\Exception $e) {
+            DB::rollback();
+
+            Log::error('❌ Error al crear usuario:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al crear usuario: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * ✏️ Actualizar usuario existente
+     * Endpoint: PUT /api/adminOperador/usuarios/{id}
+     */
+    public function actualizarUsuario($id, Request $request): JsonResponse
+    {
+        try {
+            // 🔍 Verificar que el usuario existe
+            $usuario = DB::table('users')->where('id', $id)->first();
+
+            if (!$usuario) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Usuario no encontrado'
+                ], 404);
+            }
+
+            // 🔍 Validar datos de entrada (excluyendo el usuario actual de unique)
+            $validator = Validator::make($request->all(), [
+                'nombre' => 'required|string|max:100',
+                'apellido' => 'required|string|max:100',
+                'rut' => 'required|string|max:12|unique:users,rut,' . $id,
+                'email' => 'nullable|email|max:150|unique:users,email,' . $id,
+                'rol' => 'required|string|in:admin,admin_operador,operador,bombero,gerente,toneladas,planificador,OperadorVehiculo,asistente_bombero',
+                'id_faena' => 'required|integer|exists:faenas,id_faena',
+                'password' => 'nullable|string|min:6', // Opcional en edición
+                'activo' => 'boolean'
+            ], [
+                'nombre.required' => 'El nombre es requerido',
+                'apellido.required' => 'El apellido es requerido',
+                'rut.required' => 'El RUT es requerido',
+                'rut.unique' => 'Este RUT ya está registrado',
+                'email.unique' => 'Este email ya está registrado',
+                'password.min' => 'La contraseña debe tener al menos 6 caracteres',
+                'id_faena.exists' => 'La faena seleccionada no existe',
+                'rol.in' => 'El rol seleccionado no es válido',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Datos de entrada inválidos',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // 🔐 Obtener ID del rol
+            $rolId = $this->obtenerIdRolPorCodigo($request->rol);
+
+            if (!$rolId) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Rol no encontrado: ' . $request->rol
+                ], 400);
+            }
+
+            // 📝 Preparar datos para actualizar
+            $datosActualizacion = [
+                'nombre' => $request->nombre,
+                'apellido' => $request->apellido,
+                'rut' => $request->rut,
+                'email' => $request->email,
+                'id_rol' => $rolId,
+                'id_faena' => $request->id_faena,
+                // 🔥 CORREGIR: Estado como tinyInteger
+                'estado' => $request->boolean('activo', true) ? 1 : 0,
+                'updated_at' => now()
+            ];
+
+            // Solo actualizar contraseña si se proporcionó una nueva
+            if ($request->filled('password')) {
+                $datosActualizacion['password'] = Hash::make($request->password);
+            }
+
+            // 👤 Actualizar usuario
+            DB::beginTransaction();
+
+            DB::table('users')
+                ->where('id', $id)
+                ->update($datosActualizacion);
+
+            DB::commit();
+
+            // 📋 Obtener el usuario actualizado
+            $usuarioActualizado = DB::table('users as u')
+                ->leftJoin('faenas as f', 'u.id_faena', '=', 'f.id_faena')
+                ->leftJoin('roles as r', 'u.id_rol', '=', 'r.id_rol')
+                ->where('u.id', $id)
+                ->select([
+                    'u.id',
+                    'u.nombre',
+                    'u.apellido',
+                    'u.email',
+                    'u.estado',
+                    'f.ubicacion as faena_nombre',
+                    'r.rol as rol_codigo'
+                ])
+                ->first();
+
+            Log::info('✅ Usuario actualizado exitosamente', [
+                'usuario_id' => $id,
+                'nombre_completo' => $request->nombre . ' ' . $request->apellido,
+                'cambios_realizados' => array_keys($datosActualizacion)
+            ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Usuario actualizado exitosamente',
+                'data' => [
+                    'id' => $usuarioActualizado->id,
+                    'nombre_completo' => $usuarioActualizado->nombre . ' ' . $usuarioActualizado->apellido,
+                    'email' => $usuarioActualizado->email,
+                    'rol' => $usuarioActualizado->rol_codigo,
+                    'faena' => $usuarioActualizado->faena_nombre,
+                    'activo' => $usuarioActualizado->estado == 1
+                ]
+            ]);
+        } catch (\Exception $e) {
+            DB::rollback();
+
+            Log::error('❌ Error al actualizar usuario:', [
+                'usuario_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al actualizar usuario: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * 🔄 Toggle estado del usuario (activar/desactivar)
+     * Endpoint: PATCH /api/adminOperador/usuarios/{id}/toggle-estado
+     */
+    public function toggleEstadoUsuario($id): JsonResponse
+    {
+        try {
+            // 🔍 Verificar que el usuario existe
+            $usuario = DB::table('users')->where('id', $id)->first();
+
+            if (!$usuario) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Usuario no encontrado'
+                ], 404);
+            }
+
+            // 🔒 Verificar si el usuario tiene asignaciones activas
+            $asignacionesActivas = DB::table('asignaciones_user_maquinas')
+                ->where('id_user', $id)
+                ->where('activo', 1)
+                ->count();
+
+            if ($asignacionesActivas > 0 && $usuario->estado == 1) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No se puede desactivar el usuario porque tiene ' .
+                        $asignacionesActivas . ' asignaciones activas'
+                ], 422);
+            }
+
+            // 🔄 Cambiar estado (toggle entre 1 y 0)
+            $nuevoEstado = $usuario->estado == 1 ? 0 : 1;
+
+            DB::table('users')
+                ->where('id', $id)
+                ->update([
+                    'estado' => $nuevoEstado,
+                    'updated_at' => now()
+                ]);
+
+            $accion = $nuevoEstado == 1 ? 'activado' : 'desactivado';
+
+            Log::info("✅ Usuario {$accion} exitosamente", [
+                'usuario_id' => $id,
+                'nombre_completo' => $usuario->nombre . ' ' . $usuario->apellido,
+                'estado_anterior' => $usuario->estado,
+                'estado_nuevo' => $nuevoEstado
+            ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => "Usuario {$accion} exitosamente",
+                'data' => [
+                    'id' => $id,
+                    'nombre_completo' => $usuario->nombre . ' ' . $usuario->apellido,
+                    'estado_anterior' => $usuario->estado == 1,
+                    'estado_nuevo' => $nuevoEstado == 1,
+                    'activo' => $nuevoEstado == 1
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('❌ Error al cambiar estado del usuario:', [
+                'usuario_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al cambiar estado del usuario: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * 👁️ Obtener detalles específicos de un usuario
+     * Endpoint: GET /api/adminOperador/usuarios/{id}
+     */
+    public function obtenerDetalleUsuario($id): JsonResponse
+    {
+        try {
+            // 📋 Obtener usuario con todas sus relaciones
+            $usuario = DB::table('users as u')
+                ->leftJoin('faenas as f', 'u.id_faena', '=', 'f.id_faena')
+                ->leftJoin('roles as r', 'u.id_rol', '=', 'r.id_rol')
+                ->where('u.id', $id)
+                ->select([
+                    'u.id',
+                    'u.rut',
+                    'u.nombre',
+                    'u.apellido',
+                    'u.email',
+                    'u.id_rol',
+                    'u.id_faena',
+                    'u.estado',
+                    'u.created_at',
+                    'u.updated_at',
+                    'f.ubicacion as faena_nombre',
+                    'r.rol as rol_codigo'
+                ])
+                ->first();
+
+            if (!$usuario) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Usuario no encontrado'
+                ], 404);
+            }
+
+            // 📊 Obtener estadísticas adicionales del usuario
+            $asignacionesActivas = DB::table('asignaciones_user_maquinas as a')
+                ->join('maquinas as m', 'a.id_maquina', '=', 'm.id_maquina')
+                ->where('a.id_user', $id)
+                ->where('a.activo', 1)
+                ->select(['m.nombre_maquina', 'm.patente', 'a.fecha_asignacion'])
+                ->get();
+
+            $totalAsignacionesHistoricas = DB::table('asignaciones_user_maquinas')
+                ->where('id_user', $id)
+                ->count();
+
+            // Último login (si tienes esta funcionalidad implementada)
+            $ultimoLogin = null;
+
+            $datosCompletos = [
+                'id' => $usuario->id,
+                'nombre' => $usuario->nombre,
+                'apellido' => $usuario->apellido,
+                'rut' => $usuario->rut,
+                'email' => $usuario->email,
+                'rol' => $usuario->rol_codigo ?: 'operador',
+                'id_faena' => $usuario->id_faena,
+                'faena_nombre' => $usuario->faena_nombre ?: 'Sin faena',
+                'activo' => $usuario->estado == 1,
+                'fecha_creacion' => Carbon::parse($usuario->created_at)->format('Y-m-d'),
+                'fecha_actualizacion' => Carbon::parse($usuario->updated_at)->format('Y-m-d H:i:s'),
+                'ultimo_login' => $ultimoLogin,
+                'asignaciones_activas' => $asignacionesActivas->count(),
+                'total_asignaciones_historicas' => $totalAsignacionesHistoricas,
+                'maquinas_asignadas' => $asignacionesActivas->map(function ($asignacion) {
+                    return [
+                        'maquina' => $asignacion->nombre_maquina,
+                        'patente' => $asignacion->patente,
+                        'fecha_asignacion' => Carbon::parse($asignacion->fecha_asignacion)->format('d/m/Y')
+                    ];
+                })
+            ];
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Detalles del usuario obtenidos correctamente',
+                'data' => $datosCompletos
+            ]);
+        } catch (\Exception $e) {
+            Log::error('❌ Error al obtener detalles del usuario:', [
+                'usuario_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al obtener detalles del usuario: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * 🔐 Función auxiliar para obtener ID de rol por código
+     */
+    private function obtenerIdRolPorCodigo(string $codigo)
+    {
+        Log::info("🔍 Buscando rol con código: " . $codigo);
+
+        $rolId = DB::table('roles')
+            ->where('rol', $codigo)
+            ->value('id_rol');
+
+        if (!$rolId) {
+            Log::error("❌ No se encontró rol con código: " . $codigo);
+            // Listar roles disponibles para debug
+            $rolesDisponibles = DB::table('roles')->pluck('rol')->toArray();
+            Log::info("📋 Roles disponibles: " . implode(', ', $rolesDisponibles));
+        }
+
+        return $rolId;
+    }
+
+    /**
+     * 🗑️ Eliminar usuario (soft delete o hard delete)
+     * Endpoint: DELETE /api/adminOperador/usuarios/{id}
+     */
+    public function eliminarUsuario($id): JsonResponse
+    {
+        try {
+            // 🔍 Verificar que el usuario existe
+            $usuario = DB::table('users')->where('id', $id)->first();
+
+            if (!$usuario) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Usuario no encontrado'
+                ], 404);
+            }
+
+            // 🔒 Verificar si el usuario tiene asignaciones (históricas o activas)
+            $asignacionesTotales = DB::table('asignaciones_user_maquinas')
+                ->where('id_user', $id)
+                ->count();
+
+            if ($asignacionesTotales > 0) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No se puede eliminar el usuario porque tiene asignaciones registradas. Considere desactivarlo en lugar de eliminarlo.'
+                ], 422);
+            }
+
+            // 🗑️ Eliminar usuario
+            DB::beginTransaction();
+
+            DB::table('users')->where('id', $id)->delete();
+
+            DB::commit();
+
+            Log::info('✅ Usuario eliminado exitosamente', [
+                'usuario_id' => $id,
+                'nombre_completo' => $usuario->nombre . ' ' . $usuario->apellido
+            ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Usuario eliminado exitosamente',
+                'data' => [
+                    'id' => $id,
+                    'nombre_completo' => $usuario->nombre . ' ' . $usuario->apellido
+                ]
+            ]);
+        } catch (\Exception $e) {
+            DB::rollback();
+
+            Log::error('❌ Error al eliminar usuario:', [
+                'usuario_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al eliminar usuario: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }
