@@ -14,7 +14,9 @@ import {
   BarChart,
   Bar,
 } from "recharts";
+
 import { useChartColors } from "./../../context/ChartColorsContext";
+
 import {
   FiAlertTriangle,
   FiRefreshCw,
@@ -93,13 +95,6 @@ const ConsumoDetailsModal = ({
 
       params.append("id_categoria", categoria.id.toString());
 
-      console.log(
-        "🔍 Buscando consumos para categoría:",
-        categoria.nombre,
-        "ID:",
-        categoria.id
-      );
-
       const response = await axios.get(`/api/consumos-categoria?${params}`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -115,12 +110,6 @@ const ConsumoDetailsModal = ({
         setTotalPages(
           Math.ceil((response.data.pagination?.total || 0) / itemsPerPage)
         );
-
-        console.log("✅ Consumos de categoría cargados:", {
-          categoria: categoria.nombre,
-          total_consumos: consumosData.length,
-          total_items: response.data.pagination?.total,
-        });
       } else {
         throw new Error(response.data.message || "Error al obtener consumos");
       }
@@ -426,7 +415,6 @@ const ConsumoDetailsModal = ({
   );
 };
 
-// Componente Principal ConsumptionPieChart - CORREGIDO
 const ConsumptionPieChart = ({
   faenaSeleccionada = "todas",
   fechaDesde,
@@ -434,25 +422,23 @@ const ConsumptionPieChart = ({
   horaDesde,
   horaHasta,
   refreshKey = 0,
-  onCategoriesLoad = null,
+  onCategoriesLoad = null, // ✅ SOLO ESTA CALLBACK
   chartColors = [
-    "#f97316", // orange-500
-    "#3b82f6", // blue-500
-    "#10b981", // emerald-500
-    "#f59e0b", // amber-500
-    "#8b5cf6", // violet-500
-    "#ef4444", // red-500
-    "#06b6d4", // cyan-500
-    "#84cc16", // lime-500
-    "#f43f5e", // rose-500
-    "#6366f1", // indigo-500
-    "#64748b", // slate-500
+    "#f97316",
+    "#3b82f6",
+    "#10b981",
+    "#f59e0b",
+    "#8b5cf6",
+    "#ef4444",
+    "#06b6d4",
+    "#84cc16",
+    "#f43f5e",
+    "#6366f1",
+    "#64748b",
   ],
-  // 🎨 NUEVAS PROPS PARA MANEJAR COLORES CONSISTENTES
-  getColorForCategory = null, // Función para obtener color por categoría
-  coloresMapeados = {}, // Mapeo de colores del componente padre
 }) => {
   const { handleMainChartLoad } = useChartColors();
+
   const [categorias, setCategorias] = useState([]);
   const [maquinas, setMaquinas] = useState([]);
   const [selectedCategoria, setSelectedCategoria] = useState(null);
@@ -815,11 +801,6 @@ const ConsumptionPieChart = ({
         return;
       }
 
-      console.log("🎨 ConsumptionPieChart: Cargando con colores:", {
-        coloresMapeados: Object.keys(coloresMapeados).length,
-        getColorForCategory: !!getColorForCategory,
-      });
-
       const requestBody = {
         fecha_inicio: fechaDesde,
         fecha_fin: fechaHasta,
@@ -830,14 +811,10 @@ const ConsumptionPieChart = ({
         requestBody.id_faena = faenaSeleccionada;
       }
 
-      console.log("ConsumptionPieChart: Request body enviado:", requestBody);
-
       const response = await axios.post(
         "/api/categorias-chart/categorias",
         requestBody
       );
-
-      console.log("ConsumptionPieChart: Respuesta completa:", response.data);
 
       if (!isMounted.current) return;
 
@@ -872,7 +849,6 @@ const ConsumptionPieChart = ({
           };
         });
 
-        console.log("DATOS FORMATEADOS CON NOMBRES Y COLORES:", formattedData);
         setCategorias(formattedData);
 
         const metadata = response.data.resumen || response.data.metadata;
@@ -896,13 +872,9 @@ const ConsumptionPieChart = ({
         } else {
           console.warn("handleMainChartLoad no está disponible");
         }
-
-        console.log("ConsumptionPieChart: Datos formateados:", formattedData);
-        console.log("ConsumptionPieChart: Total:", total);
       } else {
         setCategorias([]);
         setTotalConsumo(0);
-        console.log("ConsumptionPieChart: No hay datos disponibles");
       }
     } catch (err) {
       console.error("Error al cargar datos de categorías:", err);
@@ -926,11 +898,6 @@ const ConsumptionPieChart = ({
       setLoading(true);
       setError(null);
 
-      console.log(
-        "ConsumptionPieChart: Cargando máquinas para categoría:",
-        categoria
-      );
-
       const requestBody = {
         fecha_inicio: fechaDesde,
         fecha_fin: fechaHasta,
@@ -940,14 +907,10 @@ const ConsumptionPieChart = ({
         requestBody.id_faena = faenaSeleccionada;
       }
 
-      console.log("ConsumptionPieChart: Request para máquinas:", requestBody);
-
       const response = await axios.post(
         `/api/categorias-chart/categorias/${categoria.id}/maquinas`,
         requestBody
       );
-
-      console.log("ConsumptionPieChart: Respuesta de máquinas:", response.data);
 
       if (!isMounted.current) return;
 
@@ -967,11 +930,8 @@ const ConsumptionPieChart = ({
           .filter((item) => item.value > 0)
           .sort((a, b) => b.value - a.value);
 
-        console.log("🔍 MÁQUINAS FORMATEADAS CON NOMBRES:", maquinasData);
         setMaquinas(maquinasData);
         setError(null);
-
-        console.log("ConsumptionPieChart: Máquinas procesadas:", maquinasData);
       } else {
         setMaquinas([]);
         setError("No hay máquinas disponibles para esta categoría");
@@ -1087,13 +1047,43 @@ const ConsumptionPieChart = ({
     return null;
   };
 
-  // Estados de carga y error
   if (loading) {
     return (
-      <div className="h-96 flex items-center justify-center bg-gray-50 rounded-lg">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando datos de consumo...</p>
+      <div className="w-full">
+        {/* 🎨 Skeleton de gráfico pie profesional */}
+        <div className="flex items-center justify-center h-96 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg">
+          <div className="text-center">
+            {/* 🎯 Círculo skeleton animado */}
+            <div className="relative mx-auto mb-6">
+              <div className="w-48 h-48 rounded-full bg-gray-200 animate-pulse"></div>
+              <div className="absolute inset-0 rounded-full border-4 border-orange-200 animate-spin"></div>
+              <div className="absolute inset-4 rounded-full border-4 border-transparent border-t-orange-500 animate-spin"></div>
+
+              {/* 🎯 Icono central */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <FiPieChart className="h-8 w-8 text-orange-500 animate-pulse" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-gray-700">
+                Analizando Categorías de Consumo
+              </h3>
+              <p className="text-sm text-gray-500">
+                Procesando datos y calculando distribuciones...
+              </p>
+
+              {/* 🎨 Skeleton de estadísticas */}
+              <div className="grid grid-cols-3 gap-4 mt-4 max-w-md mx-auto">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="bg-white rounded-lg p-3 shadow-sm">
+                    <div className="h-3 bg-gray-200 rounded animate-pulse mb-2"></div>
+                    <div className="h-4 bg-gray-300 rounded animate-pulse"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );

@@ -1,4 +1,11 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  useCallback,
+} from "react";
+
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
 import { useChartColors } from "./../../context/ChartColorsContext";
 import {
@@ -32,31 +39,17 @@ const CompactConsumptionPieChart = ({
     "#64748b", // slate-500
   ],
   titulo = "Análisis Comparativo Mensual",
+  // ✅ NUEVAS PROPS PARA CARGA PARALELA:
+  allowParallelLoad = false,
+  waitForColors = false,
 }) => {
-  
-  // 🎨 USAR EL CONTEXTO DE COLORES
+  // ✅ USAR EL HOOK CORRECTO:
   const {
     getColorForCategory,
     categoryColorMapping,
     hasValidColorMapping,
     isInitialized,
   } = useChartColors();
-
-  // 🔍 LOGS INICIALES PARA DEBUGGING
-  console.log(
-    "🔍 CompactConsumptionPieChart: Componente montándose con props:",
-    {
-      faenaSeleccionada,
-      fechaDesde,
-      fechaHasta,
-      refreshKey,
-      titulo,
-      hasGetColorForCategory: !!getColorForCategory,
-      categoryColorMappingKeys: Object.keys(categoryColorMapping || {}),
-      categoryColorMappingLength: Object.keys(categoryColorMapping || {})
-        .length,
-    }
-  );
 
   // Estados principales
   const [periodoActual, setPeriodoActual] = useState([]);
@@ -151,7 +144,6 @@ const CompactConsumptionPieChart = ({
       );
       return color;
     }
-
 
     // 3. Usar el mapeo de colores del padre si está disponible (PRIORIDAD 3)
     if (categoryColorMapping && Object.keys(categoryColorMapping).length > 0) {
@@ -506,6 +498,27 @@ const CompactConsumptionPieChart = ({
     return true;
   };
 
+  const obtenerColorInteligente = useCallback(
+    (item, index) => {
+      // ✅ MEJORADO: Siempre intentar obtener del contexto primero
+      if (getColorForCategory) {
+        const colorDelContexto = getColorForCategory(item.name || item.nombre);
+        if (colorDelContexto) {
+          console.log(
+            `🎨 Color del contexto para "${item.name}": ${colorDelContexto}`
+          );
+          return colorDelContexto;
+        }
+      }
+
+      // ✅ FALLBACK: Si no hay color del contexto, usar array local
+      const fallbackColor = chartColors[index % chartColors.length];
+      console.log(`🎨 Color fallback para "${item.name}": ${fallbackColor}`);
+      return fallbackColor;
+    },
+    [getColorForCategory, chartColors]
+  );
+
   // Función principal actualizada con validaciones
   const cargarDatos = async () => {
     console.log("🔍 CompactConsumptionPieChart: cargarDatos() iniciando...");
@@ -627,7 +640,8 @@ const CompactConsumptionPieChart = ({
         if (todasCategorias.has(cat.name)) {
           todasCategorias.get(cat.name).anterior = cat.value;
         } else {
-          const color = obtenerColor(cat, index);
+          const color = obtenerColorInteligente(cat, index);
+
           console.log(
             `🎨 CompactConsumptionPieChart: Color para ${cat.name} (solo anterior): ${color}`
           );
@@ -681,29 +695,50 @@ const CompactConsumptionPieChart = ({
     }
   };
 
-  // Effect para cargar datos cuando cambien los filtros
+  // ✅ NUEVA LÓGICA CON SINCRONIZACIÓN INTELIGENTE:
   useEffect(() => {
-    console.log(
-      "🔍 CompactConsumptionPieChart: useEffect de carga ejecutándose..."
-    );
-
     const shouldLoad = filtersChanged();
-    console.log(
-      "🔍 CompactConsumptionPieChart: ¿Debe cargar datos?",
-      shouldLoad
-    );
 
     if (shouldLoad) {
-      console.log(
-        "🔍 CompactConsumptionPieChart: Iniciando carga de datos por cambio de filtros"
-      );
-      cargarDatos();
-    } else {
-      console.log(
-        "🔍 CompactConsumptionPieChart: No hay cambios en filtros, omitiendo carga"
-      );
+      if (allowParallelLoad) {
+        // 🚀 CARGA PARALELA: Empezar inmediatamente
+        cargarDatos();
+      } else {
+        // 🔄 CARGA TRADICIONAL: Esperar colores
+        if (waitForColors && hasValidColorMapping) {
+          cargarDatos();
+        } else if (!waitForColors) {
+          cargarDatos();
+        }
+      }
     }
-  }, [faenaSeleccionada, fechaDesde, fechaHasta, refreshKey]);
+  }, [
+    faenaSeleccionada,
+    fechaDesde,
+    fechaHasta,
+    refreshKey,
+    allowParallelLoad,
+    waitForColors,
+    hasValidColorMapping,
+  ]);
+
+  // ✅ AÑADIR ESTE useEffect NUEVO (después del anterior):
+  useEffect(() => {
+    // Re-procesar datos cuando los colores del contexto estén disponibles
+    if (waitForColors && hasValidColorMapping && categorias.length > 0) {
+      console.log(
+        "🎨 CompactChart: Colores disponibles, re-procesando datos..."
+      );
+
+      // Re-procesar categorías con nuevos colores
+      const categoriasConNuevosColores = categorias.map((cat, index) => ({
+        ...cat,
+        color: obtenerColorInteligente(cat, index),
+      }));
+
+      setCategorias(categoriasConNuevosColores);
+    }
+  }, [waitForColors, hasValidColorMapping, obtenerColorInteligente]);
 
   // 🔍 LOG ADICIONAL PARA VER EL ESTADO ACTUAL
   useEffect(() => {
@@ -858,19 +893,62 @@ const CompactConsumptionPieChart = ({
     );
   };
 
-  // Estados de carga y error
   if (loading) {
-    console.log("🔍 CompactConsumptionPieChart: Mostrando estado de loading");
     return (
       <div className="w-full bg-white rounded-lg shadow-lg border border-gray-100">
         <HeaderGerencia />
         <div className="h-96 flex items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-            <p className="text-gray-600">Cargando análisis comparativo...</p>
-            <p className="text-xs text-gray-500 mt-1">
-              Consultando datos del mes anterior
-            </p>
+            {/* 🎨 LOADING MEJORADO CON ESTADO DE SINCRONIZACIÓN */}
+            <div className="relative">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+
+              {/* ✅ INDICADOR DE SINCRONIZACIÓN MEJORADO */}
+              {allowParallelLoad && (
+                <div className="absolute -top-1 -right-1">
+                  <div
+                    className={`w-4 h-4 rounded-full border-2 border-white transition-all duration-500 ${
+                      waitForColors && hasValidColorMapping
+                        ? "bg-green-500 scale-110"
+                        : "bg-yellow-500 animate-pulse"
+                    }`}
+                  >
+                    {waitForColors && hasValidColorMapping && (
+                      <div className="w-full h-full rounded-full bg-white animate-ping"></div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <h3 className="text-base font-semibold text-gray-700 mb-2">
+              {allowParallelLoad
+                ? "Carga Paralela Activa"
+                : "Cargando Análisis Comparativo"}
+            </h3>
+
+            <div className="space-y-2">
+              <p className="text-sm text-gray-600">
+                {allowParallelLoad && waitForColors && hasValidColorMapping
+                  ? "🎨 Colores sincronizados - Procesando datos..."
+                  : allowParallelLoad
+                  ? "⏳ Esperando sincronización de colores..."
+                  : "Consultando datos del mes anterior"}
+              </p>
+
+              {/* 📊 Barra de progreso visual */}
+              {allowParallelLoad && (
+                <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                  <div
+                    className={`h-2 rounded-full transition-all duration-700 ${
+                      waitForColors && hasValidColorMapping
+                        ? "bg-gradient-to-r from-green-400 to-blue-500 w-full"
+                        : "bg-gradient-to-r from-yellow-400 to-orange-500 w-3/4 animate-pulse"
+                    }`}
+                  ></div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

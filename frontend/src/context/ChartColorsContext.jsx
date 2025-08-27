@@ -1,8 +1,10 @@
-// 🎨 Context para manejar colores de gráficos de manera centralizada
-// VERSIÓN OPTIMIZADA - Elimina re-renders innecesarios sin cambiar funcionalidad
+// 🎨 ChartColorsContext.jsx - VERSIÓN OPTIMIZADA COMPATIBLE
+// Reemplaza COMPLETAMENTE el contenido de tu archivo actual
+// Mantiene la misma API pero elimina los re-renders problemáticos
+
 import React, { createContext, useContext, useState, useCallback, useMemo, useRef } from 'react';
 
-// 🎨 PALETA DE COLORES CONSISTENTE
+// 🎨 PALETA DE COLORES CONSISTENTE (igual a la anterior)
 const CHART_COLORS = [
   "#f97316", // orange-500
   "#3b82f6", // blue-500
@@ -20,9 +22,9 @@ const CHART_COLORS = [
 // Crear el contexto
 const ChartColorsContext = createContext();
 
-// 🔧 Provider del contexto - OPTIMIZADO PARA EVITAR RE-RENDERS
+// 🔧 Provider del contexto - OPTIMIZADO pero COMPATIBLE
 export const ChartColorsProvider = ({ children }) => {
-  // Estados centralizados
+  // Estados básicos (mantener nombres originales para compatibilidad)
   const [categoryColorMapping, setCategoryColorMapping] = useState({});
   const [mainChartLoaded, setMainChartLoaded] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -84,6 +86,8 @@ export const ChartColorsProvider = ({ children }) => {
         }
       });
 
+      console.log(`🎨 ChartColorsContext: Procesando ${Object.keys(newMapping).length} categorías`);
+
       // 🔧 ACTUALIZAR SOLO SI REALMENTE HAY CAMBIOS (evita re-renders innecesarios)
       setCategoryColorMapping(prevMapping => {
         const hasChanges = JSON.stringify(newMapping) !== JSON.stringify(prevMapping);
@@ -142,7 +146,7 @@ export const ChartColorsProvider = ({ children }) => {
 
   // 🎨 VALOR FINAL DEL CONTEXTO - ESTABILIZADO
   const contextValue = useMemo(() => ({
-    // Estados básicos
+    // Estados básicos (nombres originales para compatibilidad)
     categoryColorMapping,
     mainChartLoaded,
     isInitialized,
@@ -174,7 +178,7 @@ export const ChartColorsProvider = ({ children }) => {
   );
 };
 
-// 🪝 Hook personalizado para usar el contexto
+// 🪝 Hook personalizado para usar el contexto (mantener nombre original)
 export const useChartColors = () => {
   const context = useContext(ChartColorsContext);
   
@@ -183,6 +187,38 @@ export const useChartColors = () => {
   }
   
   return context;
+};
+
+// 🎯 EXPORTS ADICIONALES PARA COMPATIBILIDAD CON NUEVA API
+export const useOptimizedChartColors = useChartColors;
+export const OptimizedChartColorsProvider = ChartColorsProvider;
+
+// 🆕 HOOK PARA COMPONENTES QUE DEFINEN COLORES
+export const useColorMaster = () => {
+  const { handleMainChartLoad } = useChartColors();
+  
+  const processDataWithColors = useCallback((data, options = {}) => {
+    const { categoryField = 'name' } = options;
+    
+    if (!Array.isArray(data) || data.length === 0) {
+      return [];
+    }
+
+    // Procesar datos y asignar colores
+    const processedData = data.map((item, index) => ({
+      ...item,
+      color: CHART_COLORS[index % CHART_COLORS.length]
+    }));
+
+    // Notificar al contexto
+    handleMainChartLoad(processedData);
+    
+    return processedData;
+  }, [handleMainChartLoad]);
+
+  return {
+    processDataWithColors
+  };
 };
 
 export default ChartColorsContext;

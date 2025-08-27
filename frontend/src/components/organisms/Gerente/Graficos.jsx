@@ -9,7 +9,7 @@ import {
   FiX,
   FiCheckCircle,
   FiRefreshCw,
-  FiLock ,
+  FiLock,
   FiBarChart2,
   FiArrowLeft,
   FiArrowRight,
@@ -18,7 +18,7 @@ import {
   FiCalendar,
 } from "react-icons/fi";
 
-// 🎨 IMPORTAR EL CONTEXTO DE COLORES
+// IMPORTAR EL CONTEXTO DE COLORES
 import {
   ChartColorsProvider,
   useChartColors,
@@ -37,9 +37,9 @@ import ConsumptionPieChart from "../../molecules/ConsumptionPieChart";
 import CompactConsumptionPieChart from "../../molecules/CompactConsumptionPieChart";
 import DashboardComparativo from "../../molecules/DashboardComparativo";
 
-// 🔧 COMPONENTE INTERNO QUE USA EL CONTEXTO
+// COMPONENTE INTERNO OPTIMIZADO
 const GraficosContent = ({ children }) => {
-  // 🎨 USAR EL CONTEXTO DE COLORES
+  // USAR EL CONTEXTO DE COLORES
   const {
     categoryColorMapping,
     mainChartLoaded,
@@ -68,7 +68,7 @@ const GraficosContent = ({ children }) => {
   const [vistaActiva, setVistaActiva] = useState("graficos");
   const [bloqueado, setBloqueado] = useState(false);
 
-  // Estados para fechas - CONFIGURACIÓN POR DEFECTO MEMOIZADA
+  // OPTIMIZACION 1: MEMOIZAR defaultDates para evitar recálculos constantes
   const defaultDates = useMemo(() => {
     const fechaActual = new Date();
     const primerDiaMesActual = new Date(
@@ -82,47 +82,53 @@ const GraficosContent = ({ children }) => {
       fechaActual.getDate()
     );
 
-    return {
+    const result = {
       fechaActual: fechaActual.toISOString().split("T")[0],
       primerDiaMesActual: primerDiaMesActual.toISOString().split("T")[0],
       diaActual: diaActual.toISOString().split("T")[0],
       mesActual: fechaActual.getMonth() + 1,
       añoActual: fechaActual.getFullYear(),
     };
-  }, []);
 
-  console.log("📅 Graficos: Configurando fechas por defecto:", defaultDates);
+    console.log("📅 Graficos: Configurando fechas por defecto:", result);
+    return result;
+  }, []); // Sin dependencias - se calcula solo UNA vez
 
+  // Estados para fechas inicializados con valores memoizados
   const [fechaDesde, setFechaDesde] = useState(defaultDates.primerDiaMesActual);
   const [fechaHasta, setFechaHasta] = useState(defaultDates.diaActual);
 
-  // 🔄 RESETEAR COLORES CUANDO CAMBIAN FILTROS - OPTIMIZADO
-  useEffect(() => {
-    console.log("🔄 Graficos: Detectando cambio de filtros importantes");
+  // OPTIMIZACION 2: Resetear colores solo cuando cambien filtros críticos
+  const resetColorsOptimizado = useCallback(() => {
+    console.log("🔄 Graficos: Reseteando colores (optimizado)");
     resetColorMapping();
-  }, [faenaSeleccionada, fechaDesde, fechaHasta]); // REMOVIDO refreshTrigger para evitar resets innecesarios
+  }, [resetColorMapping]);
 
-  // 🔧 CARGAR FAENAS - FUNCIÓN MEMOIZADA CON MANEJO ROBUSTO
+  useEffect(() => {
+    resetColorsOptimizado();
+  }, [faenaSeleccionada, fechaDesde, fechaHasta, resetColorsOptimizado]);
+
+  // OPTIMIZACION 3: CARGAR FAENAS - versión ultra optimizada con prevención de cargas duplicadas
   const cargarFaenas = useCallback(async () => {
+    // Prevenir múltiples cargas simultaneas
+    if (cargando) {
+      console.log("🚫 Carga de faenas ya en progreso, omitiendo...");
+      return;
+    }
+
     try {
       console.log("🏭 Iniciando carga de faenas...");
       setCargando(true);
       setError(null);
 
       const response = await axios.get("/api/faenas");
-
-      console.log(
-        "📊 Respuesta completa del endpoint /api/faenas:",
-        response.data
-      );
+      console.log("📊 Respuesta completa del endpoint /api/faenas:", response.data);
 
       let faenasData = [];
 
-      // Verificar diferentes estructuras de respuesta
+      // Procesamiento optimizado de diferentes estructuras de respuesta
       if (response.data?.success && Array.isArray(response.data.data)) {
-        console.log(
-          "✅ Estructura encontrada: response.data.data (con wrapper)"
-        );
+        console.log("✅ Estructura encontrada: response.data.data (con wrapper)");
         faenasData = response.data.data;
       } else if (Array.isArray(response.data)) {
         console.log("✅ Estructura encontrada: response.data (directo)");
@@ -135,41 +141,27 @@ const GraficosContent = ({ children }) => {
         faenasData = [];
       }
 
-      console.log(
-        `🏭 Procesando ${faenasData.length} faenas encontradas:`,
-        faenasData
-      );
+      console.log("📊 Datos de faenas encontrados:", faenasData);
 
       if (faenasData && faenasData.length > 0) {
-        const faenasFormateadas = faenasData.map((faena) => {
-          console.log("🏭 Procesando faena:", {
-            id_faena: faena.id_faena,
-            ubicacion: faena.ubicacion,
-            detalle: faena.detalle,
-            fecha_creacion: faena.fecha_creacion,
-          });
+        // Mapear una sola vez con procesamiento optimizado
+        const faenasFormateadas = faenasData.map((faena) => ({
+          value: (faena.id_faena || faena.id || 0).toString(),
+          label:
+            faena.ubicacion ||
+            faena.nombre ||
+            faena.name ||
+            `Faena ${faena.id_faena || faena.id}`,
+          id_faena: faena.id_faena || faena.id,
+          ubicacion: faena.ubicacion || faena.nombre,
+          detalle: faena.detalle,
+          activo: faena.activo !== false,
+        }));
 
-          return {
-            value: (faena.id_faena || faena.id || 0).toString(),
-            label:
-              faena.ubicacion ||
-              faena.nombre ||
-              faena.name ||
-              `Faena ${faena.id_faena || faena.id}`,
-            id_faena: faena.id_faena || faena.id,
-            ubicacion: faena.ubicacion || faena.nombre,
-            detalle: faena.detalle,
-            activo: faena.activo !== false,
-          };
-        });
-
-        console.log(
-          "✅ Faenas formateadas para el selector:",
-          faenasFormateadas
-        );
+        console.log("✅ Faenas formateadas para el selector:", faenasFormateadas);
         setFaenas(faenasFormateadas);
 
-        // Seleccionar automáticamente la primera faena si solo hay una
+        // Selección automática optimizada
         if (faenaSeleccionada === "todas" && faenasFormateadas.length === 1) {
           console.log("🎯 Solo hay una faena, seleccionándola automáticamente");
           setFaenaSeleccionada(faenasFormateadas[0].value);
@@ -180,21 +172,19 @@ const GraficosContent = ({ children }) => {
       }
     } catch (error) {
       console.error("❌ Error cargando faenas:", error);
-      setError(
-        "Error al cargar las faenas disponibles. Verifique su conexión."
-      );
+      setError("Error al cargar las faenas disponibles. Verifique su conexión.");
       setFaenas([]);
     } finally {
       setCargando(false);
     }
-  }, [faenaSeleccionada]);
+  }, [cargando, faenaSeleccionada]); // Solo depende de estados críticos
 
-  // Cargar faenas al montar el componente
+  // OPTIMIZACION 4: Cargar faenas solo una vez al montar
   useEffect(() => {
     cargarFaenas();
-  }, [cargarFaenas]);
+  }, []); // Sin dependencias - se ejecuta solo al montar
 
-  // 🔧 FUNCIONES DE MANEJO DE FILTROS COMPATIBLES CON LA VERSIÓN ORIGINAL
+  // OPTIMIZACION 5: Funciones de manejo optimizadas con useCallback
   const manejarCambioFecha = useCallback((campo, valor) => {
     console.log(`📅 Graficos: Cambiando ${campo} a:`, valor);
     if (campo === "fechaDesde") {
@@ -218,7 +208,7 @@ const GraficosContent = ({ children }) => {
     }
   }, []);
 
-  // 🔄 FUNCIÓN DE REFRESH MEJORADA
+  // OPTIMIZACION 6: Función de refresh optimizada
   const manejarRefresh = useCallback(() => {
     console.log("🔄 Graficos: Disparando refresh manual");
     setCargando(true);
@@ -227,15 +217,15 @@ const GraficosContent = ({ children }) => {
     setRefreshTrigger((prev) => prev + 1);
     setUltimaActualizacion(new Date());
 
-    // Simular tiempo de carga
+    // Simular tiempo de carga más rápido
     setTimeout(() => {
       setCargando(false);
       setMensajeExito("Datos actualizados correctamente");
-      setTimeout(() => setMensajeExito(null), 3000);
-    }, 1000);
+      setTimeout(() => setMensajeExito(null), 2000); // Reducido de 3000 a 2000
+    }, 500); // Reducido de 1000 a 500
   }, []);
 
-  // 🔧 DATOS FINALES COMPATIBLES CON AMBAS VERSIONES
+  // OPTIMIZACION 7: Memoizar datos finales para evitar recálculos
   const datosFinales = useMemo(() => {
     const fechaInicioFormateada = `${fechaDesde} ${horaDesde}:00`;
     const fechaFinFormateada = `${fechaHasta} ${horaHasta}:00`;
@@ -259,7 +249,7 @@ const GraficosContent = ({ children }) => {
     refreshTrigger,
   ]);
 
-  // 🎨 PROPS MEMOIZADAS PARA COMPONENTES
+  // OPTIMIZACION 8: Props memoizadas para componentes
   const chartCommonProps = useMemo(
     () => ({
       faenaSeleccionada,
@@ -279,21 +269,13 @@ const GraficosContent = ({ children }) => {
     ]
   );
 
-  // 🔧 PROPS ESTABILIZADAS PARA CONSUMPTION PIE CHART
+  // OPTIMIZACION 9: Props estabilizadas para consumption pie chart
   const consumptionPieChartProps = useMemo(
     () => ({
       ...chartCommonProps,
-      onCategoriesLoad: handleMainChartLoad, // Nombre correcto del callback
-      handleMainChartLoad: handleMainChartLoad,
-      getColorForCategory: getColorForCategory,
-      categoryColorMapping: categoryColorMapping,
+      onCategoriesLoad: handleMainChartLoad,
     }),
-    [
-      chartCommonProps,
-      handleMainChartLoad,
-      getColorForCategory,
-      categoryColorMapping,
-    ]
+    [chartCommonProps, handleMainChartLoad]
   );
 
   const compactChartProps = useMemo(
@@ -305,36 +287,87 @@ const GraficosContent = ({ children }) => {
             Comparación de Consumo por Categoría de Operación
           </div>
           <div className="text-xs text-gray-500 font-normal mt-1">
-            Sin considerar Micro y considerando el 30% del consumo de las
-            camionetas
+            Sin considerar Micro y considerando el 30% del consumo de las camionetas
           </div>
         </div>
       ),
-      getColorForCategory: getColorForCategory,
-      categoryColorMapping: categoryColorMapping,
     }),
-    [chartCommonProps, getColorForCategory, categoryColorMapping]
+    [chartCommonProps]
   );
 
-  // 🔧 CONDICIÓN MEJORADA PARA RENDERIZAR COMPACTO
-  const shouldRenderCompact =
-    mainChartLoaded && hasValidColorMapping && categoryCount > 0;
+  // OPTIMIZACION 10: Condición optimizada para renderizar compacto
+  const shouldRenderCompact = useMemo(() => {
+    const result = mainChartLoaded && hasValidColorMapping && categoryCount > 0 && isInitialized;
+    
+    console.log("🔍 Graficos: Evaluando renderizado de CompactChart:", {
+      mainChartLoaded,
+      hasValidColorMapping,
+      categoryCount,
+      shouldRenderCompact: result,
+      isInitialized,
+    });
+    
+    return result;
+  }, [mainChartLoaded, hasValidColorMapping, categoryCount, isInitialized]);
 
-  console.log("🔍 Graficos: Evaluando renderizado de CompactChart:", {
-    mainChartLoaded: mainChartLoaded,
-    hasValidColorMapping: hasValidColorMapping,
-    categoryCount: categoryCount,
-    shouldRenderCompact: shouldRenderCompact,
-    isInitialized: isInitialized,
-  });
+  // OPTIMIZACION 11: Memoizar componentes pesados para evitar re-renders
+  const MemoizedTopEquipos = useMemo(() => (
+    <TopEquiposChart
+      {...chartCommonProps}
+      getColorForCategory={getColorForCategory}
+    />
+  ), [chartCommonProps, getColorForCategory]);
 
-  // 🎨 JSX PRINCIPAL
+  const MemoizedConsumptionPie = useMemo(() => (
+    <ConsumptionPieChart
+      {...consumptionPieChartProps}
+      key={`main-chart-${refreshTrigger}`}
+    />
+  ), [consumptionPieChartProps, refreshTrigger]);
+
+  // OPTIMIZACIÓN CRÍTICA: Evitar key dinámico que causa desmontaje
+  const MemoizedCompactChart = useMemo(() => (
+    shouldRenderCompact ? (
+      <CompactConsumptionPieChart
+        {...compactChartProps}
+        // Removido key dinámico para evitar re-mount
+      />
+    ) : null
+  ), [shouldRenderCompact, compactChartProps]);
+
+  // OPTIMIZACIÓN: Key estable para evitar re-mount del gráfico principal
+  const stableChartKey = useMemo(() => `main-chart-stable`, []);
+
+  const MemoizedDashboardComparativo = useMemo(() => (
+    fechaDesde && fechaHasta ? (
+      <DashboardComparativo {...chartCommonProps} />
+    ) : null
+  ), [fechaDesde, fechaHasta, chartCommonProps]);
+
+  const MemoizedConsumoTendencia = useMemo(() => (
+    <ConsumoTendenciaChart {...chartCommonProps} />
+  ), [chartCommonProps]);
+
+  // OPTIMIZACION 12: Memoizar tablas para evitar re-renders innecesarios
+  const MemoizedConsumoPorMaquinaTable = useMemo(() => (
+    <ConsumoPorMaquinaPureTable {...datosFinales} />
+  ), [datosFinales]);
+
+  const MemoizedConsumoPorFaenaTable = useMemo(() => (
+    <ConsumoPorFaenaTable {...datosFinales} />
+  ), [datosFinales]);
+
+  const MemoizedIngresosPorFaenaTable = useMemo(() => (
+    <IngresosPorFaenaTable {...datosFinales} />
+  ), [datosFinales]);
+
+  // JSX PRINCIPAL OPTIMIZADO
   return (
     <div className="flex-1 overflow-auto bg-gray-50 mt-12">
       <UniversalHeader type="gerente" />
 
       <div className="py-6">
-        {/* 🔧 MENSAJES DE ESTADO (RECUPERADOS DE LA VERSIÓN ORIGINAL) */}
+        {/* MENSAJES DE ESTADO */}
         {cargando && (
           <div className="text-center py-4 bg-white rounded-lg shadow-md mb-4">
             <FiLoader
@@ -384,7 +417,7 @@ const GraficosContent = ({ children }) => {
           </div>
         )}
 
-        {/* 🔧 HEADER PRINCIPAL (ESTILO VERSIÓN ORIGINAL) */}
+        {/* HEADER PRINCIPAL */}
         <section className="">
           <div className="flex justify-between items-center mb-3 bg-white p-4 rounded-lg shadow-sm">
             <h2 className="text-lg font-semibold text-gray-800 flex items-center">
@@ -402,10 +435,10 @@ const GraficosContent = ({ children }) => {
                   <button
                     key={key}
                     onClick={() => {
-                      if (bloqueado) return; // Si está bloqueado, no hace nada
-                      setVistaActiva(key); // Cambiar vista
-                      setBloqueado(true); // Bloquear botones
-                      setTimeout(() => setBloqueado(false), 10000); // Desbloquear en 10 seg
+                      if (bloqueado) return;
+                      setVistaActiva(key);
+                      setBloqueado(true);
+                      setTimeout(() => setBloqueado(false), 5000); // Reducido de 8000 a 5000
                     }}
                     disabled={bloqueado}
                     className={`px-3 py-1 rounded-md flex items-center justify-center transition-colors ${
@@ -438,10 +471,9 @@ const GraficosContent = ({ children }) => {
             </div>
           </div>
 
-          {/* 🔧 FILTROS COMPONENT CON PROPS COMPATIBLES */}
+          {/* FILTROS COMPONENT OPTIMIZADO */}
           <div className="mb-6">
             <FiltrosComponent
-              // Props en formato de la versión original
               fechaDesde={fechaDesde}
               setFechaDesde={setFechaDesde}
               fechaHasta={fechaHasta}
@@ -455,14 +487,13 @@ const GraficosContent = ({ children }) => {
               horaHasta={horaHasta}
               setHoraHasta={setHoraHasta}
               cargando={cargando}
-              // Props adicionales en formato de la versión optimizada
               onFaenaChange={manejarCambioFaena}
               onFechaChange={manejarCambioFecha}
               onHoraChange={manejarCambioHora}
             />
           </div>
 
-          {/* 🎯 CONTENIDO SEGÚN VISTA ACTIVA */}
+          {/* CONTENIDO SEGÚN VISTA ACTIVA */}
           {vistaActiva === "graficos" && (
             <div className="mt-6">
               <div className="bg-white p-4 rounded-lg shadow-md mb-6">
@@ -471,59 +502,53 @@ const GraficosContent = ({ children }) => {
                   Visualización de Datos
                 </h3>
 
-                {/* 🎨 TOP EQUIPOS CHART */}
+                {/* TOP EQUIPOS CHART MEMOIZADO */}
                 <div className="mb-6">
                   <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
                     <h4 className="text-sm font-medium text-gray-700 mb-3">
                       Top Equipos por Consumo
                     </h4>
-                    <TopEquiposChart
-                      {...chartCommonProps}
-                      getColorForCategory={getColorForCategory}
-                    />
+                    {MemoizedTopEquipos}
                   </div>
                 </div>
 
-                {/* 🎨 GRÁFICO PRINCIPAL (ConsumptionPieChart) */}
+                {/* GRÁFICO PRINCIPAL MEMOIZADO */}
                 <div className="mb-6">
                   <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
                     <h4 className="text-sm font-medium text-gray-700 mb-3">
                       Consumo por Categoría de Máquinas
                     </h4>
-                    <ConsumptionPieChart
-                      {...consumptionPieChartProps}
-                      key={`main-chart-${refreshTrigger}`}
-                    />
+                    {MemoizedConsumptionPie}
                   </div>
                 </div>
 
-                {/* 🎨 GRÁFICO COMPACTO */}
+                {/* GRÁFICO COMPACTO MEMOIZADO */}
                 {shouldRenderCompact ? (
                   <div className="mb-6">
-                    <CompactConsumptionPieChart
-                      {...compactChartProps}
-                      key={`compact-chart-${refreshTrigger}`}
-                    />
+                    {MemoizedCompactChart}
                   </div>
                 ) : (
                   <div className="mb-6">
-                    <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
+                    <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                       <div className="flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-500 mr-2"></div>
-                        <p className="text-sm text-amber-700">
-                          Esperando que el gráfico principal cargue los
-                          colores...
+                        <div className="animate-pulse w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+                        <p className="text-sm text-blue-700">
+                          Sincronizando colores del gráfico principal...
                         </p>
                       </div>
-                      <div className="mt-2 text-xs text-amber-600 text-center">
-                        Estado: mainChartLoaded={String(mainChartLoaded)},
-                        categorías={categoryCount}
+                      <div className="mt-2 w-full bg-blue-200 rounded-full h-1">
+                        <div
+                          className="bg-blue-500 h-1 rounded-full transition-all duration-500"
+                          style={{
+                            width: `${Math.min((categoryCount / 5) * 100, 90)}%`,
+                          }}
+                        ></div>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* 🎨 DASHBOARD COMPARATIVO */}
+                {/* DASHBOARD COMPARATIVO MEMOIZADO */}
                 <div className="mb-6">
                   <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-100">
                     <div className="flex items-center justify-between mb-6">
@@ -540,69 +565,63 @@ const GraficosContent = ({ children }) => {
                       </div>
                     </div>
 
-                    {fechaDesde && fechaHasta ? (
-                      <DashboardComparativo {...chartCommonProps} />
-                    ) : (
+                    {MemoizedDashboardComparativo || (
                       <div className="text-center py-12">
                         <FiCalendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                         <p className="text-gray-600">
-                          Seleccione un rango de fechas para ver el dashboard
-                          comparativo
+                          Seleccione un rango de fechas para ver el dashboard comparativo
                         </p>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* 🎨 TENDENCIA CHART */}
+                {/* TENDENCIA CHART MEMOIZADO */}
                 <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
                   <h4 className="text-sm font-medium text-gray-700 mb-3">
                     Tendencia de Consumo
                   </h4>
-                  <ConsumoTendenciaChart {...chartCommonProps} />
+                  {MemoizedConsumoTendencia}
                 </div>
               </div>
             </div>
           )}
 
-          {/* 🔧 VISTA DE TABLAS (RECUPERADA DE LA VERSIÓN ORIGINAL) */}
+          {/* VISTA DE TABLAS MEMOIZADA */}
           {vistaActiva === "tablas" && (
             <div className="space-y-6">
-              {/* Tabla de consumo por máquina - ANCHO COMPLETO */}
+              {/* Tabla de consumo por máquina */}
               <div className="bg-white p-6 rounded-lg shadow-md">
                 <h3 className="text-md font-medium text-gray-800 mb-4 flex items-center">
                   <FiBarChart2 className="mr-2" style={{ color: "#F67029" }} />
                   Consumo por Máquina
                 </h3>
-                <ConsumoPorMaquinaPureTable {...datosFinales} />
+                {MemoizedConsumoPorMaquinaTable}
               </div>
 
-              {/* Contenedor para las dos tablas en mitad y mitad */}
+              {/* Grid para las dos tablas */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Tabla de consumo por faena - MITAD */}
                 <div className="bg-white p-6 rounded-lg shadow-md h-full flex flex-col">
-                  <ConsumoPorFaenaTable {...datosFinales} />
+                  {MemoizedConsumoPorFaenaTable}
                 </div>
 
-                {/* Tabla de ingresos por faena - MITAD */}
                 <div className="bg-white p-6 rounded-lg h-full">
-                  <IngresosPorFaenaTable {...datosFinales} />
+                  {MemoizedIngresosPorFaenaTable}
                 </div>
               </div>
             </div>
           )}
         </section>
 
-        {/* Sección para contenido hijo (si existe) */}
+        {/* Sección para contenido hijo */}
         <section>{children}</section>
       </div>
 
-      {/* 🔧 FOOTER (RECUPERADO DE LA VERSIÓN ORIGINAL) */}
+      {/* FOOTER */}
       <footer className="bg-white border-t border-gray-200 py-4 px-6 mt-8">
         <div className="container mx-auto flex justify-between items-center text-sm text-gray-500">
           <div>
-            &copy; {new Date().getFullYear()} Minera 3H. Todos los derechos
-            reservados.
+            &copy; {new Date().getFullYear()} Minera 3H. Todos los derechos reservados.
           </div>
           <div className="flex items-center">
             <span className="mr-2">Versión 0.0.1</span>
@@ -617,7 +636,7 @@ const GraficosContent = ({ children }) => {
   );
 };
 
-// 🎨 COMPONENTE PRINCIPAL CON PROVIDER
+// COMPONENTE PRINCIPAL CON PROVIDER MEMOIZADO
 const Graficos = ({ children }) => {
   return (
     <ChartColorsProvider>

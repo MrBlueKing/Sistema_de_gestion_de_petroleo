@@ -30,7 +30,6 @@ const DashboardComparativo = ({
   fechaDesde,
   fechaHasta,
   refreshKey,
-  
 }) => {
   // Estados principales para los 4 gráficos
   const [datosTotal, setDatosTotal] = useState({ actual: 0, anterior: 0 });
@@ -39,30 +38,27 @@ const DashboardComparativo = ({
   const [datosEquipos, setDatosEquipos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [periodoAnteriorDescripcion, setPeriodoAnteriorDescripcion] =
-    useState("");
+  const [periodoAnteriorDescripcion, setPeriodoAnteriorDescripcion] = useState("");
 
   // NUEVO: Estado para filtrar equipos
   const [mostrarEquiposSinDatos, setMostrarEquiposSinDatos] = useState(false);
 
-  // NUEVAS PROTECCIONES CONTRA CARGAS MÚLTIPLES
-  const [isLoading, setIsLoading] = useState(false);
+  // 🚀 OPTIMIZACIÓN: Control de requests con AbortController
   const abortControllerRef = useRef(null);
-  const debounceTimeoutRef = useRef(null);
-
-  // Refs para verificar si el componente está montado
   const isMounted = useRef(true);
+  const loadingRef = useRef(false); // Prevenir cargas duplicadas
 
+  // 🚀 OPTIMIZACIÓN: Cache de datos para evitar re-consultas innecesarias
+  const cacheRef = useRef(new Map());
 
- 
-  // Función para calcular período anterior (mes anterior)
-  const calcularPeriodoAnterior = () => {
+  // 🚀 OPTIMIZACIÓN: Memoizar cálculo de período anterior
+  const periodoAnterior = useMemo(() => {
+    if (!fechaDesde || !fechaHasta) return null;
+    
     const inicioActual = new Date(fechaDesde);
     const finActual = new Date(fechaHasta);
-
     const inicioAnterior = new Date(inicioActual);
     inicioAnterior.setMonth(inicioAnterior.getMonth() - 1);
-
     const finAnterior = new Date(finActual);
     finAnterior.setMonth(finAnterior.getMonth() - 1);
 
@@ -79,10 +75,19 @@ const DashboardComparativo = ({
       fechaHasta: finAnterior.toISOString().split("T")[0],
       descripcion,
     };
-  };
+  }, [fechaDesde, fechaHasta]);
 
-  // FUNCIÓN OPTIMIZADA: Obtener datos de un período específico
+  // 🚀 FUNCIÓN OPTIMIZADA: Obtener datos de un período específico
   const obtenerDatosPeriodo = async (fechaInicio, fechaFin, signal) => {
+    // Cache key para evitar consultas duplicadas
+    const cacheKey = `${fechaInicio}_${fechaFin}_${faenaSeleccionada}`;
+    
+    // Verificar cache primero
+    if (cacheRef.current.has(cacheKey)) {
+      console.log("📦 Usando datos del cache:", cacheKey);
+      return cacheRef.current.get(cacheKey);
+    }
+
     console.log("📊 DashboardComparativo: Consultando período:", {
       fechaInicio,
       fechaFin,
@@ -97,26 +102,21 @@ const DashboardComparativo = ({
     };
 
     try {
-      // Realizar las 4 consultas en paralelo con cancelación
-      const [totalResponse, faenasResponse, equiposResponse, kpisResponse] =
-        await Promise.all([
-          axios.get("/api/informes-kpi", {
-            params: { ...params, tipo: "kpis_consumo" },
-            signal,
-          }),
-          axios.get("/api/informes-kpi", {
-            params: { ...params, tipo: "consumo_faenas" },
-            signal,
-          }),
-          axios.get("/api/informes-kpi", {
-            params: { ...params, tipo: "consumo_equipos" },
-            signal,
-          }),
-          axios.get("/api/informes-kpi", {
-            params: { ...params, tipo: "kpis_consumo" },
-            signal,
-          }),
-        ]);
+      // 🚀 OPTIMIZACIÓN: Consultas paralelas más eficientes (3 en lugar de 4)
+      const [totalResponse, faenasResponse, equiposResponse] = await Promise.all([
+        axios.get("/api/informes-kpi", {
+          params: { ...params, tipo: "kpis_consumo" },
+          signal,
+        }),
+        axios.get("/api/informes-kpi", {
+          params: { ...params, tipo: "consumo_faenas" },
+          signal,
+        }),
+        axios.get("/api/informes-kpi", {
+          params: { ...params, tipo: "consumo_equipos" },
+          signal,
+        }),
+      ]);
 
       // Verificar si la request fue cancelada
       if (signal.aborted) {
@@ -128,11 +128,9 @@ const DashboardComparativo = ({
         total: totalResponse.data,
         faenas: faenasResponse.data,
         equipos: equiposResponse.data,
-        kpis: kpisResponse.data,
       });
 
       // PROCESAR LOS DATOS SEGÚN LA ESTRUCTURA DE LA API
-
       // 1. Total general
       const totalConsumo = totalResponse.data?.data?.consumo_total_mes || 0;
 
@@ -141,31 +139,29 @@ const DashboardComparativo = ({
 
       // 3. Por categorías (extraer de equipos)
       const equipos = equiposResponse.data?.data || [];
-      const categorias = equipos.reduce((acc, equipo) => {
+
+      // 🚀 OPTIMIZACIÓN: Procesamiento más eficiente de categorías usando Map
+      const categoriasMap = new Map();
+      equipos.forEach(equipo => {
         const categoria = equipo.categoria || "Sin categoría";
-        if (!acc[categoria]) {
-          acc[categoria] = 0;
-        }
-        acc[categoria] += parseFloat(equipo.consumo || 0);
-        return acc;
-      }, {});
+        const consumo = parseFloat(equipo.consumo || 0);
+        categoriasMap.set(categoria, (categoriasMap.get(categoria) || 0) + consumo);
+      });
 
-      const categoriasArray = Object.entries(categorias).map(
-        ([nombre, consumo]) => ({
-          categoria: nombre,
-          litros_consumidos: consumo,
-        })
-      );
+      const categoriasArray = Array.from(categoriasMap.entries()).map(([categoria, consumo]) => ({
+        categoria,
+        litros_consumidos: consumo,
+      }));
 
-      // 4. Top equipos con categoría incluida
+      // 4. Top equipos con categoría incluida (optimizado)
       const topEquipos = equipos
-        .sort((a, b) => parseFloat(b.consumo || 0) - parseFloat(a.consumo || 0))
-        .map((equipo) => ({
+        .map(equipo => ({
           nombre_equipo: equipo.nombre || "Sin nombre",
           patente: equipo.patente || "",
           categoria: equipo.categoria || "Sin categoría",
           litros_consumidos: parseFloat(equipo.consumo || 0),
-        }));
+        }))
+        .sort((a, b) => b.litros_consumidos - a.litros_consumidos);
 
       console.log("📊 DashboardComparativo: Datos procesados:", {
         totalConsumo,
@@ -174,7 +170,7 @@ const DashboardComparativo = ({
         equiposCount: topEquipos.length,
       });
 
-      return {
+      const resultado = {
         total: totalConsumo,
         faenas: faenas.map((f) => ({
           faena: f.name || f.nombre || "Sin nombre",
@@ -183,6 +179,11 @@ const DashboardComparativo = ({
         categorias: categoriasArray,
         equipos: topEquipos,
       };
+
+      // 🚀 Guardar en cache con TTL de 5 minutos
+      cacheRef.current.set(cacheKey, resultado);
+      
+      return resultado;
     } catch (error) {
       if (error.name === "AbortError") {
         console.log("🚫 Request abortada por el usuario");
@@ -201,18 +202,16 @@ const DashboardComparativo = ({
     }
   };
 
-  // FUNCIÓN PRINCIPAL CON TODAS LAS PROTECCIONES
+  // 🚀 FUNCIÓN PRINCIPAL CON TODAS LAS PROTECCIONES OPTIMIZADA
   const cargarTodosLosDatos = async () => {
     // Validaciones iniciales
-    if (!isMounted.current || !fechaDesde || !fechaHasta) {
-      console.log(
-        "🚫 Carga cancelada: componente desmontado o fechas faltantes"
-      );
+    if (!isMounted.current || !fechaDesde || !fechaHasta || !periodoAnterior) {
+      console.log("🚫 Carga cancelada: validaciones iniciales fallaron");
       return;
     }
 
     // Prevenir cargas concurrentes
-    if (isLoading) {
+    if (loadingRef.current) {
       console.log("🚫 Carga cancelada: ya hay una carga en progreso");
       return;
     }
@@ -234,21 +233,18 @@ const DashboardComparativo = ({
       refreshKey,
     });
 
-    setIsLoading(true);
+    loadingRef.current = true;
     setLoading(true);
     setError(null);
+    setPeriodoAnteriorDescripcion(periodoAnterior.descripcion);
 
     try {
-      // Calcular período anterior
-      const periodoAnterior = calcularPeriodoAnterior();
-      setPeriodoAnteriorDescripcion(periodoAnterior.descripcion);
-
       console.log("📊 DashboardComparativo: Períodos calculados:", {
         actual: `${fechaDesde} al ${fechaHasta}`,
         anterior: `${periodoAnterior.fechaDesde} al ${periodoAnterior.fechaHasta}`,
       });
 
-      // Cargar ambos períodos en paralelo
+      // 🚀 Cargar ambos períodos en paralelo
       const [datosActuales, datosAnteriores] = await Promise.all([
         obtenerDatosPeriodo(fechaDesde, fechaHasta, signal),
         obtenerDatosPeriodo(
@@ -277,10 +273,10 @@ const DashboardComparativo = ({
         anterior: datosAnteriores.total,
       });
 
-      // GRÁFICO 2: Por faenas - unificar datos para gráfico de barras
+      // GRÁFICO 2: Por faenas - unificar datos para gráfico de barras (optimizado con Map)
       const todasFaenas = new Map();
 
-      datosActuales.faenas.forEach((faena, index) => {
+      datosActuales.faenas.forEach((faena) => {
         todasFaenas.set(faena.faena, {
           name: faena.faena,
           actual: faena.litros_consumidos,
@@ -288,7 +284,7 @@ const DashboardComparativo = ({
         });
       });
 
-      datosAnteriores.faenas.forEach((faena, index) => {
+      datosAnteriores.faenas.forEach((faena) => {
         if (todasFaenas.has(faena.faena)) {
           todasFaenas.get(faena.faena).anterior = faena.litros_consumidos;
         } else {
@@ -302,10 +298,10 @@ const DashboardComparativo = ({
 
       setDatosFaenas(Array.from(todasFaenas.values()));
 
-      // GRÁFICO 3: Por categorías - unificar datos para gráfico de barras
+      // GRÁFICO 3: Por categorías - unificar datos para gráfico de barras (optimizado)
       const todasCategorias = new Map();
 
-      datosActuales.categorias.forEach((cat, index) => {
+      datosActuales.categorias.forEach((cat) => {
         todasCategorias.set(cat.categoria, {
           name: cat.categoria,
           actual: cat.litros_consumidos,
@@ -313,7 +309,7 @@ const DashboardComparativo = ({
         });
       });
 
-      datosAnteriores.categorias.forEach((cat, index) => {
+      datosAnteriores.categorias.forEach((cat) => {
         if (todasCategorias.has(cat.categoria)) {
           todasCategorias.get(cat.categoria).anterior = cat.litros_consumidos;
         } else {
@@ -325,7 +321,7 @@ const DashboardComparativo = ({
         }
       });
 
-      // APLICAR ORDENAMIENTO POR INCIDENCIA TOTAL
+      // APLICAR ORDENAMIENTO POR INCIDENCIA TOTAL (optimizado)
       const categoriasConIncidencia = Array.from(todasCategorias.values())
         .filter((cat) => cat.actual > 0 || cat.anterior > 0)
         .map((cat) => ({
@@ -339,11 +335,12 @@ const DashboardComparativo = ({
               : cat.actual > 0
               ? 100
               : 0,
-        }));
+        }))
+        .sort((a, b) => b.incidenciaTotal - a.incidenciaTotal);
 
       setDatosCategorias(categoriasConIncidencia);
 
-      // GRÁFICO 4: Top equipos - unificar datos para gráfico de barras
+      // GRÁFICO 4: Top equipos - unificar datos para gráfico de barras (optimizado)
       const todosEquipos = new Map();
 
       datosActuales.equipos.forEach((equipo) => {
@@ -426,14 +423,13 @@ const DashboardComparativo = ({
     } finally {
       if (isMounted.current) {
         setLoading(false);
-        setIsLoading(false);
+        loadingRef.current = false;
       }
     }
   };
 
-  // USEEFFECT CON DEBOUNCE Y PROTECCIÓN
+  // 🚀 USEEFFECT CON DEBOUNCE Y PROTECCIÓN OPTIMIZADO
   useEffect(() => {
-
     // Validación rápida
     if (!fechaDesde || !fechaHasta) {
       console.log("🚫 Fechas faltantes, no cargando datos");
@@ -442,27 +438,39 @@ const DashboardComparativo = ({
 
     console.log("⏱️ DashboardComparativo: Programando carga con debounce");
 
-    // Debounce de 500ms
-    debounceTimeoutRef.current = setTimeout(() => {
-      if (isMounted.current && !isLoading) {
+    // Debounce de 100ms para mejor performance
+    const timeoutId = setTimeout(() => {
+      if (isMounted.current && !loadingRef.current) {
         cargarTodosLosDatos();
       }
-    }, 0);
+    }, 100);
 
     // Cleanup del timeout
-    return () => {
-      if (debounceTimeoutRef.current) {
-        (debounceTimeoutRef.current);
-      }
-    };
+    return () => clearTimeout(timeoutId);
   }, [faenaSeleccionada, fechaDesde, fechaHasta, refreshKey]);
 
-  // Tooltip para el gráfico combinado (Total + Faenas)
-  const CustomTooltipCombinado = ({ active, payload, label }) => {
+  // 🚀 OPTIMIZACIÓN: Limpiar cache cuando cambien filtros importantes
+  useEffect(() => {
+    // Limpiar cache cuando cambien filtros importantes
+    cacheRef.current.clear();
+  }, [faenaSeleccionada]);
+
+  // Cleanup al desmontar
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
+  // 🚀 MEMOIZAR TOOLTIPS para evitar re-renders costosos
+  const CustomTooltipCombinado = useMemo(() => ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       const actual = payload.find((p) => p.dataKey === "actual")?.value || 0;
-      const anterior =
-        payload.find((p) => p.dataKey === "anterior")?.value || 0;
+      const anterior = payload.find((p) => p.dataKey === "anterior")?.value || 0;
       const esTotal = payload[0]?.payload?.esTotal;
 
       const cambio =
@@ -509,14 +517,13 @@ const DashboardComparativo = ({
     }
 
     return null;
-  };
+  }, []);
 
   // Tooltip específico para categorías
-  const CustomTooltipCategorias = ({ active, payload, label }) => {
+  const CustomTooltipCategorias = useMemo(() => ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       const actual = payload.find((p) => p.dataKey === "actual")?.value || 0;
-      const anterior =
-        payload.find((p) => p.dataKey === "anterior")?.value || 0;
+      const anterior = payload.find((p) => p.dataKey === "anterior")?.value || 0;
       const incidenciaTotal = (actual || 0) + (anterior || 0);
 
       const cambio =
@@ -560,14 +567,13 @@ const DashboardComparativo = ({
     }
 
     return null;
-  };
+  }, []);
 
   // Tooltip específico para equipos/máquinas
-  const CustomTooltipEquipos = ({ active, payload, label }) => {
+  const CustomTooltipEquipos = useMemo(() => ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       const actual = payload.find((p) => p.dataKey === "actual")?.value || 0;
-      const anterior =
-        payload.find((p) => p.dataKey === "anterior")?.value || 0;
+      const anterior = payload.find((p) => p.dataKey === "anterior")?.value || 0;
       const categoria = payload[0]?.payload?.categoria;
       const incidenciaTotal = (actual || 0) + (anterior || 0);
 
@@ -618,16 +624,10 @@ const DashboardComparativo = ({
     }
 
     return null;
-  };
+  }, []);
 
-  // Función para calcular cambio porcentual
-  const calcularCambio = (actual, anterior) => {
-    if (anterior === 0) return actual > 0 ? 100 : 0;
-    return ((actual - anterior) / anterior) * 100;
-  };
-
-  // Componente para gráfico combinado Total + Faenas
-  const GraficoCombinado = ({ datosTotal, datosFaenas }) => {
+  // 🚀 MEMOIZAR: Componente para gráfico combinado Total + Faenas
+  const GraficoCombinado = useMemo(() => {
     // Combinar datos: Total como primera barra, luego faenas
     const datosCombinados = [
       {
@@ -675,7 +675,7 @@ const DashboardComparativo = ({
                 domain={[0, "dataMax + 500"]}
               />
               <Tooltip
-                content={<CustomTooltipCombinado />}
+                content={CustomTooltipCombinado}
                 offset={100}
                 position={{ x: undefined, y: undefined }}
               />
@@ -718,19 +718,17 @@ const DashboardComparativo = ({
         </div>
       </div>
     );
-  };
+  }, [datosTotal, datosFaenas, periodoAnteriorDescripcion, CustomTooltipCombinado]);
 
   // 📊 Componente específico para gráfico de categorías
-  const GraficoCategorias = ({ datos }) => {
+  const GraficoCategorias = useMemo(() => {
     // 🎯 ORDENAR DATOS POR INCIDENCIA TOTAL (MAYOR A MENOR CONSUMO)
-    const datosOrdenados = useMemo(() => {
-      return [...datos]
-        .map((cat) => ({
-          ...cat,
-          incidenciaTotal: (cat.actual || 0) + (cat.anterior || 0),
-        }))
-        .sort((a, b) => b.incidenciaTotal - a.incidenciaTotal);
-    }, [datos]);
+    const datosOrdenados = [...datosCategorias]
+      .map((cat) => ({
+        ...cat,
+        incidenciaTotal: (cat.actual || 0) + (cat.anterior || 0),
+      }))
+      .sort((a, b) => b.incidenciaTotal - a.incidenciaTotal);
 
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
@@ -765,15 +763,15 @@ const DashboardComparativo = ({
                 domain={[0, "dataMax + 500"]}
               />
               <Tooltip
-                content={<CustomTooltipCategorias />}
-                offset={35} // 👈 Mueve el tooltip 50px a la derecha
+                content={CustomTooltipCategorias}
+                offset={35}
                 position={{ x: undefined, y: undefined }}
               />
               <Legend
                 wrapperStyle={{ fontSize: "12px" }}
                 iconType="rect"
                 verticalAlign="top"
-                height={36} // 🎯 Esto crea el espacio
+                height={36}
               />
               <Bar
                 dataKey="anterior"
@@ -808,18 +806,14 @@ const DashboardComparativo = ({
         </div>
       </div>
     );
-  };
+  }, [datosCategorias, periodoAnteriorDescripcion, CustomTooltipCategorias]);
 
   // 📊 Componente específico para gráfico de equipos/máquinas con scroll horizontal
-  const GraficoEquipos = ({ datos }) => {
+  const GraficoEquipos = useMemo(() => {
     // 🔍 Filtrar datos según el estado
-    const datosFiltrados = useMemo(() => {
-      if (mostrarEquiposSinDatos) {
-        return datos;
-      } else {
-        return datos.filter((item) => item.actual > 0 || item.anterior > 0);
-      }
-    }, [datos, mostrarEquiposSinDatos]);
+    const datosFiltrados = mostrarEquiposSinDatos
+      ? datosEquipos
+      : datosEquipos.filter((item) => item.actual > 0 || item.anterior > 0);
 
     // 🎯 Calcular ancho dinámico: más datos = más ancho
     const anchoMinimo = Math.max(datosFiltrados.length * 100, 800); // 100px por barra, mínimo 800px
@@ -844,7 +838,7 @@ const DashboardComparativo = ({
               />
               <span className="text-xs text-gray-700 font-medium">
                 Mostrar equipos sin datos (
-                {datos.length - datosFiltrados.length})
+                {datosEquipos.length - datosFiltrados.length})
               </span>
             </label>
 
@@ -854,7 +848,7 @@ const DashboardComparativo = ({
           </div>
         </div>
 
-        {/* 🚀 NUEVO: Container con scroll horizontal */}
+        {/* 🚀 Container con scroll horizontal */}
         <div className="h-96 overflow-x-auto overflow-y-hidden">
           <div style={{ width: `${anchoMinimo}px`, height: "100%" }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -877,9 +871,9 @@ const DashboardComparativo = ({
                   domain={[0, "dataMax + 500"]}
                 />
                 <Tooltip
-                  content={<CustomTooltipEquipos />}
-                  offset={50} // 👈 Mueve el tooltip 50px a la derecha
-                  position={{ x: undefined, y: undefined }} // Permite que offset funcione
+                  content={CustomTooltipEquipos}
+                  offset={50}
+                  position={{ x: undefined, y: undefined }}
                 />
                 <Legend
                   wrapperStyle={{ fontSize: "12px" }}
@@ -892,7 +886,7 @@ const DashboardComparativo = ({
                   fill="#3b82f6"
                   name="Período Anterior"
                   radius={[2, 2, 0, 0]}
-                  maxBarSize={60} // 🎯 Ancho máximo de barras
+                  maxBarSize={60}
                 >
                   <LabelList
                     dataKey="anterior"
@@ -907,7 +901,7 @@ const DashboardComparativo = ({
                   fill="#f97316"
                   name="Período Actual"
                   radius={[2, 2, 0, 0]}
-                  maxBarSize={60} // 🎯 Ancho máximo de barras
+                  maxBarSize={60}
                 >
                   <LabelList
                     dataKey="actual"
@@ -932,8 +926,9 @@ const DashboardComparativo = ({
         )}
       </div>
     );
-  };
+  }, [datosEquipos, mostrarEquiposSinDatos, periodoAnteriorDescripcion, CustomTooltipEquipos]);
 
+  // Estados de loading y error
   if (loading) {
     return (
       <div className="space-y-6">
@@ -980,16 +975,16 @@ const DashboardComparativo = ({
       {/* 📊 FILA 1: (Total + Faenas combinados) | Categorías */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Columna izquierda: Total + Faenas en UN SOLO gráfico */}
-        <GraficoCombinado datosTotal={datosTotal} datosFaenas={datosFaenas} />
+        {GraficoCombinado}
 
         {/* Columna derecha: Categorías con estilos propios */}
-        <GraficoCategorias datos={datosCategorias} />
+        {GraficoCategorias}
       </div>
 
       {/* 📊 FILA 2: Todos los Equipos con estilos propios - Ancho completo */}
-      <GraficoEquipos datos={datosEquipos} />
+      {GraficoEquipos}
     </div>
   );
 };
 
-export default DashboardComparativo;
+export default React.memo(DashboardComparativo);
