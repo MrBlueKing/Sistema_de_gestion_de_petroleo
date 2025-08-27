@@ -51,7 +51,7 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - [Testing] Graficos: Implementar graficos comparativos por Total / Faena / Categorias / Maquinas.
 
-- [WIP] Sistema General: Se agregaron colores a todas las vistas de consumos segun leyenda establecita.
+- [Testing] Sistema General: Se agregaron colores a todas las vistas de consumos segun leyenda establecita.
 
         Gerente.ConsumoView
         Gerente.Table Consumos por faena
@@ -59,11 +59,12 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
         Gerente.Table Rendimiento Maquinas
         Bombero.ConsumoView
 
-- [WIP] Admin Operador Vehiculos: Visualización general del sistema con funcionalidades.
+- [Testing] Admin Operador Vehiculos: Visualización general del sistema con funcionalidades.
         - Consumos View con integración de boletas.
         - Asignar Maquina a Operador(Users).
         - Ingresar Maquinas.
-        
+
+- [WIP] Administración General: Se agrega la opcion de crear Maquinas.
 
 
 ### Changed
