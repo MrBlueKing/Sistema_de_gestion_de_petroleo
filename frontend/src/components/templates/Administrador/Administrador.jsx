@@ -1,13 +1,13 @@
-import React from 'react';
-import Header from '../../organisms/Administrador/Header';
-import Main from '../../organisms/Administrador/Main';
+import React from "react";
+import UniversalHeader from "../../organisms/Todos/UniversalHeader";
+import Main from "../../organisms/Administrador/Main";
 
-const Administrador = () => { 
-    return (
-      <>
-        <Header />
-        <Main />
-      </>
-    );
+const Administrador = () => {
+  return (
+    <>
+      <UniversalHeader type="admin" />
+      <Main />
+    </>
+  );
 };
 export default Administrador;

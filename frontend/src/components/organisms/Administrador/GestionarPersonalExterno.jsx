@@ -12,157 +12,226 @@ const RegistrarPersonal = () => {
   const [camposEditables, setCamposEditables] = useState(true);
   const [solicitantes, setSolicitantes] = useState([]);
   const [empresas, setEmpresas] = useState([]);
-  const [loading, setLoading] = useState({ fetchData: false, submitForm: false });
+  const [loading, setLoading] = useState({
+    fetchData: false,
+    submitForm: false,
+    faenas: false,
+  });
 
   // Estados simplificados
-  const [personalExterno, setPersonalExterno] = useState({ nombre: "", rut: "", id_empresa: "" });
-  const [empresaExterna, setEmpresaExterna] = useState({ nombre: "", rut: "", contacto: "" });
+  const [personalExterno, setPersonalExterno] = useState({
+    nombre: "",
+    rut: "",
+    id_empresa: "",
+  });
+  const [empresaExterna, setEmpresaExterna] = useState({
+    nombre: "",
+    rut: "",
+    contacto: "",
+  });
 
-  const faenas = ["Cabildo", "Catemu", "Chincolco", "Tiltil"];
+  // Estado para faenas dinámicas
+  const [faenas, setFaenas] = useState([]);
 
-  // Carga datos según el tipo de personal seleccionado
+  // Función para validar RUT
+  const validarRut = (rut) => {
+    if (!rut) return false;
+
+    // Limpiar el RUT
+    const rutLimpio = rut.replace(/[^0-9kK]/g, "").toLowerCase();
+
+    if (rutLimpio.length < 8) return false;
+
+    const cuerpo = rutLimpio.slice(0, -1);
+    const dv = rutLimpio.slice(-1);
+
+    // Calcular dígito verificador
+    let suma = 0;
+    let multiplo = 2;
+
+    for (let i = cuerpo.length - 1; i >= 0; i--) {
+      suma += parseInt(cuerpo[i]) * multiplo;
+      multiplo = multiplo === 7 ? 2 : multiplo + 1;
+    }
+
+    const dvCalculado = 11 - (suma % 11);
+    let dvEsperado;
+
+    if (dvCalculado === 11) dvEsperado = "0";
+    else if (dvCalculado === 10) dvEsperado = "k";
+    else dvEsperado = dvCalculado.toString();
+
+    return dv === dvEsperado;
+  };
+
+  // Función para formatear RUT
+  const formatearRut = (rut) => {
+    if (!rut) return "";
+
+    // Limpiar el RUT
+    const rutLimpio = rut.replace(/[^0-9kK]/g, "");
+
+    if (rutLimpio.length <= 1) return rutLimpio;
+
+    // Separar cuerpo y dígito verificador
+    const cuerpo = rutLimpio.slice(0, -1);
+    const dv = rutLimpio.slice(-1);
+
+    // Formatear el cuerpo con puntos
+    const cuerpoFormateado = cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+    return `${cuerpoFormateado}-${dv.toUpperCase()}`;
+  };
+
+  // Cargar faenas desde la API
+  useEffect(() => {
+    const fetchFaenas = async () => {
+      setLoading((prev) => ({ ...prev, faenas: true }));
+      try {
+        const response = await axios.get("/api/faenas");
+        if (response.data.success) {
+          const faenasOptions = response.data.data.map((faena) => ({
+            label: faena.ubicacion,
+            value: faena.ubicacion,
+          }));
+          setFaenas(faenasOptions);
+        } else {
+          // Fallback a faenas hardcodeadas
+          setFaenas([
+            { label: "Cabildo", value: "Cabildo" },
+            { label: "Catemu", value: "Catemu" },
+            { label: "Chincolco", value: "Chincolco" },
+            { label: "Tiltil", value: "Tiltil" },
+          ]);
+        }
+      } catch (error) {
+        console.error("Error al cargar faenas:", error);
+        // Fallback a faenas hardcodeadas
+        setFaenas([
+          { label: "Cabildo", value: "Cabildo" },
+          { label: "Catemu", value: "Catemu" },
+          { label: "Chincolco", value: "Chincolco" },
+          { label: "Tiltil", value: "Tiltil" },
+        ]);
+      } finally {
+        setLoading((prev) => ({ ...prev, faenas: false }));
+      }
+    };
+
+    fetchFaenas();
+  }, []);
+
+  // Obtener solicitantes internos disponibles
+  const fetchSolicitantes = async () => {
+    setLoading((prev) => ({ ...prev, fetchData: true }));
+    try {
+      const [responseBodega, responsePetroleo] = await Promise.all([
+        axios.get("/api/personal-bodega"),
+        axios.get("/api/personal-internos"),
+      ]);
+
+      if (!responseBodega.data?.data)
+        throw new Error("Error al obtener datos de bodega");
+
+      const personas = responseBodega.data.data.filter(
+        (item) => item.Cargo !== "Maquinaria" && item.Rut && item.Nombre
+      );
+      const registrados = responsePetroleo.data?.personal_interno || [];
+
+      // Filtrar solicitantes no registrados
+      const disponibles = personas.filter((p) => {
+        const rutLimpio = p.Rut.trim().toLowerCase();
+        return !registrados.some(
+          (r) =>
+            r.personal_interno?.rut &&
+            r.personal_interno.rut.trim().toLowerCase() === rutLimpio
+        );
+      });
+
+      // Formatear para dropdown
+      setSolicitantes(
+        disponibles.map((p) => ({
+          label: `${p.Rut} - ${p.Nombre}`,
+          value: {
+            rut: p.Rut,
+            nombre: p.Nombre,
+            cargo: p.Cargo || "No especificado",
+          },
+        }))
+      );
+    } catch (err) {
+      setError(
+        `Error al cargar solicitantes: ${err.message || "Error desconocido"}`
+      );
+    } finally {
+      setLoading((prev) => ({ ...prev, fetchData: false }));
+    }
+  };
+
+  // Obtener empresas disponibles
+  const fetchEmpresas = async () => {
+    setLoading((prev) => ({ ...prev, fetchData: true }));
+    try {
+      const response = await axios.get("/api/empresas-disponibles");
+      console.log("datillos:", response.data);
+      if (!response.data) throw new Error("Error al obtener empresas");
+
+      // Formatear empresas para dropdown
+      setEmpresas(
+        (response.data || []).map((e) => ({
+          label: `${e.rut} - ${e.nombre}`,
+          value: {
+            id: e.id_empresa,
+            nombre: e.nombre,
+            rut: e.rut,
+            contacto: e.contacto,
+          },
+        }))
+      );
+      console.log("datilijillos:", empresas);
+    } catch (err) {
+      setError(
+        `Error al cargar empresas: ${err.message || "Error desconocido"}`
+      );
+    } finally {
+      setLoading((prev) => ({ ...prev, fetchData: false }));
+    }
+  };
+
+  // Efecto para cargar datos según el tipo de personal
   useEffect(() => {
     if (tipoPersonal === "Interno") {
       fetchSolicitantes();
     } else if (tipoPersonal === "Externo") {
       fetchEmpresas();
     }
+
+    // Limpiar estados cuando se cambia de tipo
+    setSolicitanteSeleccionado(null);
+    setPersonalExterno({ nombre: "", rut: "", id_empresa: "" });
+    setEmpresaExterna({ nombre: "", rut: "", contacto: "" });
+    setFaenaSeleccionada("");
+    setError("");
+    setSuccess("");
+    setCamposEditables(true);
   }, [tipoPersonal]);
 
-  // Función mejorada para validar RUT chileno
-  const validarRut = (rut) => {
-    if (!rut) return false;
-    
-    // Eliminar puntos y guión
-    const rutLimpio = rut.replace(/\./g, "").replace(/-/g, "").trim();
-    
-    // Verificar formato básico
-    if (!/^[0-9]{7,8}[0-9kK]$/.test(rutLimpio)) return false;
-    
-    // Validación del dígito verificador
-    const rutDigitos = rutLimpio.slice(0, -1);
-    const dv = rutLimpio.slice(-1).toLowerCase();
-    
-    let suma = 0;
-    let multiplo = 2;
-    
-    // Suma ponderada
-    for (let i = rutDigitos.length - 1; i >= 0; i--) {
-      suma += parseInt(rutDigitos[i]) * multiplo;
-      multiplo = multiplo === 7 ? 2 : multiplo + 1;
-    }
-    
-    // Cálculo del dígito verificador
-    const dvEsperado = 11 - (suma % 11);
-    const dvCalculado = dvEsperado === 11 ? '0' : dvEsperado === 10 ? 'k' : dvEsperado.toString();
-    
-    return dvCalculado === dv;
-  };
-
-  // Función para formatear RUT con puntos y guión
-  const formatearRut = (rut) => {
-    if (!rut) return "";
-    
-    // Eliminar puntos y guiones
-    let valor = rut.replace(/\./g, "").replace(/-/g, "").trim();
-    
-    // Validar que solo contenga números y k
-    if (!/^[0-9kK]+$/.test(valor)) return rut;
-    
-    // Obtener DV
-    const dv = valor.slice(-1);
-    // Obtener Cuerpo
-    const rutCuerpo = valor.slice(0, -1);
-    
-    // Formatear con puntos
-    let rutFormateado = "";
-    let i = rutCuerpo.length;
-    
-    while (i > 0) {
-      const inicio = Math.max(0, i - 3);
-      rutFormateado = rutCuerpo.substring(inicio, i) + (rutFormateado ? "." + rutFormateado : "");
-      i = inicio;
-    }
-    
-    return rutFormateado + "-" + dv;
-  };
-
-  // Obtener solicitantes internos disponibles
-  const fetchSolicitantes = async () => {
-    setLoading(prev => ({ ...prev, fetchData: true }));
-    try {
-      const [responseBodega, responsePetroleo] = await Promise.all([
-        axios.get("/api/personal-bodega"),
-        axios.get("/api/personal-internos")
-      ]);
-      
-      if (!responseBodega.data?.data) throw new Error("Error al obtener datos de bodega");
-      
-      const personas = responseBodega.data.data.filter(item => item.Cargo !== "Maquinaria" && item.Rut && item.Nombre);
-      const registrados = responsePetroleo.data?.personal_interno || [];
-      
-      // Filtrar solicitantes no registrados
-      const disponibles = personas.filter(p => {
-        const rutLimpio = p.Rut.trim().toLowerCase();
-        return !registrados.some(r => 
-          r.personal_interno?.rut && 
-          r.personal_interno.rut.trim().toLowerCase() === rutLimpio
-        );
-      });
-      
-      // Formatear para dropdown
-      setSolicitantes(disponibles.map(p => ({
-        label: `${p.Rut} - ${p.Nombre}`,
-        value: { rut: p.Rut, nombre: p.Nombre, cargo: p.Cargo || "No especificado" }
-      })));
-    } catch (err) {
-      setError(`Error al cargar solicitantes: ${err.message || "Error desconocido"}`);
-    } finally {
-      setLoading(prev => ({ ...prev, fetchData: false }));
-    }
-  };
-
-  // Obtener empresas disponibles
-  const fetchEmpresas = async () => {
-    setLoading(prev => ({ ...prev, fetchData: true }));
-    try {
-      const response = await axios.get("/api/empresas-disponibles");
-      console.log("datillos:", response.data);
-      if (!response.data) throw new Error("Error al obtener empresas");
-      
-      // Formatear empresas para dropdown
-      setEmpresas((response.data || []).map(e => ({
-        label: `${e.rut} - ${e.nombre}`,
-        value: { id: e.id_empresa, nombre: e.nombre, rut: e.rut, contacto: e.contacto }
-      })));
-    console.log("datilijillos:" , empresas);
-    } catch (err) {
-      setError(`Error al cargar empresas: ${err.message || "Error desconocido"}`);
-    } finally {
-      setLoading(prev => ({ ...prev, fetchData: false }));
-    }
-  };
-
-  // Validación mejorada del formulario
+  // Validar formulario antes de enviar
   const validarFormulario = () => {
-    // Validación común para todos los tipos
-    if ((tipoPersonal === "Interno" || tipoPersonal === "Externo") && !faenaSeleccionada) {
-      setError("Debe seleccionar una faena.");
-      return false;
-    }
-
-    // Validaciones específicas por tipo
     if (tipoPersonal === "Interno") {
       if (!solicitanteSeleccionado) {
-        setError("Debe seleccionar un solicitante válido.");
+        setError("Debe seleccionar un solicitante.");
+        return false;
+      }
+      if (!faenaSeleccionada) {
+        setError("Debe seleccionar una faena.");
         return false;
       }
       if (!validarRut(solicitanteSeleccionado.rut)) {
         setError("El RUT del solicitante es inválido.");
         return false;
       }
-    } 
-    else if (tipoPersonal === "Externo") {
+    } else if (tipoPersonal === "Externo") {
       if (!personalExterno.nombre?.trim()) {
         setError("El nombre del personal externo es requerido.");
         return false;
@@ -175,8 +244,11 @@ const RegistrarPersonal = () => {
         setError("Debe seleccionar una empresa.");
         return false;
       }
-    } 
-    else if (tipoPersonal === "Nueva Empresa") {
+      if (!faenaSeleccionada) {
+        setError("Debe seleccionar una faena.");
+        return false;
+      }
+    } else if (tipoPersonal === "Nueva Empresa") {
       if (!empresaExterna.nombre?.trim()) {
         setError("El nombre de la empresa es requerido.");
         return false;
@@ -190,7 +262,7 @@ const RegistrarPersonal = () => {
         return false;
       }
     }
-    
+
     return true;
   };
 
@@ -202,7 +274,7 @@ const RegistrarPersonal = () => {
       return;
     }
 
-    const seleccionado = solicitantes.find(s => s.label === selectedLabel);
+    const seleccionado = solicitantes.find((s) => s.label === selectedLabel);
     if (!seleccionado) {
       setError("Solicitante no encontrado en la lista.");
       return;
@@ -215,25 +287,47 @@ const RegistrarPersonal = () => {
   // Handler para selección de empresa
   const handleEmpresaSelect = (selectedLabel) => {
     if (!selectedLabel) {
-      setPersonalExterno(prev => ({ ...prev, id_empresa: "" }));
+      setPersonalExterno((prev) => ({ ...prev, id_empresa: "" }));
       setError("");
       return;
     }
 
-    const seleccionada = empresas.find(e => e.label === selectedLabel);
+    const seleccionada = empresas.find((e) => e.label === selectedLabel);
     if (!seleccionada) {
       setError("Empresa no encontrada en la lista.");
       return;
     }
 
-    setPersonalExterno(prev => ({ ...prev, id_empresa: seleccionada.value.id }));
+    setPersonalExterno((prev) => ({
+      ...prev,
+      id_empresa: seleccionada.value.id,
+    }));
     setError("");
   };
 
+  // Handler para selección de faena
+  const handleFaenaSelect = (selectedLabel) => {
+    if (!selectedLabel) {
+      setFaenaSeleccionada("");
+      setError("");
+      return;
+    }
+
+    const faenaEncontrada = faenas.find((f) => f.label === selectedLabel);
+    if (!faenaEncontrada) {
+      setError("Faena no encontrada en la lista.");
+      return;
+    }
+
+    setFaenaSeleccionada(faenaEncontrada.value);
+    setError("");
+    console.log("✅ Faena seleccionada:", faenaEncontrada);
+  };
+
   // Handler para manejo de input RUT con autoformato
-  const handleRutChange = (e, setterFn, field = 'rut') => {
+  const handleRutChange = (e, setterFn, field = "rut") => {
     const rutFormateado = formatearRut(e.target.value);
-    setterFn(prev => ({ ...prev, [field]: rutFormateado }));
+    setterFn((prev) => ({ ...prev, [field]: rutFormateado }));
   };
 
   // Handler para guardar registro
@@ -243,11 +337,11 @@ const RegistrarPersonal = () => {
 
     if (!validarFormulario()) return;
 
-    setLoading(prev => ({ ...prev, submitForm: true }));
-    
+    setLoading((prev) => ({ ...prev, submitForm: true }));
+
     try {
       let endpoint, payload;
-      
+
       switch (tipoPersonal) {
         case "Interno":
           endpoint = "/api/registrarUsuarioInterno";
@@ -256,7 +350,7 @@ const RegistrarPersonal = () => {
             nombre_completo: solicitanteSeleccionado.nombre,
             cargo: solicitanteSeleccionado.cargo,
             ubicacion: faenaSeleccionada,
-            faena: faenaSeleccionada
+            faena: faenaSeleccionada,
           };
           break;
         case "Externo":
@@ -265,7 +359,7 @@ const RegistrarPersonal = () => {
             rut: personalExterno.rut,
             nombre_completo: personalExterno.nombre,
             id_empresa: personalExterno.id_empresa,
-            ubicacion: faenaSeleccionada
+            ubicacion: faenaSeleccionada,
           };
           break;
         case "Nueva Empresa":
@@ -273,32 +367,48 @@ const RegistrarPersonal = () => {
           payload = {
             nombre: empresaExterna.nombre,
             rut: empresaExterna.rut,
-            contacto: empresaExterna.contacto
+            contacto: empresaExterna.contacto,
           };
           break;
+        default:
+          throw new Error("Tipo de personal no válido");
       }
-      
+
       const response = await axios.post(endpoint, payload);
-      
+
       if (response.data?.success) {
         setSuccess("Registro realizado correctamente.");
-        setCamposEditables(false);
+
+        // 🔄 Resetear todos los estados del formulario
+        setSolicitanteSeleccionado(null);
+        setFaenaSeleccionada("");
+        setPersonalExterno({ nombre: "", rut: "", id_empresa: "" });
+        setEmpresaExterna({ nombre: "", rut: "", contacto: "" });
+        
+
+        // Opcional: Recargar datos si es necesario
+        if (tipoPersonal === "Interno") {
+          fetchSolicitantes();
+        } else if (tipoPersonal === "Externo") {
+          fetchEmpresas();
+        }
       } else {
-        throw new Error(response.data?.message || "No se pudo completar el registro.");
+        throw new Error(
+          response.data?.message || "No se pudo completar el registro."
+        );
       }
-    } catch (err) {
-      if (err.response && err.response.status === 422) {
-        // Mostrar los errores de validación
-        const errores = err.response.data.errors;
-        const mensajes = Object.values(errores).flat().join("\n");
-        setError(`Errores de validación:\n${mensajes}`);
+    } catch (error) {
+      console.error("Error al registrar:", error);
+      if (error.response?.data?.errors) {
+        const firstError = Object.values(error.response.data.errors)[0];
+        setError(Array.isArray(firstError) ? firstError[0] : firstError);
       } else {
-        // Otro tipo de error (500, 404, etc)
-        setError(`Error al guardar los datos: ${err.message}`);
+        setError(
+          error.response?.data?.message || "Error al procesar el registro"
+        );
       }
-    }
-     finally {
-      setLoading(prev => ({ ...prev, submitForm: false }));
+    } finally {
+      setLoading((prev) => ({ ...prev, submitForm: false }));
     }
   };
 
@@ -311,14 +421,33 @@ const RegistrarPersonal = () => {
     setError("");
     setSuccess("");
     setCamposEditables(true);
-    
+
     if (tipoPersonal === "Interno") fetchSolicitantes();
     else if (tipoPersonal === "Externo") fetchEmpresas();
   };
 
+  // Función para determinar si el botón submit está deshabilitado
+  const isSubmitDisabled = () => {
+    if (loading.submitForm || loading.faenas) return true;
+
+    if (tipoPersonal === "Interno") {
+      return !solicitanteSeleccionado || !faenaSeleccionada;
+    } else if (tipoPersonal === "Externo") {
+      return (
+        !personalExterno.nombre.trim() ||
+        !personalExterno.rut.trim() ||
+        !personalExterno.id_empresa ||
+        !faenaSeleccionada
+      );
+    } else if (tipoPersonal === "Nueva Empresa") {
+      return !empresaExterna.nombre.trim() || !empresaExterna.rut.trim();
+    }
+    return false;
+  };
+
   // Renderizar formulario según tipo de personal
   const renderFormFields = () => {
-    switch(tipoPersonal) {
+    switch (tipoPersonal) {
       case "Interno":
         return (
           <>
@@ -326,58 +455,52 @@ const RegistrarPersonal = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Solicitante <span className="text-red-500">*</span>
               </label>
-              <div className={!camposEditables ? "opacity-75 pointer-events-none" : ""}>
+              <div
+                className={
+                  !camposEditables ? "opacity-75 pointer-events-none" : ""
+                }
+              >
                 <SearchableDropdown
                   options={solicitantes}
-                  selected={solicitanteSeleccionado ? solicitantes.find(s => s.value.rut === solicitanteSeleccionado.rut)?.label || "" : ""}
+                  selected={
+                    solicitanteSeleccionado
+                      ? solicitantes.find(
+                          (s) => s.value.rut === solicitanteSeleccionado.rut
+                        )?.label || ""
+                      : ""
+                  }
                   onSelect={handleSolicitanteSelect}
-                  placeholder={loading.fetchData ? "Cargando..." : "Seleccione un solicitante"}
+                  placeholder={
+                    loading.fetchData
+                      ? "Cargando solicitantes..."
+                      : "Seleccionar Solicitante"
+                  }
                   disabled={!camposEditables || loading.fetchData}
                 />
               </div>
             </div>
-            {solicitanteSeleccionado && (
-              <div className="mt-4 bg-gray-50 p-4 rounded-md">
-                <h3 className="font-medium text-gray-700 mb-2">Información del solicitante</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                  <div><span className="font-medium">RUT:</span> {solicitanteSeleccionado.rut}</div>
-                  <div><span className="font-medium">Nombre:</span> {solicitanteSeleccionado.nombre}</div>
-                  <div><span className="font-medium">Cargo:</span> {solicitanteSeleccionado.cargo}</div>
-                </div>
-              </div>
-            )}
           </>
         );
-      
+
       case "Externo":
         return (
           <>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Empresa <span className="text-red-500">*</span>
-              </label>
-              <div className={!camposEditables ? "opacity-75 pointer-events-none" : ""}>
-                <SearchableDropdown
-                  options={empresas}
-                  selected={empresas.find(e => e.value.id === personalExterno.id_empresa)?.label || ""}
-                  onSelect={handleEmpresaSelect}
-                  placeholder={loading.fetchData ? "Cargando..." : "Seleccione empresa"}
-                  disabled={!camposEditables || loading.fetchData}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nombre <span className="text-red-500">*</span>
+                Nombre Completo <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={personalExterno.nombre}
-                onChange={(e) => setPersonalExterno(prev => ({ ...prev, nombre: e.target.value }))}
+                onChange={(e) =>
+                  setPersonalExterno((prev) => ({
+                    ...prev,
+                    nombre: e.target.value,
+                  }))
+                }
+                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                placeholder="Nombre completo del personal"
                 disabled={!camposEditables}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
-                placeholder="Nombre completo"
               />
             </div>
 
@@ -389,41 +512,63 @@ const RegistrarPersonal = () => {
                 type="text"
                 value={personalExterno.rut}
                 onChange={(e) => handleRutChange(e, setPersonalExterno)}
-                disabled={!camposEditables}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
+                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 placeholder="12.345.678-9"
+                disabled={!camposEditables}
               />
             </div>
-            
-            {personalExterno.id_empresa && (
-              <div className="mt-4 bg-gray-50 p-4 rounded-md">
-                <h3 className="font-medium text-gray-700 mb-2">Información de la empresa</h3>
-                {empresas.find(e => e.value.id === personalExterno.id_empresa) && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                    <div><span className="font-medium">Empresa:</span> {empresas.find(e => e.value.id === personalExterno.id_empresa).value.nombre}</div>
-                    <div><span className="font-medium">RUT:</span> {empresas.find(e => e.value.id === personalExterno.id_empresa).value.rut}</div>
-                    <div><span className="font-medium">Contacto:</span> {empresas.find(e => e.value.id === personalExterno.id_empresa).value.contacto}</div>
-                  </div>
-                )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Empresa <span className="text-red-500">*</span>
+              </label>
+              <div
+                className={
+                  !camposEditables ? "opacity-75 pointer-events-none" : ""
+                }
+              >
+                <SearchableDropdown
+                  options={empresas}
+                  selected={
+                    personalExterno.id_empresa
+                      ? empresas.find(
+                          (e) => e.value.id === personalExterno.id_empresa
+                        )?.label || ""
+                      : ""
+                  }
+                  onSelect={handleEmpresaSelect}
+                  placeholder={
+                    loading.fetchData
+                      ? "Cargando empresas..."
+                      : "Seleccionar Empresa"
+                  }
+                  disabled={!camposEditables || loading.fetchData}
+                  maxHeight="100px"
+                />
               </div>
-            )}
+            </div>
           </>
         );
-      
+
       case "Nueva Empresa":
         return (
           <>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nombre Empresa <span className="text-red-500">*</span>
+                Nombre de la Empresa <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={empresaExterna.nombre}
-                onChange={(e) => setEmpresaExterna(prev => ({ ...prev, nombre: e.target.value }))}
-                disabled={!camposEditables}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
+                onChange={(e) =>
+                  setEmpresaExterna((prev) => ({
+                    ...prev,
+                    nombre: e.target.value,
+                  }))
+                }
+                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 placeholder="Nombre de la empresa"
+                disabled={!camposEditables}
               />
             </div>
 
@@ -435,158 +580,188 @@ const RegistrarPersonal = () => {
                 type="text"
                 value={empresaExterna.rut}
                 onChange={(e) => handleRutChange(e, setEmpresaExterna)}
+                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                placeholder="12.345.678-9"
                 disabled={!camposEditables}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
-                placeholder="76.123.456-7"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Contacto <span className="text-red-500">*</span>
+                Contacto
               </label>
               <input
                 type="text"
                 value={empresaExterna.contacto}
-                onChange={(e) => setEmpresaExterna(prev => ({ ...prev, contacto: e.target.value }))}
+                onChange={(e) =>
+                  setEmpresaExterna((prev) => ({
+                    ...prev,
+                    contacto: e.target.value,
+                  }))
+                }
+                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                placeholder="Teléfono o email de contacto (opcional)"
                 disabled={!camposEditables}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
-                placeholder="Teléfono o email"
               />
             </div>
           </>
         );
-      
+
       default:
         return null;
     }
   };
 
-  // Verificar si el botón debe estar deshabilitado
-  const isSubmitDisabled = () => {
-    if (loading.submitForm || loading.fetchData) return true;
-    
-    switch(tipoPersonal) {
-      case "Interno":
-        return !solicitanteSeleccionado || !faenaSeleccionada;
-      case "Externo":
-        return !personalExterno.nombre || !personalExterno.rut || !personalExterno.id_empresa || !faenaSeleccionada;
-      case "Nueva Empresa":
-        return !empresaExterna.nombre || !empresaExterna.rut || !empresaExterna.contacto;
-      default:
-        return true;
-    }
-  };
-
   return (
     <div className="bg-white shadow-lg rounded-lg overflow-hidden max-w-4xl mx-auto">
-      <div className="bg-orange-400 px-6 py-4">
-        <h2 className="text-white text-2xl font-bold">Registrar Personal</h2>
-        <p className="text-orange-50 text-sm">Gestión de solicitantes internos, personal externo y empresas</p>
+      {/* Header */}
+      <div className="bg-white shadow-sm">
+        <div className="bg-orange-400 px-6 py-4">
+          <h2 className="text-white text-2xl font-bold">Registrar Personal</h2>
+          <p className="text-orange-50 text-sm">
+            Gestión de solicitantes internos, personal externo y empresas
+          </p>
+        </div>
       </div>
 
-      <div className="p-6">
+      {/* Contenido principal */}
+      <div className="max-w-4xl mx-auto px-6 py-8">
+        {/* Mensajes de error y éxito */}
         {error && (
-          <div className="mb-4 bg-red-50 border-l-4 border-red-500 p-3 rounded">
-            <div className="flex items-center">
-              <svg className="h-5 w-5 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-              <span className="text-red-700">{error}</span>
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg
+                  className="h-5 w-5 text-red-400"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
             </div>
           </div>
         )}
 
         {success && (
-          <div className="mb-4 bg-green-50 border-l-4 border-green-500 p-3 rounded">
-            <div className="flex items-center">
-              <svg className="h-5 w-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <span className="text-green-700">{success}</span>
+          <div className="mb-6 bg-green-50 border border-green-200 rounded-md p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg
+                  className="h-5 w-5 text-green-400"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-green-800">{success}</p>
+              </div>
             </div>
           </div>
         )}
 
-        <div className="space-y-6">
-          {/* Tipo de registro */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tipo de Registro <span className="text-red-500">*</span>
-            </label>
-            <div className="flex flex-wrap gap-3">
-              {["Interno", "Externo", "Nueva Empresa"].map(tipo => (
-                <button
-                  key={tipo}
-                  type="button"
-                  onClick={() => setTipoPersonal(tipo)}
-                  className={`px-4 py-2 rounded-md text-sm font-medium ${
-                    tipoPersonal === tipo 
-                      ? "bg-orange-400 text-white" 
-                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  }`}
-                  disabled={!camposEditables}
-                >
-                  {tipo === "Interno" ? "Solicitante Interno" : 
-                   tipo === "Externo" ? "Personal Externo" : "Nueva Empresa"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Campo Faena - para Interno y Externo */}
-          {(tipoPersonal === "Interno" || tipoPersonal === "Externo") && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Faena <span className="text-red-500">*</span>
+        {/* Formulario principal */}
+        <div className="bg-white shadow-sm rounded-lg">
+          <div className="px-6 py-6">
+            {/* Selector de tipo de personal */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Tipo de Personal
               </label>
-              <div className={!camposEditables ? "opacity-75 pointer-events-none" : ""}>
-                <SearchableDropdown
-                  options={faenas.map(f => ({ label: f, value: f }))}
-                  selected={faenaSeleccionada}
-                  onSelect={value => {
-                    setFaenaSeleccionada(value);
-                    setError("");
-                  }}
-                  placeholder="Seleccionar Faena"
-                  disabled={!camposEditables}
-                />
+              <div className="flex flex-wrap gap-2">
+                {["Interno", "Externo", "Nueva Empresa"].map((tipo) => (
+                  <button
+                    key={tipo}
+                    onClick={() => setTipoPersonal(tipo)}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                      tipoPersonal === tipo
+                        ? "bg-orange-500 text-white"
+                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    }`}
+                    disabled={!camposEditables}
+                  >
+                    {tipo === "Interno"
+                      ? "Solicitante Interno"
+                      : tipo === "Externo"
+                      ? "Personal Externo"
+                      : "Nueva Empresa"}
+                  </button>
+                ))}
               </div>
             </div>
-          )}
 
-          {/* Formulario según tipo seleccionado */}
-          {renderFormFields()}
-        </div>
+            {/* Campo Faena - para Interno y Externo */}
+            {(tipoPersonal === "Interno" || tipoPersonal === "Externo") && (
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Faena <span className="text-red-500">*</span>
+                </label>
+                <div
+                  className={
+                    !camposEditables ? "opacity-75 pointer-events-none" : ""
+                  }
+                >
+                  <SearchableDropdown
+                    options={faenas}
+                    selected={faenaSeleccionada}
+                    onSelect={handleFaenaSelect}
+                    placeholder={
+                      loading.faenas
+                        ? "Cargando faenas..."
+                        : "Seleccionar Faena"
+                    }
+                    disabled={!camposEditables || loading.faenas}
+                  />
+                </div>
+              </div>
+            )}
 
-        {/* Botones de acción */}
-        <div className="mt-8 flex justify-end gap-3">
-          <button
-            onClick={handleReset}
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-            disabled={loading.submitForm}
-          >
-            {camposEditables ? "Cancelar" : "Nuevo Registro"}
-          </button>
+            {/* Formulario según tipo seleccionado */}
+            <div className="space-y-6 min-h-[240px]">{renderFormFields()}</div>
+          </div>
 
-          {camposEditables && (
+          {/* Botones de acción */}
+          <div className="px-6 py-4 bg-gray-50 flex justify-end gap-3 rounded-b-lg">
             <button
-              onClick={handleGuardar}
-              disabled={isSubmitDisabled()}
-              className="px-4 py-2 rounded-md text-sm font-medium text-white bg-orange-400 hover:bg-orange-500 disabled:opacity-50"
+              onClick={handleReset}
+              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              disabled={loading.submitForm}
             >
-              {loading.submitForm ? "Registrando..." : `Registrar ${
-                tipoPersonal === "Interno" ? "Solicitante" :
-                tipoPersonal === "Externo" ? "Personal Externo" : "Empresa"
-              }`}
+              {camposEditables ? "Cancelar" : "Nuevo Registro"}
             </button>
-          )}
-        </div>
-      </div>
 
-      {/* Footer */}
-      <div className="bg-gray-50 px-6 py-3 text-center text-xs text-gray-500">
-        Sistema de Gestión de Combustible • {new Date().getFullYear()}
+            {camposEditables && (
+              <button
+                onClick={handleGuardar}
+                disabled={isSubmitDisabled()}
+                className="px-4 py-2 rounded-md text-sm font-medium text-white bg-orange-400 hover:bg-orange-500 disabled:opacity-50"
+              >
+                {loading.submitForm
+                  ? "Registrando..."
+                  : `Registrar ${
+                      tipoPersonal === "Interno"
+                        ? "Solicitante"
+                        : tipoPersonal === "Externo"
+                        ? "Personal Externo"
+                        : "Empresa"
+                    }`}
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

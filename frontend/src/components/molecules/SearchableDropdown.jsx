@@ -1,6 +1,13 @@
 import React, { useState, useRef, useEffect } from "react";
 
-const SearchableDropdown = ({ options, selected, onSelect, placeholder, disabled = false }) => {
+const SearchableDropdown = ({ 
+  options, 
+  selected, 
+  onSelect, 
+  placeholder, 
+  disabled = false,
+  maxHeight = "240px" // 🔧 Agregar esta prop con valor por defecto
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const wrapperRef = useRef(null);
@@ -145,7 +152,10 @@ const SearchableDropdown = ({ options, selected, onSelect, placeholder, disabled
       </div>
       
       {isOpen && !disabled && (
-        <ul className="absolute z-10 bg-white border border-gray-300 mt-1 max-h-60 w-full overflow-auto rounded-md shadow-lg">
+        <ul 
+          className="absolute z-10 bg-white border border-gray-300 mt-1 w-full overflow-auto rounded-md shadow-lg"
+          style={{ maxHeight }} // 🔧 Usar la prop maxHeight aquí en lugar de max-h-60
+        >
           {filteredOptions.length > 0 ? (
             filteredOptions.map((opt, idx) => (
               <li
