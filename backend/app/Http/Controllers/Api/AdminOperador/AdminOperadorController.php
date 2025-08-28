@@ -231,7 +231,7 @@ class AdminOperadorController extends Controller
             $carga = CargaExterna::findOrFail($id);
 
             // Verificar que la carga esté pendiente
-            if ($carga->estado !== 'pendiente') {
+            if ($carga->estado !== 'Por Rendir') {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Solo se pueden aprobar cargas pendientes. Estado actual: ' . $carga->estado
@@ -240,7 +240,7 @@ class AdminOperadorController extends Controller
 
             // Actualizar el estado de la carga
             $carga->update([
-                'estado' => 'aprobado',
+                'estado' => 'Rendido',
                 'aprobado_por' => $user->id,
                 'fecha_aprobacion' => now(),
                 'motivo_rechazo' => null // Limpiar motivo de rechazo si existía
