@@ -209,7 +209,7 @@ const GestionarUsuariosOperador = () => {
     const handlePageChange = (page) => {
         setCurrentPage(page);
         // Scroll hacia arriba al cambiar página
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        window.scrollTo({ top: 550, behavior: 'smooth' });
     };
 
     // 🎨 Función para obtener badge de estado
