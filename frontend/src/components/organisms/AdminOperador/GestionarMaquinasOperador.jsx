@@ -314,26 +314,27 @@ const GestionarMaquinasOperador = () => {
     }
   };
 
-const handleEditarMaquina = (maquina) => {
-  console.log('✏️ Editando máquina:', maquina);
-  setMaquinaEditando(maquina);
-  setModoEdicion(true);
-  
-  // 🔧 Buscar la categoría por nombre para obtener su ID
-  const categoriaActual = categorias.find(cat => 
-    cat.nombre_categoria === maquina.categoria
-  );
-  
-  console.log('🔍 Categoría encontrada:', categoriaActual);
-  
-  setFormData({
-    nombre_maquina: maquina.nombre_maquina || '',
-    patente: maquina.patente || '',
-    id_categoria: categoriaActual?.id_categoria?.toString() || ''
-  });
-  setMostrarFormulario(true);
-};
+  const handleEditarMaquina = (maquina) => {
+    console.log("✏️ Editando máquina:", maquina);
+    setMaquinaEditando(maquina);
+    setModoEdicion(true);
 
+    // 🔧 Buscar la categoría por nombre para obtener su ID
+    const categoriaActual = categorias.find(
+      (cat) => cat.nombre_categoria === maquina.categoria
+    );
+
+    console.log("🔍 Categoría encontrada:", categoriaActual);
+
+    setFormData({
+      nombre_maquina: maquina.nombre_maquina || "",
+      patente: maquina.patente || "",
+      id_categoria: categoriaActual?.id_categoria?.toString() || "",
+    });
+    setMostrarFormulario(true);
+  };
+
+  // 💾 Actualizar máquina existente
   const handleActualizarMaquina = async (e) => {
     e.preventDefault();
 
@@ -349,16 +350,18 @@ const handleEditarMaquina = (maquina) => {
         formData
       );
 
+      const endpoint = `/api/adminOperador/maquinas/${maquinaEditando.id_maquina}`;
       const payload = {
         nombre_maquina: formData.nombre_maquina,
+        tipo_maquina: "Interno", // ✅ SIEMPRE INTERNO
         patente: formData.patente,
         id_categoria: parseInt(formData.id_categoria),
+        // ✅ NO enviamos CHC, estado ni faena en la actualización
       };
 
-      const response = await axios.put(
-        `/api/adminOperador/maquinas/${maquinaEditando.id_maquina}`,
-        payload
-      );
+      console.log("📤 Payload actualización enviado:", payload);
+
+      const response = await axios.put(endpoint, payload);
 
       if (response.data.status === "success") {
         setMessage({
