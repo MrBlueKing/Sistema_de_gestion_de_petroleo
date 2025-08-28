@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
-  FaTruck,
   FaPlus,
   FaSave,
   FaTimes,
+  FaTruck,
   FaBuilding,
   FaIndustry,
   FaGasPump,
@@ -14,17 +14,25 @@ import {
   FaSpinner,
   FaCheck,
   FaExclamationTriangle,
-  FaList
-} from 'react-icons/fa';
-import axios from '../../../lib/axios';
-import ModalConfirmacionEliminar from '../../molecules/ModalConfirmacionEliminar'; // Ajusta la ruta según tu estructura
+  FaList,
+  FaSearch,
+  FaFilter,
+} from "react-icons/fa";
+import axios from "../../../lib/axios";
+import ModalConfirmacionEliminar from "../../molecules/ModalConfirmacionEliminar"; // Ajusta la ruta según tu estructura
 
 // Importar el layout base y sus componentes
 import AdminLayoutBase, {
   MetricsSection,
   MetricCard,
-  AdditionalSection
-} from './AdminLayoutBase';
+  AdditionalSection,
+} from "./AdminLayoutBase";
+
+// Importar componente de paginación
+import PageControl from "../../molecules/PageControl";
+
+// Configuración de paginación
+const ITEMS_PER_PAGE = 10;
 
 const GestionarMaquinasOperador = () => {
   // Estados principales
@@ -35,16 +43,25 @@ const GestionarMaquinasOperador = () => {
   const [maquinaEditando, setMaquinaEditando] = useState(null);
   const [mostrarDetalle, setMostrarDetalle] = useState(false);
   const [maquinaDetalle, setMaquinaDetalle] = useState(null);
-  const [mostrarConfirmacionEliminar, setMostrarConfirmacionEliminar] = useState(false);
+  const [mostrarConfirmacionEliminar, setMostrarConfirmacionEliminar] =
+    useState(false);
   const [maquinaAEliminar, setMaquinaAEliminar] = useState(null);
 
-  
+  // 🆕 Estados para filtros y búsqueda
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filtroCategoria, setFiltroCategoria] = useState("todas");
+  const [filtroTipo, setFiltroTipo] = useState("todos");
+  const [filtroEstado, setFiltroEstado] = useState("todos");
+
+  // 🆕 Estados para paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Estados para el formulario (SIMPLIFICADO - Solo máquinas internas)
   const [formData, setFormData] = useState({
-    nombre_maquina: '',
-    patente: '',
-    id_categoria: ''
+    nombre_maquina: "",
+    patente: "",
+    id_categoria: "",
   });
 
   // Estados para datos de la API
@@ -54,19 +71,86 @@ const GestionarMaquinasOperador = () => {
     total_maquinas: 0,
     maquinas_internas: 0,
     maquinas_externas: 0,
-    maquinas_operativas: 0
+    maquinas_operativas: 0,
   });
+
+  // 🆕 Agregar esto TEMPORALMENTE en la función de filtrado:
+  const maquinasFiltradas = maquinasRegistradas.filter((maquina) => {
+    const matchSearch =
+      !searchTerm ||
+      maquina.nombre_maquina
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      maquina.patente?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      maquina.categoria?.nombre_categoria
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase());
+
+    const matchCategoria =
+      filtroCategoria === "todas" || maquina.categoria === filtroCategoria;
+
+    const matchTipo =
+      filtroTipo === "todos" ||
+      maquina.tipo_maquina?.toLowerCase() === filtroTipo.toLowerCase();
+
+    const matchEstado =
+      filtroEstado === "todos" ||
+      (filtroEstado === "operativo" && maquina.estado === "operativo") ||
+      (filtroEstado === "no_operativo" && maquina.estado !== "operativo");
+
+    return matchSearch && matchCategoria && matchTipo && matchEstado;
+  });
+
+  // 🆕 Paginación de máquinas
+  const totalMaquinas = maquinasFiltradas.length;
+  const totalPaginasCalculadas = Math.ceil(totalMaquinas / ITEMS_PER_PAGE);
+  const maquinasPaginadas = maquinasFiltradas.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // 🔍 Agregar TEMPORALMENTE en fetchDatos, después de setMaquinasRegistradas:
+  useEffect(() => {
+    if (maquinasRegistradas.length > 0) {
+      console.log("🔍 DEBUG - Estructura COMPLETA de la primera máquina:");
+      console.log(JSON.stringify(maquinasRegistradas[0], null, 2));
+
+      console.log("🔍 DEBUG - Todas las propiedades de la máquina:");
+      console.log(Object.keys(maquinasRegistradas[0]));
+    }
+  }, [maquinasRegistradas]);
+
+  // 🆕 Actualizar total de páginas cuando cambien los filtros
+  useEffect(() => {
+    setTotalPages(totalPaginasCalculadas);
+    if (currentPage > totalPaginasCalculadas && totalPaginasCalculadas > 0) {
+      setCurrentPage(1);
+    }
+  }, [totalPaginasCalculadas, currentPage]);
+
+  // 🆕 Función para cambiar de página
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // Cargar datos al montar el componente
+  useEffect(() => {
+    fetchDatos();
+  }, []);
 
   // 🔄 Cargar datos iniciales
   const fetchDatos = async () => {
     try {
       setLoading(true);
-      console.log('🔄 Cargando datos iniciales...');
+      console.log("🔄 Cargando datos iniciales...");
 
-      const datosResponse = await axios.get('/api/adminOperador/maquinas/datos');
-      if (datosResponse.data.status === 'success') {
+      const datosResponse = await axios.get(
+        "/api/adminOperador/maquinas/datos"
+      );
+      if (datosResponse.data.status === "success") {
         const { data } = datosResponse.data;
-        console.log('📋 Estructura de datos recibidos:', data);
+        console.log("📋 Estructura de datos recibidos:", data);
 
         setCategorias(data.categorias || []);
         setMaquinasRegistradas(data.maquinas || []);
@@ -75,17 +159,21 @@ const GestionarMaquinasOperador = () => {
         const maquinas = data.maquinas || [];
         setEstadisticas({
           total_maquinas: maquinas.length,
-          maquinas_internas: maquinas.filter(m => m.tipo_maquina === 'Interno').length,
-          maquinas_externas: maquinas.filter(m => m.tipo_maquina === 'Externo').length,
-          maquinas_operativas: maquinas.filter(m => m.estado === 'operativo').length
+          maquinas_internas: maquinas.filter(
+            (m) => m.tipo_maquina === "Interno"
+          ).length,
+          maquinas_externas: maquinas.filter(
+            (m) => m.tipo_maquina === "Externo"
+          ).length,
+          maquinas_operativas: maquinas.filter((m) => m.estado === "operativo")
+            .length,
         });
       }
-
     } catch (error) {
-      console.error('❌ Error al cargar datos:', error);
+      console.error("❌ Error al cargar datos:", error);
       setMessage({
-        type: 'error',
-        text: 'Error al cargar datos iniciales'
+        type: "error",
+        text: "Error al cargar datos iniciales",
       });
     } finally {
       setLoading(false);
@@ -95,10 +183,46 @@ const GestionarMaquinasOperador = () => {
   // 🆕 Manejar cambios en el formulario
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
+  };
+
+  // Validar formulario
+  const validarFormulario = () => {
+    const errores = [];
+
+    if (!formData.nombre_maquina.trim()) {
+      errores.push("El nombre de la máquina es obligatorio");
+    }
+
+    if (!formData.patente.trim()) {
+      errores.push("La patente es obligatoria");
+    }
+
+    if (!formData.id_categoria) {
+      errores.push("Debe seleccionar una categoría");
+    }
+
+    if (errores.length > 0) {
+      setMessage({
+        type: "error",
+        text: errores.join(", "),
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  // Limpiar datos del formulario
+  const resetFormData = () => {
+    setFormData({
+      nombre_maquina: "",
+      patente: "",
+      id_categoria: "",
+    });
   };
 
   // 🆕 Registrar nueva máquina
@@ -111,42 +235,44 @@ const GestionarMaquinasOperador = () => {
 
     try {
       setLoading(true);
-      console.log('🆕 Registrando máquina:', formData);
+      console.log("🆕 Registrando máquina:", formData);
 
-      const endpoint = '/api/adminOperador/maquinas';
+      const endpoint = "/api/adminOperador/maquinas";
       const payload = {
         nombre_maquina: formData.nombre_maquina,
-        tipo_maquina: 'Interno', // ✅ SIEMPRE INTERNO
+        tipo_maquina: "Interno", // ✅ SIEMPRE INTERNO
         patente: formData.patente,
         id_categoria: parseInt(formData.id_categoria),
         // ✅ VALORES AUTOMÁTICOS (no vienen del formulario)
-        estado: 'operativo',
+        estado: "operativo",
         chc_maquina: null,
-        id_faena: 6 // Faena por defecto
+        id_faena: 6, // Faena por defecto
       };
 
-      console.log('📤 Payload enviado:', payload);
+      console.log("📤 Payload enviado:", payload);
 
       const response = await axios.post(endpoint, payload);
 
-      if (response.data.status === 'success') {
+      if (response.data.status === "success") {
         setMessage({
-          type: 'success',
-          text: response.data.message || 'Máquina registrada exitosamente'
+          type: "success",
+          text: response.data.message || "Máquina registrada exitosamente",
         });
 
         resetFormData();
         setMostrarFormulario(false);
         await fetchDatos();
       } else {
-        throw new Error(response.data.message || 'Error desconocido');
+        throw new Error(response.data.message || "Error desconocido");
       }
-
     } catch (error) {
-      console.error('❌ Error al registrar máquina:', error);
+      console.error("❌ Error al registrar máquina:", error);
       setMessage({
-        type: 'error',
-        text: error.response?.data?.message || error.message || 'Error al registrar máquina'
+        type: "error",
+        text:
+          error.response?.data?.message ||
+          error.message ||
+          "Error al registrar máquina",
       });
     } finally {
       setLoading(false);
@@ -157,45 +283,57 @@ const GestionarMaquinasOperador = () => {
   const handleVerDetalle = async (maquina) => {
     try {
       setLoading(true);
-      console.log('👁️ Cargando detalle de máquina:', maquina.id_maquina);
+      console.log("👁️ Cargando detalle de máquina:", maquina.id_maquina);
 
       // Obtener información completa de la máquina
-      const response = await axios.get(`/api/adminOperador/maquinas/${maquina.id_maquina}`);
+      const response = await axios.get(
+        `/api/adminOperador/maquinas/${maquina.id_maquina}`
+      );
 
-      if (response.data.status === 'success') {
+      if (response.data.status === "success") {
         setMaquinaDetalle({
           ...response.data.data,
           // Agregar datos calculados
-          dias_desde_registro: Math.floor((new Date() - new Date(maquina.created_at)) / (1000 * 60 * 60 * 24)),
+          dias_desde_registro: Math.floor(
+            (new Date() - new Date(maquina.created_at)) / (1000 * 60 * 60 * 24)
+          ),
           tiene_asignaciones: false, // Podrías consultar si tiene asignaciones activas
           ultimo_consumo: null, // Podrías consultar último registro de consumo
-          total_consumos: 0 // Podrías consultar total de consumos
+          total_consumos: 0, // Podrías consultar total de consumos
         });
         setMostrarDetalle(true);
       }
     } catch (error) {
-      console.error('❌ Error al cargar detalle:', error);
+      console.error("❌ Error al cargar detalle:", error);
       setMessage({
-        type: 'error',
-        text: 'Error al cargar los detalles de la máquina'
+        type: "error",
+        text: "Error al cargar los detalles de la máquina",
       });
     } finally {
       setLoading(false);
     }
   };
-  const handleEditarMaquina = (maquina) => {
-    console.log('✏️ Editando máquina:', maquina);
-    setMaquinaEditando(maquina);
-    setModoEdicion(true);
-    setFormData({
-      nombre_maquina: maquina.nombre_maquina || '',
-      patente: maquina.patente || '',
-      id_categoria: maquina.id_categoria || ''
-    });
-    setMostrarFormulario(true);
-  };
 
-  // 💾 Actualizar máquina existente
+const handleEditarMaquina = (maquina) => {
+  console.log('✏️ Editando máquina:', maquina);
+  setMaquinaEditando(maquina);
+  setModoEdicion(true);
+  
+  // 🔧 Buscar la categoría por nombre para obtener su ID
+  const categoriaActual = categorias.find(cat => 
+    cat.nombre_categoria === maquina.categoria
+  );
+  
+  console.log('🔍 Categoría encontrada:', categoriaActual);
+  
+  setFormData({
+    nombre_maquina: maquina.nombre_maquina || '',
+    patente: maquina.patente || '',
+    id_categoria: categoriaActual?.id_categoria?.toString() || ''
+  });
+  setMostrarFormulario(true);
+};
+
   const handleActualizarMaquina = async (e) => {
     e.preventDefault();
 
@@ -205,25 +343,27 @@ const GestionarMaquinasOperador = () => {
 
     try {
       setLoading(true);
-      console.log('💾 Actualizando máquina:', maquinaEditando.id_maquina, formData);
+      console.log(
+        "💾 Actualizando máquina:",
+        maquinaEditando.id_maquina,
+        formData
+      );
 
-      const endpoint = `/api/adminOperador/maquinas/${maquinaEditando.id_maquina}`;
       const payload = {
         nombre_maquina: formData.nombre_maquina,
-        tipo_maquina: 'Interno', // ✅ SIEMPRE INTERNO
         patente: formData.patente,
-        id_categoria: parseInt(formData.id_categoria)
-        // ✅ NO enviamos CHC, estado ni faena en la actualización
+        id_categoria: parseInt(formData.id_categoria),
       };
 
-      console.log('📤 Payload actualización enviado:', payload);
+      const response = await axios.put(
+        `/api/adminOperador/maquinas/${maquinaEditando.id_maquina}`,
+        payload
+      );
 
-      const response = await axios.put(endpoint, payload);
-
-      if (response.data.status === 'success') {
+      if (response.data.status === "success") {
         setMessage({
-          type: 'success',
-          text: response.data.message || 'Máquina actualizada exitosamente'
+          type: "success",
+          text: response.data.message || "Máquina actualizada exitosamente",
         });
 
         resetFormData();
@@ -232,54 +372,65 @@ const GestionarMaquinasOperador = () => {
         setMaquinaEditando(null);
         await fetchDatos();
       } else {
-        throw new Error(response.data.message || 'Error desconocido');
+        throw new Error(response.data.message || "Error desconocido");
       }
-
     } catch (error) {
-      console.error('❌ Error al actualizar máquina:', error);
+      console.error("❌ Error al actualizar máquina:", error);
       setMessage({
-        type: 'error',
-        text: error.response?.data?.message || error.message || 'Error al actualizar máquina'
+        type: "error",
+        text:
+          error.response?.data?.message ||
+          error.message ||
+          "Error al actualizar máquina",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  // 🗑️ Ejecutar eliminación
   const handleEliminarMaquina = async () => {
     if (!maquinaAEliminar) return;
 
     try {
       setLoading(true);
-      console.log('🗑️ Eliminando máquina:', maquinaAEliminar.id_maquina);
+      console.log("🗑️ Eliminando máquina:", maquinaAEliminar.id_maquina);
 
-      const response = await axios.delete(`/api/adminOperador/maquinas/${maquinaAEliminar.id_maquina}`);
+      const response = await axios.delete(
+        `/api/adminOperador/maquinas/${maquinaAEliminar.id_maquina}`
+      );
 
-      if (response.data.status === 'success') {
+      if (response.data.status === "success") {
         setMessage({
-          type: 'success',
-          text: response.data.message || 'Máquina eliminada correctamente'
+          type: "success",
+          text: response.data.message || "Máquina eliminada exitosamente",
         });
+
+        // Cerrar modal y limpiar estado
+        setMostrarConfirmacionEliminar(false);
+        setMaquinaAEliminar(null);
 
         // Recargar datos
         await fetchDatos();
-
-        // Cerrar modal
-        setMostrarConfirmacionEliminar(false);
-        setMaquinaAEliminar(null);
       } else {
-        throw new Error(response.data.message || 'Error al eliminar máquina');
+        throw new Error(response.data.message || "Error desconocido");
       }
     } catch (error) {
-      console.error('❌ Error al eliminar máquina:', error);
+      console.error("❌ Error al eliminar máquina:", error);
       setMessage({
-        type: 'error',
-        text: error.response?.data?.message || error.message || 'Error al eliminar máquina'
+        type: "error",
+        text:
+          error.response?.data?.message ||
+          error.message ||
+          "Error al eliminar máquina",
       });
     } finally {
       setLoading(false);
     }
+  };
+
+  const confirmarEliminar = (maquina) => {
+    setMaquinaAEliminar(maquina);
+    setMostrarConfirmacionEliminar(true);
   };
 
   const cancelarEliminar = () => {
@@ -287,74 +438,49 @@ const GestionarMaquinasOperador = () => {
     setMaquinaAEliminar(null);
   };
 
-  // 🔄 Funciones de utilidad
-  const resetFormData = () => {
-    setFormData({
-      nombre_maquina: '',
-      patente: '',
-      id_categoria: ''
-    });
-  };
-
-  const cancelarEdicion = () => {
+  const cancelarFormulario = () => {
     resetFormData();
     setMostrarFormulario(false);
     setModoEdicion(false);
     setMaquinaEditando(null);
   };
 
-  const validarFormulario = () => {
-    if (!formData.nombre_maquina.trim()) {
-      setMessage({ type: 'error', text: 'El nombre de la máquina es requerido' });
-      return false;
-    }
-    if (!formData.patente.trim()) {
-      setMessage({ type: 'error', text: 'La patente es requerida' });
-      return false;
-    }
-    if (!formData.id_categoria) {
-      setMessage({ type: 'error', text: 'Debe seleccionar una categoría' });
-      return false;
-    }
-    return true;
+  const getBadgeEstado = (estado) => {
+    return estado === "operativo" ? (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+        <FaCheck className="w-3 h-3 mr-1" />
+        Operativa
+      </span>
+    ) : (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+        <FaExclamationTriangle className="w-3 h-3 mr-1" />
+        No Operativa
+      </span>
+    );
   };
 
-  // 🎣 useEffect
-  useEffect(() => {
-    fetchDatos();
-  }, []);
-
-  // Limpiar mensajes después de 5 segundos
-  useEffect(() => {
-    if (message) {
-      const timer = setTimeout(() => setMessage(null), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [message]);
+  const getBadgeTipo = (tipo) => {
+    return tipo === "Interno" ? (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+        <FaBuilding className="w-3 h-3 mr-1" />
+        Interna
+      </span>
+    ) : (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+        <FaIndustry className="w-3 h-3 mr-1" />
+        Externa
+      </span>
+    );
+  };
 
   return (
-    <AdminLayoutBase>
-      {/* Mensajes */}
-      {message && (
-        <div className={`mb-4 p-4 rounded-lg ${message.type === 'success'
-            ? 'bg-green-100 border border-green-400 text-green-700'
-            : 'bg-red-100 border border-red-400 text-red-700'
-          }`}>
-          <div className="flex">
-            <div className="flex-shrink-0">
-              {message.type === 'success' ? (
-                <FaCheck className="h-5 w-5 text-green-400" />
-              ) : (
-                <FaExclamationTriangle className="h-5 w-5 text-red-400" />
-              )}
-            </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium">{message.text}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
+    <AdminLayoutBase
+      title="Gestionar Máquinas"
+      subtitle="Administración de máquinas y equipos"
+      loading={loading}
+      message={message}
+      onClearMessage={() => setMessage(null)}
+    >
       {/* Métricas */}
       <MetricsSection>
         <MetricCard
@@ -366,177 +492,282 @@ const GestionarMaquinasOperador = () => {
         <MetricCard
           title="Máquinas Internas"
           value={estadisticas.maquinas_internas}
-          icon={FaBuilding}
+          icon={FaTruck}
           color="green"
         />
         <MetricCard
           title="Máquinas Externas"
           value={estadisticas.maquinas_externas}
-          icon={FaIndustry}
+          icon={FaTruck}
           color="purple"
         />
         <MetricCard
           title="Operativas"
           value={estadisticas.maquinas_operativas}
-          icon={FaWrench}
-          color="yellow"
+          icon={FaTruck}
+          color="orange"
         />
       </MetricsSection>
 
-      {/* Contenido principal */}
-      <AdditionalSection>
-        <div className="space-y-6">
-          {/* Botones de acción */}
-          <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold text-gray-900">Gestión de Máquinas</h2>
-            <button
-              onClick={() => {
-                setModoEdicion(false);
-                setMaquinaEditando(null);
-                resetFormData();
-                setMostrarFormulario(true);
-              }}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-            >
-              <FaPlus /> Registrar Máquina
-            </button>
+      {/* 🆕 Sección de filtros y búsqueda */}
+      {!mostrarFormulario && !mostrarDetalle && (
+        <AdditionalSection
+          title="🔍 Filtros y Búsqueda"
+          icon={<FaList className="w-5 h-5" />}
+          collapsible={true}
+          defaultCollapsed={false}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {/* Búsqueda general */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Buscar Máquinas
+              </label>
+              <div className="relative">
+                <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Nombre, patente, categoría..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {/* Filtro por categoría */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Filtrar por Categoría
+              </label>
+              <select
+                value={filtroCategoria}
+                onChange={(e) => setFiltroCategoria(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              >
+                <option value="todas">Todas las categorías</option>
+                {categorias.map((categoria) => (
+                  <option
+                    key={categoria.id_categoria}
+                    value={categoria.nombre_categoria}
+                  >
+                    {categoria.nombre_categoria}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filtro por tipo */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Filtrar por Tipo
+              </label>
+              <select
+                value={filtroTipo}
+                onChange={(e) => setFiltroTipo(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              >
+                <option value="todos">Todos los tipos</option>
+                <option value="interno">Solo Internas</option>
+                <option value="externo">Solo Externas</option>
+              </select>
+            </div>
+
+            {/* Filtro por estado */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Filtrar por Estado
+              </label>
+              <select
+                value={filtroEstado}
+                onChange={(e) => setFiltroEstado(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              >
+                <option value="todos">Todos los estados</option>
+                <option value="operativo">Solo operativas</option>
+                <option value="no_operativo">No operativas</option>
+              </select>
+            </div>
           </div>
 
-          {/* Formulario de registro/edición */}
-          {mostrarFormulario && (
-            <div className="bg-white p-6 rounded-lg shadow-lg border">
-              <div className="flex justify-between items-center mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {modoEdicion ? 'Editar Máquina' : 'Registrar Nueva Máquina'}
-                  </h3>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {modoEdicion
-                      ? `Modificando: ${maquinaEditando?.nombre_maquina || 'Máquina'}`
-                      : 'Todas las máquinas se registran como internas por defecto'
-                    }
-                  </p>
-                </div>
-                <button
-                  onClick={cancelarEdicion}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <FaTimes />
-                </button>
+          {/* Botón limpiar filtros y contador de resultados */}
+          <div className="flex justify-between items-center">
+            <div className="text-sm text-gray-600">
+              Mostrando <strong>{maquinasFiltradas.length}</strong> de{" "}
+              <strong>{maquinasRegistradas.length}</strong> máquinas
+              {(searchTerm ||
+                filtroCategoria !== "todas" ||
+                filtroTipo !== "todos" ||
+                filtroEstado !== "todos") && (
+                <span className="text-orange-600 ml-2">(filtrado)</span>
+              )}
+            </div>
+
+            <button
+              onClick={() => {
+                setSearchTerm("");
+                setFiltroCategoria("todas");
+                setFiltroTipo("todos");
+                setFiltroEstado("todos");
+                setCurrentPage(1);
+              }}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+            >
+              <FaTimes />
+              Limpiar Filtros
+            </button>
+          </div>
+        </AdditionalSection>
+      )}
+
+      {/* Botón para mostrar formulario */}
+      {!mostrarFormulario && !mostrarDetalle && (
+        <AdditionalSection
+          title="Acciones"
+          icon={<FaPlus className="w-5 h-5" />}
+        >
+          <button
+            onClick={() => setMostrarFormulario(true)}
+            className="w-full md:w-auto px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center gap-2"
+            disabled={loading}
+          >
+            <FaPlus />
+            Nueva Máquina
+          </button>
+        </AdditionalSection>
+      )}
+
+      {/* 📝 Formulario de máquina */}
+      {mostrarFormulario && (
+        <AdditionalSection
+          title={modoEdicion ? "✏️ Editar Máquina" : "🆕 Nueva Máquina"}
+          icon={
+            modoEdicion ? (
+              <FaEdit className="w-5 h-5" />
+            ) : (
+              <FaPlus className="w-5 h-5" />
+            )
+          }
+        >
+          <form
+            onSubmit={
+              modoEdicion ? handleActualizarMaquina : handleRegistrarMaquina
+            }
+            className="space-y-6"
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Nombre de la máquina */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nombre de la Máquina <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="nombre_maquina"
+                  value={formData.nombre_maquina}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  placeholder="Ej: Excavadora CAT 320"
+                  required
+                />
               </div>
 
-              <form onSubmit={modoEdicion ? handleActualizarMaquina : handleRegistrarMaquina} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Nombre de la máquina */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nombre de la Máquina *
-                  </label>
-                  <input
-                    type="text"
-                    name="nombre_maquina"
-                    value={formData.nombre_maquina}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Ej: Camioneta Toyota Hilux"
-                    required
-                  />
-                </div>
+              {/* Patente */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Patente <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="patente"
+                  value={formData.patente}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  placeholder="Ej: ABC-123 o ABCD12"
+                  required
+                />
+              </div>
 
-                {/* Patente */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Patente *
-                  </label>
-                  <input
-                    type="text"
-                    name="patente"
-                    value={formData.patente}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Ej: AA-BB-12"
-                    required
-                  />
-                </div>
-
-                {/* Categoría */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Categoría *
-                  </label>
-                  <select
-                    name="id_categoria"
-                    value={formData.id_categoria}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  >
-                    <option value="">Seleccionar categoría</option>
-                    {categorias.map(categoria => (
-                      <option key={categoria.id_categoria} value={categoria.id_categoria}>
-                        {categoria.nombre_categoria}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Información automática */}
-                <div className="md:col-span-2 bg-blue-50 p-4 rounded-md border border-blue-200">
-                  <h4 className="text-sm font-medium text-blue-900 mb-2 flex items-center">
-                    <FaCheck className="mr-2" />
-                    Valores asignados automáticamente:
-                  </h4>
-                  <div className="text-xs text-blue-700 space-y-1">
-                    <div className="flex items-center">
-                      <FaBuilding className="mr-2" />
-                      <strong>Tipo:</strong> Máquina Interna
-                    </div>
-                    <div className="flex items-center">
-                      <FaWrench className="mr-2" />
-                      <strong>Estado:</strong> Operativo
-                    </div>
-                    <div className="flex items-center">
-                      <FaGasPump className="mr-2" />
-                      <strong>CHC Individual:</strong> No asignado (se usa CHC de categoría)
-                    </div>
-                    <div className="flex items-center">
-                      <FaIndustry className="mr-2" />
-                      <strong>Faena:</strong> Asignada automáticamente (ID: 6)
-                    </div>
-                  </div>
-                </div>
-
-                {/* Botones */}
-                <div className="md:col-span-2 flex justify-end space-x-2 mt-6">
-                  <button
-                    type="button"
-                    onClick={cancelarEdicion}
-                    className="px-4 py-2 text-gray-600 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className={`px-4 py-2 text-white rounded-lg flex items-center gap-2 disabled:opacity-50 transition-colors ${modoEdicion
-                        ? 'bg-yellow-600 hover:bg-yellow-700'
-                        : 'bg-blue-600 hover:bg-blue-700'
-                      }`}
-                  >
-                    {loading ? <FaSpinner className="animate-spin" /> : (modoEdicion ? <FaEdit /> : <FaSave />)}
-                    {loading ?
-                      (modoEdicion ? 'Actualizando...' : 'Registrando...') :
-                      (modoEdicion ? 'Actualizar Máquina' : 'Registrar Máquina')
-                    }
-                  </button>
-                </div>
-              </form>
+              {/* Categoría */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Categoría <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="id_categoria"
+                  value={formData.id_categoria}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  required
+                >
+                  <option value="">Seleccionar categoría</option>
+                  {categorias.map((categoria) => (
+                    <option
+                      key={categoria.id_categoria}
+                      value={categoria.id_categoria}
+                    >
+                      {categoria.nombre_categoria}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          )}
 
-          {/* Lista de máquinas */}
+            {/* Botones del formulario */}
+            <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={cancelarFormulario}
+                className="w-full sm:w-auto px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                disabled={loading}
+              >
+                <FaTimes />
+                Cancelar
+              </button>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className={`w-full sm:w-auto px-6 py-2 text-white rounded-lg transition-colors flex items-center justify-center gap-2 ${
+                  modoEdicion
+                    ? "bg-yellow-600 hover:bg-yellow-700"
+                    : "bg-blue-600 hover:bg-blue-700"
+                }`}
+              >
+                {loading ? (
+                  <FaSpinner className="animate-spin" />
+                ) : modoEdicion ? (
+                  <FaEdit />
+                ) : (
+                  <FaSave />
+                )}
+                {loading
+                  ? modoEdicion
+                    ? "Actualizando..."
+                    : "Registrando..."
+                  : modoEdicion
+                  ? "Actualizar Máquina"
+                  : "Registrar Máquina"}
+              </button>
+            </div>
+          </form>
+        </AdditionalSection>
+      )}
+
+      {/* Lista de máquinas */}
+      {!mostrarFormulario && !mostrarDetalle && (
+        <AdditionalSection
+          title="Máquinas Registradas"
+          icon={<FaTruck className="w-5 h-5" />}
+        >
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">Máquinas Registradas</h3>
+              <h3 className="text-lg font-medium text-gray-900">
+                Máquinas Registradas
+                <span className="text-sm font-normal text-gray-500 ml-2">
+                  ({maquinasFiltradas.length} de {maquinasRegistradas.length})
+                </span>
+              </h3>
             </div>
 
             <div className="overflow-x-auto">
@@ -558,62 +789,246 @@ const GestionarMaquinasOperador = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {maquinasRegistradas.map((maquina) => (
-                    <tr key={maquina.id_maquina} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {maquina.nombre_maquina}
+                  {maquinasPaginadas.length > 0 ? (
+                    maquinasPaginadas.map((maquina, index) => (
+                      <tr
+                        key={maquina.id_maquina || index}
+                        className="hover:bg-gray-50"
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10">
+                              <div className="h-10 w-10 rounded-lg bg-orange-100 flex items-center justify-center">
+                                <FaTruck className="h-5 w-5 text-orange-600" />
+                              </div>
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {maquina.nombre_maquina}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                Patente: {maquina.patente}
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-500">
-                            {maquina.patente}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="space-y-1">
+                            {getBadgeTipo(maquina.tipo_maquina)}
+                            {getBadgeEstado(maquina.estado)}
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800`}>
-                            Interna
-                          </span>
-                          <div className="text-sm text-gray-500 mt-1">
-                            {maquina.estado || 'Operativo'}
+                        </td>
+
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {maquina.categoria || "Sin categoría"}
+                        </td>
+
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex items-center justify-end space-x-2">
+                            <button
+                              onClick={() => handleEditarMaquina(maquina)}
+                              className="text-yellow-600 hover:text-yellow-900 hover:bg-yellow-50 p-2 rounded-lg transition-colors"
+                              title="Editar máquina"
+                              disabled={loading}
+                            >
+                              <FaEdit />
+                            </button>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {maquina.categoria || maquina.nombre_categoria || 'Sin categoría'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
-                          {/* Botón Editar */}
-                          <button
-                            onClick={() => handleEditarMaquina(maquina)}
-                            className="inline-flex items-center px-3 py-1 border border-yellow-300 text-sm font-medium rounded-md text-yellow-700 bg-yellow-50 hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors"
-                            title="Editar datos de la máquina"
-                          >
-                            <FaEdit className="w-3 h-3 mr-1" />
-                            Editar
-                          </button>
-                        </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="4" className="px-6 py-12 text-center">
+                        <FaTruck className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                        <h3 className="text-sm font-medium text-gray-900 mb-2">
+                          No hay máquinas
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          {searchTerm ||
+                          filtroCategoria !== "todas" ||
+                          filtroTipo !== "todos" ||
+                          filtroEstado !== "todos"
+                            ? "No se encontraron máquinas que coincidan con los filtros aplicados"
+                            : "Comience registrando una máquina"}
+                        </p>
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
 
-              {maquinasRegistradas.length === 0 && (
-                <div className="text-center py-8">
-                  <FaTruck className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">No hay máquinas registradas</h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Registra la primera máquina para comenzar.
-                  </p>
+              {/* 🆕 Controles de paginación */}
+              {totalPages > 1 && (
+                <div className="px-6 py-4 border-t border-gray-200">
+                  <PageControl
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={handlePageChange}
+                    colorScheme="orange"
+                  />
                 </div>
               )}
             </div>
           </div>
-        </div>
-      </AdditionalSection>
+        </AdditionalSection>
+      )}
+
+      {/* Modal de detalle de máquina */}
+      {mostrarDetalle && maquinaDetalle && (
+        <AdditionalSection
+          title="📋 Detalle de Máquina"
+          icon={<FaEye className="w-5 h-5" />}
+        >
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <div className="flex justify-between items-start mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">
+                {maquinaDetalle.nombre_maquina}
+              </h2>
+              <button
+                onClick={() => setMostrarDetalle(false)}
+                className="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-100"
+              >
+                <FaTimes size={20} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Información básica */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                  <FaTruck className="mr-2 text-orange-600" />
+                  Información Básica
+                </h3>
+                <div className="space-y-2">
+                  <div>
+                    <span className="text-sm font-medium text-gray-500">
+                      Nombre:
+                    </span>
+                    <p className="text-sm text-gray-900">
+                      {maquinaDetalle.nombre_maquina}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-500">
+                      Patente:
+                    </span>
+                    <p className="text-sm text-gray-900">
+                      {maquinaDetalle.patente}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-500">
+                      Tipo:
+                    </span>
+                    <div className="mt-1">
+                      {getBadgeTipo(maquinaDetalle.tipo_maquina)}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-500">
+                      Estado:
+                    </span>
+                    <div className="mt-1">
+                      {getBadgeEstado(maquinaDetalle.estado)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Categoría y clasificación */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                  <FaWrench className="mr-2 text-blue-600" />
+                  Clasificación
+                </h3>
+                <div className="space-y-2">
+                  <div>
+                    <span className="text-sm font-medium text-gray-500">
+                      Categoría:
+                    </span>
+                    <p className="text-sm text-gray-900">
+                      {maquinaDetalle.categoria || "Sin categoría"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-500">
+                      ID Máquina:
+                    </span>
+                    <p className="text-sm text-gray-900">
+                      #{maquinaDetalle.id_maquina}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-500">
+                      CHC:
+                    </span>
+                    <p className="text-sm text-gray-900">
+                      {maquinaDetalle.chc_maquina || "No asignado"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Información de registro */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                  <FaGasPump className="mr-2 text-green-600" />
+                  Información de Registro
+                </h3>
+                <div className="space-y-2">
+                  <div>
+                    <span className="text-sm font-medium text-gray-500">
+                      Registrada hace:
+                    </span>
+                    <p className="text-sm text-gray-900">
+                      {maquinaDetalle.dias_desde_registro || 0} días
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-500">
+                      Faena:
+                    </span>
+                    <p className="text-sm text-gray-900">
+                      {maquinaDetalle.faena?.ubicacion || "Faena principal"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-500">
+                      Total consumos:
+                    </span>
+                    <p className="text-sm text-gray-900">
+                      {maquinaDetalle.total_consumos || 0} registros
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Botones de acción en el detalle */}
+            <div className="flex justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setMostrarDetalle(false);
+                  handleEditarMaquina(maquinaDetalle);
+                }}
+                className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors flex items-center gap-2"
+              >
+                <FaEdit />
+                Editar
+              </button>
+              <button
+                onClick={() => setMostrarDetalle(false)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+              >
+                <FaTimes />
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </AdditionalSection>
+      )}
+
       {/* 🆕 MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
       <ModalConfirmacionEliminar
         isOpen={mostrarConfirmacionEliminar}

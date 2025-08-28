@@ -18,14 +18,14 @@ import {
 
 // Configuración de estados
 const estadosConfig = {
-  pendiente: {
-    texto: "Pendiente",
+  PorRendir: {
+    texto: "Por Rendir",
     icono: FaClock,
     color: "bg-yellow-100 text-yellow-800 border-yellow-200",
     iconColor: "text-yellow-600",
   },
-  aprobado: {
-    texto: "Aprobado",
+  Rendido: {
+    texto: "Rendido",
     icono: FaCheckCircle,
     color: "bg-green-100 text-green-800 border-green-200",
     iconColor: "text-green-600",
@@ -185,10 +185,6 @@ const ConsumosViewOptimized = () => {
   const handleActionComplete = () => {
     // Actualizar los datos después de una acción en el modal
     refrescarDatos();
-    // Si hay callback del componente padre, ejecutarlo
-    if (onCargaUpdate) {
-      onCargaUpdate();
-    }
   };
 
   // 🆕 Estados para FiltrosComponent
@@ -677,10 +673,12 @@ const ConsumosViewOptimized = () => {
   // ✅ CORRECTO - Aplicar paginación a los datos filtrados
   const ITEMS_PER_PAGE = 10; // Agregar esta constante al inicio
 
-  const datosPaginados = cargas.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
+  // ✅ CORRECTO - Cambiar por:
+const datosPaginados = useMemo(() => {
+  const inicio = (currentPage - 1) * ITEMS_PER_PAGE;
+  const fin = currentPage * ITEMS_PER_PAGE;
+  return datosFiltrados.slice(inicio, fin); // 👈 Usar datosFiltrados
+}, [datosFiltrados, currentPage]);
 
   // ✅ useEffect para actualizar páginas automáticamente
   useEffect(() => {
@@ -710,29 +708,7 @@ const ConsumosViewOptimized = () => {
             Administra y supervisa todos los consumos de combustible
           </p>
         </div>
-
-        {/* Estadísticas rápidas */}
-        <div className="flex gap-4 mt-4 sm:mt-0">
-          <div className="text-center">
-            <div className="text-lg font-bold text-blue-600">
-              {totalFiltrado}
-            </div>
-            <div className="text-xs text-gray-500">Registros</div>
-          </div>
-          <div className="text-center">
-            <div className="text-lg font-bold text-green-600">
-              ${estadisticas.totalCosto?.toLocaleString() || 0}
-            </div>
-            <div className="text-xs text-gray-500">Costo Total</div>
-          </div>
-          <div className="text-center">
-            <div className="text-lg font-bold text-orange-600">
-              {estadisticas.totalLitros?.toLocaleString() || 0}L
-            </div>
-            <div className="text-xs text-gray-500">Litros Total</div>
-          </div>
-        </div>
-      </div>
+         </div>
 
       {/* 🆕 FILTROS COMPONENT - MODO UBICACIONES */}
       <FiltrosComponent
@@ -856,8 +832,8 @@ const ConsumosViewOptimized = () => {
               className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
             >
               <option value="">Todos los estados</option>
-              <option value="pendiente">Pendiente</option>
-              <option value="aprobado">Aprobado</option>
+              <option value="Por Rendir">Por Rendir</option>
+              <option value="Rendido">Rendido</option>
               <option value="rechazado">Rechazado</option>
             </select>
           </div>
@@ -1198,19 +1174,22 @@ const ConsumosViewOptimized = () => {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {datosPaginados.map((carga) => {
+              <tbody className="bg-white divide-y divide-gray-200"
+              style={{
+              minHeight: "800px", // 🎯 ALTURA MÍNIMA para evitar saltos
+            }}>
+                {datosPaginados.map((datosFiltrados) => {
                   const configEstado =
-                    estadosConfig[carga.estado] || estadosConfig.pendiente;
+                    estadosConfig[datosFiltrados.estado] || estadosConfig.PorRendir;
                   const IconoEstado = configEstado.icono;
 
                   // 🎨 Obtener colores de faena
-                  const coloresFaena = getFaenaColorsById(carga.id_faena);
-                  const esCargaExterna = carga.id_faena === 5;
+                  const coloresFaena = getFaenaColorsById(datosFiltrados.id_faena);
+                  const esCargaExterna = datosFiltrados.id_faena === 5;
 
                   return (
                     <tr
-                      key={carga.id}
+                      key={datosFiltrados.id}
                       className={`hover:bg-gray-50 transition-colors ${
                         esCargaExterna ? coloresFaena.copecBg : coloresFaena.bg
                       } ${
@@ -1220,7 +1199,7 @@ const ConsumosViewOptimized = () => {
                       } border-l-4`}
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(carga.created_at).toLocaleDateString(
+                        {new Date(datosFiltrados.created_at).toLocaleDateString(
                           "es-CL",
                           {
                             day: "2-digit",
@@ -1230,20 +1209,20 @@ const ConsumosViewOptimized = () => {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {carga.numero_boleta}
+                        {datosFiltrados.numero_boleta}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {`${carga.user?.nombre || ""} ${
-                          carga.user?.apellido || ""
+                        {`${datosFiltrados.user?.nombre || ""} ${
+                          datosFiltrados.user?.apellido || ""
                         }`}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         <div>
                           <div className="font-medium">
-                            {carga.maquina?.nombre_maquina}
+                            {datosFiltrados.maquina?.nombre_maquina}
                           </div>
                           <div className="text-xs text-gray-500">
-                            {carga.maquina?.patente}
+                            {datosFiltrados.maquina?.patente}
                           </div>
                           {/* Mostrar ubicación real con estilo de faena */}
                           <div
@@ -1254,11 +1233,11 @@ const ConsumosViewOptimized = () => {
                             }`}
                           >
                             <span>{coloresFaena.emoji}</span>
-                            {carga.ubicacion || "Sin ubicación"}
+                            {datosFiltrados.ubicacion || "Sin ubicación"}
                           </div>
                           {/* Mostrar nombre de faena con estilo */}
                           <div className="text-xs text-gray-400">
-                            📍 {carga.faena?.ubicacion || coloresFaena.name}
+                            📍 {datosFiltrados.faena?.ubicacion || coloresFaena.name}
                           </div>
                         </div>
                       </td>
@@ -1270,7 +1249,7 @@ const ConsumosViewOptimized = () => {
                               : coloresFaena.badge
                           }`}
                         >
-                          {Number(carga.litros).toLocaleString()}
+                          {Number(datosFiltrados.litros).toLocaleString()}
                         </span>
                         <span className="text-gray-500 ml-1">L</span>
                       </td>
@@ -1282,7 +1261,7 @@ const ConsumosViewOptimized = () => {
                               : coloresFaena.icon
                           }`}
                         >
-                          ${Number(carga.costo).toLocaleString()}
+                          ${Number(datosFiltrados.costo).toLocaleString()}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -1297,7 +1276,7 @@ const ConsumosViewOptimized = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                         <button
-                          onClick={() => handleVerDetalle(carga.id)}
+                          onClick={() => handleVerDetalle(datosFiltrados.id)}
                           className="inline-flex items-center px-3 py-1 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                           title="Ver historial y detalles completos"
                         >
@@ -1308,6 +1287,19 @@ const ConsumosViewOptimized = () => {
                     </tr>
                   );
                 })}
+                 {/* 🆕 FILAS VACÍAS PARA MANTENER ALTURA MÍNIMA */}
+            {datosFiltrados.length < 4 &&
+              Array.from({ length: 4 - datosFiltrados.length }).map(
+                (_, index) => (
+                  <tr
+                    key={`empty-${index}`}
+                    className="h-20" // Altura similar a las filas reales
+                    style={{ opacity: 0 }} // Invisible pero mantiene el espacio
+                  >
+                    <td colSpan="4">&nbsp;</td>
+                  </tr>
+                )
+              )}
               </tbody>
             </table>
           </div>
@@ -1337,21 +1329,21 @@ const ConsumosViewOptimized = () => {
                   <span>
                     <strong>
                       {
-                        datosFiltrados.filter((c) => c.estado === "pendiente")
+                        datosFiltrados.filter((c) => c.estado === "Por Rendir")
                           .length
                       }
                     </strong>{" "}
-                    pendientes
+                    Por Rendirs
                   </span>
                   <span>•</span>
                   <span>
                     <strong>
                       {
-                        datosFiltrados.filter((c) => c.estado === "aprobado")
+                        datosFiltrados.filter((c) => c.estado === "Rendido")
                           .length
                       }
                     </strong>{" "}
-                    aprobados
+                    Rendidos
                   </span>
                 </div>
               </div>

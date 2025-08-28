@@ -1210,7 +1210,7 @@ const ConsumoPorMaquinaPureTable = ({
           <tbody
             className="bg-white divide-y divide-gray-200 transition-all duration-300 ease-in-out"
             style={{
-              minHeight: "600px", // 🎯 ALTURA MÍNIMA para evitar saltos
+              minHeight: "800px", // 🎯 ALTURA MÍNIMA para evitar saltos
             }}
           >
             {/* Usar datos procesados (filtrados y ordenados) */}
