@@ -11,6 +11,7 @@ import { UserContext } from "../../../context/userContext"; // ✅ AGREGAR para 
 import HistorialCollapsible from "../../molecules/HistorialCollapsible";
 import { useHistorialConsumos } from "../../../hook/Bombero/useHistorialConsumos";
 import axios from "../../../lib/axios";
+import { formatDate } from "date-fns";
 
 // ✅ COMPONENTE FUERA PARA EVITAR PÉRDIDA DE FOCO
 const InputKilometrajeSimple = ({
@@ -92,14 +93,17 @@ const InputKilometrajeSimple = ({
     );
 };
 
-const FormularioAsignacionVehiculo = () => {
+const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
     const navigate = useNavigate();
 
     // ✅ USAR AMBOS: useOperadorData para máquina + UserContext para faena
-    const { loading: loadingOperador, usuario, maquinaAsignada, error: errorOperador } = useOperadorData();
+    const { loading: loadingOperador, usuario, maquinaAsignada, error: errorOperador, revalidarAsignacion } = useOperadorData();
     const { user } = useContext(UserContext); // Solo para obtener id_faena
 
-    // ✅ ESTADO CORREGIDO - Agregar fecha_carga
+    // 🆕 ESTADO PARA VALIDACIÓN DE ASIGNACIÓN
+    const [validandoAsignacion, setValidandoAsignacion] = useState(false);
+
+    // ✅ ESTADO CORREGIDO - FAENA FIJA ID 5
     const [formData, setFormData] = useState({
         numero_boleta: "",
         litros: "",
@@ -109,7 +113,7 @@ const FormularioAsignacionVehiculo = () => {
         tipo_combustible: "Diesel",
         observaciones: "",
         medicion: "", // ✅ campo para kilometraje
-        id_faena: ""  // ✅ faena del usuario
+        id_faena: 5   // ✅ FIJO: Siempre será 5
     });
 
     // ✅ AGREGAR HOOK DE HISTORIAL
@@ -251,20 +255,6 @@ const FormularioAsignacionVehiculo = () => {
         }
     };
 
-
-    // ✅ NUEVO: Efecto para configurar id_faena del UserContext o useOperadorData
-    useEffect(() => {
-        // Priorizar id_faena del UserContext, luego del useOperadorData
-        const faenaId = user?.id_faena || usuario?.id_faena;
-
-        if (faenaId) {
-            setFormData(prev => ({
-                ...prev,
-                id_faena: faenaId
-            }));
-        }
-    }, [user?.id_faena, usuario?.id_faena]);
-
     // ✅ NUEVO: Efecto para cargar historial cuando tengamos la máquina
     useEffect(() => {
         if (maquinaAsignada?.id_maquina) {
@@ -361,7 +351,7 @@ const FormularioAsignacionVehiculo = () => {
         }
     };
 
-    // ✅ VALIDACIÓN CORREGIDA - Agregar validación de kilometraje vs último consumo
+    // ✅ VALIDACIÓN CORREGIDA - Eliminar validación de faena ya que es fija
     const validateForm = () => {
         const errors = {};
 
@@ -394,9 +384,7 @@ const FormularioAsignacionVehiculo = () => {
             }
         }
 
-        if (!formData.id_faena) {
-            errors.id_faena = "La faena es obligatoria";
-        }
+        // ✅ ELIMINAR: Ya no validamos id_faena porque es fijo
 
         return errors;
     };
@@ -429,29 +417,60 @@ const FormularioAsignacionVehiculo = () => {
         return mappedErrors;
     };
 
-    // ✅ SUBMIT CORREGIDO - Usar endpoint y estructura original
-    // ✅ COPIA Y PEGA ESTA FUNCIÓN COMPLETA
+    // 2️⃣ MODIFICAR FUNCIÓN handleSubmit PARA INCLUIR REVALIDACIÓN
     const handleSubmit = async () => {
-        console.log('🚀 handleSubmit iniciado');
+        console.log('🚀 Iniciando proceso de envío...');
 
-        console.log('📊 Estado actual del formulario:', formData);
-        console.log('🏭 Máquina asignada:', maquinaAsignada);
-        console.log('👤 Usuario:', usuario);
-
-        // Validación básica
+        // PASO 1: Validación básica del formulario (tu código existente)
         const errors = validateForm();
-        console.log('✅ Errores de validación:', errors);
-
         if (Object.keys(errors).length > 0) {
             console.log('❌ Formulario tiene errores, no enviando');
             setError(errors);
             return;
         }
 
-        console.log('✅ Validación pasada, procediendo a enviar...');
+        console.log('✅ Validación de formulario pasada, procediendo con revalidación...');
+
+        // PASO 2: 🆕 REVALIDAR ASIGNACIÓN ANTES DEL ENVÍO
+        setValidandoAsignacion(true);
+
+        try {
+            console.log('🔍 Revalidando asignación antes del envío...');
+            const validacion = await revalidarAsignacion();
+
+            if (!validacion.valida) {
+                // ❌ ASIGNACIÓN NO VÁLIDA - DETENER ENVÍO
+                console.log('❌ Asignación no válida:', validacion.mensaje);
+
+                setError({
+                    global: validacion.mensaje || 'Tu asignación de vehículo ha terminado. No puedes hacer más ingresos.'
+                });
+
+                // Opcional: Redirigir o mostrar modal específico
+                setTimeout(() => {
+                    setError(null);
+                    navigate('/OperadorVehiculo'); // O donde quieras redirigir
+                }, 3000);
+
+                return; // 🛑 DETENER AQUÍ - NO ENVIAR
+            }
+
+            console.log('✅ Asignación confirmada como válida, procediendo con el envío...');
+
+        } catch (error) {
+            console.error('❌ Error durante revalidación:', error);
+            setError({
+                global: 'Error verificando tu asignación. Intenta nuevamente.'
+            });
+            return;
+        } finally {
+            setValidandoAsignacion(false);
+        }
+
+        // PASO 3: Proceder con el envío normal (tu código existente)
         setIsLoading(true);
         setError(null);
-        setFieldErrors({}); // 🆕 Limpiar errores del backend
+        setFieldErrors({});
 
         try {
             const payload = {
@@ -465,23 +484,29 @@ const FormularioAsignacionVehiculo = () => {
                 medicion: parseFloat(formData.medicion),
                 id_user: usuario.id,
                 id_maquina: maquinaAsignada.id_maquina,
-                id_faena: formData.id_faena
+                id_faena: 5
             };
 
-            console.log('📝 Payload preparado:', payload);
+            console.log('📝 Payload preparado con faena fija ID 5:', payload);
 
             const response = await axios.post("/api/chofer/cargas-externas", payload);
 
             console.log('✅ Respuesta recibida:', response);
 
             if (response.data.status === 'success') {
-                // 🆕 MOSTRAR MODAL DE ÉXITO EN LUGAR DE MENSAJE SIMPLE
+                // 🆕 NOTIFICAR AL COMPONENTE PADRE DEL ÉXITO (solo para refrescar historial)
+                if (onIngresoExitoso) {
+                    console.log('📢 Notificando ingreso exitoso para refrescar historial...');
+                    onIngresoExitoso();
+                }
+
+                // Mostrar modal de éxito
                 setCreatedCarga(response.data.data || {
                     numero_boleta: formData.numero_boleta,
                     litros: formData.litros,
                     costo: formData.costo,
                     medicion: formData.medicion,
-                     // estado: 'pendiente'
+                    ubicacion: formData.ubicacion
                 });
                 setShowSuccessModal(true);
 
@@ -495,15 +520,15 @@ const FormularioAsignacionVehiculo = () => {
                     tipo_combustible: "Diesel",
                     observaciones: "",
                     medicion: "",
-                    id_faena: formData.id_faena
+                    id_faena: 5
                 });
-                setKilometrajeError(""); // 🆕 Limpiar error de kilometraje
+                setKilometrajeError("");
             }
         } catch (error) {
-            console.error('❌ Error:', error);
+            console.error('❌ Error enviando datos:', error);
 
+            // Tu manejo de errores existente...
             if (error.response?.status === 422) {
-                // 🆕 MANEJO MEJORADO DE ERRORES DEL BACKEND
                 const backendErrors = error.response.data.errors || {};
                 const mappedErrors = mapBackendErrors(backendErrors);
                 setFieldErrors(mappedErrors);
@@ -513,7 +538,7 @@ const FormularioAsignacionVehiculo = () => {
             } else if (error.code === 'NETWORK_ERROR' || !error.response) {
                 setError({ global: "Error de conexión. Verifica tu internet e intenta nuevamente." });
             } else {
-                setError({ global: `Error inesperado: ${error.response?.data?.message || error.message}` });
+                setError({ global: "Error inesperado. Intenta nuevamente." });
             }
         } finally {
             setIsLoading(false);
@@ -613,6 +638,11 @@ const FormularioAsignacionVehiculo = () => {
                                     <div className="flex justify-between">
                                         <span className="font-medium text-gray-700">Estado:</span>
                                         <span className="text-orange-600 font-medium capitalize">{createdCarga.estado}</span>
+                                    </div>
+                                    {/* ✅ AGREGAR INDICADOR DE FAENA FIJA */}
+                                    <div className="flex justify-between">
+                                        <span className="font-medium text-gray-700">Ubicación:</span>
+                                        <span className="text-blue-600 font-medium">{createdCarga.ubicacion || "Estación de Servicio"}</span>
                                     </div>
                                 </div>
                             )}
@@ -725,7 +755,7 @@ const FormularioAsignacionVehiculo = () => {
 
                         {/* Litros y Precio por Litro */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {/* 🆕 AGREGAR ref al div contenedor del campo Litros */}
+                            {/* AGREGAR ref al div contenedor del campo Litros */}
                             <div ref={el => errorRefs.current['litros'] = el}>
                                 <Label
                                     htmlFor="litros"
@@ -748,7 +778,7 @@ const FormularioAsignacionVehiculo = () => {
                                 )}
                             </div>
 
-                            {/* 🆕 AGREGAR ref al div contenedor del campo Precio por Litro */}
+                            {/* AGREGAR ref al div contenedor del campo Precio por Litro */}
                             <div ref={el => errorRefs.current['precio_por_litro'] = el}>
                                 <Label
                                     htmlFor="precio_por_litro"
@@ -772,7 +802,7 @@ const FormularioAsignacionVehiculo = () => {
                             </div>
                         </div>
 
-                        {/* ✅ MODIFICADO: Costo Total - Calculado automáticamente */}
+                        {/* MODIFICADO: Costo Total - Calculado automáticamente */}
                         <div>
                             <Label
                                 htmlFor="costo"
@@ -799,10 +829,11 @@ const FormularioAsignacionVehiculo = () => {
                                 )}
                             </div>
                             <p className="text-gray-600 text-xs mt-1">
-                                💡 Fórmula: Litros × Precio por Litro = Costo Total
+                                Fórmula: Litros × Precio por Litro = Costo Total
                             </p>
                         </div>
                     </div>
+
                     {/* SECCIÓN 3: INFORMACIÓN DEL VEHÍCULO */}
                     <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
@@ -810,7 +841,7 @@ const FormularioAsignacionVehiculo = () => {
                             3.- Información del Vehículo
                         </h3>
 
-                        {/* 🆕 AGREGAR ref al div contenedor del campo Kilometraje */}
+                        {/* AGREGAR ref al div contenedor del campo Kilometraje */}
                         <div ref={el => errorRefs.current['medicion'] = el}>
                             <InputKilometrajeSimple
                                 label="Kilometraje Actual del Vehículo"
@@ -837,7 +868,7 @@ const FormularioAsignacionVehiculo = () => {
                             4.- Ubicación y Detalles
                         </h3>
 
-                        {/* 🆕 AGREGAR ref al div contenedor del campo Ubicación */}
+                        {/* AGREGAR ref al div contenedor del campo Ubicación */}
                         <div ref={el => errorRefs.current['ubicacion'] = el}>
                             <Label
                                 htmlFor="ubicacion"
@@ -858,7 +889,7 @@ const FormularioAsignacionVehiculo = () => {
                                 <p className="text-red-500 text-sm mt-1">{getFieldError('ubicacion')}</p>
                             )}
                             <p className="text-gray-600 text-xs mt-1">
-                                📍 Sé específico: nombre de la estación, ubicación o referencia
+                                Sé específico: nombre de la estación, ubicación o referencia
                             </p>
                         </div>
 
@@ -880,23 +911,27 @@ const FormularioAsignacionVehiculo = () => {
                                 <FaClipboardList className="absolute left-3 top-3 text-gray-400" />
                             </div>
                             <p className="text-gray-600 text-xs mt-1">
-                                💬 Agrega cualquier información adicional relevante
+                                Agrega cualquier información adicional relevante
                             </p>
                         </div>
                     </div>
 
                     {/* Botones de acción - Mobile Optimized */}
                     <div className="flex flex-col gap-3 pt-4">
-                        {/* ✅ BOTÓN HTML NATIVO PARA EVITAR PROBLEMAS */}
                         <button
                             onClick={() => {
-                                console.log('🖱️ Botón nativo clickeado');
+                                console.log('🔄 Botón clickeado, iniciando proceso...');
                                 handleSubmit();
                             }}
-                            disabled={isLoading || !maquinaAsignada}
+                            disabled={isLoading || validandoAsignacion || !maquinaAsignada}
                             className="w-full py-4 text-lg font-semibold shadow-lg bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white rounded-lg transition-colors duration-200 flex items-center justify-center gap-3"
                         >
-                            {isLoading ? (
+                            {validandoAsignacion ? (
+                                <>
+                                    <IoReload className="animate-spin text-lg" />
+                                    <span>Validando asignación...</span>
+                                </>
+                            ) : isLoading ? (
                                 <>
                                     <IoReload className="animate-spin text-lg" />
                                     <span>Registrando carga...</span>
@@ -919,9 +954,39 @@ const FormularioAsignacionVehiculo = () => {
                             color="gray"
                             className="w-full py-3 text-base"
                             onClick={() => navigate('/OperadorVehiculo')}
-                            disabled={isLoading}
+                            disabled={isLoading || validandoAsignacion}
                         />
                     </div>
+
+                    {/* 4️⃣ AGREGAR MENSAJE DE INFORMACIÓN SOBRE VALIDACIÓN */}
+                    {validandoAsignacion && (
+                        <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div className="flex items-center gap-2 text-blue-700 text-sm">
+                                <IoReload className="animate-spin" />
+                                <span>Verificando que tu asignación siga activa...</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 5️⃣ MOSTRAR ERROR ESPECÍFICO DE ASIGNACIÓN CON ESTILO DISTINTIVO */}
+                    {error?.global?.includes('asignación') && (
+                        <div className="mt-3 p-4 bg-red-50 border border-red-300 rounded-lg">
+                            <div className="flex items-start gap-2">
+                                <div className="text-red-500 text-xl">⚠️</div>
+                                <div>
+                                    <h4 className="text-red-800 font-semibold text-sm mb-1">
+                                        Asignación Terminada
+                                    </h4>
+                                    <p className="text-red-700 text-sm">
+                                        {error.global}
+                                    </p>
+                                    <p className="text-red-600 text-xs mt-2">
+                                        Contacta a tu supervisor para obtener una nueva asignación.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

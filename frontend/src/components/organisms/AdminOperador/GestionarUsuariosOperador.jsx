@@ -25,6 +25,7 @@ import {
     FaUserSlash
 } from 'react-icons/fa';
 import axios from '../../../lib/axios';
+import ToggleEstadoModalAdminOperador from '../../molecules/ToggleEstadoModalAdminOperador';
 
 // Importar el layout base y sus componentes
 import AdminLayoutBase, {
@@ -92,6 +93,11 @@ const GestionarUsuariosOperador = () => {
 
     // Estados para validación
     const [erroresValidacion, setErroresValidacion] = useState({});
+
+    // Agrega estos estados junto con los otros estados existentes
+    const [showToggleModal, setShowToggleModal] = useState(false);
+    const [usuarioToggle, setUsuarioToggle] = useState(null);
+    const [accionToggle, setAccionToggle] = useState('');
 
     // ⚡ Cargar datos iniciales
     useEffect(() => {
@@ -573,18 +579,23 @@ const GestionarUsuariosOperador = () => {
     };
 
     // 🔄 Toggle estado del usuario
-    const handleToggleEstadoUsuario = async (usuario) => {
+    const handleToggleEstadoUsuario = (usuario) => {
         const accion = usuario.activo ? 'desactivar' : 'activar';
 
-        if (!confirm(`¿Está seguro de que desea ${accion} a ${usuario.nombre} ${usuario.apellido}?`)) {
-            return;
-        }
+        // Configurar el modal
+        setUsuarioToggle(usuario);
+        setAccionToggle(accion);
+        setShowToggleModal(true);
+    };
+
+    const handleConfirmToggleEstado = async () => {
+        if (!usuarioToggle) return;
 
         try {
             setLoading(true);
-            console.log(`🔄 ${accion} usuario:`, usuario.id);
+            console.log(`🔄 ${accionToggle} usuario:`, usuarioToggle.id);
 
-            const response = await axios.patch(`/api/adminOperador/usuarios/${usuario.id}/toggle-estado`);
+            const response = await axios.patch(`/api/adminOperador/usuarios/${usuarioToggle.id}/toggle-estado`);
 
             if (response.data.status === 'success') {
                 setMessage({
@@ -594,20 +605,58 @@ const GestionarUsuariosOperador = () => {
 
                 // Actualizar el usuario en la lista local
                 setUsuarios(prev => prev.map(u =>
-                    u.id === usuario.id
+                    u.id === usuarioToggle.id
                         ? { ...u, activo: !u.activo }
                         : u
                 ));
+
+                // Actualizar estadísticas
+                const nuevosUsuarios = usuarios.map(u =>
+                    u.id === usuarioToggle.id
+                        ? { ...u, activo: !u.activo }
+                        : u
+                );
+
+                const activos = nuevosUsuarios.filter(u => u.activo).length;
+                const inactivos = nuevosUsuarios.filter(u => !u.activo).length;
+
+                setEstadisticas(prev => ({
+                    ...prev,
+                    activos,
+                    inactivos
+                }));
+
+                // Cerrar modal
+                setShowToggleModal(false);
+                setUsuarioToggle(null);
+                setAccionToggle('');
+
+                console.log('✅ Estado actualizado exitosamente');
             }
         } catch (error) {
             console.error('❌ Error al cambiar estado:', error);
+
+            let mensajeError = 'Error al cambiar estado del usuario';
+            if (error.response?.data?.errors) {
+                const primerError = Object.values(error.response.data.errors)[0];
+                mensajeError = Array.isArray(primerError) ? primerError[0] : primerError;
+            } else if (error.response?.data?.message) {
+                mensajeError = error.response.data.message;
+            }
+
             setMessage({
                 tipo: 'error',
-                texto: error.response?.data?.message || `Error al ${accion} usuario`
+                texto: mensajeError
             });
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleCloseToggleModal = () => {
+        setShowToggleModal(false);
+        setUsuarioToggle(null);
+        setAccionToggle('');
     };
 
     // 🗑️ Eliminar usuario
@@ -1136,10 +1185,10 @@ const GestionarUsuariosOperador = () => {
 
             {/* 👁️ Modal de detalle del usuario */}
             {mostrarDetalle && usuarioDetalle && (
-                <div className="fixed inset-0 z-50 overflow-y-auto">
-                    <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                <div className="fixed inset-0 z-50 overflow-y-auto backdrop-blur-sm">
+                    <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0 ">
                         <div
-                            className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+                            className="fixed inset-0 bg-transparent bg-opacity-50 transition-opacity"
                             onClick={() => setMostrarDetalle(false)}
                         />
                         <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
@@ -1248,13 +1297,6 @@ const GestionarUsuariosOperador = () => {
                             {/* Botones del modal */}
                             <div className="bg-gray-50 px-6 py-3 flex items-center justify-end space-x-3">
                                 <button
-                                    onClick={() => handleEditarUsuario(usuarioDetalle)}
-                                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center gap-2"
-                                >
-                                    <FaEdit />
-                                    Editar Usuario
-                                </button>
-                                <button
                                     onClick={() => setMostrarDetalle(false)}
                                     className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                                 >
@@ -1265,6 +1307,15 @@ const GestionarUsuariosOperador = () => {
                     </div>
                 </div>
             )}
+            {/* Modal Toggle Estado Usuario */}
+            <ToggleEstadoModalAdminOperador
+                isOpen={showToggleModal}
+                onClose={handleCloseToggleModal}
+                onConfirm={handleConfirmToggleEstado}
+                usuario={usuarioToggle}
+                accion={accionToggle}
+                loading={loading}
+            />
         </AdminLayoutBase>
     );
 };
