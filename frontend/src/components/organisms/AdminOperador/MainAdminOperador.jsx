@@ -49,15 +49,14 @@ const FAENA_COLORS = {
     icon: "text-red-600",
     emoji: "🏔️",
   },
-  5: {
-    // Cargas Externas - Estilo Copec
+5: {
     name: "Estacion de Servicio",
-    bg: "bg-orange-50/40",
-    border: "border-l-orange-500",
-    badge: "bg-orange-100 text-orange-800",
-    icon: "text-orange-600",
-    copecorange: "text-[#0066cc]",
-    copecBg: "bg-gradient-to-r from-orange-50 to-orange-100/50",
+    bg: "bg-blue-50/40",
+    border: "border-l-blue-500",
+    badge: "bg-blue-100 text-blue-800",
+    icon: "text-blue-600",
+    copecBlue: "text-[#0066cc]",
+    copecBg: "bg-gradient-to-r from-blue-50 to-blue-100/50",
     copecBorder: "border-l-[#0066cc]",
     copecBadge: "bg-[#0066cc]/10 text-[#0066cc]",
     emoji: "⛽",
@@ -292,18 +291,26 @@ const MainAdminOperador = () => {
     totalCosto: cargas.reduce((sum, c) => sum + (c.costo || 0), 0),
   };
 
-  // Filtrar cargas por búsqueda
-  const cargasFiltradas = cargas.filter(
-    (carga) =>
-      carga.numero_boleta?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      `${carga.user?.nombre} ${carga.user?.apellido}`
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      carga.maquina?.nombre_maquina
-        ?.toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      carga.ubicacion?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+// Filtrar cargas por búsqueda
+let cargasFiltradas = cargas.filter(
+  (carga) =>
+    carga.numero_boleta?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    `${carga.user?.nombre} ${carga.user?.apellido}`
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase()) ||
+    carga.maquina?.nombre_maquina
+      ?.toLowerCase()
+      .includes(searchTerm.toLowerCase()) ||
+    carga.ubicacion?.toLowerCase().includes(searchTerm.toLowerCase())
+);
+
+// Ordenar por fecha más reciente
+cargasFiltradas = cargasFiltradas.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+// Si no hay término de búsqueda, mostrar solo las 5 más recientes
+if (!searchTerm.trim()) {
+  cargasFiltradas = cargasFiltradas.slice(0, 3);
+}
 
   // Funciones de formateo
   const formatCurrency = (amount) => {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import useConsumos from "../../../hook/AdminVehiculos/useConsumos";
 import UniversalTableFilter from "../../molecules/UniversalTableFilter";
+import PageControl from "../../molecules/PageControl";
 import FiltrosComponent from "../../molecules/FiltrosComponent";
 import DetalleCargaModal from "../../molecules/DetalleCargaModal";
 import {
@@ -12,7 +13,7 @@ import {
   FaEye,
   FaTimesCircle,
   FaCheckCircle,
-  FaExclamationTriangle
+  FaExclamationTriangle,
 } from "react-icons/fa";
 
 // Configuración de estados
@@ -93,29 +94,37 @@ const faenasPorDefecto = [
     label: "📍 Todas las ubicaciones",
     ubicacionesOriginales: [],
     representativo: "Todas las ubicaciones",
-    faenaId: null
+    faenaId: null,
   },
   {
     value: "copec san felipe",
     label: "📍 Copec San Felipe",
-    ubicacionesOriginales: ["Copec San Felipe", "copec san felipe", "COPEC SAN FELIPE"],
+    ubicacionesOriginales: [
+      "Copec San Felipe",
+      "copec san felipe",
+      "COPEC SAN FELIPE",
+    ],
     representativo: "Copec San Felipe",
-    faenaId: 5
+    faenaId: 5,
   },
   {
     value: "copec la ligua",
     label: "📍 Copec La Ligua",
-    ubicacionesOriginales: ["Copec La Ligua", "copec la ligua", "COPEC LA LIGUA"],
+    ubicacionesOriginales: [
+      "Copec La Ligua",
+      "copec la ligua",
+      "COPEC LA LIGUA",
+    ],
     representativo: "Copec La Ligua",
-    faenaId: 5
+    faenaId: 5,
   },
   {
     value: "copec cabildo",
     label: "📍 Copec Cabildo",
     ubicacionesOriginales: ["Copec Cabildo", "copec cabildo", "COPEC CABILDO"],
     representativo: "Copec Cabildo",
-    faenaId: 5
-  }
+    faenaId: 5,
+  },
 ];
 
 const ConsumosViewOptimized = () => {
@@ -150,6 +159,10 @@ const ConsumosViewOptimized = () => {
     ordenamientoInicial: { columna: "created_at", direccion: "desc" },
   });
 
+  // Estados para paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
   // ⭐ NUEVOS ESTADOS PARA EL MODAL DE DETALLE
   const [selectedCargaId, setSelectedCargaId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -157,10 +170,9 @@ const ConsumosViewOptimized = () => {
   // 🆕 Estado para ubicaciones disponibles
   const [ubicacionesDisponibles, setUbicacionesDisponibles] = useState([]);
 
-
   // Funciones para manejar el modal de detalle
   const handleVerDetalle = (cargaId) => {
-    console.log('🔍 Abriendo detalle para carga ID:', cargaId);
+    console.log("🔍 Abriendo detalle para carga ID:", cargaId);
     setSelectedCargaId(cargaId);
     setIsModalOpen(true);
   };
@@ -215,19 +227,19 @@ const ConsumosViewOptimized = () => {
 
   // 🧠 Función inteligente para normalizar y agrupar ubicaciones
   const normalizarUbicaciones = useCallback((ubicaciones) => {
-    console.log('🧠 Normalizando ubicaciones:', ubicaciones);
+    console.log("🧠 Normalizando ubicaciones:", ubicaciones);
 
     // Paso 1: Normalizar cada ubicación
-    const ubicacionesNormalizadas = ubicaciones.map(ubicacion => {
+    const ubicacionesNormalizadas = ubicaciones.map((ubicacion) => {
       const original = ubicacion;
 
       // Limpiar espacios y normalizar
       let limpia = ubicacion
         .trim()
-        .replace(/\s+/g, ' ')
+        .replace(/\s+/g, " ")
         .toLowerCase()
-        .replace(/[0-9]/g, '')
-        .replace(/\s+/g, ' ')
+        .replace(/[0-9]/g, "")
+        .replace(/\s+/g, " ")
         .trim();
 
       console.log(`🔄 "${original}" → "${limpia}"`);
@@ -235,7 +247,7 @@ const ConsumosViewOptimized = () => {
       return {
         original,
         normalizada: limpia,
-        palabras: limpia.split(' ').filter(p => p.length > 2)
+        palabras: limpia.split(" ").filter((p) => p.length > 2),
       };
     });
 
@@ -255,10 +267,13 @@ const ConsumosViewOptimized = () => {
 
         // Criterio 2: Coincidencia de palabras principales
         const palabrasGrupo = grupo.palabrasRepresentativas;
-        const coincidencias = palabras.filter(p => palabrasGrupo.includes(p));
+        const coincidencias = palabras.filter((p) => palabrasGrupo.includes(p));
 
         // Si coinciden más del 60% de las palabras principales
-        if (palabras.length > 0 && coincidencias.length / palabras.length > 0.6) {
+        if (
+          palabras.length > 0 &&
+          coincidencias.length / palabras.length > 0.6
+        ) {
           grupoEncontrado = grupo;
           break;
         }
@@ -270,8 +285,10 @@ const ConsumosViewOptimized = () => {
         grupoEncontrado.conteo++;
 
         // Actualizar el representativo si es más común o más limpio
-        if (original.length < grupoEncontrado.representativo.length ||
-          grupoEncontrado.conteo === 1) {
+        if (
+          original.length < grupoEncontrado.representativo.length ||
+          grupoEncontrado.conteo === 1
+        ) {
           grupoEncontrado.representativo = original;
         }
       } else {
@@ -281,7 +298,7 @@ const ConsumosViewOptimized = () => {
           ubicaciones: [original],
           conteo: 1,
           palabrasRepresentativas: palabras,
-          normalizada
+          normalizada,
         });
       }
     });
@@ -289,102 +306,130 @@ const ConsumosViewOptimized = () => {
     // Paso 3: Crear opciones agrupadas
     const opcionesAgrupadas = Array.from(grupos.values())
       .sort((a, b) => a.representativo.localeCompare(b.representativo))
-      .map(grupo => {
-        const etiqueta = grupo.conteo > 1
-          ? `📍 ${grupo.representativo} (${grupo.conteo} variantes)`
-          : `📍 ${grupo.representativo}`;
+      .map((grupo) => {
+        const etiqueta =
+          grupo.conteo > 1
+            ? `📍 ${grupo.representativo} (${grupo.conteo} variantes)`
+            : `📍 ${grupo.representativo}`;
 
         return {
           value: grupo.normalizada,
           label: etiqueta,
           ubicacionesOriginales: grupo.ubicaciones,
           representativo: grupo.representativo,
-          faenaId: 5
+          faenaId: 5,
         };
       });
 
-    console.log('✅ Ubicaciones agrupadas con originales:', opcionesAgrupadas);
+    console.log("✅ Ubicaciones agrupadas con originales:", opcionesAgrupadas);
     return opcionesAgrupadas;
   }, []);
 
   // 🔧 Actualizar la función de extracción para usar normalización
-  const extraerUbicaciones = useCallback((cargas) => {
-    const ubicacionesUnicas = new Set();
+  const extraerUbicaciones = useCallback(
+    (cargas) => {
+      const ubicacionesUnicas = new Set();
 
-    cargas.forEach(carga => {
-      if (carga.ubicacion) {
-        ubicacionesUnicas.add(carga.ubicacion);
-      }
-    });
+      cargas.forEach((carga) => {
+        if (carga.ubicacion) {
+          ubicacionesUnicas.add(carga.ubicacion);
+        }
+      });
 
-    // Convertir a array y normalizar
-    const ubicacionesArray = Array.from(ubicacionesUnicas);
-    const ubicacionesAgrupadas = normalizarUbicaciones(ubicacionesArray);
+      // Convertir a array y normalizar
+      const ubicacionesArray = Array.from(ubicacionesUnicas);
+      const ubicacionesAgrupadas = normalizarUbicaciones(ubicacionesArray);
 
-    console.log('🗺️ Ubicaciones extraídas y agrupadas:', ubicacionesAgrupadas);
-    return ubicacionesAgrupadas;
-  }, [normalizarUbicaciones]);
+      console.log(
+        "🗺️ Ubicaciones extraídas y agrupadas:",
+        ubicacionesAgrupadas
+      );
+      return ubicacionesAgrupadas;
+    },
+    [normalizarUbicaciones]
+  );
 
   // 🔄 Actualizar ubicaciones cuando cambien las cargas
   useEffect(() => {
     if (cargas.length > 0) {
       const ubicacionesExtraidas = extraerUbicaciones(cargas);
       setUbicacionesDisponibles(ubicacionesExtraidas);
-      console.log('✅ Ubicaciones disponibles actualizadas:', ubicacionesExtraidas);
+      console.log(
+        "✅ Ubicaciones disponibles actualizadas:",
+        ubicacionesExtraidas
+      );
     } else {
       setUbicacionesDisponibles([]);
     }
   }, [cargas, extraerUbicaciones]);
 
   // 🔧 Función de ordenamiento mejorada
-  const manejarCambioOrdenamiento = useCallback((columna, direccionEspecifica = null) => {
-    console.log('🔧 Click en ordenamiento:', {
-      columna,
-      direccionEspecifica,
-      columnaActual: ordenColumna,
-      direccionActual: direccionOrden
-    });
+  const manejarCambioOrdenamiento = useCallback(
+    (columna, direccionEspecifica = null) => {
+      console.log("🔧 Click en ordenamiento:", {
+        columna,
+        direccionEspecifica,
+        columnaActual: ordenColumna,
+        direccionActual: direccionOrden,
+      });
 
-    if (ordenColumna === columna) {
-      // 🔄 MISMA COLUMNA: Alternar SIEMPRE
-      const nuevaDireccion = direccionOrden === "asc" ? "desc" : "asc";
-      console.log('🔄 Alternando dirección:', direccionOrden, '→', nuevaDireccion);
-      manejarCambioOrdenamientoHook(columna);
-    } else {
-      // 🆕 NUEVA COLUMNA: Usar la función del hook
-      console.log('🆕 Nueva columna:', columna);
-      manejarCambioOrdenamientoHook(columna);
-    }
-  }, [ordenColumna, direccionOrden, manejarCambioOrdenamientoHook]);
+      if (ordenColumna === columna) {
+        // 🔄 MISMA COLUMNA: Alternar SIEMPRE
+        const nuevaDireccion = direccionOrden === "asc" ? "desc" : "asc";
+        console.log(
+          "🔄 Alternando dirección:",
+          direccionOrden,
+          "→",
+          nuevaDireccion
+        );
+        manejarCambioOrdenamientoHook(columna);
+      } else {
+        // 🆕 NUEVA COLUMNA: Usar la función del hook
+        console.log("🆕 Nueva columna:", columna);
+        manejarCambioOrdenamientoHook(columna);
+      }
+    },
+    [ordenColumna, direccionOrden, manejarCambioOrdenamientoHook]
+  );
 
   // 🆕 Función para manejar cambios en FiltrosComponent
-  const handleFiltrosChange = useCallback((nuevosFiltros) => {
-    console.log('🔧 Cambio en filtros recibidos:', nuevosFiltros);
+  const handleFiltrosChange = useCallback(
+    (nuevosFiltros) => {
+      console.log("🔧 Cambio en filtros recibidos:", nuevosFiltros);
 
-    setFiltrosFecha(prev => ({
-      ...prev,
-      ...nuevosFiltros
-    }));
+      setFiltrosFecha((prev) => ({
+        ...prev,
+        ...nuevosFiltros,
+      }));
 
-    // Sincronizar con el hook useConsumos
-    if (nuevosFiltros.faenaSeleccionada !== undefined) {
-      setFiltroFaenaHook("todas");
-    }
-  }, [setFiltroFaenaHook]);
+      // Sincronizar con el hook useConsumos
+      if (nuevosFiltros.faenaSeleccionada !== undefined) {
+        setFiltroFaenaHook("todas");
+      }
+    },
+    [setFiltroFaenaHook]
+  );
 
   // 🔄 Sincronizar estado inicial
   useEffect(() => {
-    if (ubicacionesDisponibles.length > 0 && filtrosFecha.faenaSeleccionada === "todas") {
+    if (
+      ubicacionesDisponibles.length > 0 &&
+      filtrosFecha.faenaSeleccionada === "todas"
+    ) {
       setFiltroFaenaHook("todas");
     }
-  }, [ubicacionesDisponibles, filtrosFecha.faenaSeleccionada, setFiltroFaenaHook]);
+  }, [
+    ubicacionesDisponibles,
+    filtrosFecha.faenaSeleccionada,
+    setFiltroFaenaHook,
+  ]);
 
   // 🆕 Función para manejar filtros de fecha personalizados CON HORAS
   const manejarCambioFiltroFechaPersonalizado = useCallback((campo, valor) => {
     console.log("📅 Filtro fecha personalizado:", { campo, valor });
-    setFiltrosFechaPersonalizados(prev => ({
+    setFiltrosFechaPersonalizados((prev) => ({
       ...prev,
-      [campo]: valor
+      [campo]: valor,
     }));
   }, []);
 
@@ -394,11 +439,15 @@ const ConsumosViewOptimized = () => {
 
     // Aplicar filtro de fecha personalizada
     if (filtrosFecha.fechaDesde || filtrosFecha.fechaHasta) {
-      resultado = resultado.filter(carga => {
+      resultado = resultado.filter((carga) => {
         const fechaCarga = new Date(carga.created_at);
 
-        const fechaDesde = filtrosFecha.fechaDesde ? new Date(filtrosFecha.fechaDesde + 'T00:00:00') : null;
-        const fechaHasta = filtrosFecha.fechaHasta ? new Date(filtrosFecha.fechaHasta + 'T23:59:59') : null;
+        const fechaDesde = filtrosFecha.fechaDesde
+          ? new Date(filtrosFecha.fechaDesde + "T00:00:00")
+          : null;
+        const fechaHasta = filtrosFecha.fechaHasta
+          ? new Date(filtrosFecha.fechaHasta + "T23:59:59")
+          : null;
 
         if (fechaDesde && fechaCarga < fechaDesde) return false;
         if (fechaHasta && fechaCarga > fechaHasta) return false;
@@ -408,23 +457,28 @@ const ConsumosViewOptimized = () => {
     }
 
     // Aplicar filtro de ubicación
-    if (filtrosFecha.faenaSeleccionada && filtrosFecha.faenaSeleccionada !== "todas") {
-      resultado = resultado.filter(carga => {
+    if (
+      filtrosFecha.faenaSeleccionada &&
+      filtrosFecha.faenaSeleccionada !== "todas"
+    ) {
+      resultado = resultado.filter((carga) => {
         if (!carga.ubicacion) return false;
 
         const opcionSeleccionada = ubicacionesDisponibles.find(
-          opcion => opcion.value === filtrosFecha.faenaSeleccionada
+          (opcion) => opcion.value === filtrosFecha.faenaSeleccionada
         );
 
         if (opcionSeleccionada?.ubicacionesOriginales) {
-          return opcionSeleccionada.ubicacionesOriginales.includes(carga.ubicacion);
+          return opcionSeleccionada.ubicacionesOriginales.includes(
+            carga.ubicacion
+          );
         } else {
           const ubicacionNormalizada = carga.ubicacion
             .trim()
-            .replace(/\s+/g, ' ')
+            .replace(/\s+/g, " ")
             .toLowerCase()
-            .replace(/[0-9]/g, '')
-            .replace(/\s+/g, ' ')
+            .replace(/[0-9]/g, "")
+            .replace(/\s+/g, " ")
             .trim();
 
           return ubicacionNormalizada === filtrosFecha.faenaSeleccionada;
@@ -433,19 +487,41 @@ const ConsumosViewOptimized = () => {
     }
 
     return resultado;
-  }, [cargas, filtrosFecha.fechaDesde, filtrosFecha.fechaHasta, filtrosFecha.faenaSeleccionada, ubicacionesDisponibles]);
+  }, [
+    cargas,
+    filtrosFecha.fechaDesde,
+    filtrosFecha.fechaHasta,
+    filtrosFecha.faenaSeleccionada,
+    ubicacionesDisponibles,
+  ]);
 
   // 🔧 GENERAR OPCIONES PARA LOS FILTROS DE COLUMNAS
   const opcionesFiltros = useMemo(() => {
     const datos = datosConFiltrosFecha;
 
     return {
-      numeroBoletas: [...new Set(datos.map(c => c.numero_boleta).filter(Boolean))].sort(),
-      usuarios: [...new Set(datos.map(c => `${c.user?.nombre || ''} ${c.user?.apellido || ''}`.trim()).filter(Boolean))].sort(),
-      maquinas: [...new Set(datos.map(c => c.maquina?.nombre_maquina).filter(Boolean))].sort(),
-      patentes: [...new Set(datos.map(c => c.maquina?.patente).filter(Boolean))].sort(),
-      ubicaciones: [...new Set(datos.map(c => c.ubicacion).filter(Boolean))].sort(),
-      estados: [...new Set(datos.map(c => c.estado).filter(Boolean))].sort()
+      numeroBoletas: [
+        ...new Set(datos.map((c) => c.numero_boleta).filter(Boolean)),
+      ].sort(),
+      usuarios: [
+        ...new Set(
+          datos
+            .map((c) =>
+              `${c.user?.nombre || ""} ${c.user?.apellido || ""}`.trim()
+            )
+            .filter(Boolean)
+        ),
+      ].sort(),
+      maquinas: [
+        ...new Set(datos.map((c) => c.maquina?.nombre_maquina).filter(Boolean)),
+      ].sort(),
+      patentes: [
+        ...new Set(datos.map((c) => c.maquina?.patente).filter(Boolean)),
+      ].sort(),
+      ubicaciones: [
+        ...new Set(datos.map((c) => c.ubicacion).filter(Boolean)),
+      ].sort(),
+      estados: [...new Set(datos.map((c) => c.estado).filter(Boolean))].sort(),
     };
   }, [datosConFiltrosFecha]);
 
@@ -455,60 +531,86 @@ const ConsumosViewOptimized = () => {
 
     // Filtro por número de boleta (múltiple)
     if (filtrosAvanzados.numero_boleta) {
-      const boletasSeleccionadas = filtrosAvanzados.numero_boleta.split(',').map(b => b.trim()).filter(Boolean);
+      const boletasSeleccionadas = filtrosAvanzados.numero_boleta
+        .split(",")
+        .map((b) => b.trim())
+        .filter(Boolean);
       if (boletasSeleccionadas.length > 0) {
-        resultado = resultado.filter(carga =>
-          carga.numero_boleta?.toLowerCase().includes(filtrosAvanzados.numero_boleta.toLowerCase())
+        resultado = resultado.filter((carga) =>
+          carga.numero_boleta
+            ?.toLowerCase()
+            .includes(filtrosAvanzados.numero_boleta.toLowerCase())
         );
       }
     }
 
     // Filtro por usuario (múltiple)
     if (filtrosAvanzados.usuario) {
-      const usuariosSeleccionados = filtrosAvanzados.usuario.split(',').map(u => u.trim()).filter(Boolean);
+      const usuariosSeleccionados = filtrosAvanzados.usuario
+        .split(",")
+        .map((u) => u.trim())
+        .filter(Boolean);
       if (usuariosSeleccionados.length > 0) {
-        resultado = resultado.filter(carga => {
-          const nombreCompleto = `${carga.user?.nombre || ''} ${carga.user?.apellido || ''}`.trim();
-          return nombreCompleto.toLowerCase().includes(filtrosAvanzados.usuario.toLowerCase());
+        resultado = resultado.filter((carga) => {
+          const nombreCompleto = `${carga.user?.nombre || ""} ${
+            carga.user?.apellido || ""
+          }`.trim();
+          return nombreCompleto
+            .toLowerCase()
+            .includes(filtrosAvanzados.usuario.toLowerCase());
         });
       }
     }
 
     // Filtro por máquina (múltiple)
     if (filtrosAvanzados.maquina) {
-      const maquinasSeleccionadas = filtrosAvanzados.maquina.split(',').map(m => m.trim()).filter(Boolean);
+      const maquinasSeleccionadas = filtrosAvanzados.maquina
+        .split(",")
+        .map((m) => m.trim())
+        .filter(Boolean);
       if (maquinasSeleccionadas.length > 0) {
-        resultado = resultado.filter(carga =>
-          carga.maquina?.nombre_maquina?.toLowerCase().includes(filtrosAvanzados.maquina.toLowerCase())
+        resultado = resultado.filter((carga) =>
+          carga.maquina?.nombre_maquina
+            ?.toLowerCase()
+            .includes(filtrosAvanzados.maquina.toLowerCase())
         );
-
       }
     }
 
     // Filtro por patente (múltiple)
     if (filtrosAvanzados.patente) {
-      const patentesSeleccionadas = filtrosAvanzados.patente.split(',').map(p => p.trim()).filter(Boolean);
+      const patentesSeleccionadas = filtrosAvanzados.patente
+        .split(",")
+        .map((p) => p.trim())
+        .filter(Boolean);
       if (patentesSeleccionadas.length > 0) {
-        resultado = resultado.filter(carga =>
-          carga.maquina?.patente?.toLowerCase().includes(filtrosAvanzados.patente.toLowerCase())
+        resultado = resultado.filter((carga) =>
+          carga.maquina?.patente
+            ?.toLowerCase()
+            .includes(filtrosAvanzados.patente.toLowerCase())
         );
       }
     }
 
     // Filtro por ubicación (múltiple)
     if (filtrosAvanzados.ubicacion) {
-      const ubicacionesSeleccionadas = filtrosAvanzados.ubicacion.split(',').map(u => u.trim()).filter(Boolean);
+      const ubicacionesSeleccionadas = filtrosAvanzados.ubicacion
+        .split(",")
+        .map((u) => u.trim())
+        .filter(Boolean);
       if (ubicacionesSeleccionadas.length > 0) {
-        resultado = resultado.filter(carga =>
-          carga.ubicacion?.toLowerCase().includes(filtrosAvanzados.ubicacion.toLowerCase())
+        resultado = resultado.filter((carga) =>
+          carga.ubicacion
+            ?.toLowerCase()
+            .includes(filtrosAvanzados.ubicacion.toLowerCase())
         );
       }
     }
 
     // Filtro por estado
     if (filtrosAvanzados.estado) {
-      resultado = resultado.filter(carga =>
-        carga.estado === filtrosAvanzados.estado
+      resultado = resultado.filter(
+        (carga) => carga.estado === filtrosAvanzados.estado
       );
     }
 
@@ -548,26 +650,62 @@ const ConsumosViewOptimized = () => {
 
   // Determinar si hay filtros activos
   const hayFiltrosActivosTotal = useMemo(() => {
-    return hayFiltrosActivos ||
+    return (
+      hayFiltrosActivos ||
       filtrosFecha.fechaDesde ||
       filtrosFecha.fechaHasta ||
       filtrosFecha.faenaSeleccionada !== "todas" ||
       filtrosFechaPersonalizados.fechaDesde ||
       filtrosFechaPersonalizados.fechaHasta ||
-      Object.values(filtrosAvanzados).some(valor => valor !== "");
-  }, [hayFiltrosActivos, filtrosFecha, filtrosFechaPersonalizados, filtrosAvanzados]);
+      Object.values(filtrosAvanzados).some((valor) => valor !== "")
+    );
+  }, [
+    hayFiltrosActivos,
+    filtrosFecha,
+    filtrosFechaPersonalizados,
+    filtrosAvanzados,
+  ]);
 
   // Wrapper para el ordenamiento
-  const manejarOrdenamientoWrapper = useCallback((columna, direccion) => {
-    manejarCambioOrdenamiento(columna, direccion);
-  }, [manejarCambioOrdenamiento]);
+  const manejarOrdenamientoWrapper = useCallback(
+    (columna, direccion) => {
+      manejarCambioOrdenamiento(columna, direccion);
+    },
+    [manejarCambioOrdenamiento]
+  );
+
+  // ✅ CORRECTO - Aplicar paginación a los datos filtrados
+  const ITEMS_PER_PAGE = 10; // Agregar esta constante al inicio
+
+  const datosPaginados = cargas.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // ✅ useEffect para actualizar páginas automáticamente
+  useEffect(() => {
+    const totalPaginasCalculadas = Math.ceil(cargas.length / ITEMS_PER_PAGE);
+    setTotalPages(totalPaginasCalculadas);
+
+    if (currentPage > totalPaginasCalculadas && totalPaginasCalculadas > 0) {
+      setCurrentPage(1);
+    }
+  }, [cargas.length, currentPage]);
+
+  // ✅ Función para cambiar de página
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 520, behavior: "smooth" });
+  };
 
   return (
     <div className="space-y-6 p-6">
       {/* 🆕 TÍTULO Y ESTADÍSTICAS */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Gestión de Consumos</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Gestión de Consumos
+          </h1>
           <p className="text-sm text-gray-600 mt-1">
             Administra y supervisa todos los consumos de combustible
           </p>
@@ -576,7 +714,9 @@ const ConsumosViewOptimized = () => {
         {/* Estadísticas rápidas */}
         <div className="flex gap-4 mt-4 sm:mt-0">
           <div className="text-center">
-            <div className="text-lg font-bold text-blue-600">{totalFiltrado}</div>
+            <div className="text-lg font-bold text-blue-600">
+              {totalFiltrado}
+            </div>
             <div className="text-xs text-gray-500">Registros</div>
           </div>
           <div className="text-center">
@@ -599,7 +739,11 @@ const ConsumosViewOptimized = () => {
         fechaDesde={filtrosFecha.fechaDesde}
         fechaHasta={filtrosFecha.fechaHasta}
         faenaSeleccionada={filtrosFecha.faenaSeleccionada}
-        faenas={ubicacionesDisponibles.length > 0 ? ubicacionesDisponibles : faenasPorDefecto}
+        faenas={
+          ubicacionesDisponibles.length > 0
+            ? ubicacionesDisponibles
+            : faenasPorDefecto
+        }
         modo="ubicaciones"
         mostrarFaenas={true}
         incluirHoras={false}
@@ -720,8 +864,6 @@ const ConsumosViewOptimized = () => {
         </div>
       </div>
 
-
-
       {/* 🔍 BARRA DE FILTROS ACTIVOS */}
       {hayFiltrosActivosTotal && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
@@ -759,9 +901,17 @@ const ConsumosViewOptimized = () => {
             {/* Filtros de ubicación */}
             {filtrosFecha.faenaSeleccionada !== "todas" && (
               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
-                Ubicación: {ubicacionesDisponibles.find(u => u.value === filtrosFecha.faenaSeleccionada)?.representativo || filtrosFecha.faenaSeleccionada}
+                Ubicación:{" "}
+                {ubicacionesDisponibles.find(
+                  (u) => u.value === filtrosFecha.faenaSeleccionada
+                )?.representativo || filtrosFecha.faenaSeleccionada}
                 <button
-                  onClick={() => setFiltrosFecha(prev => ({ ...prev, faenaSeleccionada: "todas" }))}
+                  onClick={() =>
+                    setFiltrosFecha((prev) => ({
+                      ...prev,
+                      faenaSeleccionada: "todas",
+                    }))
+                  }
                   className="ml-1 text-blue-600 hover:text-blue-800"
                 >
                   <FaTimes size={10} />
@@ -772,7 +922,8 @@ const ConsumosViewOptimized = () => {
             {/* Filtros de fecha personalizados */}
             {filtrosFechaPersonalizados.fechaDesde && (
               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
-                Desde: {filtrosFechaPersonalizados.fechaDesde} {filtrosFechaPersonalizados.horaDesde}:00
+                Desde: {filtrosFechaPersonalizados.fechaDesde}{" "}
+                {filtrosFechaPersonalizados.horaDesde}:00
                 <button
                   onClick={() => {
                     manejarCambioFiltroFechaPersonalizado("fechaDesde", "");
@@ -787,7 +938,8 @@ const ConsumosViewOptimized = () => {
 
             {filtrosFechaPersonalizados.fechaHasta && (
               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
-                Hasta: {filtrosFechaPersonalizados.fechaHasta} {filtrosFechaPersonalizados.horaHasta}:59
+                Hasta: {filtrosFechaPersonalizados.fechaHasta}{" "}
+                {filtrosFechaPersonalizados.horaHasta}:59
                 <button
                   onClick={() => {
                     manejarCambioFiltroFechaPersonalizado("fechaHasta", "");
@@ -801,23 +953,36 @@ const ConsumosViewOptimized = () => {
             )}
 
             {/* Filtros avanzados simples */}
-            {Object.entries(filtrosAvanzados).map(([key, value]) =>
-              value && (
-                <span key={key} className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300">
-                  {key === 'numero_boleta' ? 'Boleta' :
-                    key === 'usuario' ? 'Usuario' :
-                      key === 'maquina' ? 'Máquina' :
-                        key === 'patente' ? 'Patente' :
-                          key === 'ubicacion' ? 'Ubicación' :
-                            key === 'estado' ? 'Estado' : key}: {value.length > 20 ? `${value.substring(0, 20)}...` : value}
-                  <button
-                    onClick={() => manejarCambioFiltroAvanzado(key, "")}
-                    className="ml-1 text-blue-600 hover:text-blue-800"
+            {Object.entries(filtrosAvanzados).map(
+              ([key, value]) =>
+                value && (
+                  <span
+                    key={key}
+                    className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-white border border-blue-300"
                   >
-                    <FaTimes size={10} />
-                  </button>
-                </span>
-              )
+                    {key === "numero_boleta"
+                      ? "Boleta"
+                      : key === "usuario"
+                      ? "Usuario"
+                      : key === "maquina"
+                      ? "Máquina"
+                      : key === "patente"
+                      ? "Patente"
+                      : key === "ubicacion"
+                      ? "Ubicación"
+                      : key === "estado"
+                      ? "Estado"
+                      : key}
+                    :{" "}
+                    {value.length > 20 ? `${value.substring(0, 20)}...` : value}
+                    <button
+                      onClick={() => manejarCambioFiltroAvanzado(key, "")}
+                      className="ml-1 text-blue-600 hover:text-blue-800"
+                    >
+                      <FaTimes size={10} />
+                    </button>
+                  </span>
+                )
             )}
 
             {/* Botón limpiar todos */}
@@ -846,7 +1011,9 @@ const ConsumosViewOptimized = () => {
           <div className="flex items-start">
             <FaExclamationTriangle className="text-red-500 mt-0.5 mr-3 flex-shrink-0" />
             <div>
-              <h3 className="text-sm font-medium text-red-800">Error al cargar los datos</h3>
+              <h3 className="text-sm font-medium text-red-800">
+                Error al cargar los datos
+              </h3>
               <p className="text-sm text-red-700 mt-1">{error}</p>
               <button
                 onClick={refrescarDatos}
@@ -867,14 +1034,24 @@ const ConsumosViewOptimized = () => {
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-sm text-gray-700">
-                  Mostrando <strong>{datosFiltrados.length}</strong> de <strong>{cargas.length}</strong> registros
+                  Mostrando <strong>{datosFiltrados.length}</strong> de{" "}
+                  <strong>{cargas.length}</strong> registros
                   {hayFiltrosActivosTotal && (
                     <span className="text-blue-600 ml-2">
-                      ({Object.values(filtrosAvanzados).filter(v => v).length +
-                        (filtrosFecha.fechaDesde || filtrosFecha.fechaHasta || filtrosFecha.faenaSeleccionada !== "todas" ? 1 : 0) +
-                        (filtrosFechaPersonalizados.fechaDesde || filtrosFechaPersonalizados.fechaHasta ? 1 : 0) +
+                      (
+                      {Object.values(filtrosAvanzados).filter((v) => v).length +
+                        (filtrosFecha.fechaDesde ||
+                        filtrosFecha.fechaHasta ||
+                        filtrosFecha.faenaSeleccionada !== "todas"
+                          ? 1
+                          : 0) +
+                        (filtrosFechaPersonalizados.fechaDesde ||
+                        filtrosFechaPersonalizados.fechaHasta
+                          ? 1
+                          : 0) +
                         (searchTerm ? 1 : 0) +
-                        (filtroEstado !== "todos" ? 1 : 0)} filtros activos)
+                        (filtroEstado !== "todos" ? 1 : 0)}{" "}
+                      filtros activos)
                     </span>
                   )}
                 </span>
@@ -883,16 +1060,25 @@ const ConsumosViewOptimized = () => {
               {/* Información de ordenamiento */}
               {ordenColumna && (
                 <span className="text-sm text-gray-600">
-                  Ordenando por: <strong>
-                    {ordenColumna === "created_at" ? "Fecha" :
-                      ordenColumna === "numero_boleta" ? "N° Boleta" :
-                        ordenColumna === "usuario" ? "Usuario" :
-                          ordenColumna === "maquina" ? "Máquina" :
-                            ordenColumna === "litros" ? "Litros" :
-                              ordenColumna === "costo" ? "Costo" :
-                                ordenColumna === "estado" ? "Estado" :
-                                  ordenColumna}
-                  </strong> {direccionOrden === "desc" ? "↓" : "↑"}
+                  Ordenando por:{" "}
+                  <strong>
+                    {ordenColumna === "created_at"
+                      ? "Fecha"
+                      : ordenColumna === "numero_boleta"
+                      ? "N° Boleta"
+                      : ordenColumna === "usuario"
+                      ? "Usuario"
+                      : ordenColumna === "maquina"
+                      ? "Máquina"
+                      : ordenColumna === "litros"
+                      ? "Litros"
+                      : ordenColumna === "costo"
+                      ? "Costo"
+                      : ordenColumna === "estado"
+                      ? "Estado"
+                      : ordenColumna}
+                  </strong>{" "}
+                  {direccionOrden === "desc" ? "↓" : "↑"}
                 </span>
               )}
             </div>
@@ -1013,8 +1199,9 @@ const ConsumosViewOptimized = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {datosFiltrados.map(carga => {
-                  const configEstado = estadosConfig[carga.estado] || estadosConfig.pendiente;
+                {datosPaginados.map((carga) => {
+                  const configEstado =
+                    estadosConfig[carga.estado] || estadosConfig.pendiente;
                   const IconoEstado = configEstado.icono;
 
                   // 🎨 Obtener colores de faena
@@ -1024,27 +1211,48 @@ const ConsumosViewOptimized = () => {
                   return (
                     <tr
                       key={carga.id}
-                      className={`hover:bg-gray-50 transition-colors ${esCargaExterna ? coloresFaena.copecBg : coloresFaena.bg} ${esCargaExterna ? coloresFaena.copecBorder : coloresFaena.border} border-l-4`}
+                      className={`hover:bg-gray-50 transition-colors ${
+                        esCargaExterna ? coloresFaena.copecBg : coloresFaena.bg
+                      } ${
+                        esCargaExterna
+                          ? coloresFaena.copecBorder
+                          : coloresFaena.border
+                      } border-l-4`}
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(carga.created_at).toLocaleDateString("es-CL", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric"
-                        })}
+                        {new Date(carga.created_at).toLocaleDateString(
+                          "es-CL",
+                          {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                          }
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {carga.numero_boleta}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {`${carga.user?.nombre || ''} ${carga.user?.apellido || ''}`}
+                        {`${carga.user?.nombre || ""} ${
+                          carga.user?.apellido || ""
+                        }`}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         <div>
-                          <div className="font-medium">{carga.maquina?.nombre_maquina}</div>
-                          <div className="text-xs text-gray-500">{carga.maquina?.patente}</div>
+                          <div className="font-medium">
+                            {carga.maquina?.nombre_maquina}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {carga.maquina?.patente}
+                          </div>
                           {/* Mostrar ubicación real con estilo de faena */}
-                          <div className={`text-xs font-medium flex items-center gap-1 ${esCargaExterna ? coloresFaena.copecBlue : coloresFaena.icon}`}>
+                          <div
+                            className={`text-xs font-medium flex items-center gap-1 ${
+                              esCargaExterna
+                                ? coloresFaena.copecBlue
+                                : coloresFaena.icon
+                            }`}
+                          >
                             <span>{coloresFaena.emoji}</span>
                             {carga.ubicacion || "Sin ubicación"}
                           </div>
@@ -1055,19 +1263,35 @@ const ConsumosViewOptimized = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${esCargaExterna ? coloresFaena.copecBadge : coloresFaena.badge}`}>
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            esCargaExterna
+                              ? coloresFaena.copecBadge
+                              : coloresFaena.badge
+                          }`}
+                        >
                           {Number(carga.litros).toLocaleString()}
                         </span>
                         <span className="text-gray-500 ml-1">L</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                        <span className={`font-semibold ${esCargaExterna ? coloresFaena.copecBlue : coloresFaena.icon}`}>
+                        <span
+                          className={`font-semibold ${
+                            esCargaExterna
+                              ? coloresFaena.copecBlue
+                              : coloresFaena.icon
+                          }`}
+                        >
                           ${Number(carga.costo).toLocaleString()}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${configEstado.color}`}>
-                          <IconoEstado className={`w-3 h-3 mr-1 ${configEstado.iconColor}`} />
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${configEstado.color}`}
+                        >
+                          <IconoEstado
+                            className={`w-3 h-3 mr-1 ${configEstado.iconColor}`}
+                          />
                           {configEstado.texto}
                         </span>
                       </td>
@@ -1094,45 +1318,54 @@ const ConsumosViewOptimized = () => {
               <div className="text-sm text-gray-700">
                 <div className="flex items-center space-x-4">
                   <span>
-                    <strong>{Math.min(datosFiltrados.length, infoPaginacion.fin)}</strong> de <strong>{datosFiltrados.length}</strong> registros filtrados
+                    <strong>
+                      {Math.min(datosFiltrados.length, infoPaginacion.fin)}
+                    </strong>{" "}
+                    de <strong>{datosFiltrados.length}</strong> registros
+                    filtrados
                   </span>
                   {datosFiltrados.length !== infoPaginacion.totalRegistros && (
                     <>
                       <span>•</span>
                       <span className="text-orange-600">
-                        <strong>{infoPaginacion.totalRegistros}</strong> registros totales
+                        <strong>{infoPaginacion.totalRegistros}</strong>{" "}
+                        registros totales
                       </span>
                     </>
                   )}
                   <span>•</span>
                   <span>
-                    <strong>{datosFiltrados.filter((c) => c.estado === "pendiente").length}</strong> pendientes
+                    <strong>
+                      {
+                        datosFiltrados.filter((c) => c.estado === "pendiente")
+                          .length
+                      }
+                    </strong>{" "}
+                    pendientes
                   </span>
                   <span>•</span>
                   <span>
-                    <strong>{datosFiltrados.filter((c) => c.estado === "aprobado").length}</strong> aprobados
+                    <strong>
+                      {
+                        datosFiltrados.filter((c) => c.estado === "aprobado")
+                          .length
+                      }
+                    </strong>{" "}
+                    aprobados
                   </span>
                 </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => irAPagina(paginaActual - 1)}
-                  disabled={!infoPaginacion.hayAnterior}
-                  className="px-3 py-1 border rounded text-sm disabled:opacity-50 hover:bg-gray-100 transition-colors"
-                >
-                  Anterior
-                </button>
-                <span className="px-3 py-1 text-sm">
-                  Página <strong>{paginaActual}</strong> de <strong>{infoPaginacion.totalPaginas}</strong>
-                </span>
-                <button
-                  onClick={() => irAPagina(paginaActual + 1)}
-                  disabled={!infoPaginacion.haySiguiente}
-                  className="px-3 py-1 border rounded text-sm disabled:opacity-50 hover:bg-gray-100 transition-colors"
-                >
-                  Siguiente
-                </button>
-              </div>
+              {/* 📄 Controles de paginación */}
+              {totalPages > 1 && (
+                <div className="mt-6">
+                  <PageControl
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={handlePageChange}
+                    colorScheme="orange"
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1143,12 +1376,13 @@ const ConsumosViewOptimized = () => {
         <div className="text-center py-12">
           <div className="text-gray-500">
             <FaExclamationTriangle className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No se encontraron registros</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              No se encontraron registros
+            </h3>
             <p className="text-sm text-gray-500">
               {hayFiltrosActivosTotal
                 ? "Prueba ajustando los filtros o limpiándolos para ver más resultados"
-                : "No hay consumos registrados en el sistema"
-              }
+                : "No hay consumos registrados en el sistema"}
             </p>
             {hayFiltrosActivosTotal && (
               <button
@@ -1172,4 +1406,4 @@ const ConsumosViewOptimized = () => {
   );
 };
 
-export default ConsumosViewOptimized; 
+export default ConsumosViewOptimized;

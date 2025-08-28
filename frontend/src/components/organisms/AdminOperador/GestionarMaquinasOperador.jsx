@@ -38,6 +38,8 @@ const GestionarMaquinasOperador = () => {
   const [mostrarConfirmacionEliminar, setMostrarConfirmacionEliminar] = useState(false);
   const [maquinaAEliminar, setMaquinaAEliminar] = useState(null);
 
+  
+
   // Estados para el formulario (SIMPLIFICADO - Solo máquinas internas)
   const [formData, setFormData] = useState({
     nombre_maquina: '',
