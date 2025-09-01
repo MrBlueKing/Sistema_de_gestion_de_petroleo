@@ -24,7 +24,13 @@ const FAENA_COLORS = {
     light: '#fee2e2',
     border: '#fecaca',
     icon: '🏔️'
-  }
+  },
+  'Estacion de Servicio': {
+    primary: '#2986CC', // AZUL
+    light: '#dcfce7',
+    border: '#bbf7d0',
+    icon: '⛽'
+    }
 };
 
 // 🎨 COLORES PARA GRÁFICOS
@@ -574,7 +580,7 @@ const VisualizacionesConsumoMaquina = ({
                 <div className="flex items-center gap-3">
                   <div
                     className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
-                    style={{ backgroundColor: FAENA_COLORS[item.name]?.primary || '#6b7280' }}
+                    style={{ backgroundColor: FAENA_COLORS[item.name]?.primary || '#278ef5' }}
                   />
                   <div>
                     <span className="font-semibold text-gray-800">{item.name}</span>

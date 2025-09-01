@@ -43,6 +43,16 @@ const FAENA_COLORS = {
         badge: 'bg-red-100 text-red-800',
         icon: '🏔️',
         gradient: 'bg-gradient-to-r from-red-600 to-red-700'
+    },
+    'Estacion de Servicio': {
+        id: 5,
+        primary: 'from-blue-700 to-blue-800',
+        light: 'bg-blue-50',
+        border: 'border-blue-200',
+        text: 'text-blue-800',
+        badge: 'bg-blue-100 text-blue-800',
+        icon: '⛽',
+        gradient: 'bg-gradient-to-r from-blue-600 to-blue-700'
     }
 };
 

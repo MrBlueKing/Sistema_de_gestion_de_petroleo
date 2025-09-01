@@ -50,7 +50,7 @@ const CompactConsumptionPieChart = ({
     hasValidColorMapping,
     isInitialized,
   } = useChartColors();
-
+  console.log("fechicha", fechaDesde, fechaHasta);
   // Estados principales
   const [periodoActual, setPeriodoActual] = useState([]);
   const [periodoAnterior, setPeriodoAnterior] = useState([]);
@@ -59,8 +59,6 @@ const CompactConsumptionPieChart = ({
   const [error, setError] = useState(null);
   const [periodoAnteriorDescripcion, setPeriodoAnteriorDescripcion] =
     useState("");
-
-  // Ref para verificar si el componente está montado
   const isMounted = useRef(true);
   const initialLoadDone = useRef(false);
   const prevFilters = useRef({
@@ -69,6 +67,25 @@ const CompactConsumptionPieChart = ({
     fechaHasta,
     refreshKey,
   });
+
+  const formatearPeriodo = (fechaInicio, fechaFin) => {
+    if (!fechaInicio || !fechaFin) return "";
+
+    // 🔧 PARSEAR MANUALMENTE para evitar problemas de zona horaria
+    const [añoInicio, mesInicio, diaInicio] = fechaInicio
+      .split("-")
+      .map(Number);
+    const [añoFin, mesFin, diaFin] = fechaFin.split("-").map(Number);
+
+    const fechaInicioFormateada = `${diaInicio
+      .toString()
+      .padStart(2, "0")}/${mesInicio.toString().padStart(2, "0")}/${añoInicio}`;
+    const fechaFinFormateada = `${diaFin.toString().padStart(2, "0")}/${mesFin
+      .toString()
+      .padStart(2, "0")}/${añoFin}`;
+
+    return `${fechaInicioFormateada} al ${fechaFinFormateada}`;
+  };
 
   useEffect(() => {
     console.log(
@@ -164,79 +181,48 @@ const CompactConsumptionPieChart = ({
     return fallbackColor;
   };
 
-  // Función para calcular período anterior
   const calcularPeriodoAnterior = () => {
-    const inicioActual = new Date(fechaDesde);
-    const finActual = new Date(fechaHasta);
-
-    // Restar exactamente un mes a ambas fechas
-    const inicioAnterior = new Date(inicioActual);
-    const finAnterior = new Date(finActual);
-
-    inicioAnterior.setMonth(inicioAnterior.getMonth() - 1);
-    finAnterior.setMonth(finAnterior.getMonth() - 1);
-
-    // Manejar casos especiales de días que no existen en el mes anterior
-    const ultimoDiaMesAnteriorInicio = new Date(
-      inicioAnterior.getFullYear(),
-      inicioAnterior.getMonth() + 1,
-      0
-    ).getDate();
-    const ultimoDiaMesAnteriorFin = new Date(
-      finAnterior.getFullYear(),
-      finAnterior.getMonth() + 1,
-      0
-    ).getDate();
-
-    const diaOriginalInicio = new Date(fechaDesde).getDate();
-    const diaOriginalFin = new Date(fechaHasta).getDate();
-
-    // Ajustar fecha de inicio si es necesario
-    if (diaOriginalInicio > ultimoDiaMesAnteriorInicio) {
-      inicioAnterior.setDate(ultimoDiaMesAnteriorInicio);
-      console.log(
-        `⚠️ Ajustando fecha inicio: día ${diaOriginalInicio} no existe en ${
-          inicioAnterior.getMonth() + 1
-        }/${inicioAnterior.getFullYear()}, usando día ${ultimoDiaMesAnteriorInicio}`
-      );
+    if (!fechaDesde || !fechaHasta) {
+      return {
+        fechaDesde: "",
+        fechaHasta: "",
+        descripcion: "Fechas inválidas",
+      };
     }
 
-    // Ajustar fecha de fin si es necesario
-    if (diaOriginalFin > ultimoDiaMesAnteriorFin) {
-      finAnterior.setDate(ultimoDiaMesAnteriorFin);
-      console.log(
-        `⚠️ Ajustando fecha fin: día ${diaOriginalFin} no existe en ${
-          finAnterior.getMonth() + 1
-        }/${finAnterior.getFullYear()}, usando día ${ultimoDiaMesAnteriorFin}`
-      );
+    // 🔧 SOLUCIÓN SIMPLE: Parsear fechas sin usar setMonth
+    const [yearDesde, monthDesde, dayDesde] = fechaDesde.split("-").map(Number);
+    const [yearHasta, monthHasta, dayHasta] = fechaHasta.split("-").map(Number);
+
+    // Calcular mes anterior para fecha inicio
+    let yearAnteriorDesde = yearDesde;
+    let monthAnteriorDesde = monthDesde - 1;
+    if (monthAnteriorDesde < 1) {
+      monthAnteriorDesde = 12;
+      yearAnteriorDesde -= 1;
     }
 
-    // Logging para verificar el cálculo
-    console.log("📅 Cálculo de período anterior:", {
-      actual: {
-        inicio: fechaDesde,
-        fin: fechaHasta,
-        descripcion: `${inicioActual.toLocaleDateString(
-          "es-ES"
-        )} al ${finActual.toLocaleDateString("es-ES")}`,
-      },
-      anterior: {
-        inicio: inicioAnterior.toISOString().split("T")[0],
-        fin: finAnterior.toISOString().split("T")[0],
-        descripcion: `${inicioAnterior.toLocaleDateString(
-          "es-ES"
-        )} al ${finAnterior.toLocaleDateString("es-ES")}`,
-      },
-    });
+    // Calcular mes anterior para fecha fin
+    let yearAnteriorHasta = yearHasta;
+    let monthAnteriorHasta = monthHasta - 1;
+    if (monthAnteriorHasta < 1) {
+      monthAnteriorHasta = 12;
+      yearAnteriorHasta -= 1;
+    }
 
+    // Formatear fechas como YYYY-MM-DD
+    const fechaInicioAnterior = `${yearAnteriorDesde}-${monthAnteriorDesde
+      .toString()
+      .padStart(2, "0")}-${dayDesde.toString().padStart(2, "0")}`;
+    const fechaFinAnterior = `${yearAnteriorHasta}-${monthAnteriorHasta
+      .toString()
+      .padStart(2, "0")}-${dayHasta.toString().padStart(2, "0")}`;
+
+    console.log("fechillasFormated", fechaInicioAnterior, fechaFinAnterior);
     return {
-      fechaDesde: inicioAnterior.toISOString().split("T")[0],
-      fechaHasta: finAnterior.toISOString().split("T")[0],
-      tipo: "mes_anterior_fijo",
-      descripcion: obtenerDescripcionPeriodoAnterior(
-        inicioAnterior,
-        finAnterior
-      ),
+      fechaDesde: fechaInicioAnterior,
+      fechaHasta: fechaFinAnterior,
+      descripcion: formatearPeriodo(fechaInicioAnterior, fechaFinAnterior),
     };
   };
 
@@ -292,36 +278,6 @@ const CompactConsumptionPieChart = ({
     }
 
     return null;
-  };
-
-  // Función para generar descripción legible del período anterior
-  const obtenerDescripcionPeriodoAnterior = (inicio, fin) => {
-    const meses = [
-      "Ene",
-      "Feb",
-      "Mar",
-      "Abr",
-      "May",
-      "Jun",
-      "Jul",
-      "Ago",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dic",
-    ];
-
-    const mesInicio = meses[inicio.getMonth()];
-    const mesFin = meses[fin.getMonth()];
-    const año = inicio.getFullYear();
-
-    // Si es el mismo mes
-    if (inicio.getMonth() === fin.getMonth()) {
-      return `${inicio.getDate()}-${fin.getDate()} ${mesInicio} ${año}`;
-    } else {
-      // Si abarca dos meses
-      return `${inicio.getDate()} ${mesInicio} - ${fin.getDate()} ${mesFin} ${año}`;
-    }
   };
 
   const procesarDatosBackend = (data) => {
@@ -609,10 +565,10 @@ const CompactConsumptionPieChart = ({
           datos: datosAnteriores,
         },
       });
-
+      console.log("Periodo antes del set", periodoAnteriorFechas.descripcion);
       // Guardar la descripción del período para mostrar en la UI
       setPeriodoAnteriorDescripcion(periodoAnteriorFechas.descripcion);
-
+      console.log("Periodo despues del set", periodoAnteriorFechas.descripcion);
       // Crear lista unificada de todas las categorías
       const todasCategorias = new Map();
 
@@ -1196,16 +1152,9 @@ const CompactConsumptionPieChart = ({
               <h4 className="text-sm font-medium text-gray-700 mb-1">
                 📊 Período Actual
               </h4>
+
               <p className="text-xs text-gray-500">
-                {new Date(fechaDesde).toLocaleDateString("es-ES", {
-                  month: "short",
-                  day: "numeric",
-                })}{" "}
-                -{" "}
-                {new Date(fechaHasta).toLocaleDateString("es-ES", {
-                  month: "short",
-                  day: "numeric",
-                })}
+                {formatearPeriodo(fechaDesde, fechaHasta)}
               </p>
 
               <ResponsiveContainer width="100%" height="100%">

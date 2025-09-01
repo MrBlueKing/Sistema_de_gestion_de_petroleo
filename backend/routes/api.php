@@ -515,8 +515,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // Actualizar parámetros CHC y HRC de una categoría
         Route::put('/{id}/parametros', [ConsumoCategoriasController::class, 'actualizarParametrosCategoria']);
 
-        // Calibrar automáticamente CHC basado en datos reales
-        Route::post('/{id}/calibrar', [ConsumoCategoriasController::class, 'calibrarCHCAutomatico']);
+                
     });
 
 

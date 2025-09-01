@@ -344,9 +344,9 @@ class ConsumoCategoriasController extends Controller
         $incluirDomingos = $incluirDomingos ?? self::INCLUIR_DOMINGOS;
 
         $diasLaborales = 0;
-        $fecha = $fechaInicio->copy()->startOfDay();
+        $fecha = Carbon::parse($fechaInicio)->startOfDay();
         // Antes $fechaFinAnalisis = $fechaFin->copy()->startOfDay();
-        $fechaFinAnalisis = $fechaFin->copy()->endOfDay();
+        $fechaFinAnalisis = Carbon::parse($fechaFin)->endOfDay();
         while ($fecha <= $fechaFinAnalisis) {
             if ($this->esDiaLaboral($fecha, $incluirSabados, $incluirDomingos)) {
                 $diasLaborales++;
@@ -800,118 +800,182 @@ class ConsumoCategoriasController extends Controller
     }
 
 
-
-
     /**
-     * ✅ MÉTODO CORREGIDO: Calcular litros por meses excluyendo el último consumo del rango
+     * ✅ MÉTODO CORREGIDO: Calcular litros por meses según tu esquema
      */
-    private function calcularLitrosPorMesesExcluyendoUltimo($idMaquina, $fechaInicio, $fechaFin, $idFaena = null)
+    private function calcularLitrosPorMeses($idMaquina, $fechaInicio, $fechaFin, $idFaena = null)
     {
         try {
-            // 1. Identificar último consumo DENTRO del rango
-            $infoUltimoConsumo = $this->identificarUltimoConsumoYMes($idMaquina, $fechaInicio, $fechaFin, $idFaena);
-
             $inicioCarbon = Carbon::parse($fechaInicio);
             $finCarbon = Carbon::parse($fechaFin);
 
-            // Detectar meses en rango
-            $mesesEnRango = [];
-            $mesActual = $inicioCarbon->copy()->startOfMonth();
+            // Obtener todos los consumos del período
+            $query = DB::table('consumos')
+                ->where('id_equipo', $idMaquina)
+                ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin]);
 
-            while ($mesActual->lte($finCarbon)) {
-                $inicioMes = $mesActual->copy();
-                $finMes = $mesActual->copy()->endOfMonth();
-
-                if ($inicioMes->lt($inicioCarbon)) {
-                    $inicioMes = $inicioCarbon->copy();
-                }
-                if ($finMes->gt($finCarbon)) {
-                    $finMes = $finCarbon->copy();
-                }
-
-                $mesKey = $mesActual->format('Y-m');
-                $esUltimoMes = $infoUltimoConsumo && $mesKey === $infoUltimoConsumo['mes_ultimo_consumo'];
-
-                $mesesEnRango[] = [
-                    'mes' => $mesKey,
-                    'mes_nombre' => $mesActual->locale('es')->format('F Y'),
-                    'inicio' => $inicioMes->format('Y-m-d H:i:s'),
-                    'fin' => $finMes->format('Y-m-d H:i:s'),
-                    'es_ultimo_mes' => $esUltimoMes
-                ];
-
-                $mesActual->addMonth();
+            if ($idFaena) {
+                $query->where('id_faena', $idFaena);
             }
 
+            $todosConsumos = $query->orderBy('fecha_consumo', 'asc')->get();
+
+            if ($todosConsumos->isEmpty()) {
+                Log::warning("Sin consumos para máquina {$idMaquina} en período {$fechaInicio} - {$fechaFin}");
+                return [];
+            }
+
+            // Agrupar consumos por mes
+            $consumosPorMes = [];
+            foreach ($todosConsumos as $consumo) {
+                $fechaConsumo = Carbon::parse($consumo->fecha_consumo);
+                $claveMonth = $fechaConsumo->format('Y-m');
+
+                if (!isset($consumosPorMes[$claveMonth])) {
+                    $consumosPorMes[$claveMonth] = [];
+                }
+                $consumosPorMes[$claveMonth][] = $consumo;
+            }
+
+            $meses = array_keys($consumosPorMes);
+            $esMismoMes = count($meses) === 1;
             $resultadosPorMes = [];
 
-            foreach ($mesesEnRango as $mesInfo) {
-                $baseQuery = DB::table('consumos')
-                    ->where('id_equipo', $idMaquina)
-                    ->whereBetween('fecha_consumo', [$mesInfo['inicio'], $mesInfo['fin']])
-                    ->when($idFaena, function ($query, $idFaena) {
-                        return $query->where('id_faena', $idFaena);
-                    });
+            Log::info("🔍 Calculando litros para máquina {$idMaquina}", [
+                'total_meses' => count($meses),
+                'es_mismo_mes' => $esMismoMes,
+                'meses' => $meses
+            ]);
 
-                // 🔥 CAMBIO PRINCIPAL: Excluir último consumo del rango de los litros
-                if ($infoUltimoConsumo) {
-                    $baseQuery->where('id_consumo', '!=', $infoUltimoConsumo['consumo']->id_consumo);
-                    $tipoCalculo = 'MES_SIN_ULTIMO_CONSUMO';
-                    $litrosExcluidos = (float) $infoUltimoConsumo['consumo']->litros_consumidos;
-                    $valorExcluido = $litrosExcluidos * (float) ($infoUltimoConsumo['consumo']->precio_litro ?? 0);
-                } else {
-                    $tipoCalculo = 'MES_COMPLETO_CONFIRMADO';
-                    $litrosExcluidos = 0;
-                    $valorExcluido = 0;
+            if ($esMismoMes) {
+                // ============ CASO A: MISMO MES ============
+                $mesKey = $meses[0];
+                $consumosDelMes = $consumosPorMes[$mesKey];
+
+                // Litros: TODOS excepto el último (c1 → c9)
+                $litrosSumaExceptoUltimo = 0;
+                $valorSumaExceptoUltimo = 0;
+
+                for ($i = 0; $i < count($consumosDelMes) - 1; $i++) {
+                    $consumo = $consumosDelMes[$i];
+                    $litrosSumaExceptoUltimo += floatval($consumo->litros_consumidos);
+                    $valorSumaExceptoUltimo += floatval($consumo->litros_consumidos) * floatval($consumo->precio_litro ?? 0);
                 }
 
-                $consumoMes = $baseQuery
-                    ->selectRaw('
-                    SUM(litros_consumidos) as litros_mes,
-                    SUM(litros_consumidos * precio_litro) as valor_mes,
-                    COUNT(*) as total_registros,
-                    AVG(precio_litro) as precio_promedio,
-                    MIN(fecha_consumo) as primera_fecha,
-                    MAX(fecha_consumo) as ultima_fecha
-                ')
-                    ->first();
+                $precioPromedio = $litrosSumaExceptoUltimo > 0 ? $valorSumaExceptoUltimo / $litrosSumaExceptoUltimo : 0;
 
-                $resultadosPorMes[$mesInfo['mes']] = [
-                    'mes' => $mesInfo['mes'],
-                    'mes_nombre' => $mesInfo['mes_nombre'],
-                    'litros_mes' => (float) ($consumoMes->litros_mes ?? 0),
-                    'valor_mes' => (float) ($consumoMes->valor_mes ?? 0),
-                    'registros_mes' => (int) ($consumoMes->total_registros ?? 0),
-                    'precio_promedio' => (float) ($consumoMes->precio_promedio ?? 0),
-                    'tipo_calculo' => $tipoCalculo,
-                    'litros_excluidos' => $litrosExcluidos,
-                    'valor_excluido' => $valorExcluido,
-                    'consumo_excluido_id' => $infoUltimoConsumo ? $infoUltimoConsumo['consumo']->id_consumo : null,
-                    'periodo_real' => [
-                        'primera_fecha_consumo' => $consumoMes->primera_fecha,
-                        'ultima_fecha_consumo' => $consumoMes->ultima_fecha
-                    ]
+                $resultadosPorMes[$mesKey] = [
+                    'litros_mes' => $litrosSumaExceptoUltimo,
+                    'valor_mes' => $valorSumaExceptoUltimo,
+                    'registros_mes' => count($consumosDelMes) - 1, // Solo los considerados
+                    'precio_promedio' => $precioPromedio,
+                    'consumos_totales' => count($consumosDelMes),
+                    'tipo_calculo' => 'mismo_mes_excepto_ultimo',
+                    'logica_aplicada' => 'todos_excepto_ultimo'
                 ];
 
-                // 📊 LOG DETALLADO CON NUEVA LÓGICA
-                Log::info("⛽ LITROS MES {$mesInfo['mes']} - Máquina {$idMaquina} ({$tipoCalculo}):", [
-                    'mes_nombre' => $mesInfo['mes_nombre'],
-                    'rango_filtro' => $mesInfo['inicio'] . ' → ' . $mesInfo['fin'],
-                    'litros_mes_sin_ultimo' => number_format($resultadosPorMes[$mesInfo['mes']]['litros_mes'], 1, ',', '.') . ' L',
-                    'valor_mes_sin_ultimo' => '$' . number_format($resultadosPorMes[$mesInfo['mes']]['valor_mes'], 0, ',', '.'),
-                    'registros_mes' => $resultadosPorMes[$mesInfo['mes']]['registros_mes'],
-                    'es_ultimo_mes' => $mesInfo['es_ultimo_mes'] ? 'SÍ' : 'NO',
-                    'litros_excluidos' => $litrosExcluidos > 0 ? number_format($litrosExcluidos, 1) . ' L (último consumo del rango)' : 'Ninguno',
-                    'consumo_excluido' => $infoUltimoConsumo ? "ID {$infoUltimoConsumo['consumo']->id_consumo}" : 'Ninguno',
-                    'periodo_real_consumos' => ($consumoMes->primera_fecha ?? 'N/A') . ' → ' . ($consumoMes->ultima_fecha ?? 'N/A')
+                Log::info("✅ CASO A - Mismo mes: {$mesKey}", [
+                    'consumos_del_mes' => count($consumosDelMes),
+                    'consumos_para_litros' => count($consumosDelMes) - 1,
+                    'litros_considerados' => $litrosSumaExceptoUltimo,
+                    'valor_considerado' => $valorSumaExceptoUltimo
                 ]);
+            } else {
+                // ============ CASO B: MÚLTIPLES MESES ============
+
+                // 🎯 DETERMINAR MES CURRENT (mes con datos más reciente)
+                $mesCurrentCarbon = Carbon::now();
+                $mesCurrent = $mesCurrentCarbon->format('Y-m');
+
+                // Si el mes current no tiene datos, usar el último mes con datos como current
+                if (!isset($consumosPorMes[$mesCurrent])) {
+                    $mesCurrent = end($meses); // Último mes del filtro con datos
+                    Log::info("📅 Mes current ajustado para litros", [
+                        'mes_current_real' => $mesCurrentCarbon->format('Y-m'),
+                        'mes_current_usado' => $mesCurrent,
+                        'razon' => 'mes_current_sin_datos'
+                    ]);
+                }
+
+                Log::info("🔍 Determinación de mes current para litros", [
+                    'mes_current' => $mesCurrent,
+                    'meses_con_datos' => $meses,
+                    'logica' => 'mes_con_datos_mas_reciente'
+                ]);
+
+                foreach ($meses as $mesKey) {
+                    $consumosDelMes = $consumosPorMes[$mesKey];
+
+                    if ($mesKey === $mesCurrent) {
+                        // ✅ MES CURRENT: usar lógica de un solo mes (TODOS excepto el último)
+                        $litrosMes = 0;
+                        $valorMes = 0;
+                        $registrosConsiderados = count($consumosDelMes) - 1;
+
+                        for ($i = 0; $i < count($consumosDelMes) - 1; $i++) {
+                            $consumo = $consumosDelMes[$i];
+                            $litrosMes += floatval($consumo->litros_consumidos);
+                            $valorMes += floatval($consumo->litros_consumidos) * floatval($consumo->precio_litro ?? 0);
+                        }
+
+                        $logica = 'mes_current_logica_un_solo_mes';
+
+                        Log::info("📊 Mes CURRENT (lógica un solo mes): {$mesKey}", [
+                            'consumos_del_mes' => count($consumosDelMes),
+                            'consumos_considerados' => $registrosConsiderados,
+                            'litros_considerados' => $litrosMes,
+                            'note' => 'Usa misma lógica que caso de un solo mes'
+                        ]);
+                    } else {
+                        // ✅ MES ANTERIOR: TODOS los litros
+                        $litrosMes = 0;
+                        $valorMes = 0;
+                        $registrosConsiderados = count($consumosDelMes);
+
+                        foreach ($consumosDelMes as $consumo) {
+                            $litrosMes += floatval($consumo->litros_consumidos);
+                            $valorMes += floatval($consumo->litros_consumidos) * floatval($consumo->precio_litro ?? 0);
+                        }
+
+                        $logica = 'mes_anterior_todos_litros';
+
+                        Log::info("📊 Mes ANTERIOR: {$mesKey}", [
+                            'consumos_del_mes' => count($consumosDelMes),
+                            'consumos_considerados' => $registrosConsiderados,
+                            'litros_considerados' => $litrosMes
+                        ]);
+                    }
+
+                    $precioPromedio = $litrosMes > 0 ? $valorMes / $litrosMes : 0;
+
+                    $resultadosPorMes[$mesKey] = [
+                        'litros_mes' => $litrosMes,
+                        'valor_mes' => $valorMes,
+                        'registros_mes' => $registrosConsiderados,
+                        'precio_promedio' => $precioPromedio,
+                        'consumos_totales' => count($consumosDelMes),
+                        'tipo_calculo' => $logica,
+                        'logica_aplicada' => $logica,
+                        'es_mes_current' => $mesKey === $mesCurrent
+                    ];
+                }
             }
 
-            Log::info("LITROS POR MESES EXCLUYENDO ÚLTIMO - Máquina {$idMaquina}: Procesados " . count($resultadosPorMes) . " meses excluyendo último consumo del rango");
+            Log::info("✅ Litros por meses calculados correctamente", [
+                'maquina' => $idMaquina,
+                'meses_procesados' => count($resultadosPorMes),
+                'resumen' => array_map(function ($mes, $datos) {
+                    return [
+                        'mes' => $mes,
+                        'litros' => $datos['litros_mes'],
+                        'logica' => $datos['logica_aplicada']
+                    ];
+                }, array_keys($resultadosPorMes), $resultadosPorMes)
+            ]);
 
             return $resultadosPorMes;
         } catch (\Exception $e) {
-            Log::error("Error calculando litros por meses excluyendo último máquina {$idMaquina}: " . $e->getMessage());
+            Log::error("Error calculando litros por meses máquina {$idMaquina}: " . $e->getMessage());
             return [];
         }
     }
@@ -1378,220 +1442,8 @@ class ConsumoCategoriasController extends Controller
         }
     }
 
-    /**
-     * ✅ MÉTODO MEJORADO: Calcular litros por cada mes dentro del rango de filtro
-     */
-    private function calcularLitrosPorMeses($idMaquina, $fechaInicio, $fechaFin, $idFaena = null)
-    {
-        try {
-            $inicioCarbon = Carbon::parse($fechaInicio);
-            $finCarbon = Carbon::parse($fechaFin);
-
-            // Detectar si abarca múltiples meses
-            $mesesEnRango = [];
-            $mesActual = $inicioCarbon->copy()->startOfMonth();
-
-            while ($mesActual->lte($finCarbon)) {
-                $inicioMes = $mesActual->copy();
-                $finMes = $mesActual->copy()->endOfMonth();
-
-                // Ajustar límites según el filtro
-                if ($inicioMes->lt($inicioCarbon)) {
-                    $inicioMes = $inicioCarbon->copy();
-                }
-                if ($finMes->gt($finCarbon)) {
-                    $finMes = $finCarbon->copy();
-                }
-
-                $mesesEnRango[] = [
-                    'mes' => $mesActual->format('Y-m'),
-                    'mes_nombre' => $mesActual->locale('es')->format('F Y'),
-                    'inicio' => $inicioMes->format('Y-m-d'),
-                    'fin' => $finMes->format('Y-m-d'),
-                    'dias_en_rango' => $inicioMes->diffInDays($finMes) + 1
-                ];
-
-                $mesActual->addMonth();
-            }
-
-            $resultadosPorMes = [];
-
-            foreach ($mesesEnRango as $mesInfo) {
-                // Consulta para cada mes
-                $consumoMes = DB::table('consumos')
-                    ->where('id_equipo', $idMaquina)
-                    ->whereBetween('fecha_consumo', [$mesInfo['inicio'], $mesInfo['fin']])
-                    ->when($idFaena, function ($query, $idFaena) {
-                        return $query->where('id_faena', $idFaena);
-                    })
-                    ->select(
-                        DB::raw('SUM(litros_consumidos) as total_litros'),
-                        DB::raw('COUNT(*) as total_registros'),
-                        DB::raw('MIN(fecha_consumo) as primera_fecha'),
-                        DB::raw('MAX(fecha_consumo) as ultima_fecha'),
-                        DB::raw('SUM(litros_consumidos * COALESCE(precio_litro, 0)) as valor_mes'),
-                        DB::raw('AVG(COALESCE(precio_litro, 0)) as precio_promedio')
-                    )
-                    ->first();
-
-                $resultadosPorMes[$mesInfo['mes']] = [
-                    'mes_info' => $mesInfo,
-                    'litros_mes' => (float) ($consumoMes->total_litros ?? 0),
-                    'valor_mes' => (float) ($consumoMes->valor_mes ?? 0),
-                    'registros_mes' => (int) ($consumoMes->total_registros ?? 0),
-                    'precio_promedio' => (float) ($consumoMes->precio_promedio ?? 0),
-                    'periodo_real' => [
-                        'primera_fecha_consumo' => $consumoMes->primera_fecha,
-                        'ultima_fecha_consumo' => $consumoMes->ultima_fecha
-                    ]
-                ];
-
-                // 🆕 LOG DETALLADO DE CADA MES
-                Log::info("⛽ LITROS MES {$mesInfo['mes']} - Máquina {$idMaquina}:", [
-                    'mes_nombre' => $mesInfo['mes_nombre'],
-                    'rango_filtro' => $mesInfo['inicio'] . ' → ' . $mesInfo['fin'],
-                    'litros_mes' => number_format($resultadosPorMes[$mesInfo['mes']]['litros_mes'], 1, ',', '.') . ' L',
-                    'valor_mes' => '$' . number_format($resultadosPorMes[$mesInfo['mes']]['valor_mes'], 0, ',', '.'),
-                    'registros_mes' => $resultadosPorMes[$mesInfo['mes']]['registros_mes'],
-                    'precio_promedio' => '$' . number_format($resultadosPorMes[$mesInfo['mes']]['precio_promedio'], 0, ',', '.'),
-                    'periodo_real_consumos' => ($consumoMes->primera_fecha ?? 'N/A') . ' → ' . ($consumoMes->ultima_fecha ?? 'N/A')
-                ]);
-            }
-
-            Log::info("LITROS POR MESES - Máquina {$idMaquina}: Procesados " . count($resultadosPorMes) . " meses desde {$fechaInicio} hasta {$fechaFin}");
-
-            return $resultadosPorMes;
-        } catch (\Exception $e) {
-            Log::error("Error calculando litros por meses máquina {$idMaquina}: " . $e->getMessage());
-            return [];
-        }
-    }
 
 
-    /**
-     * ✅ MÉTODO MEJORADO: Calcular medición (horas o km) por cada mes dentro del rango de filtro
-     */
-    private function calcularMedicionPorMeses($idMaquina, $fechaInicio, $fechaFin, $categoria, $idFaena = null)
-    {
-        try {
-            $inicioCarbon = Carbon::parse($fechaInicio);
-            $finCarbon = Carbon::parse($fechaFin);
-            $tipoMedicion = $categoria->tipo_medicion ?? 'Horometro';
-
-            $resultadosPorMes = [];
-            $mesActual = $inicioCarbon->copy()->startOfMonth();
-
-            while ($mesActual->lte($finCarbon)) {
-                $inicioMes = $mesActual->copy();
-                $finMes = $mesActual->copy()->endOfMonth();
-
-                // Ajustar límites según el filtro
-                if ($inicioMes->lt($inicioCarbon)) {
-                    $inicioMes = $inicioCarbon->copy();
-                }
-                if ($finMes->gt($finCarbon)) {
-                    $finMes = $finCarbon->copy();
-                }
-
-                $mesKey = $mesActual->format('Y-m');
-
-                // Obtener primer y último valor de medición del mes (horómetro o kilometraje)
-                $primerValor = DB::table('consumos')
-                    ->where('id_equipo', $idMaquina)
-                    ->whereBetween('fecha_consumo', [$inicioMes, $finMes])
-                    ->when($idFaena, function ($query, $idFaena) {
-                        return $query->where('id_faena', $idFaena);
-                    })
-                    ->whereNotNull('medicion')
-                    ->where('medicion', '>', 0)
-                    ->orderBy('fecha_consumo')
-                    ->orderBy('id_consumo')
-                    ->first();
-
-                $ultimoValor = DB::table('consumos')
-                    ->where('id_equipo', $idMaquina)
-                    ->whereBetween('fecha_consumo', [$inicioMes, $finMes])
-                    ->when($idFaena, function ($query, $idFaena) {
-                        return $query->where('id_faena', $idFaena);
-                    })
-                    ->whereNotNull('medicion')
-                    ->where('medicion', '>', 0)
-                    ->orderByDesc('fecha_consumo')
-                    ->orderByDesc('id_consumo')
-                    ->first();
-
-                $medicionMes = 0;
-                $metodoCalculo = 'sin_datos';
-
-                if ($primerValor && $ultimoValor && $primerValor->id_consumo !== $ultimoValor->id_consumo) {
-                    $medicionInicial = (float) $primerValor->medicion;
-                    $medicionFinal = (float) $ultimoValor->medicion;
-                    $medicionMes = $medicionFinal - $medicionInicial;
-                    $metodoCalculo = 'diferencia_medicion';
-
-                    // Validación de diferencia inválida
-                    if ($medicionMes <= 0 || ($tipoMedicion === 'Horometro' && $medicionMes > 1000)) {
-                        $diasLaborales = $this->calcularDiasLaboralesCorrectos($inicioMes, $finMes, true, false);
-
-                        if ($tipoMedicion === 'Horometro') {
-                            $hrcDiario = (float) ($categoria->hrc ?? 7.0);
-                            $medicionMes = $diasLaborales * $hrcDiario;
-                        } else {
-                            // Para kilometraje, usar un estimado conservador
-                            $kmDiario = (float) ($categoria->km_diario_promedio ?? 85.0);
-                            $medicionMes = $diasLaborales * $kmDiario;
-                        }
-                        $metodoCalculo = 'estimado_por_diferencia_invalida';
-                    }
-                } else {
-                    // Fallback: estimar por días laborales
-                    $diasLaborales = $this->calcularDiasLaboralesCorrectos($inicioMes, $finMes, true, false);
-
-                    if ($tipoMedicion === 'Horometro') {
-                        $hrcDiario = (float) ($categoria->hrc ?? 7.0);
-                        $medicionMes = $diasLaborales * $hrcDiario;
-                    } else {
-                        // Para kilometraje, usar un estimado conservador
-                        $kmDiario = (float) ($categoria->km_diario_promedio ?? 85.0);
-                        $medicionMes = $diasLaborales * $kmDiario;
-                    }
-                    $metodoCalculo = 'estimado_por_dias_laborales';
-                }
-
-                $resultadosPorMes[$mesKey] = [
-                    'mes' => $mesKey,
-                    'mes_nombre' => $mesActual->locale('es')->format('F Y'),
-                    'medicion_mes' => round($medicionMes, 2),
-                    'tipo_medicion' => $tipoMedicion,
-                    'unidad' => $tipoMedicion === 'Horometro' ? 'horas' : 'km',
-                    'metodo_calculo' => $metodoCalculo,
-                    'datos_medicion' => [
-                        'inicial' => $primerValor ? (float) $primerValor->medicion : null,
-                        'final' => $ultimoValor ? (float) $ultimoValor->medicion : null,
-                        'fecha_inicial' => $primerValor ? $primerValor->fecha_consumo : null,
-                        'fecha_final' => $ultimoValor ? $ultimoValor->fecha_consumo : null
-                    ],
-                    'periodo' => [
-                        'inicio' => $inicioMes->format('Y-m-d'),
-                        'fin' => $finMes->format('Y-m-d')
-                    ]
-                ];
-
-                $mesActual->addMonth();
-            }
-
-            Log::info("MEDICIÓN POR MESES - Máquina {$idMaquina} ({$tipoMedicion}): Procesados " . count($resultadosPorMes) . " meses");
-
-            return $resultadosPorMes;
-        } catch (\Exception $e) {
-            Log::error("Error calculando medición por meses máquina {$idMaquina}: " . $e->getMessage());
-            return [];
-        }
-    }
-
-    /**
-     * ✅ MÉTODO MEJORADO: Calcular días turno por cada mes (funciona con Horometro y Kilometraje)
-     */
     private function calcularDiasTurnoPorMeses($idMaquina, $fechaInicio, $fechaFin, $categoria, $idFaena = null)
     {
         try {
@@ -1641,253 +1493,537 @@ class ConsumoCategoriasController extends Controller
         }
     }
 
+
+    /**
+     * ✅ NUEVO MÉTODO: Calcular medición por meses con lógica mes current
+     */
+    private function calcularMedicionPorMesesConLogicaCurrent($idMaquina, $fechaInicio, $fechaFin, $categoria, $idFaena = null)
+    {
+        try {
+            $inicioCarbon = Carbon::parse($fechaInicio);
+            $finCarbon = Carbon::parse($fechaFin);
+            $tipoMedicion = $categoria->tipo_medicion ?? 'Kilometraje';
+
+            // Obtener todos los consumos con medición válida en el período
+            $query = DB::table('consumos')
+                ->where('id_equipo', $idMaquina)
+                ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
+                ->whereNotNull('medicion')
+                ->where('medicion', '>', 0);
+
+            if ($idFaena) {
+                $query->where('id_faena', $idFaena);
+            }
+
+            $todosConsumos = $query->orderBy('fecha_consumo', 'asc')->get();
+
+            if ($todosConsumos->isEmpty()) {
+                Log::warning("Sin mediciones para máquina {$idMaquina} en período {$fechaInicio} - {$fechaFin}");
+                return [];
+            }
+
+            // Agrupar consumos por mes
+            $consumosPorMes = [];
+            foreach ($todosConsumos as $consumo) {
+                $fechaConsumo = Carbon::parse($consumo->fecha_consumo);
+                $claveMonth = $fechaConsumo->format('Y-m');
+
+                if (!isset($consumosPorMes[$claveMonth])) {
+                    $consumosPorMes[$claveMonth] = [];
+                }
+                $consumosPorMes[$claveMonth][] = $consumo;
+            }
+
+            $meses = array_keys($consumosPorMes);
+            $esMismoMes = count($meses) === 1;
+            $resultadosPorMes = [];
+
+            Log::info("🔍 Calculando medición NUEVA LÓGICA para máquina {$idMaquina}", [
+                'total_meses' => count($meses),
+                'es_mismo_mes' => $esMismoMes,
+                'meses' => $meses,
+                'tipo_medicion' => $tipoMedicion
+            ]);
+
+            if ($esMismoMes) {
+                // ============ CASO A: MISMO MES ============
+                $mesKey = $meses[0];
+                $consumosDelMes = $consumosPorMes[$mesKey];
+
+                // Medición = Última medición - Primera medición
+                $primerConsumo = $consumosDelMes[0];
+                $ultimoConsumo = end($consumosDelMes);
+
+                $medicionDiferencia = floatval($ultimoConsumo->medicion) - floatval($primerConsumo->medicion);
+
+                $resultadosPorMes[$mesKey] = [
+                    'medicion_mes' => max(0, $medicionDiferencia),
+                    'tipo_medicion' => $tipoMedicion,
+                    'primera_medicion' => floatval($primerConsumo->medicion),
+                    'ultima_medicion' => floatval($ultimoConsumo->medicion),
+                    'registros_medicion' => count($consumosDelMes),
+                    'logica_aplicada' => 'mismo_mes_ultima_menos_primera'
+                ];
+
+                Log::info("✅ CASO A - Mismo mes: {$mesKey}", [
+                    'primera_medicion' => $primerConsumo->medicion,
+                    'ultima_medicion' => $ultimoConsumo->medicion,
+                    'diferencia_calculada' => $medicionDiferencia,
+                    'registros' => count($consumosDelMes)
+                ]);
+            } else {
+                // ============ CASO B: MÚLTIPLES MESES ============
+
+                // 🎯 DETERMINAR MES CURRENT (mes con datos más reciente)
+                $mesCurrentCarbon = Carbon::now();
+                $mesCurrent = $mesCurrentCarbon->format('Y-m');
+
+                // Si el mes current no tiene datos, usar el último mes con datos como current
+                if (!isset($consumosPorMes[$mesCurrent])) {
+                    $mesCurrent = end($meses); // Último mes del filtro con datos
+                    Log::info("📅 Mes current ajustado", [
+                        'mes_current_real' => $mesCurrentCarbon->format('Y-m'),
+                        'mes_current_usado' => $mesCurrent,
+                        'razon' => 'mes_current_sin_datos'
+                    ]);
+                }
+
+                Log::info("🔍 Determinación de mes current", [
+                    'mes_current' => $mesCurrent,
+                    'meses_con_datos' => $meses,
+                    'logica' => 'mes_con_datos_mas_reciente'
+                ]);
+
+                for ($i = 0; $i < count($meses); $i++) {
+                    $mesActual = $meses[$i];
+                    $consumosDelMes = $consumosPorMes[$mesActual];
+
+                    $primerConsumoDelMes = $consumosDelMes[0];
+                    $medicionDiferencia = 0;
+                    $logicaAplicada = '';
+
+                    if ($mesActual === $mesCurrent) {
+                        // ✅ MES CURRENT: usar lógica de un solo mes (última - primera)
+                        $ultimoConsumoDelMes = end($consumosDelMes);
+                        $medicionDiferencia = floatval($ultimoConsumoDelMes->medicion) - floatval($primerConsumoDelMes->medicion);
+                        $logicaAplicada = 'mes_current_logica_un_solo_mes';
+
+                        Log::info("📊 Mes CURRENT {$mesActual} (lógica un solo mes)", [
+                            'logica' => $logicaAplicada,
+                            'primera_medicion' => $primerConsumoDelMes->medicion,
+                            'ultima_medicion' => $ultimoConsumoDelMes->medicion,
+                            'diferencia' => $medicionDiferencia,
+                            'note' => 'Usa misma lógica que caso de un solo mes'
+                        ]);
+                    } else {
+                        // ✅ MES ANTERIOR: usar primera medición del mes siguiente
+                        $indiceSiguiente = array_search($mesActual, $meses) + 1;
+
+                        if ($indiceSiguiente < count($meses)) {
+                            $mesSiguiente = $meses[$indiceSiguiente];
+                            $primerConsumoMesSiguiente = $consumosPorMes[$mesSiguiente][0];
+
+                            $medicionDiferencia = floatval($primerConsumoMesSiguiente->medicion) - floatval($primerConsumoDelMes->medicion);
+                            $logicaAplicada = 'mes_anterior_primera_siguiente_menos_primera_actual';
+
+                            Log::info("📊 Mes ANTERIOR {$mesActual}", [
+                                'logica' => $logicaAplicada,
+                                'primera_medicion_actual' => $primerConsumoDelMes->medicion,
+                                'primera_medicion_siguiente' => $primerConsumoMesSiguiente->medicion,
+                                'diferencia' => $medicionDiferencia,
+                                'mes_siguiente' => $mesSiguiente
+                            ]);
+                        } else {
+                            // No hay mes siguiente, no se puede calcular
+                            $medicionDiferencia = 0;
+                            $logicaAplicada = 'mes_anterior_sin_mes_siguiente';
+
+                            Log::warning("⚠️ Mes ANTERIOR {$mesActual} sin mes siguiente para calcular");
+                        }
+                    }
+
+                    $resultadosPorMes[$mesActual] = [
+                        'medicion_mes' => max(0, $medicionDiferencia),
+                        'tipo_medicion' => $tipoMedicion,
+                        'primera_medicion' => floatval($primerConsumoDelMes->medicion),
+                        'ultima_medicion' => $mesActual === $mesCurrent
+                            ? floatval(end($consumosDelMes)->medicion)
+                            : ($indiceSiguiente < count($meses) ? floatval($consumosPorMes[$meses[$indiceSiguiente]][0]->medicion) : floatval($primerConsumoDelMes->medicion)),
+                        'registros_medicion' => count($consumosDelMes),
+                        'logica_aplicada' => $logicaAplicada,
+                        'es_mes_current' => $mesActual === $mesCurrent
+                    ];
+                }
+            }
+
+            Log::info("✅ Medición por meses NUEVA LÓGICA calculada correctamente", [
+                'maquina' => $idMaquina,
+                'meses_procesados' => count($resultadosPorMes),
+                'resumen' => array_map(function ($mes, $datos) {
+                    return [
+                        'mes' => $mes,
+                        'medicion' => $datos['medicion_mes'],
+                        'logica' => $datos['logica_aplicada']
+                    ];
+                }, array_keys($resultadosPorMes), $resultadosPorMes)
+            ]);
+
+            return $resultadosPorMes;
+        } catch (\Exception $e) {
+            Log::error("Error calculando medición por meses NUEVA LÓGICA máquina {$idMaquina}: " . $e->getMessage());
+            return [];
+        }
+    }
+
+
+   /**
+ * 🎯 SOLUCIÓN CORRECTA: Usar procesarCategoria para mes current con contexto del filtro
+ */
+private function obtenerSimulacionUsandoProcesarCategoria($idMaquina, $mesKey, $categoria, $idFaena, $fechaInicio = null, $fechaFin = null)
+{
+    try {
+        Log::info("🎯 USANDO PROCESARCATEGORIA PARA MES CURRENT", [
+            'maquina' => $idMaquina,
+            'mes' => $mesKey,
+            'categoria_id' => $categoria->id_categoria ?? $categoria->id_categoria_maquina
+        ]);
+
+        // 1️⃣ FORZAR EXACTAMENTE EL MISMO PERÍODO QUE SI CONSULTARAS SOLO ESTE MES
+        $inicioMes = Carbon::createFromFormat('Y-m', $mesKey)->startOfMonth();
+        
+        // 🚀 USAR LA FECHA ESPECÍFICA DEL FILTRO ORIGINAL PARA ESTE MES
+        $fechaInicioFiltroOriginal = Carbon::parse($fechaInicio ?? $inicioMes->format('Y-m-d'));
+        $fechaFinFiltroOriginal = Carbon::parse($fechaFin ?? Carbon::now()->format('Y-m-d'));
+        
+        // Si el filtro original empieza después del inicio del mes, usar esa fecha
+        if ($fechaInicioFiltroOriginal->format('Y-m') === $mesKey && $fechaInicioFiltroOriginal->gte($inicioMes)) {
+            $inicioMesAjustado = $fechaInicioFiltroOriginal->copy();
+        } else {
+            $inicioMesAjustado = $inicioMes->copy();
+        }
+        
+        // Si el filtro original termina antes del fin del mes, usar esa fecha
+        $finMes = Carbon::createFromFormat('Y-m', $mesKey)->endOfMonth();
+        if ($fechaFinFiltroOriginal->format('Y-m') === $mesKey && $fechaFinFiltroOriginal->lte($finMes)) {
+            $finPeriodo = $fechaFinFiltroOriginal->copy();
+        } else {
+            // Si no es el mes actual, usar fin de mes; si es actual, usar hasta hoy
+            $hoy = Carbon::now();
+            if ($hoy->format('Y-m') === $mesKey) {
+                $finPeriodo = $hoy->copy();
+            } else {
+                $finPeriodo = $finMes->copy();
+            }
+        }
+
+        Log::info("📅 PERÍODO FORZADO PARA PROCESARCATEGORIA", [
+            'mes_consultado' => $mesKey,
+            'inicio_ajustado' => $inicioMesAjustado->format('Y-m-d H:i'),
+            'fin_ajustado' => $finPeriodo->format('Y-m-d H:i'),
+            'origen_inicio' => $inicioMesAjustado->eq($inicioMes) ? 'inicio_mes' : 'filtro_original',
+            'origen_fin' => $finPeriodo->format('Y-m') === $mesKey ? 'filtro_ajustado' : 'calculado',
+            'es_mes_actual' => Carbon::now()->format('Y-m') === $mesKey
+        ]);
+
+        // 2️⃣ Llamar a procesarCategoria con el período EXACTO
+        $resultadoCategoria = $this->procesarCategoria(
+            $categoria,
+            $inicioMesAjustado->format('Y-m-d'),
+            $finPeriodo->format('Y-m-d'),
+            $idFaena,
+            true, // incluir simulación
+            true, // incluir sábados
+            false, // no incluir domingos
+            $finPeriodo // momento consulta
+        );
+
+        if (!$resultadoCategoria || empty($resultadoCategoria['analisis_detallado'])) {
+            Log::warning("procesarCategoria no devolvió datos para la categoría", [
+                'resultado_vacio' => !$resultadoCategoria,
+                'analisis_vacio' => empty($resultadoCategoria['analisis_detallado'] ?? []),
+                'keys_resultado' => $resultadoCategoria ? array_keys($resultadoCategoria) : [],
+                'count_analisis' => isset($resultadoCategoria['analisis_detallado']) ? count($resultadoCategoria['analisis_detallado']) : 0
+            ]);
+            return ['litros_simulados' => 0, 'medicion_simulada' => 0];
+        }
+
+        Log::info("✅ procesarCategoria devolvió datos", [
+            'count_analisis_detallado' => count($resultadoCategoria['analisis_detallado']),
+            'maquinas_encontradas' => array_map(function($item) {
+                return [
+                    'id' => $item['maquina']['id'] ?? 'sin_id',
+                    'nombre' => $item['maquina']['nombre'] ?? 'sin_nombre'
+                ];
+            }, $resultadoCategoria['analisis_detallado'])
+        ]);
+
+        // 3️⃣ Buscar específicamente la máquina que necesitamos
+        $maquinaEncontrada = null;
+        foreach ($resultadoCategoria['analisis_detallado'] as $maquinaData) {
+            Log::info("🔍 Revisando máquina en resultado", [
+                'id_en_resultado' => $maquinaData['maquina']['id'] ?? 'sin_id',
+                'id_buscado' => $idMaquina,
+                'match' => ($maquinaData['maquina']['id'] ?? null) == $idMaquina
+            ]);
+            
+            if ($maquinaData['maquina']['id'] == $idMaquina) {
+                $maquinaEncontrada = $maquinaData;
+                Log::info("✅ Máquina encontrada", [
+                    'resumen_keys' => array_keys($maquinaData['resumen_ejecutivo'] ?? []),
+                    'rendimiento_keys' => array_keys($maquinaData['rendimiento'] ?? []),
+                    'tiene_simulacion' => isset($maquinaData['resumen_ejecutivo']['litros_simulados'])
+                ]);
+                break;
+            }
+        }
+
+        if (!$maquinaEncontrada) {
+            Log::warning("Máquina {$idMaquina} no encontrada en resultado de procesarCategoria", [
+                'maquinas_disponibles' => array_map(function($item) {
+                    return $item['maquina']['id'] ?? 'sin_id';
+                }, $resultadoCategoria['analisis_detallado'])
+            ]);
+            return ['litros_simulados' => 0, 'medicion_simulada' => 0];
+        }
+
+        // 4️⃣ Extraer los datos de simulación exactamente como los devuelve procesarCategoria
+        $resumen = $maquinaEncontrada['resumen_ejecutivo'];
+        $rendimiento = $maquinaEncontrada['rendimiento'];
+        $detalle = $rendimiento['detalle_calculo'] ?? [];
+
+        $litrosSimulados = $resumen['litros_simulados'] ?? 0;
+        
+        // Extraer medición simulada según el tipo
+        if ($categoria->tipo_medicion === 'Kilometraje') {
+            $medicionSimulada = $detalle['km_proyectadas'] ?? 0;
+        } else {
+            $medicionSimulada = $detalle['horas_proyectadas'] ?? 0;
+        }
+
+        Log::info("✅ SIMULACIÓN EXTRAÍDA DE PROCESARCATEGORIA", [
+            'litros_simulados' => $litrosSimulados,
+            'medicion_simulada' => $medicionSimulada,
+            'litros_confirmados' => $resumen['litros_confirmados'] ?? 0,
+            'rendimiento_valor' => $rendimiento['rendimiento_valor'] ?? 0,
+            'detalle_completo' => $detalle
+        ]);
+
+        return [
+            'litros_simulados' => $litrosSimulados,
+            'medicion_simulada' => $medicionSimulada,
+            'litros_confirmados' => $resumen['litros_confirmados'] ?? 0,
+            'rendimiento_detalle' => $detalle,
+            'origen_datos' => 'procesarCategoria_mes_current'
+        ];
+
+    } catch (\Exception $e) {
+        Log::error("Error obteniendo simulación con procesarCategoria máquina {$idMaquina}: " . $e->getMessage());
+        return [
+            'litros_simulados' => 0,
+            'medicion_simulada' => 0,
+            'error' => $e->getMessage()
+        ];
+    }
+}
+
+
 /**
- * 🔍 MÉTODO CON DEBUG INTENSIVO: Calcular costo por día con debugging completo
+ * 🔥 MÉTODO CORREGIDO: calcularCostoDiaComparativaMensual usando la misma lógica que el método principal
  */
 private function calcularCostoDiaComparativaMensual($idMaquina, $fechaInicio, $fechaFin, $categoria, $idFaena = null)
 {
     try {
-        Log::info('🚀 [DEBUG] INICIO COMPARATIVA MENSUAL', [
+        Log::info('🚀 INICIO COMPARATIVA MENSUAL CON PROCESARCATEGORIA', [
             'maquina' => $idMaquina,
             'fecha_inicio' => $fechaInicio,
             'fecha_fin' => $fechaFin,
-            'categoria' => $categoria->nombre_categoria,
-            'tipo_medicion' => $categoria->tipo_medicion,
-            'id_faena' => $idFaena
+            'categoria' => $categoria->nombre_categoria ?? 'Sin nombre',
+            'tipo_medicion' => $categoria->tipo_medicion ?? 'Horometro'
         ]);
 
-        // 🔍 VERIFICAR QUE HAY CONSUMOS EN EL RANGO
-        $totalConsumos = DB::table('consumos')
-            ->where('id_equipo', $idMaquina)
-            ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
-            ->when($idFaena, function ($query, $idFaena) {
-                return $query->where('id_faena', $idFaena);
-            })
-            ->count();
-
-        Log::info('🔍 [DEBUG] VERIFICACIÓN CONSUMOS', [
-            'total_consumos_en_rango' => $totalConsumos,
-            'rango_completo' => $fechaInicio . ' → ' . $fechaFin
-        ]);
-
-        if ($totalConsumos === 0) {
-            Log::warning('⚠️ [DEBUG] NO HAY CONSUMOS EN EL RANGO ESPECIFICADO');
-            return [
-                'comparativa_mensual' => [],
-                'resumen_periodo' => [
-                    'error' => 'No hay consumos en el rango especificado',
-                    'meses_analizados' => 0
-                ]
-            ];
-        }
-
-        // 🔧 USAR MÉTODO SIN EXCLUIR ÚLTIMO
+        // USAR MÉTODOS CON LÓGICA DE CONFIRMACIÓN
         $litrosPorMeses = $this->calcularLitrosPorMeses($idMaquina, $fechaInicio, $fechaFin, $idFaena);
-        
-        Log::info('🔍 [DEBUG] RESULTADO LITROS POR MESES', [
-            'meses_encontrados' => count($litrosPorMeses),
-            'claves_meses' => array_keys($litrosPorMeses),
-            'detalle_por_mes' => array_map(function($key, $data) {
-                return [
-                    'mes' => $key,
-                    'litros' => $data['litros_mes'] ?? 0,
-                    'registros' => $data['registros_mes'] ?? 0,
-                    'precio_promedio' => $data['precio_promedio'] ?? 0
-                ];
-            }, array_keys($litrosPorMeses), $litrosPorMeses)
-        ]);
-
-        if (empty($litrosPorMeses)) {
-            Log::error('❌ [DEBUG] calcularLitrosPorMeses devolvió array vacío');
-            return [
-                'comparativa_mensual' => [],
-                'resumen_periodo' => [
-                    'error' => 'calcularLitrosPorMeses devolvió array vacío',
-                    'meses_analizados' => 0
-                ]
-            ];
-        }
+        $diasTurnoPorMeses = $this->calcularDiasTurnoPorMesesConLogicaConfirmacion($idMaquina, $fechaInicio, $fechaFin, $categoria, $idFaena);
 
         $comparativaMensual = [];
-        $totales = ['litros_total' => 0, 'valor_total' => 0, 'km_total' => 0, 'dias_turno_total' => 0, 'meses_con_datos' => 0];
+        $totales = ['litros_total' => 0, 'valor_total' => 0, 'dias_turno_total' => 0, 'meses_con_datos' => 0, 'km_total' => 0];
 
-        // 🚀 LÓGICA DIFERENCIADA SEGÚN TIPO DE MEDICIÓN
-        if ($categoria->tipo_medicion === 'Kilometraje') {
-            Log::info('🚛 [DEBUG] PROCESANDO COMO KILOMETRAJE');
-            
-            $medicionPorMeses = $this->calcularMedicionPorMeses($idMaquina, $fechaInicio, $fechaFin, $categoria, $idFaena);
-            
-            Log::info('🔍 [DEBUG] RESULTADO MEDICIÓN POR MESES', [
-                'meses_medicion_encontrados' => count($medicionPorMeses),
-                'claves_meses_medicion' => array_keys($medicionPorMeses),
-                'detalle_medicion' => array_map(function($key, $data) {
-                    return [
-                        'mes' => $key,
-                        'medicion_mes' => $data['medicion_mes'] ?? 0,
-                        'tipo_medicion' => $data['tipo_medicion'] ?? 'N/A'
-                    ];
-                }, array_keys($medicionPorMeses), $medicionPorMeses)
-            ]);
-            
-            foreach ($litrosPorMeses as $mesKey => $datosLitros) {
-                Log::info("🔍 [DEBUG] PROCESANDO MES {$mesKey}", [
-                    'litros_mes' => $datosLitros['litros_mes'],
-                    'registros_mes' => $datosLitros['registros_mes'],
-                    'precio_promedio' => $datosLitros['precio_promedio']
-                ]);
+        // Determinar qué mes tratar como "current"
+        $mesCurrentCarbon = Carbon::now();
+        $mesTratarComoCurrent = $mesCurrentCarbon->format('Y-m');
 
-                $medicionMes = $medicionPorMeses[$mesKey] ?? null;
-                
-                if (!$medicionMes) {
-                    Log::warning("⚠️ [DEBUG] NO HAY MEDICIÓN PARA MES {$mesKey}");
-                    continue;
-                }
-
-                if ($medicionMes['medicion_mes'] <= 0) {
-                    Log::warning("⚠️ [DEBUG] MEDICIÓN CERO PARA MES {$mesKey}: {$medicionMes['medicion_mes']}");
-                    continue;
-                }
-
-                if ($datosLitros['litros_mes'] <= 0) {
-                    Log::warning("⚠️ [DEBUG] LITROS CERO PARA MES {$mesKey}: {$datosLitros['litros_mes']}");
-                    continue;
-                }
-
-                if ($datosLitros['precio_promedio'] <= 0) {
-                    Log::warning("⚠️ [DEBUG] PRECIO PROMEDIO CERO PARA MES {$mesKey}: {$datosLitros['precio_promedio']}");
-                    continue;
-                }
-
-                // 🎯 CÁLCULO PARA KILOMETRAJE
-                $rendimientoMes = $datosLitros['litros_mes'] / $medicionMes['medicion_mes'];
-                $costoPorKm = round($rendimientoMes * $datosLitros['precio_promedio'], 0);
-                
-                Log::info("✅ [DEBUG] CÁLCULO EXITOSO MES {$mesKey}", [
-                    'rendimiento_mes' => $rendimientoMes,
-                    'costo_por_km' => $costoPorKm,
-                    'formula' => "{$datosLitros['litros_mes']}L ÷ {$medicionMes['medicion_mes']}km × {$datosLitros['precio_promedio']}$ = {$costoPorKm}$/km"
-                ]);
-                
-                $comparativaMensual[$mesKey] = [
-                    'mes' => $mesKey,
-                    'mes_nombre' => Carbon::createFromFormat('Y-m', $mesKey)->locale('es')->format('F Y'),
-                    'litros_mes' => $datosLitros['litros_mes'],
-                    'valor_mes' => $datosLitros['valor_mes'],
-                    'medicion_mes' => $medicionMes['medicion_mes'],
-                    'tipo_medicion' => $categoria->tipo_medicion,
-                    'dias_turno' => 0,
-                    'costo_por_dia' => 0,
-                    'costo_por_km' => $costoPorKm,
-                    'precio_promedio_litro' => $datosLitros['precio_promedio'],
-                    'registros_mes' => $datosLitros['registros_mes'],
-                    'rendimiento_mes' => round($rendimientoMes, 4),
-                    'intensidad_uso' => $this->clasificarRendimientoKilometraje($rendimientoMes),
-                    'tipo_calculo' => $datosLitros['tipo_calculo'] ?? 'INCLUYE_TODOS_CONSUMOS'
-                ];
-                
-                $totales['litros_total'] += $datosLitros['litros_mes'];
-                $totales['valor_total'] += $datosLitros['valor_mes'];
-                $totales['km_total'] += $medicionMes['medicion_mes'];
-                $totales['meses_con_datos']++;
-            }
-
-            $costoPorKmPromedio = $totales['km_total'] > 0 && $totales['litros_total'] > 0 ?
-                round(($totales['litros_total'] / $totales['km_total']) * ($totales['valor_total'] / $totales['litros_total']), 0) : 0;
-            
-            $resumenPeriodo = [
-                'meses_analizados' => count($comparativaMensual),
-                'litros_total_periodo' => round($totales['litros_total'], 2),
-                'valor_total_periodo' => round($totales['valor_total'], 0),
-                'km_total_periodo' => round($totales['km_total'], 2),
-                'tipo_medicion' => $categoria->tipo_medicion,
-                'costo_por_dia_promedio' => 0,
-                'costo_por_km_promedio' => $costoPorKmPromedio
-            ];
-
-        } else {
-            Log::info('⏰ [DEBUG] PROCESANDO COMO HOROMETRO');
-            
-            $diasTurnoPorMeses = $this->calcularDiasTurnoPorMesesConLogicaConfirmacion($idMaquina, $fechaInicio, $fechaFin, $categoria, $idFaena);
-            
-            Log::info('🔍 [DEBUG] RESULTADO DÍAS TURNO POR MESES', [
-                'meses_dias_turno_encontrados' => count($diasTurnoPorMeses),
-                'claves_meses_dias_turno' => array_keys($diasTurnoPorMeses)
-            ]);
-            
-            foreach ($litrosPorMeses as $mesKey => $datosLitros) {
-                $diasTurno = $diasTurnoPorMeses[$mesKey] ?? null;
-
-                if (!$diasTurno || $diasTurno['dias_turno'] <= 0) {
-                    Log::warning("⚠️ [DEBUG] SIN DÍAS TURNO VÁLIDOS PARA MES {$mesKey}");
-                    continue;
-                }
-
-                if ($datosLitros['litros_mes'] <= 0) {
-                    Log::warning("⚠️ [DEBUG] SIN LITROS PARA MES {$mesKey}");
-                    continue;
-                }
-
-                $costoPorDia = round($datosLitros['valor_mes'] / $diasTurno['dias_turno'], 0);
-                
-                Log::info("✅ [DEBUG] HOROMETRO MES {$mesKey} CALCULADO", [
-                    'valor_mes' => $datosLitros['valor_mes'],
-                    'dias_turno' => $diasTurno['dias_turno'],
-                    'costo_por_dia' => $costoPorDia
-                ]);
-                
-                $comparativaMensual[$mesKey] = [
-                    'mes' => $mesKey,
-                    'mes_nombre' => $diasTurno['mes_nombre'],
-                    'litros_mes' => $datosLitros['litros_mes'],
-                    'valor_mes' => $datosLitros['valor_mes'],
-                    'dias_turno' => $diasTurno['dias_turno'],
-                    'costo_por_dia' => $costoPorDia,
-                    'precio_promedio_litro' => $datosLitros['precio_promedio'],
-                    'registros_mes' => $datosLitros['registros_mes'],
-                    'intensidad_uso' => $this->clasificarIntensidadUsoMensual($datosLitros['litros_mes'], $diasTurno['dias_turno']),
-                    'tipo_calculo' => $datosLitros['tipo_calculo'] ?? 'HOROMETRO_NORMAL'
-                ];
-                
-                $totales['litros_total'] += $datosLitros['litros_mes'];
-                $totales['valor_total'] += $datosLitros['valor_mes'];
-                $totales['dias_turno_total'] += $diasTurno['dias_turno'];
-                $totales['meses_con_datos']++;
-            }
-
-            $costoPorDiaPromedio = $totales['dias_turno_total'] > 0 ?
-                round($totales['valor_total'] / $totales['dias_turno_total'], 0) : 0;
-            
-            $resumenPeriodo = [
-                'meses_analizados' => count($comparativaMensual),
-                'litros_total_periodo' => round($totales['litros_total'], 2),
-                'valor_total_periodo' => round($totales['valor_total'], 0),
-                'costo_por_dia_promedio' => $costoPorDiaPromedio
-            ];
+        // Si el mes current no tiene datos, usar el último mes con datos
+        if (!isset($litrosPorMeses[$mesTratarComoCurrent])) {
+            $mesesOrdenados = array_keys($litrosPorMeses);
+            sort($mesesOrdenados);
+            $mesTratarComoCurrent = end($mesesOrdenados);
         }
 
-        Log::info('✅ [DEBUG] COMPARATIVA MENSUAL COMPLETADA', [
-            'meses_procesados' => count($comparativaMensual),
-            'tipo_medicion' => $categoria->tipo_medicion,
-            'resumen_final' => $resumenPeriodo
-        ]);
+        Log::info("🎯 MES TRATADO COMO CURRENT: {$mesTratarComoCurrent}");
+
+        foreach ($litrosPorMeses as $mesKey => $datosLitros) {
+            $medicionPorMeses = $this->calcularMedicionPorMesesConLogicaCurrent($idMaquina, $fechaInicio, $fechaFin, $categoria, $idFaena);
+            $medicionMes = $medicionPorMeses[$mesKey] ?? null;
+            $diasTurno = $diasTurnoPorMeses[$mesKey] ?? null;
+
+            if (!$diasTurno || $diasTurno['dias_turno'] <= 0) {
+                continue;
+            }
+
+            // 🎯 INICIALIZAR VARIABLES
+            $litrosTotalesMes = $datosLitros['litros_mes'];
+            $medicionTotalMes = $medicionMes ? $medicionMes['medicion_mes'] : 0;
+            $litrosSimulados = 0;
+            $medicionSimulada = 0;
+            $tipoCalculo = $datosLitros['tipo_calculo'] ?? 'desconocido';
+
+            // 🚀 SI ES MES CURRENT: USAR PROCESARCATEGORIA CON LA MISMA LÓGICA
+            if ($mesKey === $mesTratarComoCurrent && $mesTratarComoCurrent !== null) {
+                $simulacionProcesar = $this->obtenerSimulacionUsandoProcesarCategoria(
+                    $idMaquina,
+                    $mesKey,
+                    $categoria,
+                    $idFaena,
+                    $fechaInicio,
+                    $fechaFin
+                );
+
+                if (isset($simulacionProcesar['origen_datos'])) {
+                    $litrosSimulados = $simulacionProcesar['litros_simulados'];
+                    $medicionSimulada = $simulacionProcesar['medicion_simulada'];
+                    $litrosTotalesMes = $datosLitros['litros_mes'] + $litrosSimulados;
+                    $medicionTotalMes = ($medicionMes['medicion_mes'] ?? 0) + $medicionSimulada;
+                    $tipoCalculo = 'mes_current_logica_un_solo_mes';
+                }
+            }
+
+            // 🆕 NUEVO: CALCULAR COSTO USANDO EXACTAMENTE LA MISMA LÓGICA QUE EL MÉTODO PRINCIPAL
+            if ($categoria->tipo_medicion === 'Kilometraje') {
+                if ($mesKey === $mesTratarComoCurrent) {
+                    // ✅ PARA MES CURRENT: Usar la misma fórmula que el método principal
+                    // rendimiento_valor × precio_promedio_litro
+                    $rendimientoValor = $medicionTotalMes > 0 ? ($litrosTotalesMes / $medicionTotalMes) : 0;
+                    $costoPorKm = round($rendimientoValor * $datosLitros['precio_promedio'], 0);
+                    
+                    Log::info("🚛 COSTO KM MES CURRENT {$mesKey} (LÓGICA CORREGIDA): {$rendimientoValor} L/km × {$datosLitros['precio_promedio']} = {$costoPorKm}");
+                } else {
+                    // Para meses anteriores: usar la lógica anterior
+                    $rendimientoMes = $medicionTotalMes > 0 ? ($litrosTotalesMes / $medicionTotalMes) : 0;
+                    $costoPorKm = round($rendimientoMes * $datosLitros['precio_promedio'], 0);
+                    
+                    Log::info("🚛 COSTO KM MES ANTERIOR {$mesKey}: {$rendimientoMes} L/km × {$datosLitros['precio_promedio']} = {$costoPorKm}");
+                }
+            } else {
+                // Para Horometro: mantener la lógica original
+                $costoPorKm = round($datosLitros['valor_mes'] / $diasTurno['dias_turno'], 0);
+                
+                Log::info("⏰ COSTO DÍA MES {$mesKey}: $" . number_format($costoPorKm, 0, ',', '.') . " por día");
+            }
+
+            // ✅ APLICAR EL VALOR CALCULADO
+            $comparativaMensual[$mesKey] = [
+                'mes' => $mesKey,
+                'mes_nombre' => $this->obtenerNombreMesEspanol($mesKey),
+                'litros_mes' => $litrosTotalesMes,
+                'litros_confirmados' => $datosLitros['litros_mes'],
+                'litros_simulados' => $litrosSimulados,
+                'medicion_confirmada' => $medicionMes ? $medicionMes['medicion_mes'] : 0,
+                'medicion_simulada' => $medicionSimulada,
+                'medicion_total' => $medicionTotalMes,
+                'valor_mes' => round($litrosTotalesMes * $datosLitros['precio_promedio'], 0),
+                'dias_turno' => round($diasTurno['dias_turno'], 2),
+                'costo_por_dia' => $costoPorKm, // ✅ ESTE ES EL VALOR CORREGIDO
+                'costo_por_km' => $categoria->tipo_medicion === 'Kilometraje' ? $costoPorKm : null,
+                'precio_promedio_litro' => $datosLitros['precio_promedio'],
+                'registros_mes' => $datosLitros['registros_mes'],
+                'intensidad_uso' => $this->clasificarIntensidadUso($litrosTotalesMes, $diasTurno['dias_turno']),
+                'tipo_calculo' => $tipoCalculo,
+                'es_mes_current' => $mesKey === $mesTratarComoCurrent,
+                'incluye_simulacion' => $litrosSimulados > 0
+            ];
+
+            // Acumular totales
+            $totales['litros_total'] += $litrosTotalesMes;
+            $totales['valor_total'] += $litrosTotalesMes * $datosLitros['precio_promedio'];
+            $totales['dias_turno_total'] += $diasTurno['dias_turno'];
+            $totales['meses_con_datos']++;
+            if ($categoria->tipo_medicion === 'Kilometraje') {
+                $totales['km_total'] += $medicionTotalMes;
+            }
+        }
+
+        // Calcular promedios
+        if ($categoria->tipo_medicion === 'Kilometraje') {
+            $totalKm = $totales['km_total'];
+            $costoPorKmPromedio = $totalKm > 0 ? round($totales['valor_total'] / $totalKm, 6) : 0;
+            $costoPorDiaPromedio = $costoPorKmPromedio; // Para kilometraje, el "costo por día" es realmente por km
+        } else {
+            $costoPorDiaPromedio = $totales['dias_turno_total'] > 0 ?
+                round($totales['valor_total'] / $totales['dias_turno_total'], 0) : 0;
+            $costoPorKmPromedio = null;
+        }
 
         return [
             'comparativa_mensual' => $comparativaMensual,
-            'resumen_periodo' => $resumenPeriodo
-        ];
-        
-    } catch (\Exception $e) {
-        Log::error("❌ [DEBUG] ERROR EN COMPARATIVA MENSUAL máquina {$idMaquina}: " . $e->getMessage());
-        Log::error("❌ [DEBUG] STACK TRACE: " . $e->getTraceAsString());
-        return [
-            'comparativa_mensual' => [],
             'resumen_periodo' => [
-                'error' => $e->getMessage(),
-                'meses_analizados' => 0
+                'meses_analizados' => count($comparativaMensual),
+                'litros_total_periodo' => round($totales['litros_total'], 2),
+                'valor_total_periodo' => round($totales['valor_total'], 0),
+                'costo_por_dia_promedio' => $costoPorDiaPromedio,
+                'costo_por_km_promedio' => $costoPorKmPromedio,
+                'km_total_periodo' => $categoria->tipo_medicion === 'Kilometraje' ? $totalKm : null,
+                'incluye_simulacion' => true,
+                'mes_current_identificado' => $mesTratarComoCurrent
             ]
         ];
+    } catch (\Exception $e) {
+        Log::error("Error calculando costo día comparativa con procesarCategoria máquina {$idMaquina}: " . $e->getMessage());
+        return ['comparativa_mensual' => [], 'resumen_periodo' => []];
     }
 }
+
+
+    private function calcularDiasTurnoMaquinaMensualEspecifico($idMaquina, $mesKey, $categoria, $idFaena = null)
+    {
+        try {
+            // Convertir el mesKey (Y-m) a fecha final del mes
+            $fechaFinalMes = Carbon::createFromFormat('Y-m', $mesKey)->endOfMonth()->format('Y-m-d');
+
+            Log::info("🔧 CÁLCULO DÍAS TURNO ESPECÍFICO", [
+                'maquina' => $idMaquina,
+                'mes_key' => $mesKey,
+                'fecha_final_calculada' => $fechaFinalMes,
+                'tipo_medicion' => $categoria->tipo_medicion ?? 'Horometro'
+            ]);
+
+            // Usar el método existente pero con fecha final calculada
+            $diasTurno = $this->calcularDiasTurnoMaquinaMensual($idMaquina, $fechaFinalMes, $categoria, $idFaena);
+
+            // Obtener el nombre del mes formateado
+            $mesNombre = Carbon::createFromFormat('Y-m', $mesKey)->locale('es')->format('F Y');
+
+            return [
+                'mes' => $mesKey,
+                'mes_nombre' => $mesNombre,
+                'dias_turno' => round($diasTurno, 2),
+                'tipo_medicion' => $categoria->tipo_medicion ?? 'Horometro',
+                'metodo_usado' => 'calcularDiasTurnoMaquinaMensual_adaptado'
+            ];
+        } catch (\Exception $e) {
+            Log::error("Error calculando días turno específico máquina {$idMaquina} mes {$mesKey}: " . $e->getMessage());
+
+            // Fallback: devolver estructura mínima
+            $mesNombre = Carbon::createFromFormat('Y-m', $mesKey)->locale('es')->format('F Y');
+
+            return [
+                'mes' => $mesKey,
+                'mes_nombre' => $mesNombre,
+                'dias_turno' => 1, // Fallback seguro
+                'tipo_medicion' => $categoria->tipo_medicion ?? 'Horometro',
+                'metodo_usado' => 'fallback_error'
+            ];
+        }
+    }
 
 
     /**
@@ -1991,6 +2127,50 @@ private function calcularCostoDiaComparativaMensual($idMaquina, $fechaInicio, $f
         ];
     }
 
+    
+/**
+ * 🇪🇸 MÉTODO AUXILIAR: Obtener nombre del mes en español
+ */
+private function obtenerNombreMesEspanol($mesKey)
+{
+    try {
+        // Validar formato
+        if (!is_string($mesKey) || !preg_match('/^\d{4}-\d{2}$/', $mesKey)) {
+            return "Mes {$mesKey}";
+        }
+
+        // Extraer año y mes
+        [$año, $mes] = explode('-', $mesKey);
+        $numeroMes = intval($mes);
+
+        // Array de meses en español
+        $mesesEspanol = [
+            1 => 'Enero',
+            2 => 'Febrero', 
+            3 => 'Marzo',
+            4 => 'Abril',
+            5 => 'Mayo',
+            6 => 'Junio',
+            7 => 'Julio',
+            8 => 'Agosto',
+            9 => 'Septiembre',
+            10 => 'Octubre',
+            11 => 'Noviembre',
+            12 => 'Diciembre'
+        ];
+
+        if (isset($mesesEspanol[$numeroMes])) {
+            return $mesesEspanol[$numeroMes] . ' ' . $año;
+        }
+
+        // Fallback usando Carbon si falla el array
+        return Carbon::createFromFormat('Y-m', $mesKey)->format('F Y');
+
+    } catch (\Exception $e) {
+        Log::error("Error obteniendo nombre del mes: " . $e->getMessage());
+        return "Mes {$mesKey}";
+    }
+}
 
 
     /**
@@ -2009,6 +2189,7 @@ private function calcularCostoDiaComparativaMensual($idMaquina, $fechaInicio, $f
 
         // Calcular precio promedio (PARA RENDIMIENTO - usando período filtro)
         $precioPromedio = $this->obtenerPrecioPromedioMaquina($maquina->id_maquina, $fechaInicio, $fechaFin, $idFaena);
+
         $valorTotal = $litrosTotales * $precioPromedio;
 
         // ===== 🆕 NUEVA LÓGICA: COMPARATIVA MENSUAL PARA COSTOS =====
@@ -2035,7 +2216,7 @@ private function calcularCostoDiaComparativaMensual($idMaquina, $fechaInicio, $f
         );
 
         if ($abarcaMultiplesMeses) {
-            
+
             // 🎯 FILTRO ABARCA MÚLTIPLES MESES: Usar comparativa mensual
             $datosComparativaMensual = $this->calcularCostoDiaComparativaMensual($maquina->id_maquina, $fechaInicio, $fechaFin, $categoria, $idFaena);
 
@@ -2435,6 +2616,8 @@ private function calcularCostoDiaComparativaMensual($idMaquina, $fechaInicio, $f
             'detalle_calculo' => $detalleCalculo
         ];
     }
+
+
     /**
      * ✅ MÉTODO MEJORADO: Interpretar rendimiento para ambos tipos de medición
      */
@@ -2549,21 +2732,37 @@ private function calcularCostoDiaComparativaMensual($idMaquina, $fechaInicio, $f
      */
     private function obtenerPrecioPromedioMaquina($idMaquina, $fechaInicio, $fechaFin, $idFaena = null)
     {
-        // ✅ CONSTRUIR LA QUERY COMPLETA ANTES DE EJECUTAR
-        $query = DB::table('consumos')
+        // ✅ 1. Buscar el último consumo en el rango
+        $ultimoConsumo = DB::table('consumos')
             ->where('id_equipo', $idMaquina)
             ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
             ->whereNotNull('precio_litro')
-            ->where('precio_litro', '>', 0);
+            ->where('precio_litro', '>', 0)
+            ->when($idFaena, function ($q) use ($idFaena) {
+                $q->where('id_faena', $idFaena);
+            })
+            ->orderByDesc('fecha_consumo')
+            ->orderByDesc('id_consumo')
+            ->value('id_consumo');
 
-        // ✅ FILTRAR POR FAENA ANTES DE EJECUTAR
-        if ($idFaena) {
-            $query->where('id_faena', $idFaena);
+        // ✅ 2. Calcular ponderado, excluyendo ese último consumo
+        $query = DB::table('consumos')
+            ->selectRaw('SUM(litros_consumidos * precio_litro) / SUM(litros_consumidos) as precio_promedio_ponderado')
+            ->where('id_equipo', $idMaquina)
+            ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
+            ->whereNotNull('precio_litro')
+            ->where('precio_litro', '>', 0)
+            ->when($idFaena, function ($q) use ($idFaena) {
+                $q->where('id_faena', $idFaena);
+            });
+
+        if ($ultimoConsumo) {
+            $query->where('id_consumo', '<>', $ultimoConsumo);
         }
 
-        // ✅ AHORA SÍ EJECUTAR
-        return $query->avg('precio_litro') ?? 0;
+        return $query->value('precio_promedio_ponderado') ?? 0;
     }
+
 
     /**
      * ✅ MÉTODO CORREGIDO: Calcular la diferencia real entre mediciones según tipo
@@ -2880,7 +3079,7 @@ private function calcularCostoDiaComparativaMensual($idMaquina, $fechaInicio, $f
         return [
             'id_maquina' => $ultimaCarga->id_equipo,
             'fecha_inicio' => $ultimaCarga->fecha_consumo,
-            'fecha_fin' => $fechaFin->format('Y-m-d H:i:s'),
+            'fecha_fin' => Carbon::parse($fechaFin),
             'stock_inicial' => $stockInicial,
             'dias_simulados' => round($diasEquivalentes, 6), // ✅ Días equivalentes reales
             'horas_simuladas' => round($tiempoRealHoras, 6), // ✅ Horas reales
