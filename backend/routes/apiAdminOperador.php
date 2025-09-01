@@ -39,11 +39,8 @@ Route::prefix('adminOperador')->group(function () {
         // Ver detalle de una carga específica
         Route::get('/cargas/{id}', [AdminOperadorController::class, 'show']);
 
-        // Aprobar carga pendiente
-        Route::post('/cargas/{id}/aprobar', [AdminOperadorController::class, 'aprobar']);
-
-        // Rechazar carga pendiente (requiere motivo)
-        Route::post('/cargas/{id}/rechazar', [AdminOperadorController::class, 'rechazar']);
+        // 🆕 NUEVA RUTA: Marcar carga como rendida
+        Route::post('/cargas/{id}/rendir', [AdminOperadorController::class, 'rendir']);
 
         // ✅ ==========================================
         // 🎯 GESTIÓN DE ASIGNACIONES MÁQUINA-OPERADOR (NUEVOS ENDPOINTS)

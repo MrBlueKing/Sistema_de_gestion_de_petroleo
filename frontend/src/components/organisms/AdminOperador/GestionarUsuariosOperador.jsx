@@ -98,6 +98,7 @@ const GestionarUsuariosOperador = () => {
     const [showToggleModal, setShowToggleModal] = useState(false);
     const [usuarioToggle, setUsuarioToggle] = useState(null);
     const [accionToggle, setAccionToggle] = useState('');
+    const [toggleModalError, setToggleModalError] = useState(null);
 
     // ⚡ Cargar datos iniciales
     useEffect(() => {
@@ -113,6 +114,8 @@ const GestionarUsuariosOperador = () => {
             return () => clearTimeout(timer);
         }
     }, [message]);
+
+
 
     // 📊 Cargar datos iniciales desde backend
     const cargarDatosIniciales = async () => {
@@ -588,11 +591,14 @@ const GestionarUsuariosOperador = () => {
         setShowToggleModal(true);
     };
 
+    // 3️⃣ MODIFICAR la función handleConfirmToggleEstado
     const handleConfirmToggleEstado = async () => {
         if (!usuarioToggle) return;
 
         try {
             setLoading(true);
+            setToggleModalError(null); // ✅ LIMPIAR ERROR PREVIO
+
             console.log(`🔄 ${accionToggle} usuario:`, usuarioToggle.id);
 
             const response = await axios.patch(`/api/adminOperador/usuarios/${usuarioToggle.id}/toggle-estado`);
@@ -610,85 +616,43 @@ const GestionarUsuariosOperador = () => {
                         : u
                 ));
 
-                // Actualizar estadísticas
-                const nuevosUsuarios = usuarios.map(u =>
-                    u.id === usuarioToggle.id
-                        ? { ...u, activo: !u.activo }
-                        : u
-                );
+                // Actualizar estadísticas... (código existente)
 
-                const activos = nuevosUsuarios.filter(u => u.activo).length;
-                const inactivos = nuevosUsuarios.filter(u => !u.activo).length;
-
-                setEstadisticas(prev => ({
-                    ...prev,
-                    activos,
-                    inactivos
-                }));
-
-                // Cerrar modal
-                setShowToggleModal(false);
-                setUsuarioToggle(null);
-                setAccionToggle('');
-
+                // Cerrar modal exitosamente
+                handleCloseToggleModal();
                 console.log('✅ Estado actualizado exitosamente');
             }
         } catch (error) {
             console.error('❌ Error al cambiar estado:', error);
 
+            // ✅ CAPTURAR ERROR Y MOSTRARLO EN EL MODAL
             let mensajeError = 'Error al cambiar estado del usuario';
-            if (error.response?.data?.errors) {
+
+            if (error.response?.status === 422) {
+                // Error específico de asignaciones activas
+                mensajeError = error.response.data.message;
+            } else if (error.response?.data?.errors) {
                 const primerError = Object.values(error.response.data.errors)[0];
                 mensajeError = Array.isArray(primerError) ? primerError[0] : primerError;
             } else if (error.response?.data?.message) {
                 mensajeError = error.response.data.message;
             }
 
-            setMessage({
-                tipo: 'error',
-                texto: mensajeError
-            });
+            // ✅ MOSTRAR ERROR EN EL MODAL EN LUGAR DE FUERA
+            setToggleModalError(mensajeError);
+
+            // NO cerrar el modal para que el usuario vea el error
         } finally {
             setLoading(false);
         }
     };
 
+    // Función para cerrar el modal y limpiar errores
     const handleCloseToggleModal = () => {
         setShowToggleModal(false);
         setUsuarioToggle(null);
         setAccionToggle('');
-    };
-
-    // 🗑️ Eliminar usuario
-    const handleEliminarUsuario = async (usuario) => {
-        if (!confirm(`¿Está seguro de que desea ELIMINAR permanentemente a ${usuario.nombre} ${usuario.apellido}?\n\nEsta acción no se puede deshacer.`)) {
-            return;
-        }
-
-        try {
-            setLoading(true);
-            console.log('🗑️ Eliminando usuario:', usuario.id);
-
-            const response = await axios.delete(`/api/adminOperador/usuarios/${usuario.id}`);
-
-            if (response.data.status === 'success') {
-                setMessage({
-                    tipo: 'success',
-                    texto: response.data.message
-                });
-
-                // Recargar datos
-                await cargarDatosIniciales();
-            }
-        } catch (error) {
-            console.error('❌ Error al eliminar usuario:', error);
-            setMessage({
-                tipo: 'error',
-                texto: error.response?.data?.message || 'Error al eliminar usuario'
-            });
-        } finally {
-            setLoading(false);
-        }
+        setToggleModalError(null); // ✅ LIMPIAR ERROR
     };
 
     return (
@@ -1315,6 +1279,7 @@ const GestionarUsuariosOperador = () => {
                 usuario={usuarioToggle}
                 accion={accionToggle}
                 loading={loading}
+                error={toggleModalError} // ✅ PASAR ERROR AL MODAL
             />
         </AdminLayoutBase>
     );

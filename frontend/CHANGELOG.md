@@ -23,13 +23,13 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 ### Added
 
-- [Testing] Encargado de Operaciones de Combustible: Se añadira un nuevo boton en el panel de control inicial, este boton tendra la funcionalidad de poder visualizar los consumos o trayectoria de las maquinas filtradas.
+- [Ready] Encargado de Operaciones de Combustible: Se añadira un nuevo boton en el panel de control inicial, este boton tendra la funcionalidad de poder visualizar los consumos o trayectoria de las maquinas filtradas.
 
-- [Testing] ADMINISTRADOR: Se añadirá una nueva funcionalidad que permitirá una gestión más eficiente de los permisos asociados a las máquinas.
+- [Ready] ADMINISTRADOR: Se añadirá una nueva funcionalidad que permitirá una gestión más eficiente de los permisos asociados a las máquinas.
 
 - [Queued] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
 
-- [Queued] Rol de jefe de mina, bombero 2 y operador vehiculo.
+- [Queued] Rol de jefe de mina.
 
 - [Ready] Encargado de Operaciones de Combustible: A traves de la solicitud de gerencia, ahora el rol "Encargado de Operaciones de Combustible" debe ser dividio en dos roles, manteniendo el rol "bombero" como rol principal y que tendra privilegios como realizar la recepcion de petroleo. mientras que el nuevo rol "asistente_bombero" sera restringido, solo pudiendo hacer ingresos de consumos.
 
@@ -41,17 +41,13 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - [Queued] Agregar graficos comparativos con periodos anteriores para consumos por Total / Faena/ Maquinas.
 
-- [WIP] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
-
-- [WIP] Rol de jefe de mina.
-
 - [Testing] Operador vehiculo:Implementación de un nuevo rol destinado a registrar el consumo de combustible de las camionetas internas. Ademas de realizar la validación del kilometraje ingresado y la visualización de las dos últimas cargas realizadas.
 
-- [WIP] Administrador Operador: desarrollo de rol + interfaz completa para gestión de cargas y asignaciones de vehículos.
+- [Testing] Administrador Operador: desarrollo de rol + interfaz completa para gestión de cargas y asignaciones de vehículos.
 
 - [Testing] Graficos: Implementar graficos comparativos por Total / Faena / Categorias / Maquinas.
 
-- [Testing] Sistema General: Se agregaron colores a todas las vistas de consumos segun leyenda establecita.
+- [Testing] Sistema General: Se agregaron colores a todas las vistas de consumos segun leyenda establecida.
 
         Gerente.ConsumoView
         Gerente.Table Consumos por faena
@@ -74,6 +70,8 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 - [Planned] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
 
 -[ready] Mejorar visualización de gráficos de torta en Gerente: optimizar la distribución y legibilidad de los nombres de las máquinas.En Bombero: ajustar la presentación para mejorar la distribución y comprensión del consumo.
+
+-[WIP] Administrador de Operador de Vehiculos: Se modifica datos visuales(por rendir y rendido) en el panel administrativo como tambien se añadirá más información como litros mes vs mes anterior, ademas se modificara el mensaje de "error" para cuando se quiera desactivar un usuario(Operador vehiculo) que tenga una máquina asignada.
 
 ### Depecrated
 

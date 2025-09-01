@@ -66,95 +66,47 @@ const DetalleCargaModal = ({ cargaId, isOpen, onClose, onActionComplete }) => {
 
   // 🔧 CORRECCIÓN para DetalleCargaModal.jsx
 
-  const handleAprobar = async () => {
+  // 1. AGREGAR la función handleRendir específica para el modal
+  const handleRendir = async () => {
     try {
-      console.log("🚀 Iniciando aprobación de carga:", cargaId);
+      console.log("🚀 Iniciando rendición de carga:", cargaId);
+      setError(null);
 
       const response = await axios.post(
-        `/api/adminOperador/cargas/${cargaId}/aprobar`
+        `/api/adminOperador/cargas/${cargaId}/rendir` // ✅ Cambiar de /aprobar a /rendir
       );
 
-      console.log("📡 Respuesta completa del servidor:", response.data);
-
-      // 🔧 CORREGIDO: Tu backend devuelve el status en response.data.status
-      if (response.data.status === "success") {
-        console.log("✅ Aprobación exitosa");
-
-        // ✅ Actualizar estado local con los datos frescos del backend
-        if (response.data.data) {
-          setCarga(response.data.data);
-        } else {
-          // Fallback: actualizar manualmente si no viene data
-          setCarga((prev) => ({
-            ...prev,
-            estado: "Rendido",
-            fecha_aprobacion: new Date().toISOString(),
-          }));
-        }
-
-        // ✅ Ejecutar callback para actualizar lista padre
-        onActionComplete && onActionComplete();
-
-        // ✅ Mostrar mensaje de éxito
-        setSuccess(response.data.message || "✅ Carga rendida con éxito");
-        setError(null); // Limpiar errores previos
-
-        // ✅ Opcional: ocultar mensaje después de unos segundos
-        setTimeout(() => setSuccess(null), 5000);
-      } else {
-        // 🚨 Si el servidor responde pero con status diferente a 'success'
-        console.log("⚠️ Respuesta no exitosa del servidor:", response.data);
-        setError(response.data.message || "❌ No se pudo aprobar la carga");
-        setSuccess(null);
-      }
-    } catch (error) {
-      // 🚨 Error de red, servidor no responde, etc.
-      console.error("❌ Error en la petición:", error);
-      console.error("📋 Detalles del error:", {
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message,
-      });
-
-      // Obtener mensaje de error del backend si existe
-      const errorMessage =
-        error.response?.data?.message ||
-        error.response?.data?.error ||
-        `❌ Error al aprobar la carga: ${error.message}`;
-
-      setError(errorMessage);
-      setSuccess(null);
-    }
-  };
-
-  const handleRechazar = async () => {
-    if (!motivoRechazo.trim()) {
-      setError("Debe ingresar un motivo para el rechazo");
-      return;
-    }
-
-    try {
-      // ✅ ADAPTADO: Usar tus rutas actuales con POST
-      const response = await axios.post(
-        `/api/adminOperador/cargas/${cargaId}/rechazar`,
-        {
-          motivo_rechazo: motivoRechazo,
-        }
-      );
+      console.log("📡 Respuesta del servidor:", response.data);
 
       if (response.data.status === "success") {
-        setCarga((prev) => ({
-          ...prev,
-          estado: "rechazado",
-          fecha_aprobacion: new Date().toISOString(),
-          motivo_rechazo: motivoRechazo,
+        setSuccess({
+          title: "Carga Rendida Exitosamente",
+          message: response.data.message || "La carga ha sido marcada como rendida correctamente."
+        });
+
+        // Actualizar el estado de la carga en el modal
+        setCarga(prevCarga => ({
+          ...prevCarga,
+          estado: "Rendido",
+          fecha_rendicion: new Date().toISOString()
         }));
-        setMostrarRechazo(false);
-        setMotivoRechazo("");
-        onActionComplete && onActionComplete();
+
+        // Llamar callback para actualizar la lista principal
+        if (onActionComplete) {
+          onActionComplete();
+        }
+
+        console.log("✅ Carga rendida exitosamente");
+      } else {
+        throw new Error(response.data.message || "Error al rendir la carga");
       }
     } catch (error) {
-      setError("Error al rechazar la carga");
+      console.error("❌ Error al rendir carga:", error);
+      setError(
+        error.response?.data?.message ||
+        error.message ||
+        "Error al rendir la carga"
+      );
     }
   };
 
@@ -432,44 +384,44 @@ const DetalleCargaModal = ({ cargaId, isOpen, onClose, onActionComplete }) => {
               {/* Información de aprobación/rechazo */}
               {(carga.estado === "aprobado" ||
                 carga.estado === "rechazado") && (
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold mb-3">
-                    Información de{" "}
-                    {carga.estado === "aprobado" ? "Aprobación" : "Rechazo"}
-                  </h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Fecha:</span>
-                      <span className="font-medium">
-                        {formatDate(carga.fecha_aprobacion)}
-                      </span>
-                    </div>
-                    {carga.aprobadoPor && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold mb-3">
+                      Información de{" "}
+                      {carga.estado === "aprobado" ? "Aprobación" : "Rechazo"}
+                    </h3>
+                    <div className="space-y-2">
                       <div className="flex justify-between">
-                        <span className="text-gray-600">
-                          {carga.estado === "aprobado"
-                            ? "Aprobado por:"
-                            : "Rechazado por:"}
-                        </span>
+                        <span className="text-gray-600">Fecha:</span>
                         <span className="font-medium">
-                          {carga.aprobadoPor.nombre}{" "}
-                          {carga.aprobadoPor.apellido}
+                          {formatDate(carga.fecha_aprobacion)}
                         </span>
                       </div>
-                    )}
-                    {carga.motivo_rechazo && (
-                      <div>
-                        <span className="text-gray-600">
-                          Motivo del rechazo:
-                        </span>
-                        <p className="text-red-700 bg-red-50 p-2 rounded mt-1">
-                          {carga.motivo_rechazo}
-                        </p>
-                      </div>
-                    )}
+                      {carga.aprobadoPor && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">
+                            {carga.estado === "aprobado"
+                              ? "Aprobado por:"
+                              : "Rechazado por:"}
+                          </span>
+                          <span className="font-medium">
+                            {carga.aprobadoPor.nombre}{" "}
+                            {carga.aprobadoPor.apellido}
+                          </span>
+                        </div>
+                      )}
+                      {carga.motivo_rechazo && (
+                        <div>
+                          <span className="text-gray-600">
+                            Motivo del rechazo:
+                          </span>
+                          <p className="text-red-700 bg-red-50 p-2 rounded mt-1">
+                            {carga.motivo_rechazo}
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
           )}
         </div>
@@ -478,7 +430,7 @@ const DetalleCargaModal = ({ cargaId, isOpen, onClose, onActionComplete }) => {
         {carga && carga.estado === "Por Rendir" && !mostrarRechazo && (
           <div className="flex items-center justify-end space-x-4 p-6 border-t border-gray-200">
             <button
-              onClick={handleAprobar}
+              onClick={handleRendir}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
             >
               Rendir

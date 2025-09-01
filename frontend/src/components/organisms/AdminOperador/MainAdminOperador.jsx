@@ -49,14 +49,14 @@ const FAENA_COLORS = {
     icon: "text-red-600",
     emoji: "🏔️",
   },
-5: {
+  5: {
     name: "Estacion de Servicio",
-    bg: "bg-blue-50/40",
-    border: "border-l-blue-500",
-    badge: "bg-blue-100 text-blue-800",
-    icon: "text-blue-600",
-    copecBlue: "text-[#0066cc]",
-    copecBg: "bg-gradient-to-r from-blue-50 to-blue-100/50",
+    bg: "bg-orange-50/40",
+    border: "border-l-orange-500",
+    badge: "bg-orange-100 text-orange-800",
+    icon: "text-orange-600",
+    copecorange: "text-[#0066cc]",
+    copecBg: "bg-gradient-to-r from-orange-50 to-orange-100/50",
     copecBorder: "border-l-[#0066cc]",
     copecBadge: "bg-[#0066cc]/10 text-[#0066cc]",
     emoji: "⛽",
@@ -138,6 +138,8 @@ const MainAdminOperador = () => {
   const [error, setError] = useState(null);
   const [selectedCargaId, setSelectedCargaId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // 🆕 AGREGAR: Nuevo estado para estadísticas del backend
+  const [estadisticasBackend, setEstadisticasBackend] = useState(null);
 
   // Funciones de manejo de modal
   const handleVerDetalle = (cargaId) => {
@@ -158,21 +160,12 @@ const MainAdminOperador = () => {
     navigate('/consumos-view-AdminOperador');
   };
 
-  // 🆕 FUNCIÓN: Manejar acciones de aprobación/rechazo
-  const handleAccion = async (cargaId, accion, motivo = null) => {
+  // 1️⃣ CAMBIAR: Función para manejar rendición (reemplaza handleAccion)
+  const handleRendir = async (cargaId) => {
     try {
       setError(null);
-      let endpoint = "";
-      let data = {};
 
-      if (accion === "aprobado") {
-        endpoint = `/api/adminOperador/cargas/${cargaId}/aprobar`;
-      } else if (accion === "rechazado") {
-        endpoint = `/api/adminOperador/cargas/${cargaId}/rechazar`;
-        data = { motivo_rechazo: motivo || "Sin motivo especificado" };
-      }
-
-      const response = await axios.post(endpoint, data);
+      const response = await axios.post(`/api/adminOperador/cargas/${cargaId}/rendir`);
 
       if (response.data.status === "success") {
         // Actualizar el estado local
@@ -181,38 +174,22 @@ const MainAdminOperador = () => {
             carga.id === cargaId
               ? {
                 ...carga,
-                estado: accion,
-                fecha_aprobacion: new Date().toISOString(),
+                estado: "Rendido",
+                fecha_rendicion: new Date().toISOString(),
               }
               : carga
           )
-        );
-
-        console.log(
-          `✅ Carga ${accion === "aprobado" ? "aprobada" : "rechazada"
-          } correctamente`
         );
       } else {
         throw new Error(response.data.message);
       }
     } catch (error) {
-      console.error(`❌ Error al ${accion} carga:`, error);
-      setError(
-        `Error al ${accion === "aprobado" ? "aprobar" : "rechazar"} la carga: ${error.response?.data?.message || error.message
-        }`
-      );
+      console.error("❌ Error al rendir carga:", error);
+      setError(`Error al rendir la carga: ${error.response?.data?.message || error.message}`);
     }
   };
 
-  // 🆕 FUNCIÓN: Manejar rechazo con motivo
-  const handleRechazar = (cargaId) => {
-    const motivo = prompt("Ingrese el motivo del rechazo:");
-    if (motivo && motivo.trim()) {
-      handleAccion(cargaId, "rechazado", motivo.trim());
-    }
-  };
-
-  // Función para obtener datos
+  // 6️⃣ CAMBIAR: fetchCargasExternas para capturar estadísticas del backend
   const fetchCargasExternas = async () => {
     try {
       setLoading(true);
@@ -221,57 +198,25 @@ const MainAdminOperador = () => {
       const response = await axios.get("/api/adminOperador/cargas");
 
       if (response.data.status === "success") {
-        setCargas(response.data.data);
+        // ✅ CORRECTO: Separar datos y estadísticas
+        const { data: cargasData, estadisticas } = response.data;
+
+        // Guardar las cargas normalmente
+        setCargas(cargasData);
+
+        // 🆕 NUEVO: Guardar estadísticas en un estado separado
+        if (estadisticas) {
+          setEstadisticasBackend(estadisticas);
+        }
+
       } else {
         throw new Error(response.data.message || "Error al cargar datos");
       }
     } catch (error) {
       console.error("❌ Error al cargar cargas externas:", error);
-      setError(
-        error.response?.data?.message ||
-        error.message ||
-        "Error al cargar datos"
-      );
+      setError(error.response?.data?.message || error.message || "Error al cargar datos");
 
-      // Fallback a datos de ejemplo si hay error
-      setCargas([
-        {
-          id: 1,
-          numero_boleta: "BOL-001",
-          user: { nombre: "Juan", apellido: "Pérez", nombre_completo: "Juan Pérez" },
-          maquina: { nombre_maquina: "Excavadora CAT", patente: "AA-BB-12" },
-          litros: 150.5,
-          costo: 225750,
-          estado: "pendiente",
-          ubicacion: "Faena Norte",
-          id_faena: 1,
-          created_at: "2025-01-15T10:30:00Z",
-        },
-        {
-          id: 2,
-          numero_boleta: "BOL-002",
-          user: { nombre: "María", apellido: "González", nombre_completo: "María González" },
-          maquina: { nombre_maquina: "Camión Volvo", patente: "CC-DD-34" },
-          litros: 200.0,
-          costo: 300000,
-          estado: "aprobado",
-          ubicacion: "Faena Sur",
-          id_faena: 4,
-          created_at: "2025-01-15T11:00:00Z",
-        },
-        {
-          id: 3,
-          numero_boleta: "BOL-003",
-          user: { nombre: "Carlos", apellido: "Silva", nombre_completo: "Carlos Silva" },
-          maquina: { nombre_maquina: "Camión Cisterna", patente: "EE-FF-56" },
-          litros: 120.0,
-          costo: 180000,
-          estado: "rechazado",
-          ubicacion: "Estación Copec Maipú",
-          id_faena: 5,
-          created_at: "2025-01-15T12:30:00Z",
-        },
-      ]);
+      setEstadisticasBackend(null);
     } finally {
       setLoading(false);
     }
@@ -281,36 +226,38 @@ const MainAdminOperador = () => {
     fetchCargasExternas();
   }, []);
 
-  // Calcular estadísticas
+  // 2️⃣ CAMBIAR: Calcular estadísticas (reemplaza el stats actual)
   const stats = {
-    total: cargas.length,
-    pendientes: cargas.filter((c) => c.estado === "pendiente").length,
-    aprobadas: cargas.filter((c) => c.estado === "aprobado").length,
-    rechazadas: cargas.filter((c) => c.estado === "rechazado").length,
-    totalLitros: cargas.reduce((sum, c) => sum + (c.litros || 0), 0),
-    totalCosto: cargas.reduce((sum, c) => sum + (c.costo || 0), 0),
+    // Usar estadísticas del backend si están disponibles, sino calcular del frontend
+    total: estadisticasBackend?.total || cargas.length,
+    porRendir: estadisticasBackend?.por_rendir || cargas.filter((c) => c.estado === "Por Rendir").length,
+    rendidas: estadisticasBackend?.rendidas || cargas.filter((c) => c.estado === "Rendido").length,
+    totalLitros: estadisticasBackend?.total_litros || cargas.reduce((sum, c) => sum + (parseFloat(c.litros) || 0), 0),
+    totalCosto: estadisticasBackend?.total_costo || cargas.reduce((sum, c) => sum + (parseFloat(c.costo) || 0), 0),
+
+    // 🆕 Estadísticas de comparación mensual del backend
+    comparacionMensual: estadisticasBackend?.comparacion_mensual || null
   };
+  // Filtrar cargas por búsqueda
+  let cargasFiltradas = cargas.filter(
+    (carga) =>
+      carga.numero_boleta?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      `${carga.user?.nombre} ${carga.user?.apellido}`
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      carga.maquina?.nombre_maquina
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      carga.ubicacion?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-// Filtrar cargas por búsqueda
-let cargasFiltradas = cargas.filter(
-  (carga) =>
-    carga.numero_boleta?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    `${carga.user?.nombre} ${carga.user?.apellido}`
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase()) ||
-    carga.maquina?.nombre_maquina
-      ?.toLowerCase()
-      .includes(searchTerm.toLowerCase()) ||
-    carga.ubicacion?.toLowerCase().includes(searchTerm.toLowerCase())
-);
+  // Ordenar por fecha más reciente
+  cargasFiltradas = cargasFiltradas.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-// Ordenar por fecha más reciente
-cargasFiltradas = cargasFiltradas.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-// Si no hay término de búsqueda, mostrar solo las 5 más recientes
-if (!searchTerm.trim()) {
-  cargasFiltradas = cargasFiltradas.slice(0, 3);
-}
+  // Si no hay término de búsqueda, mostrar solo las 5 más recientes
+  if (!searchTerm.trim()) {
+    cargasFiltradas = cargasFiltradas.slice(0, 3);
+  }
 
   // Funciones de formateo
   const formatCurrency = (amount) => {
@@ -330,23 +277,44 @@ if (!searchTerm.trim()) {
     });
   };
 
+  // 3️⃣ CAMBIAR: Function getEstadoBadge (reemplaza la actual)
   const getEstadoBadge = (estado, esCargaExterna = false) => {
     const variants = {
-      pendiente: "bg-yellow-100 text-yellow-800 border-yellow-200",
-      aprobado: "bg-green-100 text-green-800 border-green-200",
-      rechazado: "bg-red-100 text-red-800 border-red-200",
+      "Por Rendir": "bg-yellow-100 text-yellow-800 border-yellow-200",
+      "Rendido": "bg-green-100 text-green-800 border-green-200",
+
+      // 🔄 Compatibilidad con estados viejos (por si acaso)
+      "pendiente": "bg-yellow-100 text-yellow-800 border-yellow-200",
+      "aprobado": "bg-green-100 text-green-800 border-green-200",
+      "rechazado": "bg-red-100 text-red-800 border-red-200",
     };
 
     const labels = {
-      pendiente: "Pendiente",
-      aprobado: "Aprobado",
-      rechazado: "Rechazado",
+      "Por Rendir": "Por Rendir",
+      "Rendido": "Rendido",
+
+      // Compatibilidad
+      "pendiente": "Por Rendir",
+      "aprobado": "Rendido",
+      "rechazado": "Por Rendir",
     };
 
-    const iconClasses = esCargaExterna ? "text-[#0066cc]" : "";
+    const iconClasses = esCargaExterna ? "text-orange-600" : "text-gray-600";
+
+    // Elegir ícono según el estado
+    let IconComponent;
+    if (estado === "Rendido" || estado === "aprobado") {
+      IconComponent = FaCheckCircle;
+    } else {
+      IconComponent = FaClock;
+    }
 
     return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${variants[estado] || variants.pendiente} ${iconClasses}`}>
+      <span
+        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${variants[estado] || "bg-gray-100 text-gray-800 border-gray-200"
+          }`}
+      >
+        <IconComponent className={`text-xs ${iconClasses}`} />
         {labels[estado] || estado}
       </span>
     );
@@ -571,19 +539,32 @@ if (!searchTerm.trim()) {
           <div className="flex items-center space-x-2">
             <button
               onClick={() => handleVerDetalle(carga.id)}
-              className="inline-flex items-center px-3 py-1 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              className="inline-flex items-center px-3 py-1 border border-orange-300 text-sm font-medium rounded-md text-orange-700 bg-orange-50 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors"
               title="Ver historial y detalles completos"
             >
               <FaEye className="w-3 h-3 mr-1" />
               Ver
             </button>
 
-            {carga.estado === "pendiente" && (
+            {carga.estado === "Por Rendir" && (
               <>
                 <button
+                  onClick={() => handleRendir(carga.id)} // ✅ AGREGAR: Conectar handleRendir con el ID de la carga
                   className="inline-flex items-center px-3 py-1 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                  title="Marcar carga como rendida" // ✅ OPCIONAL: Agregar tooltip descriptivo
+                  disabled={loading} // ✅ OPCIONAL: Deshabilitar si está cargando
                 >
-                  Aprobar
+                  {loading ? (
+                    <>
+                      <div className="animate-spin w-3 h-3 border-2 border-green-700 border-t-transparent rounded-full mr-1"></div>
+                      Procesando...
+                    </>
+                  ) : (
+                    <>
+                      <FaCheckCircle className="w-3 h-3 mr-1" />
+                      Rendir
+                    </>
+                  )}
                 </button>
               </>
             )}
@@ -631,7 +612,6 @@ if (!searchTerm.trim()) {
       headerActions={headerActions}
       error={error}
     >
-      {/* Sección de métricas principales */}
       <MetricsSection>
         <MetricCard
           title="Total de Cargas"
@@ -640,67 +620,162 @@ if (!searchTerm.trim()) {
           color="orange"
         />
         <MetricCard
-          title="Pendientes"
-          value={stats.pendientes}
+          title="Por Rendir"
+          value={stats.porRendir}
           icon={FaClock}
           color="yellow"
         />
         <MetricCard
-          title="Aprobadas"
-          value={stats.aprobadas}
+          title="Rendidas"
+          value={stats.rendidas}
           icon={FaCheckCircle}
           color="green"
         />
+
+        {/* 🆕 MetricCard con datos reales de comparación mensual */}
         <MetricCard
-          title="Rechazadas"
-          value={stats.rechazadas}
-          icon={FaTimesCircle}
-          color="red"
+          title="Litros este mes"
+          value={stats.comparacionMensual?.mes_actual?.litros?.toLocaleString() || '0'}
+          subtitle={
+            stats.comparacionMensual?.diferencias ? (
+              <span className={`text-sm ${stats.comparacionMensual.diferencias.tendencia_litros === 'subida'
+                ? 'text-green-600'
+                : stats.comparacionMensual.diferencias.tendencia_litros === 'bajada'
+                  ? 'text-red-600'
+                  : 'text-gray-600'
+                }`}>
+                {stats.comparacionMensual.diferencias.litros_porcentaje > 0 ? '+' : ''}
+                {stats.comparacionMensual.diferencias.litros_porcentaje}% vs mes anterior
+              </span>
+            ) : 'Sin comparación'
+          }
+          icon={FiTrendingUp}
+          color={stats.comparacionMensual?.diferencias?.tendencia_litros === 'subida' ? 'green' : 'orange'}
         />
       </MetricsSection>
 
-      {/* Sección de estadísticas adicionales */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <AdditionalSection title="Consumo Total" icon={FiTrendingUp} className="h-fit">
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Litros totales</span>
-              <span className="text-xl font-bold text-orange-600">
-                {stats.totalLitros.toLocaleString()} L
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Costo total</span>
-              <span className="text-xl font-bold text-green-600">
-                {formatCurrency(stats.totalCosto)}
-              </span>
-            </div>
-          </div>
-        </AdditionalSection>
+      {/* Sección de estadísticas adicionales - Mobile Friendly y Mismo Tamaño */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8 lg:items-start">
 
-        <AdditionalSection title="Estado de Revisión" icon={FiAlertTriangle} className="h-fit">
-          <div className="space-y-3">
-            {stats.pendientes > 0 ? (
-              <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-                <span className="text-sm font-medium text-yellow-800">
-                  Cargas pendientes de revisión
-                </span>
-                <span className="bg-yellow-200 text-yellow-800 px-2 py-1 rounded-full text-xs font-bold">
-                  {stats.pendientes}
+        {/* Consumo Total */}
+        <AdditionalSection title="Consumo Total" icon={FiTrendingUp} className="h-full">
+          <div className="flex flex-col h-full">
+            {/* Contenido principal */}
+            <div className="space-y-3 sm:space-y-4 flex-1">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-0">
+                <span className="text-xs sm:text-sm text-gray-600">Litros totales</span>
+                <span className="text-lg sm:text-xl font-bold text-orange-600">
+                  {stats.totalLitros.toLocaleString()} L
                 </span>
               </div>
-            ) : (
-              <div className="flex items-center justify-center p-3 bg-green-50 rounded-lg">
-                <FaCheckCircle className="h-5 w-5 text-green-600 mr-2" />
-                <span className="text-sm font-medium text-green-800">
-                  Todas las cargas revisadas
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-0">
+                <span className="text-xs sm:text-sm text-gray-600">Costo total</span>
+                <span className="text-lg sm:text-xl font-bold text-green-600">
+                  {formatCurrency(stats.totalCosto)}
                 </span>
+              </div>
+            </div>
+
+            {/* Estado de rendición - Siempre al final */}
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="space-y-3">
+                {stats.porRendir > 0 ? (
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 bg-yellow-50 rounded-lg">
+                    <span className="text-xs sm:text-sm font-medium text-yellow-800">
+                      Cargas por rendir
+                    </span>
+                    <span className="bg-yellow-200 text-yellow-800 px-2 py-1 rounded-full text-xs font-bold self-start sm:self-auto">
+                      {stats.porRendir}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center p-3 bg-green-50 rounded-lg">
+                    <FaCheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 mr-2" />
+                    <span className="text-xs sm:text-sm font-medium text-green-800">
+                      Todas las cargas rendidas
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Spacer para igualar altura cuando no hay comparación mensual */}
+            {!stats.comparacionMensual && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex flex-col items-center justify-center py-6 text-gray-400">
+                  <FiTrendingUp className="h-8 w-8 mb-2" />
+                  <span className="text-xs">Datos históricos disponibles pronto</span>
+                </div>
               </div>
             )}
           </div>
         </AdditionalSection>
-      </div>
 
+        {/* Comparación Mensual */}
+        {stats.comparacionMensual ? (
+          <AdditionalSection title="Comparación Mensual" icon={FiTrendingUp} className="h-full">
+            <div className="flex flex-col h-full">
+              {/* Contenido principal */}
+              <div className="space-y-3 sm:space-y-4 flex-1">
+                {/* Datos de los meses - Stack en mobile, grid en desktop */}
+                <div className="flex flex-col sm:grid sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
+
+                  {/* Este mes */}
+                  <div className="space-y-2 p-3 bg-blue-50 rounded-lg">
+                    <div className="font-medium text-blue-800 text-sm">
+                      Este mes ({stats.comparacionMensual.mes_actual.periodo})
+                    </div>
+                    <div className="space-y-1 text-blue-700">
+                      <div className="flex justify-between">
+                        <span>Cargas:</span>
+                        <span className="font-medium">{stats.comparacionMensual.mes_actual.total_cargas}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Litros:</span>
+                        <span className="font-medium">{stats.comparacionMensual.mes_actual.litros?.toLocaleString()} L</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Costo:</span>
+                        <span className="font-medium">${stats.comparacionMensual.mes_actual.costo?.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mes anterior */}
+                  <div className="space-y-2 p-3 bg-gray-50 rounded-lg">
+                    <div className="font-medium text-gray-800 text-sm">
+                      Mes anterior ({stats.comparacionMensual.mes_anterior.periodo})
+                    </div>
+                    <div className="space-y-1 text-gray-700">
+                      <div className="flex justify-between">
+                        <span>Cargas:</span>
+                        <span className="font-medium">{stats.comparacionMensual.mes_anterior.total_cargas}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Litros:</span>
+                        <span className="font-medium">{stats.comparacionMensual.mes_anterior.litros?.toLocaleString()} L</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Costo:</span>
+                        <span className="font-medium">${stats.comparacionMensual.mes_anterior.costo?.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </AdditionalSection>
+        ) : (
+          /* Placeholder cuando no hay datos de comparación */
+          <AdditionalSection title="Comparación Mensual" icon={FiTrendingUp} className="h-full">
+            <div className="flex flex-col items-center justify-center h-full py-8 text-gray-500">
+              <FiTrendingUp className="h-12 w-12 mb-4" />
+              <span className="text-sm font-medium mb-2">No hay datos suficientes para comparar</span>
+              <span className="text-xs text-gray-400">Se necesitan datos de al menos 2 meses</span>
+            </div>
+          </AdditionalSection>
+        )}
+      </div>
       {/* Tabla de cargas recientes con icono de Copec */}
       <TableSection
         title={

@@ -2,20 +2,20 @@ import React from 'react';
 import {
     FaListAlt,
     FaUsers,
-    FaTruckPickup ,
+    FaTruckPickup,
     FaPlus,
     FaCogs,
-    FaGasPump // ✅ Agregado el import
+    FaGasPump
 } from 'react-icons/fa';
 
-// 🎨 Mapeo de iconos por nombre
+// Mapeo de iconos
 const iconMap = {
     FaListAlt: FaListAlt,
-    FaTruckPickup : FaTruckPickup ,
+    FaTruckPickup: FaTruckPickup,
     FaUsers: FaUsers,
     FaPlus: FaPlus,
     FaCogs: FaCogs,
-    FaGasPump: FaGasPump // ✅ Agregado el nuevo icono
+    FaGasPump: FaGasPump
 };
 
 const TabNavigation = ({ tabs, activeTab, onTabChange }) => {
@@ -23,7 +23,7 @@ const TabNavigation = ({ tabs, activeTab, onTabChange }) => {
         <div className="bg-white border-b border-gray-200 shadow-sm">
             <div className="max-w-7xl mx-auto px-6">
                 {/* Navegación principal */}
-                <div className="flex h-16">
+                <div className="flex h-16 overflow-x-auto md:overflow-x-visible">
                     {tabs.map((tab, index) => {
                         const IconComponent = iconMap[tab.icon];
                         const isActive = activeTab === tab.id;
@@ -36,6 +36,7 @@ const TabNavigation = ({ tabs, activeTab, onTabChange }) => {
                                     relative flex-1 flex items-center justify-center gap-3 px-6 py-4 
                                     text-sm font-medium transition-all duration-300 ease-in-out
                                     hover:bg-gray-50 group
+                                    min-w-max md:min-w-0
                                     ${isActive
                                         ? 'text-orange-600 bg-gradient-to-b from-orange-50/50 to-orange-50/20'
                                         : 'text-gray-600 hover:text-gray-900'

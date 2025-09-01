@@ -50,7 +50,7 @@ class CargaExternaController extends Controller
                 'tipo_combustible' => $validated['tipo_combustible'],
                 'observaciones' => $validated['observaciones'] ?? null,
                 'medicion' => $validated['medicion'],
-                'estado' => 'pendiente'
+                'estado' => 'Por Rendir'
             ]);
 
             // Cargar las relaciones para la respuesta

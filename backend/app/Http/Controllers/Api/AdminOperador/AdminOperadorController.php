@@ -24,51 +24,52 @@ class AdminOperadorController extends Controller
     public function index(): JsonResponse
     {
         try {
-            // Obtener cargas externas con relaciones cargadas
+            // Obtener cargas con relaciones (igual que antes)
             $cargas = CargaExterna::with([
-                'user:id,nombre,apellido,rut,id_faena',
-                'user.faena:id_faena,ubicacion', // ✅ NUEVO: Traer también la faena del usuario
-                'maquina:id_maquina,nombre_maquina,patente,id_categoria',
+                'user:id,nombre,apellido',
+                'maquina:id_maquina,nombre_maquina,patente',
                 'maquina.categoria:id_categoria,nombre_categoria',
-                'faena:id_faena,ubicacion'
+                'faena:id_faena,ubicacion',
+                'aprobadoPor:id,nombre,apellido' // Mantenemos el nombre original por ahora
             ])
                 ->orderBy('created_at', 'desc')
                 ->get();
 
-            // Formatear los datos para el frontend
+            // 🔄 MAPEAR estados viejos a nuevos automáticamente
             $cargasFormateadas = $cargas->map(function ($carga) {
+                // Convertir estados viejos a nuevos
+                $estadoNuevo = $this->convertirEstadoViejo($carga->estado);
+
                 return [
                     'id' => $carga->id,
                     'numero_boleta' => $carga->numero_boleta,
-                    'litros' => (float) $carga->litros,
-                    'costo' => (float) $carga->costo,
-                    'precio_por_litro' => (float) $carga->precio_por_litro,
+                    'litros' => $carga->litros,
                     'medicion' => $carga->medicion,
+                    'costo' => $carga->costo,
+                    'precio_por_litro' => $carga->precio_por_litro,
                     'ubicacion' => $carga->ubicacion,
                     'tipo_combustible' => $carga->tipo_combustible,
                     'observaciones' => $carga->observaciones,
-                    'estado' => $carga->estado,
+
+                    // 🆕 NUEVO: Estado convertido al nuevo sistema
+                    'estado' => $estadoNuevo,
+
+                    'fecha_rendicion' => $carga->fecha_aprobacion, // Mismo campo, nuevo nombre
                     'created_at' => $carga->created_at,
-                    'fecha_aprobacion' => $carga->fecha_aprobacion,
-                    'motivo_rechazo' => $carga->motivo_rechazo,
-                    'id_faena' => $carga->id_faena, // ✅ AGREGAR ESTA LÍNEA
+                    'updated_at' => $carga->updated_at,
 
-
-                    // Información del usuario
+                    // Usuario
                     'user' => [
                         'id' => $carga->user->id ?? null,
-                        'nombre' => $carga->user->nombre ?? 'Usuario no encontrado',
+                        'nombre' => $carga->user->nombre ?? 'N/A',
                         'apellido' => $carga->user->apellido ?? '',
-                        'rut' => $carga->user->rut ?? 'Sin RUT',
-                        'id_faena' => $carga->user->id_faena ?? null, // ✅ NUEVO: ID de faena del usuario
-                        'faena_usuario' => $carga->user->faena->ubicacion ?? 'Sin faena asignada', // ✅ NUEVO: Nombre de la faena del usuario
-                        'nombre_completo' => ($carga->user->nombre ?? 'Usuario') . ' ' . ($carga->user->apellido ?? 'no encontrado')
+                        'nombre_completo' => ($carga->user->nombre ?? 'N/A') . ' ' . ($carga->user->apellido ?? '')
                     ],
 
-                    // Información de la máquina
+                    // Máquina
                     'maquina' => [
                         'id' => $carga->maquina->id_maquina ?? null,
-                        'nombre_maquina' => $carga->maquina->nombre_maquina ?? 'Máquina no encontrada',
+                        'nombre_maquina' => $carga->maquina->nombre_maquina ?? 'N/A',
                         'patente' => $carga->maquina->patente ?? 'Sin patente',
                         'categoria' => [
                             'id' => $carga->maquina->categoria->id_categoria ?? null,
@@ -76,62 +77,131 @@ class AdminOperadorController extends Controller
                         ]
                     ],
 
-                    // Información de la faena
+                    // Faena
                     'faena' => [
-                        'id' => $carga->faena->id_faena ?? 6, // Default para cargas externas
+                        'id' => $carga->faena->id_faena ?? 6,
                         'ubicacion' => $carga->faena->ubicacion ?? 'Cargas Externas'
-                    ]
+                    ],
+
+                    // Quien procesó (mantenemos compatibilidad)
+                    'aprobadoPor' => $carga->aprobadoPor ? [
+                        'id' => $carga->aprobadoPor->id,
+                        'nombre' => $carga->aprobadoPor->nombre,
+                        'apellido' => $carga->aprobadoPor->apellido,
+                        'nombre_completo' => $carga->aprobadoPor->nombre . ' ' . $carga->aprobadoPor->apellido
+                    ] : null
                 ];
             });
 
-            // Calcular estadísticas
-            $estadisticas = [
-                'total' => $cargas->count(),
-                'pendientes' => $cargas->where('estado', 'pendiente')->count(),
-                'aprobadas' => $cargas->where('estado', 'aprobado')->count(),
-                'rechazadas' => $cargas->where('estado', 'rechazado')->count(),
-                'total_litros' => $cargas->sum('litros'),
-                'total_costo' => $cargas->sum('costo'),
-                'promedio_precio_litro' => $cargas->count() > 0 ? $cargas->avg('precio_por_litro') : 0
-            ];
-
-            // Estadísticas del mes actual
-            $mesActual = Carbon::now()->format('Y-m');
-            $cargasMes = $cargas->filter(function ($carga) use ($mesActual) {
-                return Carbon::parse($carga->created_at)->format('Y-m') === $mesActual;
-            });
-
-            $estadisticasMes = [
-                'total_mes' => $cargasMes->count(),
-                'pendientes_mes' => $cargasMes->where('estado', 'pendiente')->count(),
-                'aprobadas_mes' => $cargasMes->where('estado', 'aprobado')->count(),
-                'rechazadas_mes' => $cargasMes->where('estado', 'rechazado')->count(),
-                'litros_mes' => $cargasMes->sum('litros'),
-                'costo_mes' => $cargasMes->sum('costo')
-            ];
+            // 🆕 NUEVAS ESTADÍSTICAS con comparación mensual
+            $estadisticas = $this->calcularEstadisticasNuevas($cargas);
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'Cargas externas obtenidas correctamente',
                 'data' => $cargasFormateadas,
-                'estadisticas' => array_merge($estadisticas, $estadisticasMes),
+                'estadisticas' => $estadisticas,
                 'meta' => [
                     'total_registros' => $cargas->count(),
-                    'fecha_consulta' => now()->toISOString()
+                    'fecha_consulta' => now()->toISOString(),
+                    'sistema' => 'nuevo' // Indicador de que usamos el nuevo sistema
                 ]
             ]);
         } catch (\Exception $e) {
-            Log::error('Error al obtener cargas externas para admin:', [
+            Log::error('Error al obtener cargas externas:', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Error al obtener cargas externas: ' . $e->getMessage(),
-                'data' => []
+                'message' => 'Error al obtener cargas externas: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * 🆕 CALCULAR estadísticas con comparación mensual
+     */
+    private function calcularEstadisticasNuevas($cargas): array
+    {
+        // Mes actual
+        $mesActual = Carbon::now();
+        $mesAnterior = Carbon::now()->subMonth();
+
+        // Filtrar cargas por mes
+        $cargasMesActual = $cargas->filter(function ($carga) use ($mesActual) {
+            return Carbon::parse($carga->created_at)->format('Y-m') === $mesActual->format('Y-m');
+        });
+
+        $cargasMesAnterior = $cargas->filter(function ($carga) use ($mesAnterior) {
+            return Carbon::parse($carga->created_at)->format('Y-m') === $mesAnterior->format('Y-m');
+        });
+
+        // Estadísticas generales (convertir estados al vuelo)
+        $cargasConEstadoNuevo = $cargas->map(function ($carga) {
+            $carga->estado_nuevo = $this->convertirEstadoViejo($carga->estado);
+            return $carga;
+        });
+
+        // Estadísticas básicas
+        $estadisticas = [
+            'total' => $cargas->count(),
+            'por_rendir' => $cargasConEstadoNuevo->where('estado_nuevo', 'Por Rendir')->count(),
+            'rendidas' => $cargasConEstadoNuevo->where('estado_nuevo', 'Rendido')->count(),
+            'total_litros' => $cargas->sum('litros'),
+            'total_costo' => $cargas->sum('costo'),
+            'promedio_precio_litro' => $cargas->where('precio_por_litro', '>', 0)->avg('precio_por_litro') ?: 0
+        ];
+
+        // 🆕 COMPARACIÓN MENSUAL
+        $litrosMesActual = $cargasMesActual->sum('litros');
+        $litrosMesAnterior = $cargasMesAnterior->sum('litros');
+
+        $costoMesActual = $cargasMesActual->sum('costo');
+        $costoMesAnterior = $cargasMesAnterior->sum('costo');
+
+        // Calcular porcentajes de cambio
+        $cambioLitros = $litrosMesActual > 0
+            ? (($litrosMesActual - $litrosMesAnterior) / $litrosMesActual) * 100
+            : 0;
+
+
+        $cambioCosto = $costoMesAnterior > 0
+            ? (($costoMesActual - $costoMesAnterior) / $costoMesAnterior) * 100
+            : 0;
+
+        // Añadir comparación mensual
+        $estadisticas['comparacion_mensual'] = [
+            'mes_actual' => [
+                'total_cargas' => $cargasMesActual->count(),
+                'por_rendir' => $cargasMesActual->filter(function ($c) {
+                    return $this->convertirEstadoViejo($c->estado) === 'Por Rendir';
+                })->count(),
+                'rendidas' => $cargasMesActual->filter(function ($c) {
+                    return $this->convertirEstadoViejo($c->estado) === 'Rendido';
+                })->count(),
+                'litros' => $litrosMesActual,
+                'costo' => $costoMesActual,
+                'periodo' => $mesActual->format('Y-m')
+            ],
+            'mes_anterior' => [
+                'total_cargas' => $cargasMesAnterior->count(),
+                'litros' => $litrosMesAnterior,
+                'costo' => $costoMesAnterior,
+                'periodo' => $mesAnterior->format('Y-m')
+            ],
+            'diferencias' => [
+                'litros_diferencia' => $litrosMesActual - $litrosMesAnterior,
+                'litros_porcentaje' => round($cambioLitros, 2),
+                'costo_diferencia' => $costoMesActual - $costoMesAnterior,
+                'costo_porcentaje' => round($cambioCosto, 2),
+                'tendencia_litros' => $cambioLitros > 0 ? 'subida' : ($cambioLitros < 0 ? 'bajada' : 'igual'),
+                'tendencia_costo' => $cambioCosto > 0 ? 'subida' : ($cambioCosto < 0 ? 'bajada' : 'igual')
+            ]
+        ];
+
+        return $estadisticas;
     }
 
     /**
@@ -142,44 +212,46 @@ class AdminOperadorController extends Controller
     {
         try {
             $carga = CargaExterna::with([
-                'user:id,nombre,apellido,rut,email,id_faena',
-                'user.faena:id_faena,ubicacion', // ✅ NUEVO: Traer también la faena del usuario
-                'maquina:id_maquina,nombre_maquina,patente,id_categoria',
+                'user:id,nombre,apellido',
+                'maquina:id_maquina,nombre_maquina,patente',
                 'maquina.categoria:id_categoria,nombre_categoria',
                 'faena:id_faena,ubicacion',
-                'aprobadoPor:id,nombre,apellido' // Usuario que aprobó/rechazó
+                'aprobadoPor:id,nombre,apellido'
             ])->findOrFail($id);
 
-            // Formatear los datos igual que en index() pero con más detalles
+            // Convertir estado al nuevo sistema
+            $estadoNuevo = $this->convertirEstadoViejo($carga->estado);
+
             $cargaFormateada = [
                 'id' => $carga->id,
                 'numero_boleta' => $carga->numero_boleta,
-                'litros' => (float) $carga->litros,
-                'costo' => (float) $carga->costo,
-                'precio_por_litro' => (float) $carga->precio_por_litro,
+                'litros' => $carga->litros,
                 'medicion' => $carga->medicion,
+                'costo' => $carga->costo,
+                'precio_por_litro' => $carga->precio_por_litro,
                 'ubicacion' => $carga->ubicacion,
                 'tipo_combustible' => $carga->tipo_combustible,
                 'observaciones' => $carga->observaciones,
-                'estado' => $carga->estado,
-                'created_at' => $carga->created_at,
-                'fecha_aprobacion' => $carga->fecha_aprobacion,
-                'motivo_rechazo' => $carga->motivo_rechazo,
 
-                // Información del usuario (más completa)
+                // 🆕 Estado convertido
+                'estado' => $estadoNuevo,
+                'estado_original' => $carga->estado, // Por si necesitas debug
+
+                'fecha_rendicion' => $carga->fecha_aprobacion,
+                'created_at' => $carga->created_at,
+                'updated_at' => $carga->updated_at,
+
+                // Relaciones (igual que antes)
                 'user' => [
                     'id' => $carga->user->id ?? null,
-                    'nombre' => $carga->user->nombre ?? 'Usuario no encontrado',
+                    'nombre' => $carga->user->nombre ?? 'N/A',
                     'apellido' => $carga->user->apellido ?? '',
-                    'rut' => $carga->user->rut ?? 'Sin RUT',
-                    'email' => $carga->user->email ?? 'Sin email',
-                    'nombre_completo' => ($carga->user->nombre ?? 'Usuario') . ' ' . ($carga->user->apellido ?? 'no encontrado')
+                    'nombre_completo' => ($carga->user->nombre ?? 'N/A') . ' ' . ($carga->user->apellido ?? '')
                 ],
 
-                // Información de la máquina (más completa)
                 'maquina' => [
                     'id' => $carga->maquina->id_maquina ?? null,
-                    'nombre_maquina' => $carga->maquina->nombre_maquina ?? 'Máquina no encontrada',
+                    'nombre_maquina' => $carga->maquina->nombre_maquina ?? 'N/A',
                     'patente' => $carga->maquina->patente ?? 'Sin patente',
                     'categoria' => [
                         'id' => $carga->maquina->categoria->id_categoria ?? null,
@@ -187,13 +259,11 @@ class AdminOperadorController extends Controller
                     ]
                 ],
 
-                // Información de la faena
                 'faena' => [
                     'id' => $carga->faena->id_faena ?? 6,
                     'ubicacion' => $carga->faena->ubicacion ?? 'Cargas Externas'
                 ],
 
-                // Información de quien aprobó/rechazó
                 'aprobadoPor' => $carga->aprobadoPor ? [
                     'id' => $carga->aprobadoPor->id,
                     'nombre' => $carga->aprobadoPor->nombre,
@@ -204,11 +274,11 @@ class AdminOperadorController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Detalle de carga obtenido correctamente',
+                'message' => 'Detalle obtenido correctamente',
                 'data' => $cargaFormateada
             ]);
         } catch (\Exception $e) {
-            Log::error('Error al obtener detalle de carga:', [
+            Log::error('Error al obtener detalle:', [
                 'carga_id' => $id,
                 'error' => $e->getMessage()
             ]);
@@ -220,127 +290,80 @@ class AdminOperadorController extends Controller
         }
     }
 
+
     /**
-     * ✅ Aprobar una carga externa
-     * Endpoint: POST /api/adminOperador/cargas/{id}/aprobar
+     * 🆕 NUEVO MÉTODO: Rendir una carga (reemplaza aprobar/rechazar)
      */
-    public function aprobar(Request $request, $id): JsonResponse
+    public function rendir(Request $request, $id): JsonResponse
     {
         try {
             $user = $request->user();
             $carga = CargaExterna::findOrFail($id);
 
-            // Verificar que la carga esté pendiente
-            if ($carga->estado !== 'Por Rendir') {
+            // Verificar que se pueda rendir
+            if (!$this->puedeRendirse($carga->estado)) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Solo se pueden aprobar cargas pendientes. Estado actual: ' . $carga->estado
+                    'message' => 'Esta carga no se puede rendir. Estado actual: ' . $carga->estado
                 ], 400);
             }
 
-            // Actualizar el estado de la carga
+            // Actualizar a estado rendido
             $carga->update([
                 'estado' => 'Rendido',
                 'aprobado_por' => $user->id,
                 'fecha_aprobacion' => now(),
-                'motivo_rechazo' => null // Limpiar motivo de rechazo si existía
-            ]);
-
-            // Crear registro en consumos_unificados
-            $this->crearConsumoUnificado($carga);
-
-            Log::info('Carga externa aprobada', [
-                'carga_id' => $carga->id,
-                'numero_boleta' => $carga->numero_boleta,
-                'aprobado_por' => $user->id,
-                'fecha_aprobacion' => now()
+                'motivo_rechazo' => null
             ]);
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Carga aprobada correctamente',
-                'data' => $carga->fresh(['user', 'maquina', 'faena'])
+                'message' => 'Carga rendida correctamente',
+                'data' => $carga->fresh(['user', 'maquina', 'faena', 'aprobadoPor'])
             ]);
         } catch (\Exception $e) {
-            Log::error('Error al aprobar carga:', [
+            Log::error('Error al rendir carga:', [
                 'carga_id' => $id,
-                'error' => $e->getMessage(),
-                'user_id' => $request->user()->id ?? null
+                'error' => $e->getMessage()
             ]);
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Error al aprobar carga: ' . $e->getMessage()
+                'message' => 'Error al rendir carga: ' . $e->getMessage()
             ], 500);
         }
     }
 
     /**
-     * ❌ Rechazar una carga externa
-     * Endpoint: POST /api/adminOperador/cargas/{id}/rechazar
+     * 🔧 HELPER: Verificar si una carga se puede rendir
      */
-    public function rechazar(Request $request, $id): JsonResponse
+    private function puedeRendirse($estado): bool
     {
-        try {
-            // Validar que se proporcione un motivo
-            $validated = $request->validate([
-                'motivo_rechazo' => 'required|string|max:500|min:10'
-            ], [
-                'motivo_rechazo.required' => 'El motivo del rechazo es obligatorio',
-                'motivo_rechazo.min' => 'El motivo debe tener al menos 10 caracteres',
-                'motivo_rechazo.max' => 'El motivo no puede exceder 500 caracteres'
-            ]);
+        $estadosPermitidos = [
+            'pendiente',    // Sistema viejo
+            'rechazado',    // Sistema viejo
+            'Por Rendir'    // Sistema nuevo
+        ];
 
-            $user = $request->user();
-            $carga = CargaExterna::findOrFail($id);
+        return in_array($estado, $estadosPermitidos);
+    }
 
-            // Verificar que la carga esté pendiente
-            if ($carga->estado !== 'pendiente') {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Solo se pueden rechazar cargas pendientes. Estado actual: ' . $carga->estado
-                ], 400);
-            }
+    /**
+     * 🔧 HELPER: Convertir estados del sistema viejo al nuevo
+     */
+    private function convertirEstadoViejo($estadoViejo): string
+    {
+        $conversion = [
+            'pendiente' => 'Por Rendir',
+            'aprobado' => 'Rendido',
+            'rechazado' => 'Por Rendir', // Los rechazados vuelven a "Por Rendir"
 
-            // Actualizar el estado de la carga
-            $carga->update([
-                'estado' => 'rechazado',
-                'aprobado_por' => $user->id,
-                'fecha_aprobacion' => now(),
-                'motivo_rechazo' => $validated['motivo_rechazo']
-            ]);
+            // Si ya están en el nuevo sistema, mantener
+            'Por Rendir' => 'Por Rendir',
+            'Rendido' => 'Rendido'
+        ];
 
-            Log::info('Carga externa rechazada', [
-                'carga_id' => $carga->id,
-                'numero_boleta' => $carga->numero_boleta,
-                'rechazado_por' => $user->id,
-                'motivo' => $validated['motivo_rechazo'],
-                'fecha_rechazo' => now()
-            ]);
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Carga rechazada correctamente',
-                'data' => $carga->fresh(['user', 'maquina', 'faena'])
-            ]);
-        } catch (ValidationException $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Errores de validación',
-                'errors' => $e->errors()
-            ], 422);
-        } catch (\Exception $e) {
-            Log::error('Error al rechazar carga:', [
-                'carga_id' => $id,
-                'error' => $e->getMessage(),
-                'user_id' => $request->user()->id ?? null
-            ]);
-
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Error al rechazar carga: ' . $e->getMessage()
-            ], 500);
-        }
+        return $conversion[$estadoViejo] ?? 'Por Rendir';
     }
 
     /**
@@ -391,54 +414,6 @@ class AdminOperadorController extends Controller
                 'status' => 'error',
                 'message' => 'Error al obtener estadísticas: ' . $e->getMessage()
             ], 500);
-        }
-    }
-
-    /**
-     * 🔄 Crear registro en consumos_unificados cuando se aprueba una carga
-     * (Método privado para integrar con el sistema de consumos unificados)
-     */
-    private function crearConsumoUnificado(CargaExterna $carga): void
-    {
-        try {
-            DB::table('consumos_unificados')->insert([
-                'id_dotacion' => null, // No aplica para cargas externas
-                'id_equipo' => $carga->id_maquina,
-                'id_usuario' => $carga->id_user,
-                'fecha_consumo' => $carga->created_at,
-                'litros_consumidos' => $carga->litros,
-                'medicion' => $carga->medicion,
-                'numeral_inicial' => null, // No aplica para cargas externas
-                'numeral_final' => null, // No aplica para cargas externas
-                'precio_litro' => $carga->precio_por_litro,
-                'id_faena' => $carga->id_faena ?? 6, // Default: Cargas Externas
-                'id_estanque' => null, // No aplica para cargas externas
-                'observacion' => $carga->observaciones,
-                'created_at' => now(),
-                'updated_at' => now(),
-                'tipo_consumo' => 'externa', // ✅ Distinguir de consumos internos
-                'tipo_operacion' => 'carga_externa',
-                'tipo_consumo_origen' => 'cargas_externas'
-            ]);
-
-            Log::info('✅ Consumo unificado creado para carga externa aprobada', [
-                'carga_id' => $carga->id,
-                'numero_boleta' => $carga->numero_boleta,
-                'litros' => $carga->litros,
-                'costo' => $carga->costo,
-                'id_maquina' => $carga->id_maquina,
-                'id_user' => $carga->id_user
-            ]);
-        } catch (\Exception $e) {
-            Log::error('❌ Error al crear consumo unificado para carga externa', [
-                'carga_id' => $carga->id,
-                'numero_boleta' => $carga->numero_boleta,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            // No lanzar excepción para no afectar la aprobación
-            // Solo registrar el error para revisión posterior
         }
     }
 
@@ -2001,8 +1976,8 @@ class AdminOperadorController extends Controller
             if ($asignacionesActivas > 0 && $usuario->estado == 1) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'No se puede desactivar el usuario porque tiene ' .
-                        $asignacionesActivas . ' asignaciones activas'
+                    'message' => 'El usuario no puede ser desactivado porque tiene ' .
+                        $asignacionesActivas . ' asignación(es) activa(s). Primero debe desasignar el vehículo correspondiente.'
                 ], 422);
             }
 

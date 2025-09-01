@@ -7,7 +7,8 @@ const ToggleEstadoModalAdminOperador = ({
     onConfirm,
     usuario,
     accion, // 'activar' o 'desactivar'
-    loading = false
+    loading = false,
+    error = null
 }) => {
     if (!isOpen || !usuario) return null;
 
@@ -23,11 +24,27 @@ const ToggleEstadoModalAdminOperador = ({
                 <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
                     {/* Header */}
                     <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        {/* ✅ MOSTRAR ERROR DENTRO DEL MODAL */}
+                        {error && (
+                            <div className="mb-4 bg-red-50 border-l-4 border-red-400 p-4 rounded">
+                                <div className="flex">
+                                    <FaExclamationTriangle className="h-5 w-5 text-red-400 mr-2 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-sm font-medium text-red-800">
+                                            Error
+                                        </p>
+                                        <p className="text-sm text-red-700 mt-1">
+                                            {error}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                         <div className="sm:flex sm:items-start">
                             {/* Ícono */}
                             <div className={`mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full sm:mx-0 sm:h-10 sm:w-10 ${isActivating
-                                    ? 'bg-green-100'
-                                    : 'bg-yellow-100'
+                                ? 'bg-green-100'
+                                : 'bg-yellow-100'
                                 }`}>
                                 {isActivating ? (
                                     <FaUserCheck className="h-6 w-6 text-green-600" />
@@ -113,8 +130,8 @@ const ToggleEstadoModalAdminOperador = ({
                         <button
                             type="button"
                             className={`inline-flex w-full justify-center rounded-md border border-transparent px-4 py-2 text-base font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm transition-colors ${isActivating
-                                    ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
-                                    : 'bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500'
+                                ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
+                                : 'bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500'
                                 } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                             onClick={onConfirm}
                             disabled={loading}
