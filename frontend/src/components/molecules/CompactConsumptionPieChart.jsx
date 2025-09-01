@@ -181,50 +181,112 @@ const CompactConsumptionPieChart = ({
     return fallbackColor;
   };
 
-  const calcularPeriodoAnterior = () => {
-    if (!fechaDesde || !fechaHasta) {
-      return {
-        fechaDesde: "",
-        fechaHasta: "",
-        descripcion: "Fechas inválidas",
-      };
-    }
+// 🔧 SOLUCIÓN COMPLETA: Función calcularPeriodoAnterior que maneja correctamente los días por mes
 
-    // 🔧 SOLUCIÓN SIMPLE: Parsear fechas sin usar setMonth
-    const [yearDesde, monthDesde, dayDesde] = fechaDesde.split("-").map(Number);
-    const [yearHasta, monthHasta, dayHasta] = fechaHasta.split("-").map(Number);
-
-    // Calcular mes anterior para fecha inicio
-    let yearAnteriorDesde = yearDesde;
-    let monthAnteriorDesde = monthDesde - 1;
-    if (monthAnteriorDesde < 1) {
-      monthAnteriorDesde = 12;
-      yearAnteriorDesde -= 1;
-    }
-
-    // Calcular mes anterior para fecha fin
-    let yearAnteriorHasta = yearHasta;
-    let monthAnteriorHasta = monthHasta - 1;
-    if (monthAnteriorHasta < 1) {
-      monthAnteriorHasta = 12;
-      yearAnteriorHasta -= 1;
-    }
-
-    // Formatear fechas como YYYY-MM-DD
-    const fechaInicioAnterior = `${yearAnteriorDesde}-${monthAnteriorDesde
-      .toString()
-      .padStart(2, "0")}-${dayDesde.toString().padStart(2, "0")}`;
-    const fechaFinAnterior = `${yearAnteriorHasta}-${monthAnteriorHasta
-      .toString()
-      .padStart(2, "0")}-${dayHasta.toString().padStart(2, "0")}`;
-
-    console.log("fechillasFormated", fechaInicioAnterior, fechaFinAnterior);
+const calcularPeriodoAnterior = () => {
+  if (!fechaDesde || !fechaHasta) {
     return {
-      fechaDesde: fechaInicioAnterior,
-      fechaHasta: fechaFinAnterior,
-      descripcion: formatearPeriodo(fechaInicioAnterior, fechaFinAnterior),
+      fechaDesde: "",
+      fechaHasta: "",
+      descripcion: "Fechas inválidas",
     };
+  }
+
+  // 📅 FUNCIÓN AUXILIAR: Obtener días en un mes específico
+  const getDiasEnMes = (year, month) => {
+    // month es 1-12 (enero = 1, diciembre = 12)
+    return new Date(year, month, 0).getDate();
   };
+
+  // Parsear fechas de entrada
+  const [yearDesde, monthDesde, dayDesde] = fechaDesde.split("-").map(Number);
+  const [yearHasta, monthHasta, dayHasta] = fechaHasta.split("-").map(Number);
+
+  // Calcular mes anterior para fecha inicio
+  let yearAnteriorDesde = yearDesde;
+  let monthAnteriorDesde = monthDesde - 1;
+  if (monthAnteriorDesde < 1) {
+    monthAnteriorDesde = 12;
+    yearAnteriorDesde -= 1;
+  }
+
+  // Calcular mes anterior para fecha fin
+  let yearAnteriorHasta = yearHasta;
+  let monthAnteriorHasta = monthHasta - 1;
+  if (monthAnteriorHasta < 1) {
+    monthAnteriorHasta = 12;
+    yearAnteriorHasta -= 1;
+  }
+
+  // 🔧 CORRECCIÓN CRÍTICA: Ajustar días si el mes anterior tiene menos días
+  let dayAnteriorDesde = dayDesde;
+  let dayAnteriorHasta = dayHasta;
+
+  // Verificar días máximos para el mes anterior de la fecha inicio
+  const maxDiasAnteriorDesde = getDiasEnMes(yearAnteriorDesde, monthAnteriorDesde);
+  if (dayAnteriorDesde > maxDiasAnteriorDesde) {
+    dayAnteriorDesde = maxDiasAnteriorDesde;
+    console.log(`🔧 Ajuste fecha inicio: Día ${dayDesde} → ${dayAnteriorDesde} (mes ${monthAnteriorDesde} solo tiene ${maxDiasAnteriorDesde} días)`);
+  }
+
+  // Verificar días máximos para el mes anterior de la fecha fin
+  const maxDiasAnteriorHasta = getDiasEnMes(yearAnteriorHasta, monthAnteriorHasta);
+  if (dayAnteriorHasta > maxDiasAnteriorHasta) {
+    dayAnteriorHasta = maxDiasAnteriorHasta;
+    console.log(`🔧 Ajuste fecha fin: Día ${dayHasta} → ${dayAnteriorHasta} (mes ${monthAnteriorHasta} solo tiene ${maxDiasAnteriorHasta} días)`);
+  }
+
+  // Formatear fechas como YYYY-MM-DD
+  const fechaInicioAnterior = `${yearAnteriorDesde}-${monthAnteriorDesde
+    .toString()
+    .padStart(2, "0")}-${dayAnteriorDesde.toString().padStart(2, "0")}`;
+  const fechaFinAnterior = `${yearAnteriorHasta}-${monthAnteriorHasta
+    .toString()
+    .padStart(2, "0")}-${dayAnteriorHasta.toString().padStart(2, "0")}`;
+
+  // Generar descripción
+  const descripcion = `${new Date(fechaInicioAnterior).toLocaleDateString("es-ES", {
+    month: "short",
+    day: "numeric"
+  })} - ${new Date(fechaFinAnterior).toLocaleDateString("es-ES", {
+    month: "short", 
+    day: "numeric"
+  })}`;
+
+  // Logging para debugging
+  console.log("🔍 Cálculo período anterior:", {
+    entrada: {
+      desde: fechaDesde,
+      hasta: fechaHasta
+    },
+    calculado: {
+      desde: fechaInicioAnterior,
+      hasta: fechaFinAnterior
+    },
+    ajustes: {
+      diaDesdeAjustado: dayDesde !== dayAnteriorDesde,
+      diaHastaAjustado: dayHasta !== dayAnteriorHasta,
+      diasMaximosEnMesAnterior: {
+        inicio: maxDiasAnteriorDesde,
+        fin: maxDiasAnteriorHasta
+      }
+    },
+    descripcion
+  });
+
+  return {
+    fechaDesde: fechaInicioAnterior,
+    fechaHasta: fechaFinAnterior,
+    descripcion,
+    // 🆕 METADATOS ADICIONALES para debugging
+    metadatos: {
+      ajusteDiaInicio: dayDesde !== dayAnteriorDesde,
+      ajusteDiaFin: dayHasta !== dayAnteriorHasta,
+      diasOriginales: { inicio: dayDesde, fin: dayHasta },
+      diasAjustados: { inicio: dayAnteriorDesde, fin: dayAnteriorHasta }
+    }
+  };
+};
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {

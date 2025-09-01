@@ -38,7 +38,8 @@ const DashboardComparativo = ({
   const [datosEquipos, setDatosEquipos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [periodoAnteriorDescripcion, setPeriodoAnteriorDescripcion] = useState("");
+  const [periodoAnteriorDescripcion, setPeriodoAnteriorDescripcion] =
+    useState("");
 
   // NUEVO: Estado para filtrar equipos
   const [mostrarEquiposSinDatos, setMostrarEquiposSinDatos] = useState(false);
@@ -51,37 +52,127 @@ const DashboardComparativo = ({
   // 🚀 OPTIMIZACIÓN: Cache de datos para evitar re-consultas innecesarias
   const cacheRef = useRef(new Map());
 
-  // 🚀 OPTIMIZACIÓN: Memoizar cálculo de período anterior
+// 🔧 SOLUCIÓN COMPLETA: Función calcularPeriodoAnterior que maneja correctamente los días por mes
+
+const calcularPeriodoAnterior = () => {
+  if (!fechaDesde || !fechaHasta) {
+    return {
+      fechaDesde: "",
+      fechaHasta: "",
+      descripcion: "Fechas inválidas",
+    };
+  }
+
+  // 📅 FUNCIÓN AUXILIAR: Obtener días en un mes específico
+  const getDiasEnMes = (year, month) => {
+    // month es 1-12 (enero = 1, diciembre = 12)
+    return new Date(year, month, 0).getDate();
+  };
+
+  // Parsear fechas de entrada
+  const [yearDesde, monthDesde, dayDesde] = fechaDesde.split("-").map(Number);
+  const [yearHasta, monthHasta, dayHasta] = fechaHasta.split("-").map(Number);
+
+  // Calcular mes anterior para fecha inicio
+  let yearAnteriorDesde = yearDesde;
+  let monthAnteriorDesde = monthDesde - 1;
+  if (monthAnteriorDesde < 1) {
+    monthAnteriorDesde = 12;
+    yearAnteriorDesde -= 1;
+  }
+
+  // Calcular mes anterior para fecha fin
+  let yearAnteriorHasta = yearHasta;
+  let monthAnteriorHasta = monthHasta - 1;
+  if (monthAnteriorHasta < 1) {
+    monthAnteriorHasta = 12;
+    yearAnteriorHasta -= 1;
+  }
+
+  // 🔧 CORRECCIÓN CRÍTICA: Ajustar días si el mes anterior tiene menos días
+  let dayAnteriorDesde = dayDesde;
+  let dayAnteriorHasta = dayHasta;
+
+  // Verificar días máximos para el mes anterior de la fecha inicio
+  const maxDiasAnteriorDesde = getDiasEnMes(yearAnteriorDesde, monthAnteriorDesde);
+  if (dayAnteriorDesde > maxDiasAnteriorDesde) {
+    dayAnteriorDesde = maxDiasAnteriorDesde;
+    console.log(`🔧 Ajuste fecha inicio: Día ${dayDesde} → ${dayAnteriorDesde} (mes ${monthAnteriorDesde} solo tiene ${maxDiasAnteriorDesde} días)`);
+  }
+
+  // Verificar días máximos para el mes anterior de la fecha fin
+  const maxDiasAnteriorHasta = getDiasEnMes(yearAnteriorHasta, monthAnteriorHasta);
+  if (dayAnteriorHasta > maxDiasAnteriorHasta) {
+    dayAnteriorHasta = maxDiasAnteriorHasta;
+    console.log(`🔧 Ajuste fecha fin: Día ${dayHasta} → ${dayAnteriorHasta} (mes ${monthAnteriorHasta} solo tiene ${maxDiasAnteriorHasta} días)`);
+  }
+
+  // Formatear fechas como YYYY-MM-DD
+  const fechaInicioAnterior = `${yearAnteriorDesde}-${monthAnteriorDesde
+    .toString()
+    .padStart(2, "0")}-${dayAnteriorDesde.toString().padStart(2, "0")}`;
+  const fechaFinAnterior = `${yearAnteriorHasta}-${monthAnteriorHasta
+    .toString()
+    .padStart(2, "0")}-${dayAnteriorHasta.toString().padStart(2, "0")}`;
+
+  // Generar descripción
+  const descripcion = `${new Date(fechaInicioAnterior).toLocaleDateString("es-ES", {
+    month: "short",
+    day: "numeric"
+  })} - ${new Date(fechaFinAnterior).toLocaleDateString("es-ES", {
+    month: "short", 
+    day: "numeric"
+  })}`;
+
+  // Logging para debugging
+  console.log("🔍 Cálculo período anterior:", {
+    entrada: {
+      desde: fechaDesde,
+      hasta: fechaHasta
+    },
+    calculado: {
+      desde: fechaInicioAnterior,
+      hasta: fechaFinAnterior
+    },
+    ajustes: {
+      diaDesdeAjustado: dayDesde !== dayAnteriorDesde,
+      diaHastaAjustado: dayHasta !== dayAnteriorHasta,
+      diasMaximosEnMesAnterior: {
+        inicio: maxDiasAnteriorDesde,
+        fin: maxDiasAnteriorHasta
+      }
+    },
+    descripcion
+  });
+
+  return {
+    fechaDesde: fechaInicioAnterior,
+    fechaHasta: fechaFinAnterior,
+    descripcion,
+    // 🆕 METADATOS ADICIONALES para debugging
+    metadatos: {
+      ajusteDiaInicio: dayDesde !== dayAnteriorDesde,
+      ajusteDiaFin: dayHasta !== dayAnteriorHasta,
+      diasOriginales: { inicio: dayDesde, fin: dayHasta },
+      diasAjustados: { inicio: dayAnteriorDesde, fin: dayAnteriorHasta }
+    }
+  };
+};
   const periodoAnterior = useMemo(() => {
     if (!fechaDesde || !fechaHasta) return null;
-    
-    const inicioActual = new Date(fechaDesde);
-    const finActual = new Date(fechaHasta);
-    const inicioAnterior = new Date(inicioActual);
-    inicioAnterior.setMonth(inicioAnterior.getMonth() - 1);
-    const finAnterior = new Date(finActual);
-    finAnterior.setMonth(finAnterior.getMonth() - 1);
 
-    const descripcion = `${inicioAnterior.toLocaleDateString("es-ES", {
-      month: "short",
-      day: "numeric",
-    })} - ${finAnterior.toLocaleDateString("es-ES", {
-      month: "short",
-      day: "numeric",
-    })}`;
-
-    return {
-      fechaDesde: inicioAnterior.toISOString().split("T")[0],
-      fechaHasta: finAnterior.toISOString().split("T")[0],
-      descripcion,
-    };
+    // Usar la función corregida en lugar del cálculo directo
+    return calcularPeriodoAnterior();
   }, [fechaDesde, fechaHasta]);
+
+  // 🔍 DEBUGGING: Agrega este console.log para verificar
+  console.log("🔍 DashboardComparativo periodoAnterior:", periodoAnterior);
 
   // 🚀 FUNCIÓN OPTIMIZADA: Obtener datos de un período específico
   const obtenerDatosPeriodo = async (fechaInicio, fechaFin, signal) => {
     // Cache key para evitar consultas duplicadas
     const cacheKey = `${fechaInicio}_${fechaFin}_${faenaSeleccionada}`;
-    
+
     // Verificar cache primero
     if (cacheRef.current.has(cacheKey)) {
       console.log("📦 Usando datos del cache:", cacheKey);
@@ -103,20 +194,21 @@ const DashboardComparativo = ({
 
     try {
       // 🚀 OPTIMIZACIÓN: Consultas paralelas más eficientes (3 en lugar de 4)
-      const [totalResponse, faenasResponse, equiposResponse] = await Promise.all([
-        axios.get("/api/informes-kpi", {
-          params: { ...params, tipo: "kpis_consumo" },
-          signal,
-        }),
-        axios.get("/api/informes-kpi", {
-          params: { ...params, tipo: "consumo_faenas" },
-          signal,
-        }),
-        axios.get("/api/informes-kpi", {
-          params: { ...params, tipo: "consumo_equipos" },
-          signal,
-        }),
-      ]);
+      const [totalResponse, faenasResponse, equiposResponse] =
+        await Promise.all([
+          axios.get("/api/informes-kpi", {
+            params: { ...params, tipo: "kpis_consumo" },
+            signal,
+          }),
+          axios.get("/api/informes-kpi", {
+            params: { ...params, tipo: "consumo_faenas" },
+            signal,
+          }),
+          axios.get("/api/informes-kpi", {
+            params: { ...params, tipo: "consumo_equipos" },
+            signal,
+          }),
+        ]);
 
       // Verificar si la request fue cancelada
       if (signal.aborted) {
@@ -142,20 +234,25 @@ const DashboardComparativo = ({
 
       // 🚀 OPTIMIZACIÓN: Procesamiento más eficiente de categorías usando Map
       const categoriasMap = new Map();
-      equipos.forEach(equipo => {
+      equipos.forEach((equipo) => {
         const categoria = equipo.categoria || "Sin categoría";
         const consumo = parseFloat(equipo.consumo || 0);
-        categoriasMap.set(categoria, (categoriasMap.get(categoria) || 0) + consumo);
+        categoriasMap.set(
+          categoria,
+          (categoriasMap.get(categoria) || 0) + consumo
+        );
       });
 
-      const categoriasArray = Array.from(categoriasMap.entries()).map(([categoria, consumo]) => ({
-        categoria,
-        litros_consumidos: consumo,
-      }));
+      const categoriasArray = Array.from(categoriasMap.entries()).map(
+        ([categoria, consumo]) => ({
+          categoria,
+          litros_consumidos: consumo,
+        })
+      );
 
       // 4. Top equipos con categoría incluida (optimizado)
       const topEquipos = equipos
-        .map(equipo => ({
+        .map((equipo) => ({
           nombre_equipo: equipo.nombre || "Sin nombre",
           patente: equipo.patente || "",
           categoria: equipo.categoria || "Sin categoría",
@@ -182,7 +279,7 @@ const DashboardComparativo = ({
 
       // 🚀 Guardar en cache con TTL de 5 minutos
       cacheRef.current.set(cacheKey, resultado);
-      
+
       return resultado;
     } catch (error) {
       if (error.name === "AbortError") {
@@ -467,164 +564,184 @@ const DashboardComparativo = ({
   }, []);
 
   // 🚀 MEMOIZAR TOOLTIPS para evitar re-renders costosos
-  const CustomTooltipCombinado = useMemo(() => ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      const actual = payload.find((p) => p.dataKey === "actual")?.value || 0;
-      const anterior = payload.find((p) => p.dataKey === "anterior")?.value || 0;
-      const esTotal = payload[0]?.payload?.esTotal;
+  const CustomTooltipCombinado = useMemo(
+    () =>
+      ({ active, payload, label }) => {
+        if (active && payload && payload.length) {
+          const actual =
+            payload.find((p) => p.dataKey === "actual")?.value || 0;
+          const anterior =
+            payload.find((p) => p.dataKey === "anterior")?.value || 0;
+          const esTotal = payload[0]?.payload?.esTotal;
 
-      const cambio =
-        anterior > 0
-          ? ((actual - anterior) / anterior) * 100
-          : actual > 0
-          ? 100
-          : 0;
-      const esPositivo = cambio >= 0;
+          const cambio =
+            anterior > 0
+              ? ((actual - anterior) / anterior) * 100
+              : actual > 0
+              ? 100
+              : 0;
+          const esPositivo = cambio >= 0;
 
-      return (
-        <div className="bg-white p-3 border border-gray-300 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-800 mb-2 flex items-center">
-            {esTotal && <span className="mr-2">🎯</span>}
-            {label}
-          </p>
-          <div className="space-y-1">
-            <p className="text-orange-600 font-medium">
-              Actual: {actual.toLocaleString("es-CL")} L
-            </p>
-            <p className="text-blue-600 font-medium">
-              Anterior: {anterior.toLocaleString("es-CL")} L
-            </p>
-            <div
-              className={`flex items-center text-sm font-medium ${
-                esPositivo ? "text-red-600" : "text-green-600"
-              }`}
-            >
-              {esPositivo ? (
-                <FiTrendingUp className="mr-1" />
-              ) : (
-                <FiTrendingDown className="mr-1" />
-              )}
-              {Math.abs(cambio).toFixed(1)}%
-            </div>
-            {esTotal && (
-              <p className="text-xs text-purple-600 mt-2 font-medium">
-                ✨ Suma de todas las faenas
+          return (
+            <div className="bg-white p-3 border border-gray-300 rounded-lg shadow-lg">
+              <p className="font-semibold text-gray-800 mb-2 flex items-center">
+                {esTotal && <span className="mr-2">🎯</span>}
+                {label}
               </p>
-            )}
-          </div>
-        </div>
-      );
-    }
+              <div className="space-y-1">
+                <p className="text-orange-600 font-medium">
+                  Actual: {actual.toLocaleString("es-CL")} L
+                </p>
+                <p className="text-blue-600 font-medium">
+                  Anterior: {anterior.toLocaleString("es-CL")} L
+                </p>
+                <div
+                  className={`flex items-center text-sm font-medium ${
+                    esPositivo ? "text-red-600" : "text-green-600"
+                  }`}
+                >
+                  {esPositivo ? (
+                    <FiTrendingUp className="mr-1" />
+                  ) : (
+                    <FiTrendingDown className="mr-1" />
+                  )}
+                  {Math.abs(cambio).toFixed(1)}%
+                </div>
+                {esTotal && (
+                  <p className="text-xs text-purple-600 mt-2 font-medium">
+                    ✨ Suma de todas las faenas
+                  </p>
+                )}
+              </div>
+            </div>
+          );
+        }
 
-    return null;
-  }, []);
+        return null;
+      },
+    []
+  );
 
   // Tooltip específico para categorías
-  const CustomTooltipCategorias = useMemo(() => ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      const actual = payload.find((p) => p.dataKey === "actual")?.value || 0;
-      const anterior = payload.find((p) => p.dataKey === "anterior")?.value || 0;
-      const incidenciaTotal = (actual || 0) + (anterior || 0);
+  const CustomTooltipCategorias = useMemo(
+    () =>
+      ({ active, payload, label }) => {
+        if (active && payload && payload.length) {
+          const actual =
+            payload.find((p) => p.dataKey === "actual")?.value || 0;
+          const anterior =
+            payload.find((p) => p.dataKey === "anterior")?.value || 0;
+          const incidenciaTotal = (actual || 0) + (anterior || 0);
 
-      const cambio =
-        anterior > 0
-          ? ((actual - anterior) / anterior) * 100
-          : actual > 0
-          ? 100
-          : 0;
-      const esPositivo = cambio >= 0;
+          const cambio =
+            anterior > 0
+              ? ((actual - anterior) / anterior) * 100
+              : actual > 0
+              ? 100
+              : 0;
+          const esPositivo = cambio >= 0;
 
-      return (
-        <div className="bg-white p-3 border border-green-300 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-800 mb-2 flex items-center">
-            {label}
-          </p>
-          <div className="space-y-1">
-            <p className="text-orange-600 font-medium">
-              Actual: {actual.toLocaleString("es-CL")} L
-            </p>
-            <p className="text-blue-600 font-medium">
-              Anterior: {anterior.toLocaleString("es-CL")} L
-            </p>
-            <p className="text-green-600 font-medium border-t pt-1">
-              📊 Total Categoría: {incidenciaTotal.toLocaleString("es-CL")} L
-            </p>
-            <div
-              className={`flex items-center text-sm font-medium ${
-                esPositivo ? "text-red-600" : "text-green-600"
-              }`}
-            >
-              {esPositivo ? (
-                <FiTrendingUp className="mr-1" />
-              ) : (
-                <FiTrendingDown className="mr-1" />
-              )}
-              {Math.abs(cambio).toFixed(1)}%
+          return (
+            <div className="bg-white p-3 border border-green-300 rounded-lg shadow-lg">
+              <p className="font-semibold text-gray-800 mb-2 flex items-center">
+                {label}
+              </p>
+              <div className="space-y-1">
+                <p className="text-orange-600 font-medium">
+                  Actual: {actual.toLocaleString("es-CL")} L
+                </p>
+                <p className="text-blue-600 font-medium">
+                  Anterior: {anterior.toLocaleString("es-CL")} L
+                </p>
+                <p className="text-green-600 font-medium border-t pt-1">
+                  📊 Total Categoría: {incidenciaTotal.toLocaleString("es-CL")}{" "}
+                  L
+                </p>
+                <div
+                  className={`flex items-center text-sm font-medium ${
+                    esPositivo ? "text-red-600" : "text-green-600"
+                  }`}
+                >
+                  {esPositivo ? (
+                    <FiTrendingUp className="mr-1" />
+                  ) : (
+                    <FiTrendingDown className="mr-1" />
+                  )}
+                  {Math.abs(cambio).toFixed(1)}%
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      );
-    }
+          );
+        }
 
-    return null;
-  }, []);
+        return null;
+      },
+    []
+  );
 
   // Tooltip específico para equipos/máquinas
-  const CustomTooltipEquipos = useMemo(() => ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      const actual = payload.find((p) => p.dataKey === "actual")?.value || 0;
-      const anterior = payload.find((p) => p.dataKey === "anterior")?.value || 0;
-      const categoria = payload[0]?.payload?.categoria;
-      const incidenciaTotal = (actual || 0) + (anterior || 0);
+  const CustomTooltipEquipos = useMemo(
+    () =>
+      ({ active, payload, label }) => {
+        if (active && payload && payload.length) {
+          const actual =
+            payload.find((p) => p.dataKey === "actual")?.value || 0;
+          const anterior =
+            payload.find((p) => p.dataKey === "anterior")?.value || 0;
+          const categoria = payload[0]?.payload?.categoria;
+          const incidenciaTotal = (actual || 0) + (anterior || 0);
 
-      const cambio =
-        anterior > 0
-          ? ((actual - anterior) / anterior) * 100
-          : actual > 0
-          ? 100
-          : 0;
-      const esPositivo = cambio >= 0;
+          const cambio =
+            anterior > 0
+              ? ((actual - anterior) / anterior) * 100
+              : actual > 0
+              ? 100
+              : 0;
+          const esPositivo = cambio >= 0;
 
-      return (
-        <div className="bg-white p-3 border border-purple-300 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-800 mb-2 flex items-center">
-            <GiTruck className="text-purple-600 mr-1" />
-            {label}
-          </p>
-          {categoria && (
-            <p className="text-xs text-purple-600 font-medium mb-2">
-              📂 {categoria}
-            </p>
-          )}
-          <div className="space-y-1">
-            <p className="text-orange-600 font-medium">
-              Actual: {actual.toLocaleString("es-CL")} L
-            </p>
-            <p className="text-blue-600 font-medium">
-              Anterior: {anterior.toLocaleString("es-CL")} L
-            </p>
-            <p className="text-purple-600 font-medium border-t pt-1">
-              🔥 Incidencia Total: {incidenciaTotal.toLocaleString("es-CL")} L
-            </p>
-            <div
-              className={`flex items-center text-sm font-medium ${
-                esPositivo ? "text-red-600" : "text-green-600"
-              }`}
-            >
-              {esPositivo ? (
-                <FiTrendingUp className="mr-1" />
-              ) : (
-                <FiTrendingDown className="mr-1" />
+          return (
+            <div className="bg-white p-3 border border-purple-300 rounded-lg shadow-lg">
+              <p className="font-semibold text-gray-800 mb-2 flex items-center">
+                <GiTruck className="text-purple-600 mr-1" />
+                {label}
+              </p>
+              {categoria && (
+                <p className="text-xs text-purple-600 font-medium mb-2">
+                  📂 {categoria}
+                </p>
               )}
-              {Math.abs(cambio).toFixed(1)}%
+              <div className="space-y-1">
+                <p className="text-orange-600 font-medium">
+                  Actual: {actual.toLocaleString("es-CL")} L
+                </p>
+                <p className="text-blue-600 font-medium">
+                  Anterior: {anterior.toLocaleString("es-CL")} L
+                </p>
+                <p className="text-purple-600 font-medium border-t pt-1">
+                  🔥 Incidencia Total: {incidenciaTotal.toLocaleString("es-CL")}{" "}
+                  L
+                </p>
+                <div
+                  className={`flex items-center text-sm font-medium ${
+                    esPositivo ? "text-red-600" : "text-green-600"
+                  }`}
+                >
+                  {esPositivo ? (
+                    <FiTrendingUp className="mr-1" />
+                  ) : (
+                    <FiTrendingDown className="mr-1" />
+                  )}
+                  {Math.abs(cambio).toFixed(1)}%
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      );
-    }
+          );
+        }
 
-    return null;
-  }, []);
+        return null;
+      },
+    []
+  );
 
   // 🚀 MEMOIZAR: Componente para gráfico combinado Total + Faenas
   const GraficoCombinado = useMemo(() => {
@@ -718,7 +835,12 @@ const DashboardComparativo = ({
         </div>
       </div>
     );
-  }, [datosTotal, datosFaenas, periodoAnteriorDescripcion, CustomTooltipCombinado]);
+  }, [
+    datosTotal,
+    datosFaenas,
+    periodoAnteriorDescripcion,
+    CustomTooltipCombinado,
+  ]);
 
   // 📊 Componente específico para gráfico de categorías
   const GraficoCategorias = useMemo(() => {
@@ -926,7 +1048,12 @@ const DashboardComparativo = ({
         )}
       </div>
     );
-  }, [datosEquipos, mostrarEquiposSinDatos, periodoAnteriorDescripcion, CustomTooltipEquipos]);
+  }, [
+    datosEquipos,
+    mostrarEquiposSinDatos,
+    periodoAnteriorDescripcion,
+    CustomTooltipEquipos,
+  ]);
 
   // Estados de loading y error
   if (loading) {
