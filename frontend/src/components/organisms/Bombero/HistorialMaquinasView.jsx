@@ -335,7 +335,7 @@ const DateFilter = React.memo(({
                 </div>
                 <div>
                     <h3 className="text-lg sm:text-xl font-bold text-gray-800">
-                        🔍 Filtros Compartidos
+                        Filtros Compartidos
                     </h3>
                     <p className="text-gray-600 text-xs sm:text-sm">
                         {pestanaActiva === 'historial'

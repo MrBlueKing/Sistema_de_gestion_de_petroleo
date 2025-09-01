@@ -26,13 +26,27 @@ const FAENA_COLORS = {
     icon: '🏔️'
   },
   'Estacion de Servicio': {
-    primary: '#2986CC', // AZUL
-    light: '#dcfce7',
-    border: '#bbf7d0',
+    primary: '#1D4ED8', // degradado azul
+    light: '#EFF6FF',  // azul muy claro
+    border: '#BFDBFE', // azul suave
     icon: '⛽'
-    }
+  }
 };
 
+// 🛠️ Función helper para obtener estilos inline por faena
+const getFaenaStyles = (faena) => {
+  const faenaData = FAENA_COLORS[faena];
+  if (!faenaData) {
+    return {
+      backgroundColor: '#f9fafb', // gray-50
+      borderLeftColor: '#6b7280'  // gray-400
+    };
+  }
+  return {
+    backgroundColor: faenaData.light,
+    borderLeftColor: faenaData.primary
+  };
+};
 // 🎨 COLORES PARA GRÁFICOS
 const CHART_COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#8dd1e1', '#d084d0'];
 
@@ -93,8 +107,8 @@ const Pagination = React.memo(({
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
           className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === 1
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
+            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+            : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
             }`}
         >
           <FaChevronLeft className="w-3 h-3" />
@@ -106,10 +120,10 @@ const Pagination = React.memo(({
             onClick={() => typeof page === 'number' && onPageChange(page)}
             disabled={page === '...'}
             className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${page === currentPage
-                ? "bg-blue-600 text-white"
-                : page === '...'
-                  ? "text-gray-400 cursor-default"
-                  : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
+              ? "bg-blue-600 text-white"
+              : page === '...'
+                ? "text-gray-400 cursor-default"
+                : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
               }`}
           >
             {page}
@@ -120,8 +134,8 @@ const Pagination = React.memo(({
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
           className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === totalPages
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
+            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+            : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
             }`}
         >
           <FaChevronRight className="w-3 h-3" />
@@ -146,7 +160,7 @@ const VisualizacionesConsumoMaquina = ({
 }) => {
   const [vistaActiva, setVistaActiva] = useState('timeline');
   const [maquinaSeleccionada, setMaquinaSeleccionada] = useState('');
-  
+
   // 🆕 ESTADOS PARA PAGINACIÓN
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -307,35 +321,157 @@ const VisualizacionesConsumoMaquina = ({
     );
   }, [datosFiltrados]);
 
-  // 📊 ESTADÍSTICAS CALCULADAS - USA TODOS LOS DATOS FILTRADOS
+  // 📊 ESTADÍSTICAS CALCULADAS DINÁMICAS - VERSIÓN MEJORADA
   const estadisticasCalculadas = useMemo(() => {
-    const totalLitros = datosFiltrados.reduce((sum, d) => sum + d.litros, 0);
-    const visitasCabildo = datosFiltrados.filter(d => d.faena === 'Cabildo').length;
-    const visitasTiltil = datosFiltrados.filter(d => d.faena === 'Tiltil').length;
-    const promedioConsumo = datosFiltrados.length > 0 ? totalLitros / datosFiltrados.length : 0;
+    if (!datosFiltrados || datosFiltrados.length === 0) {
+      return {
+        totalLitros: '0',
+        totalCargas: 0,
+        visitasPorFaena: {},
+        cambiosFaena: 0,
+        promedioConsumo: '0',
+        diasActivo: 0,
+        maquinasUnicas: 0,
+        maquinaMasUsada: 'N/A',
+        faenaMasVisitada: 'N/A',
+        consumoPorFaena: {},
+        maquinasPorFaena: {},
+        estadisticasGenerales: {}
+      };
+    }
 
-    // Detectar cambios de faena
+    // 🔢 Cálculos básicos
+    const totalLitros = datosFiltrados.reduce((sum, d) => sum + (d.litros || 0), 0);
+    const totalCargas = datosFiltrados.length;
+    const promedioConsumo = totalCargas > 0 ? totalLitros / totalCargas : 0;
+
+    // 🏢 Estadísticas por faena (dinámico)
+    const visitasPorFaena = datosFiltrados.reduce((acc, d) => {
+      const faena = d.faena || 'Sin Faena';
+      acc[faena] = (acc[faena] || 0) + 1;
+      return acc;
+    }, {});
+
+    const consumoPorFaena = datosFiltrados.reduce((acc, d) => {
+      const faena = d.faena || 'Sin Faena';
+      acc[faena] = (acc[faena] || 0) + (d.litros || 0);
+      return acc;
+    }, {});
+
+    // 🚗 Máquinas por faena
+    const maquinasPorFaena = datosFiltrados.reduce((acc, d) => {
+      const faena = d.faena || 'Sin Faena';
+      if (!acc[faena]) acc[faena] = new Set();
+      if (d.maquina) acc[faena].add(d.maquina);
+      return acc;
+    }, {});
+
+    // Convertir Sets a números
+    Object.keys(maquinasPorFaena).forEach(faena => {
+      maquinasPorFaena[faena] = maquinasPorFaena[faena].size;
+    });
+
+    // 🔄 Detectar cambios de faena
     let cambiosFaena = 0;
-    for (let i = 1; i < datosFiltrados.length; i++) {
-      if (datosFiltrados[i].faena !== datosFiltrados[i - 1].faena) {
+    const datosOrdenados = [...datosFiltrados].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+    for (let i = 1; i < datosOrdenados.length; i++) {
+      if (datosOrdenados[i].faena !== datosOrdenados[i - 1].faena) {
         cambiosFaena++;
       }
     }
 
-    const maquinasUnicas = [...new Set(datosFiltrados.map(d => d.maquina))];
+    // 🚛 Estadísticas de máquinas
+    const maquinasUnicas = [...new Set(datosFiltrados.map(d => d.maquina).filter(Boolean))];
+    const consumoPorMaquina = datosFiltrados.reduce((acc, d) => {
+      if (d.maquina) {
+        acc[d.maquina] = (acc[d.maquina] || 0) + (d.litros || 0);
+      }
+      return acc;
+    }, {});
+
+    const maquinaMasUsada = maquinasUnicas.length > 0
+      ? Object.entries(consumoPorMaquina).sort(([, a], [, b]) => b - a)[0]?.[0] || 'N/A'
+      : 'N/A';
+
+    // 🏆 Faena más visitada
+    const faenaMasVisitada = Object.entries(visitasPorFaena).length > 0
+      ? Object.entries(visitasPorFaena).sort(([, a], [, b]) => b - a)[0]?.[0] || 'N/A'
+      : 'N/A';
+
+    // 📅 Días únicos de actividad
+    const diasActivo = new Set(
+      datosFiltrados
+        .map(d => d.fechaFormateada || d.fecha)
+        .filter(Boolean)
+    ).size;
+
+    // 📈 Estadísticas generales adicionales
+    const estadisticasGenerales = {
+      promedioLitrosPorDia: diasActivo > 0 ? (totalLitros / diasActivo).toFixed(1) : '0',
+      promedioCargasPorDia: diasActivo > 0 ? (totalCargas / diasActivo).toFixed(1) : '0',
+      faenaConMayorConsumo: Object.entries(consumoPorFaena).length > 0
+        ? Object.entries(consumoPorFaena).sort(([, a], [, b]) => b - a)[0]?.[0] || 'N/A'
+        : 'N/A',
+      porcentajePorFaena: Object.fromEntries(
+        Object.entries(consumoPorFaena).map(([faena, litros]) => [
+          faena,
+          totalLitros > 0 ? ((litros / totalLitros) * 100).toFixed(1) : '0'
+        ])
+      )
+    };
 
     return {
+      // 🔢 Básicos
       totalLitros: totalLitros.toFixed(0),
-      totalCargas: datosFiltrados.length,
-      visitasCabildo,
-      visitasTiltil,
-      cambiosFaena,
+      totalCargas,
       promedioConsumo: promedioConsumo.toFixed(1),
-      diasActivo: new Set(datosFiltrados.map(d => d.fechaFormateada)).size,
+      diasActivo,
+      cambiosFaena,
+
+      // 🏢 Por faena (dinámico)
+      visitasPorFaena,
+      consumoPorFaena,
+      maquinasPorFaena,
+
+      // 🚛 Por máquina
       maquinasUnicas: maquinasUnicas.length,
-      maquinaMasUsada: maquinasUnicas.length > 0 ? maquinasUnicas[0] : 'N/A'
+      maquinaMasUsada,
+      consumoPorMaquina,
+
+      // 🏆 Rankings
+      faenaMasVisitada,
+      estadisticasGenerales,
+
+      // 📊 Para compatibilidad con código existente (deprecated)
+      visitasCabildo: visitasPorFaena['Cabildo'] || 0,
+      visitasTiltil: visitasPorFaena['Tiltil'] || 0,
     };
   }, [datosFiltrados]);
+
+  // 🎯 FUNCIONES HELPER PARA USAR LAS ESTADÍSTICAS
+  const obtenerTopFaenas = (limite = 3) => {
+    return Object.entries(estadisticasCalculadas.visitasPorFaena)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, limite)
+      .map(([faena, visitas]) => ({ faena, visitas }));
+  };
+
+  const obtenerTopMaquinas = (limite = 3) => {
+    return Object.entries(estadisticasCalculadas.consumoPorMaquina)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, limite)
+      .map(([maquina, consumo]) => ({ maquina, consumo: consumo.toFixed(0) }));
+  };
+
+  const obtenerResumenPorFaena = () => {
+    return Object.keys(estadisticasCalculadas.visitasPorFaena).map(faena => ({
+      name: faena,
+      visitas: estadisticasCalculadas.visitasPorFaena[faena] || 0,
+      litros: estadisticasCalculadas.consumoPorFaena[faena] || 0,
+      porcentaje: estadisticasCalculadas.estadisticasGenerales.porcentajePorFaena[faena] || '0',
+      maquinas: estadisticasCalculadas.maquinasPorFaena[faena] || 0
+    }));
+  };
 
   // 🚛 OBTENER MÁQUINAS DISPONIBLES
   const maquinasDisponiblesGraficos = useMemo(() => {
@@ -411,9 +547,8 @@ const VisualizacionesConsumoMaquina = ({
 
             {datosLineaTiempo.map((item, index) => (
               <div
-                key={item.id}
-                className={`p-3 rounded-lg border-l-4 ${item.faena === 'Cabildo' ? 'bg-green-50 border-green-400' : 'bg-red-50 border-red-400'
-                  }`}
+                className="p-3 rounded-lg border-l-4"
+                style={getFaenaStyles(item.faena)}
               >
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
@@ -460,45 +595,6 @@ const VisualizacionesConsumoMaquina = ({
                 </div>
               </div>
             ))}
-          </div>
-
-          {/* 🎨 RESUMEN POR FAENA (de la segunda versión) */}
-          <div className="grid grid-cols-2 gap-4 mt-6 pt-4 border-t">
-            <div className="bg-green-50 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-2xl">🌿</span>
-                <span className="font-semibold text-green-800">Cabildo</span>
-              </div>
-              <div className="space-y-1">
-                <div className="text-sm text-gray-600">
-                  {estadisticasCalculadas.visitasCabildo} Cargas
-                </div>
-                <div className="font-bold text-green-600 text-lg">
-                  {datosDona.find(d => d.name === 'Cabildo')?.value?.toFixed(0) || 0} L
-                </div>
-                <div className="text-xs text-green-700">
-                  {datosDona.find(d => d.name === 'Cabildo')?.porcentaje || 0}% del total
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-red-50 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-2xl">🏔️</span>
-                <span className="font-semibold text-red-800">Tiltil</span>
-              </div>
-              <div className="space-y-1">
-                <div className="text-sm text-gray-600">
-                  {estadisticasCalculadas.visitasTiltil} Cargas
-                </div>
-                <div className="font-bold text-red-600 text-lg">
-                  {datosDona.find(d => d.name === 'Tiltil')?.value?.toFixed(0) || 0} L
-                </div>
-                <div className="text-xs text-red-700">
-                  {datosDona.find(d => d.name === 'Tiltil')?.porcentaje || 0}% del total
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* 🆕 COMPONENTE DE PAGINACIÓN */}
@@ -670,24 +766,32 @@ const VisualizacionesConsumoMaquina = ({
           ))}
         </div>
 
-        {/* Estadísticas rápidas */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-3">
-            <div className="text-blue-600 text-sm">Total Consumido</div>
-            <div className="text-2xl font-bold text-blue-800">{estadisticasCalculadas.totalLitros} L</div>
-          </div>
-          <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-3">
-            <div className="text-green-600 text-sm">Cargas Cabildo</div>
-            <div className="text-2xl font-bold text-green-800">{estadisticasCalculadas.visitasCabildo}</div>
-          </div>
-          <div className="bg-gradient-to-r from-red-50 to-red-100 rounded-lg p-3">
-            <div className="text-red-600 text-sm">Cargas Tiltil</div>
-            <div className="text-2xl font-bold text-red-800">{estadisticasCalculadas.visitasTiltil}</div>
-          </div>
-          <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg p-3">
-            <div className="text-purple-600 text-sm">Cambios de Faena</div>
-            <div className="text-2xl font-bold text-purple-800">{estadisticasCalculadas.cambiosFaena}</div>
-          </div>
+        {/* 🎨 RESUMEN DINÁMICO MEJORADO */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6 pt-4 border-t">
+          {obtenerResumenPorFaena().map(faena => {
+            const faenaData = FAENA_COLORS[faena.name];
+            const styles = getFaenaStyles(faena.name);
+
+            return (
+              <div key={faena.name} className="rounded-lg p-4 border-l-4" style={styles}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-2xl">{faenaData?.icon || '📍'}</span>
+                  <span className="font-semibold" style={{ color: faenaData?.primary || '#6b7280' }}>
+                    {faena.name}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm text-gray-600">{faena.visitas} Cargas</div>
+                  <div className="font-bold text-lg" style={{ color: faenaData?.primary || '#6b7280' }}>
+                    {faena.litros.toFixed(0)} L
+                  </div>
+                  <div className="text-xs" style={{ color: faenaData?.primary || '#6b7280', opacity: 0.8 }}>
+                    {faena.porcentaje}% del total • {faena.maquinas} máquinas
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
