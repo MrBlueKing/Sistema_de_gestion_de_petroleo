@@ -756,7 +756,7 @@ const ConsumptionPieChart = ({
             }
             fontWeight="700"
           >
-            {itemValue >= 1000
+            {itemValue >= 1000000
               ? `${(itemValue / 1000).toFixed(1)}k L`
               : `${Math.round(itemValue)} L`}
           </text>
