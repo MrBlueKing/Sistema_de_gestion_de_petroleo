@@ -13,13 +13,61 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 - [Planned] = Planificado para una futura versión.
 - [Idea] = Propuesta aún no aprobada.
 - [Blocked] = En pausa, depende de otro cambio.
-- [Testing] = En fase de pruebas, pendiente de validación.
+- [Testing:DevName] = En fase de QA/validación.
 - [Refactor] = Cambios internos que no afectan la funcionalidad.
 - [Ready] = Completado, probado y listo para entrar en la próxima versión estable
 
 ---
 
-## [Unreleased]
+## [Unrelesed] -
+
+### Added
+
+- [Queued] Administrador Operador Vehiculos --> Consumos View --> Agregar totales para la tabla consumos y mejorar el filtro de usuarios. 
+
+- [Queued] Global --> Centralizar un controlador de colores por faena reutilizable.
+
+- [Queued] Rol Jefe Mina --> Visualización similar a gerente, pero con el filtro fijo a su user.id_faena.
+
+- [Queued] Gerente --> Gestión Ingresos --> Añadir Información de la feana y paginación de la lista.
+
+- [Queued] Gerente --> ConsumosView --> Mejorar a Historial Maquina y corregir pdf.
+
+
+### Changed
+
+- [Queued] Gerente --> ConsumoPureTable --> Centralizado en la máquina más que en la Faena.
+
+
+### Depecrated
+
+- Ninguno
+
+### Removed
+
+- [Queued] Administrador Operador Vehiculos --> Eliminar Asignación Usuario Maquina y Guardar Drag & Drop.
+
+- [Queued] Recepciones Movil --> Eliminar Información repetida (detalles de recepción).
+
+- [Queued] Hostorial Maqiuna Bombero --> Eliminar Acumulado por registro.
+
+
+### Fixed
+
+- [Queued] Administrador Operador Vehiculos --> Crear Users --> Agregar Todas las validaciones correspondientes y ver que hacer con guion.
+
+- [Queued] Operador Vehiculos --> Historial --> Reemplazar historial antiguo por uno nuevo centrado en el user que traiga las estadisticas de las maquinas que el cargo.
+
+- [Queued] Administrador Operador Vehiculos --> Consumos View / Panel Principal --> Corregir acción de "Rendir" a un Consumo.
+
+
+### Security
+
+- Ninguno
+
+
+
+## [3.2]
 
 ### Added
 
