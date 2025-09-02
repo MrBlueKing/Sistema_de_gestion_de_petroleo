@@ -1,224 +1,129 @@
-// 🎨 ChartColorsContext.jsx - VERSIÓN OPTIMIZADA COMPATIBLE
-// Reemplaza COMPLETAMENTE el contenido de tu archivo actual
-// Mantiene la misma API pero elimina los re-renders problemáticos
+// ChartColorsContext.jsx - ACTUALIZADO
+import React, { createContext, useContext, useState, useCallback } from "react";
 
-import React, { createContext, useContext, useState, useCallback, useMemo, useRef } from 'react';
-
-// 🎨 PALETA DE COLORES CONSISTENTE (igual a la anterior)
-const CHART_COLORS = [
-  "#f97316", // orange-500
-  "#3b82f6", // blue-500
-  "#10b981", // emerald-500
-  "#f59e0b", // amber-500
-  "#8b5cf6", // violet-500
-  "#ef4444", // red-500
-  "#06b6d4", // cyan-500
-  "#84cc16", // lime-500
-  "#f43f5e", // rose-500
-  "#6366f1", // indigo-500
-  "#64748b", // slate-500
-];
-
-// Crear el contexto
 const ChartColorsContext = createContext();
 
-// 🔧 Provider del contexto - OPTIMIZADO pero COMPATIBLE
 export const ChartColorsProvider = ({ children }) => {
-  // Estados básicos (mantener nombres originales para compatibilidad)
   const [categoryColorMapping, setCategoryColorMapping] = useState({});
-  const [mainChartLoaded, setMainChartLoaded] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  
+  // 🆕 NUEVO: Estados para coordinar la carga secuencial
+  const [loadingCoordination, setLoadingCoordination] = useState({
+    mainChartLoading: false,
+    mainChartLoaded: false,
+    compactChartCanLoad: false,
+    allChartsLoaded: false
+  });
 
-  // 🔧 REFS PARA CACHE DE LOGGING (evita recrear Set constantemente)
-  const loggedColorsRef = useRef(new Set());
-  const warnedCategoriesRef = useRef(new Set());
-
-  // 🎨 FUNCIÓN ESTABILIZADA PARA OBTENER COLOR DE CATEGORÍA
-  const getColorForCategory = useCallback((categoryName) => {
-    if (!categoryName || typeof categoryName !== 'string') {
-      console.warn(`🎨 ChartColorsContext: Nombre de categoría inválido:`, categoryName);
-      return CHART_COLORS[0]; // Color por defecto
-    }
-
-    const color = categoryColorMapping[categoryName];
-    
-    if (color) {
-      // ✅ Log solo una vez por categoría para evitar spam
-      if (!loggedColorsRef.current.has(categoryName)) {
-        console.log(`🎨 ChartColorsContext: ✅ Color encontrado para "${categoryName}": ${color}`);
-        loggedColorsRef.current.add(categoryName);
-      }
-      return color;
-    }
-
-    // ❌ Advertir solo una vez por categoría faltante
-    if (!warnedCategoriesRef.current.has(categoryName)) {
-      console.warn(`🎨 ChartColorsContext: ❌ No se encontró color para "${categoryName}"`);
-      console.warn(`🎨 ChartColorsContext: Categorías disponibles:`, Object.keys(categoryColorMapping));
-      warnedCategoriesRef.current.add(categoryName);
-    }
-
-    return CHART_COLORS[0]; // Color por defecto
-  }, [categoryColorMapping]); // SOLO depende de categoryColorMapping
-
-  // 🎨 CALLBACK ESTABILIZADO PARA CUANDO ConsumptionPieChart NOTIFICA COLORES
-  const handleMainChartLoad = useCallback((categoriasConColores) => {
-    // 🔧 VALIDACIÓN TEMPRANA SILENCIOSA (evita logs innecesarios)
-    if (!categoriasConColores || !Array.isArray(categoriasConColores) || categoriasConColores.length === 0) {
-      return;
-    }
-
-    try {
-      // 🔧 CREAR MAPEO DE COLORES
-      const newMapping = {};
-
-      categoriasConColores.forEach((categoria, index) => {
-        const categoryName = categoria.name || categoria.nombre || categoria.label || `Categoría ${index + 1}`;
-        
-        let color = categoria.color || categoria.assignedColor || categoria.chartColor;
-        
-        if (!color) {
-          color = CHART_COLORS[index % CHART_COLORS.length];
-        }
-
-        if (color && categoryName) {
-          newMapping[categoryName] = color;
-        }
-      });
-
-      console.log(`🎨 ChartColorsContext: Procesando ${Object.keys(newMapping).length} categorías`);
-
-      // 🔧 ACTUALIZAR SOLO SI REALMENTE HAY CAMBIOS (evita re-renders innecesarios)
-      setCategoryColorMapping(prevMapping => {
-        const hasChanges = JSON.stringify(newMapping) !== JSON.stringify(prevMapping);
-        
-        if (hasChanges && Object.keys(newMapping).length > 0) {
-          console.log(`🎨 ChartColorsContext: ✅ Actualizando mapeo con ${Object.keys(newMapping).length} categorías`);
-          
-          // 🔧 ACTUALIZAR OTROS ESTADOS EN LOTE (evita múltiples re-renders)
-          setMainChartLoaded(true);
-          setIsInitialized(true);
-          
-          // Limpiar caches de logging
-          loggedColorsRef.current.clear();
-          warnedCategoriesRef.current.clear();
-          
-          return newMapping;
-        }
-        
-        // No hay cambios, devolver el estado anterior
-        return prevMapping;
-      });
-
-    } catch (error) {
-      console.error("🎨 ChartColorsContext: ❌ Error procesando datos de categorías:", error);
-    }
-  }, []); // SIN DEPENDENCIAS - función completamente estable
-
-  // 🔄 FUNCIÓN ESTABILIZADA PARA RESETEAR ESTADOS
+  // Función existente mejorada
   const resetColorMapping = useCallback(() => {
-    console.log("🔄 ChartColorsContext: Reseteando estados de colores");
-    
-    // 🔧 RESETEAR ESTADOS EN LOTE
+    console.log('🔄 ChartColors: Reseteando mapeo de colores');
     setCategoryColorMapping({});
-    setMainChartLoaded(false);
     setIsInitialized(false);
     
-    // Limpiar caches de logging
-    loggedColorsRef.current.clear();
-    warnedCategoriesRef.current.clear();
-  }, []); // SIN DEPENDENCIAS - función completamente estable
+    // 🆕 NUEVO: Resetear coordinación
+    setLoadingCoordination({
+      mainChartLoading: false,
+      mainChartLoaded: false,
+      compactChartCanLoad: false,
+      allChartsLoaded: false
+    });
+  }, []);
 
-  // 🔧 VALORES DERIVADOS MEMOIZADOS (solo cambian cuando realmente es necesario)
-  const derivedValues = useMemo(() => ({
+  // 🆕 NUEVO: Función para indicar que el gráfico principal empezó a cargar
+  const setMainChartLoading = useCallback((loading) => {
+    console.log(`🎯 ChartColors: Gráfico principal ${loading ? 'iniciando' : 'terminando'} carga`);
+    setLoadingCoordination(prev => ({
+      ...prev,
+      mainChartLoading: loading,
+      // Si termina de cargar, habilitar el gráfico compacto
+      compactChartCanLoad: prev.mainChartLoaded && !loading,
+    }));
+  }, []);
+
+  // 🆕 NUEVO: Función cuando el gráfico principal termina de cargar con datos
+  const handleMainChartLoad = useCallback((categorias) => {
+    console.log('✅ ChartColors: Gráfico principal cargado con datos:', categorias?.length);
+    
+    // Crear mapeo de colores
+    const newMapping = {};
+    if (Array.isArray(categorias)) {
+      categorias.forEach((categoria) => {
+        const name = categoria.name || categoria.nombre;
+        if (name && categoria.color) {
+          newMapping[name] = categoria.color;
+        }
+      });
+    }
+
+    setCategoryColorMapping(newMapping);
+    setIsInitialized(true);
+    
+    // 🔑 CRÍTICO: Habilitar carga del gráfico compacto
+    setLoadingCoordination(prev => ({
+      ...prev,
+      mainChartLoaded: true,
+      compactChartCanLoad: true,
+      mainChartLoading: false
+    }));
+
+    console.log('🎨 ChartColors: Colores mapeados:', newMapping);
+  }, []);
+
+  // 🆕 NUEVO: Función cuando el gráfico compacto termina
+  const handleCompactChartLoad = useCallback(() => {
+    console.log('✅ ChartColors: Gráfico compacto cargado');
+    setLoadingCoordination(prev => ({
+      ...prev,
+      allChartsLoaded: true
+    }));
+  }, []);
+
+  // Función existente mejorada
+  const getColorForCategory = useCallback((categoryName) => {
+    const color = categoryColorMapping[categoryName];
+    if (color) {
+      console.log(`🎨 ChartColors: Color para "${categoryName}": ${color}`);
+    } else {
+      console.log(`⚠️ ChartColors: Sin color para "${categoryName}"`);
+    }
+    return color;
+  }, [categoryColorMapping]);
+
+  const value = {
+    // Estados existentes
+    categoryColorMapping,
+    isInitialized,
     hasValidColorMapping: Object.keys(categoryColorMapping).length > 0,
     categoryCount: Object.keys(categoryColorMapping).length,
-    categoryNames: Object.keys(categoryColorMapping),
-  }), [categoryColorMapping]); // SOLO depende de categoryColorMapping
 
-  // 🔧 FUNCIÓN DE DEBUG ESTABILIZADA
-  const debugInfo = useCallback(() => ({
-    categoryColorMapping,
-    mainChartLoaded,
-    isInitialized,
-    categoryCount: Object.keys(categoryColorMapping).length
-  }), [categoryColorMapping, mainChartLoaded, isInitialized]);
+    // 🆕 NUEVOS estados de coordinación
+    loadingCoordination,
+    mainChartLoaded: loadingCoordination.mainChartLoaded,
+    compactChartCanLoad: loadingCoordination.compactChartCanLoad,
+    allChartsLoaded: loadingCoordination.allChartsLoaded,
 
-  // 🎨 VALOR FINAL DEL CONTEXTO - ESTABILIZADO
-  const contextValue = useMemo(() => ({
-    // Estados básicos (nombres originales para compatibilidad)
-    categoryColorMapping,
-    mainChartLoaded,
-    isInitialized,
-    
-    // Funciones estables (no cambian entre renders)
+    // Funciones existentes
     getColorForCategory,
-    handleMainChartLoad,
     resetColorMapping,
-    debugInfo,
-    
-    // Valores derivados
-    ...derivedValues,
-  }), [
-    // DEPENDENCIAS MÍNIMAS - solo lo que realmente afecta el valor
-    categoryColorMapping,
-    mainChartLoaded,
-    isInitialized,
-    getColorForCategory,
+
+    // 🆕 NUEVAS funciones de coordinación
+    setMainChartLoading,
     handleMainChartLoad,
-    resetColorMapping,
-    debugInfo,
-    derivedValues,
-  ]);
+    handleCompactChartLoad,
+  };
 
   return (
-    <ChartColorsContext.Provider value={contextValue}>
+    <ChartColorsContext.Provider value={value}>
       {children}
     </ChartColorsContext.Provider>
   );
 };
 
-// 🪝 Hook personalizado para usar el contexto (mantener nombre original)
 export const useChartColors = () => {
   const context = useContext(ChartColorsContext);
-  
-  if (!context) {
-    throw new Error('useChartColors debe ser usado dentro de un ChartColorsProvider');
+  if (context === undefined) {
+    throw new Error('useChartColors must be used within a ChartColorsProvider');
   }
-  
   return context;
 };
-
-// 🎯 EXPORTS ADICIONALES PARA COMPATIBILIDAD CON NUEVA API
-export const useOptimizedChartColors = useChartColors;
-export const OptimizedChartColorsProvider = ChartColorsProvider;
-
-// 🆕 HOOK PARA COMPONENTES QUE DEFINEN COLORES
-export const useColorMaster = () => {
-  const { handleMainChartLoad } = useChartColors();
-  
-  const processDataWithColors = useCallback((data, options = {}) => {
-    const { categoryField = 'name' } = options;
-    
-    if (!Array.isArray(data) || data.length === 0) {
-      return [];
-    }
-
-    // Procesar datos y asignar colores
-    const processedData = data.map((item, index) => ({
-      ...item,
-      color: CHART_COLORS[index % CHART_COLORS.length]
-    }));
-
-    // Notificar al contexto
-    handleMainChartLoad(processedData);
-    
-    return processedData;
-  }, [handleMainChartLoad]);
-
-  return {
-    processDataWithColors
-  };
-};
-
-export default ChartColorsContext;

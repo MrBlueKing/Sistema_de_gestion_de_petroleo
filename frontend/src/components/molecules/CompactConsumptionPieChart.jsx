@@ -25,6 +25,9 @@ const CompactConsumptionPieChart = ({
   fechaDesde,
   fechaHasta,
   refreshKey = 0,
+  allowParallelLoad = false,
+  waitForColors = true,
+  getColorForCategory = null,
   chartColors = [
     "#f97316", // orange-500
     "#3b82f6", // blue-500
@@ -40,16 +43,23 @@ const CompactConsumptionPieChart = ({
   ],
   titulo = "Análisis Comparativo Mensual",
   // ✅ NUEVAS PROPS PARA CARGA PARALELA:
-  allowParallelLoad = false,
-  waitForColors = false,
 }) => {
-  // ✅ USAR EL HOOK CORRECTO:
+ 
+
+    // 🔧 VERSIÓN SEGURA - con destructuring defensivo
+  const chartColorsContext = useChartColors();
+  
   const {
-    getColorForCategory,
-    categoryColorMapping,
-    hasValidColorMapping,
-    isInitialized,
-  } = useChartColors();
+    compactChartCanLoad = false,
+    handleCompactChartLoad = () => {},
+    getColorForCategory: contextGetColor = null,
+    hasValidColorMapping = false,
+    isInitialized = false,  // ✅ INCLUIDO Y CON VALOR POR DEFECTO
+    categoryColorMapping = {},
+    mainChartLoaded = false,
+  } = chartColorsContext || {};
+
+
   console.log("fechicha", fechaDesde, fechaHasta);
   // Estados principales
   const [periodoActual, setPeriodoActual] = useState([]);
@@ -181,112 +191,125 @@ const CompactConsumptionPieChart = ({
     return fallbackColor;
   };
 
-// 🔧 SOLUCIÓN COMPLETA: Función calcularPeriodoAnterior que maneja correctamente los días por mes
+  // 🔧 SOLUCIÓN COMPLETA: Función calcularPeriodoAnterior que maneja correctamente los días por mes
 
-const calcularPeriodoAnterior = () => {
-  if (!fechaDesde || !fechaHasta) {
-    return {
-      fechaDesde: "",
-      fechaHasta: "",
-      descripcion: "Fechas inválidas",
-    };
-  }
-
-  // 📅 FUNCIÓN AUXILIAR: Obtener días en un mes específico
-  const getDiasEnMes = (year, month) => {
-    // month es 1-12 (enero = 1, diciembre = 12)
-    return new Date(year, month, 0).getDate();
-  };
-
-  // Parsear fechas de entrada
-  const [yearDesde, monthDesde, dayDesde] = fechaDesde.split("-").map(Number);
-  const [yearHasta, monthHasta, dayHasta] = fechaHasta.split("-").map(Number);
-
-  // Calcular mes anterior para fecha inicio
-  let yearAnteriorDesde = yearDesde;
-  let monthAnteriorDesde = monthDesde - 1;
-  if (monthAnteriorDesde < 1) {
-    monthAnteriorDesde = 12;
-    yearAnteriorDesde -= 1;
-  }
-
-  // Calcular mes anterior para fecha fin
-  let yearAnteriorHasta = yearHasta;
-  let monthAnteriorHasta = monthHasta - 1;
-  if (monthAnteriorHasta < 1) {
-    monthAnteriorHasta = 12;
-    yearAnteriorHasta -= 1;
-  }
-
-  // 🔧 CORRECCIÓN CRÍTICA: Ajustar días si el mes anterior tiene menos días
-  let dayAnteriorDesde = dayDesde;
-  let dayAnteriorHasta = dayHasta;
-
-  // Verificar días máximos para el mes anterior de la fecha inicio
-  const maxDiasAnteriorDesde = getDiasEnMes(yearAnteriorDesde, monthAnteriorDesde);
-  if (dayAnteriorDesde > maxDiasAnteriorDesde) {
-    dayAnteriorDesde = maxDiasAnteriorDesde;
-    console.log(`🔧 Ajuste fecha inicio: Día ${dayDesde} → ${dayAnteriorDesde} (mes ${monthAnteriorDesde} solo tiene ${maxDiasAnteriorDesde} días)`);
-  }
-
-  // Verificar días máximos para el mes anterior de la fecha fin
-  const maxDiasAnteriorHasta = getDiasEnMes(yearAnteriorHasta, monthAnteriorHasta);
-  if (dayAnteriorHasta > maxDiasAnteriorHasta) {
-    dayAnteriorHasta = maxDiasAnteriorHasta;
-    console.log(`🔧 Ajuste fecha fin: Día ${dayHasta} → ${dayAnteriorHasta} (mes ${monthAnteriorHasta} solo tiene ${maxDiasAnteriorHasta} días)`);
-  }
-
-  // Formatear fechas como YYYY-MM-DD
-  const fechaInicioAnterior = `${yearAnteriorDesde}-${monthAnteriorDesde
-    .toString()
-    .padStart(2, "0")}-${dayAnteriorDesde.toString().padStart(2, "0")}`;
-  const fechaFinAnterior = `${yearAnteriorHasta}-${monthAnteriorHasta
-    .toString()
-    .padStart(2, "0")}-${dayAnteriorHasta.toString().padStart(2, "0")}`;
-
-  // Generar descripción
-  const descripcion = `${new Date(fechaInicioAnterior).toLocaleDateString("es-ES", {
-    month: "short",
-    day: "numeric"
-  })} - ${new Date(fechaFinAnterior).toLocaleDateString("es-ES", {
-    month: "short", 
-    day: "numeric"
-  })}`;
-
-  // Logging para debugging
-  console.log("🔍 Cálculo período anterior:", {
-    entrada: {
-      desde: fechaDesde,
-      hasta: fechaHasta
-    },
-    calculado: {
-      desde: fechaInicioAnterior,
-      hasta: fechaFinAnterior
-    },
-    ajustes: {
-      diaDesdeAjustado: dayDesde !== dayAnteriorDesde,
-      diaHastaAjustado: dayHasta !== dayAnteriorHasta,
-      diasMaximosEnMesAnterior: {
-        inicio: maxDiasAnteriorDesde,
-        fin: maxDiasAnteriorHasta
-      }
-    },
-    descripcion
-  });
-
-  return {
-    fechaDesde: fechaInicioAnterior,
-    fechaHasta: fechaFinAnterior,
-    descripcion,
-    // 🆕 METADATOS ADICIONALES para debugging
-    metadatos: {
-      ajusteDiaInicio: dayDesde !== dayAnteriorDesde,
-      ajusteDiaFin: dayHasta !== dayAnteriorHasta,
-      diasOriginales: { inicio: dayDesde, fin: dayHasta },
-      diasAjustados: { inicio: dayAnteriorDesde, fin: dayAnteriorHasta }
+  const calcularPeriodoAnterior = () => {
+    if (!fechaDesde || !fechaHasta) {
+      return {
+        fechaDesde: "",
+        fechaHasta: "",
+        descripcion: "Fechas inválidas",
+      };
     }
+
+    // 📅 FUNCIÓN AUXILIAR: Obtener días en un mes específico
+    const getDiasEnMes = (year, month) => {
+      // month es 1-12 (enero = 1, diciembre = 12)
+      return new Date(year, month, 0).getDate();
+    };
+
+    // Parsear fechas de entrada
+    const [yearDesde, monthDesde, dayDesde] = fechaDesde.split("-").map(Number);
+    const [yearHasta, monthHasta, dayHasta] = fechaHasta.split("-").map(Number);
+
+    // Calcular mes anterior para fecha inicio
+    let yearAnteriorDesde = yearDesde;
+    let monthAnteriorDesde = monthDesde - 1;
+    if (monthAnteriorDesde < 1) {
+      monthAnteriorDesde = 12;
+      yearAnteriorDesde -= 1;
+    }
+
+    // Calcular mes anterior para fecha fin
+    let yearAnteriorHasta = yearHasta;
+    let monthAnteriorHasta = monthHasta - 1;
+    if (monthAnteriorHasta < 1) {
+      monthAnteriorHasta = 12;
+      yearAnteriorHasta -= 1;
+    }
+
+    // 🔧 CORRECCIÓN CRÍTICA: Ajustar días si el mes anterior tiene menos días
+    let dayAnteriorDesde = dayDesde;
+    let dayAnteriorHasta = dayHasta;
+
+    // Verificar días máximos para el mes anterior de la fecha inicio
+    const maxDiasAnteriorDesde = getDiasEnMes(
+      yearAnteriorDesde,
+      monthAnteriorDesde
+    );
+    if (dayAnteriorDesde > maxDiasAnteriorDesde) {
+      dayAnteriorDesde = maxDiasAnteriorDesde;
+      console.log(
+        `🔧 Ajuste fecha inicio: Día ${dayDesde} → ${dayAnteriorDesde} (mes ${monthAnteriorDesde} solo tiene ${maxDiasAnteriorDesde} días)`
+      );
+    }
+
+    // Verificar días máximos para el mes anterior de la fecha fin
+    const maxDiasAnteriorHasta = getDiasEnMes(
+      yearAnteriorHasta,
+      monthAnteriorHasta
+    );
+    if (dayAnteriorHasta > maxDiasAnteriorHasta) {
+      dayAnteriorHasta = maxDiasAnteriorHasta;
+      console.log(
+        `🔧 Ajuste fecha fin: Día ${dayHasta} → ${dayAnteriorHasta} (mes ${monthAnteriorHasta} solo tiene ${maxDiasAnteriorHasta} días)`
+      );
+    }
+
+    // Formatear fechas como YYYY-MM-DD
+    const fechaInicioAnterior = `${yearAnteriorDesde}-${monthAnteriorDesde
+      .toString()
+      .padStart(2, "0")}-${dayAnteriorDesde.toString().padStart(2, "0")}`;
+    const fechaFinAnterior = `${yearAnteriorHasta}-${monthAnteriorHasta
+      .toString()
+      .padStart(2, "0")}-${dayAnteriorHasta.toString().padStart(2, "0")}`;
+
+    // Generar descripción
+    const descripcion = `${new Date(fechaInicioAnterior).toLocaleDateString(
+      "es-ES",
+      {
+        month: "short",
+        day: "numeric",
+      }
+    )} - ${new Date(fechaFinAnterior).toLocaleDateString("es-ES", {
+      month: "short",
+      day: "numeric",
+    })}`;
+
+    // Logging para debugging
+    console.log("🔍 Cálculo período anterior:", {
+      entrada: {
+        desde: fechaDesde,
+        hasta: fechaHasta,
+      },
+      calculado: {
+        desde: fechaInicioAnterior,
+        hasta: fechaFinAnterior,
+      },
+      ajustes: {
+        diaDesdeAjustado: dayDesde !== dayAnteriorDesde,
+        diaHastaAjustado: dayHasta !== dayAnteriorHasta,
+        diasMaximosEnMesAnterior: {
+          inicio: maxDiasAnteriorDesde,
+          fin: maxDiasAnteriorHasta,
+        },
+      },
+      descripcion,
+    });
+
+    return {
+      fechaDesde: fechaInicioAnterior,
+      fechaHasta: fechaFinAnterior,
+      descripcion,
+      // 🆕 METADATOS ADICIONALES para debugging
+      metadatos: {
+        ajusteDiaInicio: dayDesde !== dayAnteriorDesde,
+        ajusteDiaFin: dayHasta !== dayAnteriorHasta,
+        diasOriginales: { inicio: dayDesde, fin: dayHasta },
+        diasAjustados: { inicio: dayAnteriorDesde, fin: dayAnteriorHasta },
+      },
+    };
   };
-};
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -516,35 +539,82 @@ const calcularPeriodoAnterior = () => {
     return true;
   };
 
+  // 🔧 MEJORAR la función obtenerColorInteligente existente:
   const obtenerColorInteligente = useCallback(
     (item, index) => {
-      // ✅ MEJORADO: Siempre intentar obtener del contexto primero
-      if (getColorForCategory) {
-        const colorDelContexto = getColorForCategory(item.name || item.nombre);
+      const categoryName = item.name || item.nombre || "Sin categoría";
+
+      console.log(`🎨 CompactChart: Obteniendo color para "${categoryName}"`);
+
+      // 🔑 PRIORIDAD 1: Color del contexto (datos del gráfico principal)
+      if (hasValidColorMapping) {
+        const colorDelContexto = contextGetColor(categoryName);
         if (colorDelContexto) {
           console.log(
-            `🎨 Color del contexto para "${item.name}": ${colorDelContexto}`
+            `✅ CompactChart: Color del contexto para "${categoryName}": ${colorDelContexto}`
           );
           return colorDelContexto;
         }
       }
 
-      // ✅ FALLBACK: Si no hay color del contexto, usar array local
+      // PRIORIDAD 2: Color del prop categoryColorMapping (legacy)
+      if (
+        categoryColorMapping &&
+        Object.keys(categoryColorMapping).length > 0
+      ) {
+        const mappedColor = categoryColorMapping[categoryName];
+        if (mappedColor) {
+          console.log(
+            `🎨 CompactChart: Color desde mapeo para "${categoryName}": ${mappedColor}`
+          );
+          return mappedColor;
+        }
+      }
+
+      // PRIORIDAD 3: Función getColorForCategory (legacy)
+      if (getColorForCategory && typeof getColorForCategory === "function") {
+        const functionColor = getColorForCategory(categoryName);
+        if (functionColor) {
+          console.log(
+            `🎨 CompactChart: Color desde función para "${categoryName}": ${functionColor}`
+          );
+          return functionColor;
+        }
+      }
+
+      // PRIORIDAD 4: Fallback al array de colores
       const fallbackColor = chartColors[index % chartColors.length];
-      console.log(`🎨 Color fallback para "${item.name}": ${fallbackColor}`);
+      console.log(
+        `⚠️ CompactChart: Color fallback para "${categoryName}": ${fallbackColor}`
+      );
       return fallbackColor;
     },
-    [getColorForCategory, chartColors]
+    [
+      contextGetColor,
+      hasValidColorMapping,
+      categoryColorMapping,
+      getColorForCategory,
+      chartColors,
+    ]
   );
 
   // Función principal actualizada con validaciones
   const cargarDatos = async () => {
     console.log("🔍 CompactConsumptionPieChart: cargarDatos() iniciando...");
 
+    // 🆕 NUEVO: Verificar si puede cargar
+    if (waitForColors && !compactChartCanLoad) {
+      console.log(
+        "⏳ CompactChart: Esperando que termine el gráfico principal..."
+      );
+      return; // No cargar aún
+    }
+
     if (!isMounted.current) {
       console.log(
         "🔍 CompactConsumptionPieChart: Componente no montado, abortando carga"
       );
+
       return;
     }
 
@@ -630,6 +700,7 @@ const calcularPeriodoAnterior = () => {
       console.log("Periodo antes del set", periodoAnteriorFechas.descripcion);
       // Guardar la descripción del período para mostrar en la UI
       setPeriodoAnteriorDescripcion(periodoAnteriorFechas.descripcion);
+      handleCompactChartLoad();
       console.log("Periodo despues del set", periodoAnteriorFechas.descripcion);
       // Crear lista unificada de todas las categorías
       const todasCategorias = new Map();
@@ -713,21 +784,24 @@ const calcularPeriodoAnterior = () => {
     }
   };
 
-  // ✅ NUEVA LÓGICA CON SINCRONIZACIÓN INTELIGENTE:
+  // 🔧 MODIFICAR el useEffect principal:
   useEffect(() => {
     const shouldLoad = filtersChanged();
 
     if (shouldLoad) {
-      if (allowParallelLoad) {
-        // 🚀 CARGA PARALELA: Empezar inmediatamente
-        cargarDatos();
-      } else {
-        // 🔄 CARGA TRADICIONAL: Esperar colores
-        if (waitForColors && hasValidColorMapping) {
+      if (waitForColors) {
+        // 🔑 ESPERAR COORDINACIÓN: Solo cargar si el gráfico principal terminó
+        if (compactChartCanLoad) {
+          console.log(
+            "🚀 CompactChart: Gráfico principal listo, iniciando carga"
+          );
           cargarDatos();
-        } else if (!waitForColors) {
-          cargarDatos();
+        } else {
+          console.log("⏳ CompactChart: Esperando al gráfico principal...");
         }
+      } else {
+        // Carga tradicional
+        cargarDatos();
       }
     }
   }, [
@@ -735,10 +809,22 @@ const calcularPeriodoAnterior = () => {
     fechaDesde,
     fechaHasta,
     refreshKey,
-    allowParallelLoad,
+    compactChartCanLoad, // 🆕 NUEVA DEPENDENCIA
     waitForColors,
-    hasValidColorMapping,
   ]);
+
+  // 🆕 NUEVO: useEffect adicional para reaccionar cuando se habilite la carga
+  useEffect(() => {
+    if (
+      waitForColors &&
+      compactChartCanLoad &&
+      categorias.length === 0 &&
+      !loading
+    ) {
+      console.log("🔄 CompactChart: Habilitado para cargar, iniciando...");
+      cargarDatos();
+    }
+  }, [compactChartCanLoad, waitForColors]);
 
   // ✅ AÑADIR ESTE useEffect NUEVO (después del anterior):
   useEffect(() => {
@@ -754,9 +840,15 @@ const calcularPeriodoAnterior = () => {
         color: obtenerColorInteligente(cat, index),
       }));
 
+     const igual = categorias.every(
+      (c, i) => c.color === categoriasConNuevosColores[i].color
+    );
+
+    if (!igual) {
       setCategorias(categoriasConNuevosColores);
     }
-  }, [waitForColors, hasValidColorMapping, obtenerColorInteligente]);
+    }
+  }, [waitForColors, hasValidColorMapping, obtenerColorInteligente,categorias]);
 
   // 🔍 LOG ADICIONAL PARA VER EL ESTADO ACTUAL
   useEffect(() => {

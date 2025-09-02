@@ -424,21 +424,23 @@ const ConsumptionPieChart = ({
   refreshKey = 0,
   onCategoriesLoad = null, // ✅ SOLO ESTA CALLBACK
   chartColors = [
-    "#f97316",
-    "#3b82f6",
-    "#10b981",
-    "#f59e0b",
-    "#8b5cf6",
-    "#ef4444",
-    "#06b6d4",
-    "#84cc16",
-    "#f43f5e",
-    "#6366f1",
-    "#64748b",
+    "#f97316", // naranja fuerte
+    "#3b82f6", // azul medio
+    "#10b981", // verde esmeralda
+    "#f59e0b", // amarillo/naranja
+    "#8b5cf6", // morado
+    "#ef4444", // rojo fuerte
+    "#06b6d4", // celeste
+    "#84cc16", // verde lima
+    "#F527DD", // rojo rosado / burdeo
+    "#6366f1", // azul violeta
+    "#64748b", // gris azulado
   ],
-}) => {
-  const { handleMainChartLoad } = useChartColors();
 
+  // 🆕 NUEVA PROP para callback de coordinación
+  onLoadComplete = null,
+}) => {
+  const { setMainChartLoading, handleMainChartLoad } = useChartColors();
   const [categorias, setCategorias] = useState([]);
   const [maquinas, setMaquinas] = useState([]);
   const [selectedCategoria, setSelectedCategoria] = useState(null);
@@ -784,6 +786,7 @@ const ConsumptionPieChart = ({
     if (!isMounted.current) return;
 
     try {
+      setMainChartLoading(true);
       setLoading(true);
       setError(null);
 
@@ -791,6 +794,7 @@ const ConsumptionPieChart = ({
         setError("Por favor, seleccione un rango de fechas válido.");
         setCategorias([]);
         setLoading(false);
+        setMainChartLoading(false); // 🆕 NUEVO
         return;
       }
 
@@ -798,6 +802,7 @@ const ConsumptionPieChart = ({
         setError("La fecha 'Hasta' no puede ser anterior a la fecha 'Desde'.");
         setCategorias([]);
         setLoading(false);
+        setMainChartLoading(false); // 🆕 NUEVO
         return;
       }
 
@@ -857,6 +862,20 @@ const ConsumptionPieChart = ({
           formattedData.reduce((sum, item) => sum + item.value, 0);
 
         setTotalConsumo(total);
+
+        // Callback existente (si existe)
+        if (onCategoriesLoad && typeof onCategoriesLoad === "function") {
+          onCategoriesLoad(formattedData);
+        }
+
+        // 🔑 CRÍTICO: Notificar al contexto que terminamos de cargar
+        handleMainChartLoad(formattedData);
+
+        // 🆕 NUEVO: Callback de finalización
+        if (onLoadComplete && typeof onLoadComplete === "function") {
+          onLoadComplete(formattedData);
+        }
+
         setFechaActualizacion(new Date());
         initialLoadDone.current = true;
 

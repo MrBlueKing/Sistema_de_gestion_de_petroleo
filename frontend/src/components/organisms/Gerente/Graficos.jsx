@@ -49,6 +49,12 @@ const GraficosContent = ({ children }) => {
     resetColorMapping,
     hasValidColorMapping,
     categoryCount,
+    // 🆕 NUEVAS propiedades de coordinación
+    loadingCoordination,
+    compactChartCanLoad,
+    allChartsLoaded,
+    setMainChartLoading,
+    handleCompactChartLoad,
   } = useChartColors();
 
   // Estados básicos necesarios
@@ -97,13 +103,36 @@ const GraficosContent = ({ children }) => {
   // Estados para fechas inicializados con valores memoizados
   const [fechaDesde, setFechaDesde] = useState(defaultDates.primerDiaMesActual);
   const [fechaHasta, setFechaHasta] = useState(defaultDates.diaActual);
+  // 🆕 NUEVO: Estados para claves de refresh coordinado
+  const [refreshKeys, setRefreshKeys] = useState({
+    main: 0,
+    compact: 0,
+  });
 
-  // OPTIMIZACION 2: Resetear colores solo cuando cambien filtros críticos
   const resetColorsOptimizado = useCallback(() => {
-    console.log("🔄 Graficos: Reseteando colores (optimizado)");
+    console.log("🔄 Graficos: Reseteando colores y coordinación");
     resetColorMapping();
+
+    // 🆕 NUEVO: Incrementar claves de refresh para forzar recarga
+    setRefreshKeys((prev) => ({
+      main: prev.main + 1,
+      compact: prev.compact + 1,
+    }));
   }, [resetColorMapping]);
 
+  // 🆕 NUEVO: Callback cuando el gráfico principal termina
+  const onMainChartComplete = useCallback((categorias) => {
+    console.log("✅ Graficos: Gráfico principal completado");
+    // El contexto ya maneja la lógica, solo logging aquí
+  }, []);
+
+  // 🆕 NUEVO: Callback cuando el gráfico compacto termina
+  const onCompactChartComplete = useCallback(() => {
+    console.log("✅ Graficos: Gráfico compacto completado");
+    // Opcional: realizar acciones adicionales cuando ambos gráficos terminen
+  }, []);
+
+  // useEffect existente actualizado
   useEffect(() => {
     resetColorsOptimizado();
   }, [faenaSeleccionada, fechaDesde, fechaHasta, resetColorsOptimizado]);
@@ -122,13 +151,18 @@ const GraficosContent = ({ children }) => {
       setError(null);
 
       const response = await axios.get("/api/faenas");
-      console.log("📊 Respuesta completa del endpoint /api/faenas:", response.data);
+      console.log(
+        "📊 Respuesta completa del endpoint /api/faenas:",
+        response.data
+      );
 
       let faenasData = [];
 
       // Procesamiento optimizado de diferentes estructuras de respuesta
       if (response.data?.success && Array.isArray(response.data.data)) {
-        console.log("✅ Estructura encontrada: response.data.data (con wrapper)");
+        console.log(
+          "✅ Estructura encontrada: response.data.data (con wrapper)"
+        );
         faenasData = response.data.data;
       } else if (Array.isArray(response.data)) {
         console.log("✅ Estructura encontrada: response.data (directo)");
@@ -158,7 +192,10 @@ const GraficosContent = ({ children }) => {
           activo: faena.activo !== false,
         }));
 
-        console.log("✅ Faenas formateadas para el selector:", faenasFormateadas);
+        console.log(
+          "✅ Faenas formateadas para el selector:",
+          faenasFormateadas
+        );
         setFaenas(faenasFormateadas);
 
         // Selección automática optimizada
@@ -172,7 +209,9 @@ const GraficosContent = ({ children }) => {
       }
     } catch (error) {
       console.error("❌ Error cargando faenas:", error);
-      setError("Error al cargar las faenas disponibles. Verifique su conexión.");
+      setError(
+        "Error al cargar las faenas disponibles. Verifique su conexión."
+      );
       setFaenas([]);
     } finally {
       setCargando(false);
@@ -287,7 +326,8 @@ const GraficosContent = ({ children }) => {
             Comparación de Consumo por Categoría de Operación
           </div>
           <div className="text-xs text-gray-500 font-normal mt-1">
-            Sin considerar Micro y considerando el 30% del consumo de las camionetas
+            Sin considerar Micro y considerando el 30% del consumo de las
+            camionetas
           </div>
         </div>
       ),
@@ -297,8 +337,12 @@ const GraficosContent = ({ children }) => {
 
   // OPTIMIZACION 10: Condición optimizada para renderizar compacto
   const shouldRenderCompact = useMemo(() => {
-    const result = mainChartLoaded && hasValidColorMapping && categoryCount > 0 && isInitialized;
-    
+    const result =
+      mainChartLoaded &&
+      hasValidColorMapping &&
+      categoryCount > 0 &&
+      isInitialized;
+
     console.log("🔍 Graficos: Evaluando renderizado de CompactChart:", {
       mainChartLoaded,
       hasValidColorMapping,
@@ -306,60 +350,74 @@ const GraficosContent = ({ children }) => {
       shouldRenderCompact: result,
       isInitialized,
     });
-    
+
     return result;
   }, [mainChartLoaded, hasValidColorMapping, categoryCount, isInitialized]);
 
   // OPTIMIZACION 11: Memoizar componentes pesados para evitar re-renders
-  const MemoizedTopEquipos = useMemo(() => (
-    <TopEquiposChart
-      {...chartCommonProps}
-      getColorForCategory={getColorForCategory}
-    />
-  ), [chartCommonProps, getColorForCategory]);
+  const MemoizedTopEquipos = useMemo(
+    () => (
+      <TopEquiposChart
+        {...chartCommonProps}
+        getColorForCategory={getColorForCategory}
+      />
+    ),
+    [chartCommonProps, getColorForCategory]
+  );
 
-  const MemoizedConsumptionPie = useMemo(() => (
-    <ConsumptionPieChart
-      {...consumptionPieChartProps}
-      key={`main-chart-${refreshTrigger}`}
-    />
-  ), [consumptionPieChartProps, refreshTrigger]);
+  const MemoizedConsumptionPie = useMemo(
+    () => (
+      <ConsumptionPieChart
+        {...consumptionPieChartProps}
+        key={`main-chart-${refreshTrigger}`}
+      />
+    ),
+    [consumptionPieChartProps, refreshTrigger]
+  );
 
   // OPTIMIZACIÓN CRÍTICA: Evitar key dinámico que causa desmontaje
-  const MemoizedCompactChart = useMemo(() => (
-    shouldRenderCompact ? (
-      <CompactConsumptionPieChart
-        {...compactChartProps}
-        // Removido key dinámico para evitar re-mount
-      />
-    ) : null
-  ), [shouldRenderCompact, compactChartProps]);
+  const MemoizedCompactChart = useMemo(
+    () =>
+      shouldRenderCompact ? (
+        <CompactConsumptionPieChart
+          {...compactChartProps}
+          // Removido key dinámico para evitar re-mount
+        />
+      ) : null,
+    [shouldRenderCompact, compactChartProps]
+  );
 
   // OPTIMIZACIÓN: Key estable para evitar re-mount del gráfico principal
   const stableChartKey = useMemo(() => `main-chart-stable`, []);
 
-  const MemoizedDashboardComparativo = useMemo(() => (
-    fechaDesde && fechaHasta ? (
-      <DashboardComparativo {...chartCommonProps} />
-    ) : null
-  ), [fechaDesde, fechaHasta, chartCommonProps]);
+  const MemoizedDashboardComparativo = useMemo(
+    () =>
+      fechaDesde && fechaHasta ? (
+        <DashboardComparativo {...chartCommonProps} />
+      ) : null,
+    [fechaDesde, fechaHasta, chartCommonProps]
+  );
 
-  const MemoizedConsumoTendencia = useMemo(() => (
-    <ConsumoTendenciaChart {...chartCommonProps} />
-  ), [chartCommonProps]);
+  const MemoizedConsumoTendencia = useMemo(
+    () => <ConsumoTendenciaChart {...chartCommonProps} />,
+    [chartCommonProps]
+  );
 
   // OPTIMIZACION 12: Memoizar tablas para evitar re-renders innecesarios
-  const MemoizedConsumoPorMaquinaTable = useMemo(() => (
-    <ConsumoPorMaquinaPureTable {...datosFinales} />
-  ), [datosFinales]);
+  const MemoizedConsumoPorMaquinaTable = useMemo(
+    () => <ConsumoPorMaquinaPureTable {...datosFinales} />,
+    [datosFinales]
+  );
 
-  const MemoizedConsumoPorFaenaTable = useMemo(() => (
-    <ConsumoPorFaenaTable {...datosFinales} />
-  ), [datosFinales]);
+  const MemoizedConsumoPorFaenaTable = useMemo(
+    () => <ConsumoPorFaenaTable {...datosFinales} />,
+    [datosFinales]
+  );
 
-  const MemoizedIngresosPorFaenaTable = useMemo(() => (
-    <IngresosPorFaenaTable {...datosFinales} />
-  ), [datosFinales]);
+  const MemoizedIngresosPorFaenaTable = useMemo(
+    () => <IngresosPorFaenaTable {...datosFinales} />,
+    [datosFinales]
+  );
 
   // JSX PRINCIPAL OPTIMIZADO
   return (
@@ -524,9 +582,7 @@ const GraficosContent = ({ children }) => {
 
                 {/* GRÁFICO COMPACTO MEMOIZADO */}
                 {shouldRenderCompact ? (
-                  <div className="mb-6">
-                    {MemoizedCompactChart}
-                  </div>
+                  <div className="mb-6">{MemoizedCompactChart}</div>
                 ) : (
                   <div className="mb-6">
                     <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
@@ -540,7 +596,10 @@ const GraficosContent = ({ children }) => {
                         <div
                           className="bg-blue-500 h-1 rounded-full transition-all duration-500"
                           style={{
-                            width: `${Math.min((categoryCount / 5) * 100, 90)}%`,
+                            width: `${Math.min(
+                              (categoryCount / 5) * 100,
+                              90
+                            )}%`,
                           }}
                         ></div>
                       </div>
@@ -569,7 +628,8 @@ const GraficosContent = ({ children }) => {
                       <div className="text-center py-12">
                         <FiCalendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                         <p className="text-gray-600">
-                          Seleccione un rango de fechas para ver el dashboard comparativo
+                          Seleccione un rango de fechas para ver el dashboard
+                          comparativo
                         </p>
                       </div>
                     )}
@@ -621,7 +681,8 @@ const GraficosContent = ({ children }) => {
       <footer className="bg-white border-t border-gray-200 py-4 px-6 mt-8">
         <div className="container mx-auto flex justify-between items-center text-sm text-gray-500">
           <div>
-            &copy; {new Date().getFullYear()} Minera 3H. Todos los derechos reservados.
+            &copy; {new Date().getFullYear()} Minera 3H. Todos los derechos
+            reservados.
           </div>
           <div className="flex items-center">
             <span className="mr-2">Versión 0.0.1</span>
