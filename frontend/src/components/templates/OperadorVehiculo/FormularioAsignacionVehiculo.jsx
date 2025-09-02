@@ -6,12 +6,14 @@ import InputField from "../../atoms/Inputs/InputField";
 import Button from "../../atoms/Button/Button";
 import Label from "../../atoms/Typography/Label";
 import Alert from "../../atoms/FeedBack/Alert";
-import { useOperadorData } from "../../../hook/OperadorVehiculo/useOperadorData"; // ✅ MANTENER
-import { UserContext } from "../../../context/userContext"; // ✅ AGREGAR para id_faena
+import { useOperadorData } from "../../../hook/OperadorVehiculo/useOperadorData";
+import { UserContext } from "../../../context/userContext";
 import HistorialCollapsible from "../../molecules/HistorialCollapsible";
 import { useHistorialConsumos } from "../../../hook/Bombero/useHistorialConsumos";
 import axios from "../../../lib/axios";
-import { formatDate } from "date-fns";
+// 🆕 IMPORTAR EL NUEVO SELECTOR Y HOOK
+import SelectorMaquinasOperadorVehiculo from "../../molecules/SelectorMaquinasOperadorVehiculo";
+import { useMaquinasDisponibles } from "../../../hook/OperadorVehiculo/useMaquinasDisponibles";
 
 // ✅ COMPONENTE FUERA PARA EVITAR PÉRDIDA DE FOCO
 const InputKilometrajeSimple = ({
@@ -28,9 +30,9 @@ const InputKilometrajeSimple = ({
     disabled = false,
     className = "",
     getFieldError,
-    // 🆕 NUEVOS PROPS PARA VALIDACIÓN EN TIEMPO REAL
     kilometrajeError,
-    isValidating
+    isValidating,
+    maquinaSeleccionada
 }) => {
     const ultimoKilometraje = ultimoConsumo?.medicion;
     const fechaUltima = ultimoConsumo?.fecha_formateada;
@@ -45,10 +47,13 @@ const InputKilometrajeSimple = ({
                 tooltip="Kilometraje que marca el vehículo al momento de la carga"
             />
 
-            {mostrarReferencia && (
+            {/* 🆕 MOSTRAR ESTADO SEGÚN LA SITUACIÓN */}
+            {maquinaSeleccionada && mostrarReferencia && (
                 <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded-lg">
                     <div className="flex items-center justify-between text-sm">
-                        <span className="text-green-700 font-medium">Último kilometraje registrado:</span>
+                        <span className="text-green-700 font-medium">
+                            Último kilometraje de {maquinaSeleccionada.nombre_maquina}:
+                        </span>
                         <div className="text-right">
                             <span className="text-green-600 font-bold">
                                 {Math.round(ultimoKilometraje).toLocaleString()} km
@@ -61,20 +66,41 @@ const InputKilometrajeSimple = ({
                 </div>
             )}
 
+            {/* 🆕 CASO: Máquina seleccionada pero sin historial */}
+            {maquinaSeleccionada && !mostrarReferencia && (
+                <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center text-sm">
+                        <span className="text-blue-700">
+                            ℹ️ {maquinaSeleccionada.nombre_maquina} no tiene historial previo. Puedes ingresar cualquier kilometraje.
+                        </span>
+                    </div>
+                </div>
+            )}
+
+            {/* 🆕 CASO: No hay máquina seleccionada */}
+            {!maquinaSeleccionada && (
+                <div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="flex items-center text-sm">
+                        <span className="text-yellow-700">
+                            ⚠️ Selecciona una máquina primero para ver el último kilometraje registrado
+                        </span>
+                    </div>
+                </div>
+            )}
+
             <InputField
                 id={name}
-                name={name}  // ✅ AGREGAR name PROP
+                name={name}
                 type={type}
                 step="1"
                 placeholder={placeholder}
                 value={value}
                 onChange={onChange}
                 icon={Icon}
-                disabled={disabled}
+                disabled={disabled || !maquinaSeleccionada} // 🆕 Deshabilitar si no hay máquina
                 className={`${getFieldError && getFieldError(name) ? 'border-red-300 focus:border-red-500' : ''} ${kilometrajeError ? 'border-red-300 focus:border-red-500' : ''} ${className}`}
             />
 
-            {/* 🆕 VALIDACIÓN EN TIEMPO REAL */}
             {kilometrajeError && (
                 <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
                     <span>⚠️</span>
@@ -96,27 +122,58 @@ const InputKilometrajeSimple = ({
 const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
     const navigate = useNavigate();
 
-    // ✅ USAR AMBOS: useOperadorData para máquina + UserContext para faena
-    const { loading: loadingOperador, usuario, maquinaAsignada, error: errorOperador, revalidarAsignacion } = useOperadorData();
-    const { user } = useContext(UserContext); // Solo para obtener id_faena
+    // ✅ HOOKS ACTUALIZADOS - Sin maquinaAsignada
+    const { loading: loadingOperador, usuario, error: errorOperador } = useOperadorData();
+    const { user } = useContext(UserContext);
 
-    // 🆕 ESTADO PARA VALIDACIÓN DE ASIGNACIÓN
-    const [validandoAsignacion, setValidandoAsignacion] = useState(false);
+    // 🆕 ESTADOS PARA MÁQUINA SELECCIONADA
+    const [maquinaSeleccionada, setMaquinaSeleccionada] = useState(null);
+    const [datosUltimoConsumo, setDatosUltimoConsumo] = useState(null);
+    const { obtenerMaquinaPorId } = useMaquinasDisponibles();
 
-    // ✅ ESTADO CORREGIDO - FAENA FIJA ID 5
+    // 🆕 FUNCIÓN PARA MANEJAR SELECCIÓN DE MÁQUINA
+    const handleSeleccionarMaquina = async (maquina) => {
+        console.log('🚛 Máquina seleccionada:', maquina);
+        setMaquinaSeleccionada(maquina);
+
+        if (maquina) {
+            // 🆕 LIMPIAR DATOS ANTERIORES PRIMERO
+            setDatosUltimoConsumo(null);
+            setKilometrajeError(""); // Limpiar errores previos
+
+            // 🆕 MOSTRAR INDICADOR DE CARGA
+            console.log(`📊 Cargando historial para ${maquina.nombre_maquina}...`);
+
+            try {
+                // Cargar historial de la máquina seleccionada
+                await cargarHistorialConsumos(maquina.id_maquina, 2);
+                console.log(`✅ Historial cargado para ${maquina.nombre_maquina}`);
+            } catch (error) {
+                console.warn('⚠️ No se pudo cargar historial para la máquina:', error);
+                // 🆕 OPCIONAL: Mostrar mensaje al usuario
+                setDatosUltimoConsumo(null); // Asegurar que quede limpio
+            }
+        } else {
+            // Si se deselecciona la máquina
+            setDatosUltimoConsumo(null);
+            setKilometrajeError("");
+        }
+    };
+
+    // ✅ ESTADOS DEL FORMULARIO
     const [formData, setFormData] = useState({
         numero_boleta: "",
         litros: "",
-        precio_por_litro: "", // ✅ MODIFICADO: Ahora es input
-        costo: "",            // ✅ MODIFICADO: Ahora es calculado
+        precio_por_litro: "",
+        costo: "",
         ubicacion: "",
         tipo_combustible: "Diesel",
         observaciones: "",
-        medicion: "", // ✅ campo para kilometraje
-        id_faena: 5   // ✅ FIJO: Siempre será 5
+        medicion: "",
+        id_faena: 5
     });
 
-    // ✅ AGREGAR HOOK DE HISTORIAL
+    // ✅ HOOK DE HISTORIAL
     const {
         loadingHistorial,
         errorHistorial,
@@ -128,13 +185,14 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
         cargarHistorialConsumos
     } = useHistorialConsumos();
 
+    // ✅ ESTADOS DE CONTROL
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
     const [successMessage, setSuccessMessage] = useState("");
     const [focusedFields, setFocusedFields] = useState({});
     const alertRef = useRef(null);
 
-    // 🆕 AGREGAR ESTAS REFERENCIAS PARA CADA SECCIÓN
+    // 🆕 REFERENCIAS PARA ERRORES
     const errorRefs = useRef({
         numero_boleta: null,
         litros: null,
@@ -144,11 +202,11 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
         id_faena: null
     });
 
-    // 🆕 NUEVOS ESTADOS PARA LAS FUNCIONALIDADES PEDIDAS
-    const [fieldErrors, setFieldErrors] = useState({}); // Para errores específicos del backend
-    const [kilometrajeError, setKilometrajeError] = useState(""); // Para validación en tiempo real
-    const [showSuccessModal, setShowSuccessModal] = useState(false); // Para modal de éxito
-    const [createdCarga, setCreatedCarga] = useState(null); // Datos de la carga creada
+    // 🆕 ESTADOS PARA FUNCIONALIDADES AVANZADAS
+    const [fieldErrors, setFieldErrors] = useState({});
+    const [kilometrajeError, setKilometrajeError] = useState("");
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [createdCarga, setCreatedCarga] = useState(null);
 
     // 🆕 FUNCIÓN PARA SCROLLEAR AL PRIMER ERROR
     const scrollToFirstError = (errors) => {
@@ -158,13 +216,11 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
             const errorElement = errorRefs.current[firstErrorField];
 
             if (errorElement) {
-                // Scroll suave al elemento con error
                 errorElement.scrollIntoView({
                     behavior: 'smooth',
                     block: 'center'
                 });
 
-                // Enfocar el campo después de un pequeño delay
                 setTimeout(() => {
                     const inputElement = errorElement.querySelector('input, select, textarea');
                     if (inputElement) {
@@ -175,10 +231,10 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
         }
     };
 
-    // 🆕 VALIDACIÓN EN TIEMPO REAL DEL KILOMETRAJE
+    // 🆕 VALIDACIÓN EN TIEMPO REAL DEL KILOMETRAJE - CORREGIDA
     const validateKilometrajeRealTime = (value) => {
         if (!value || value.trim() === '') {
-            return ""; // No mostrar error si está vacío
+            return "";
         }
 
         const numValue = parseFloat(value);
@@ -194,33 +250,29 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
             return "Kilometraje demasiado alto (máximo 999,999 km)";
         }
 
-        // Validar contra último consumo
-        const ultimoKilometraje = ultimoConsumo?.medicion;
+        // 🆕 USAR datosUltimoConsumo
+        const ultimoKilometraje = datosUltimoConsumo?.medicion;
         if (ultimoKilometraje && numValue <= ultimoKilometraje) {
             return `Debe ser mayor a ${Math.round(ultimoKilometraje).toLocaleString()} km`;
         }
 
-        return ""; // Sin error
+        return "";
     };
 
-    // ✅ MODIFICAR handleChange para validar solo números (como en Consumo.jsx)
+    // ✅ MANEJAR CAMBIOS EN EL FORMULARIO
     const handleChange = (e) => {
         const { name, value } = e.target;
 
         if (name === 'medicion') {
-            console.log("Entro a medicion:", value, name)
-            // Permitir valores vacíos, números enteros y decimales
             if (value === "" || /^\d*\.?\d*$/.test(value)) {
                 setFormData(prev => ({
                     ...prev,
                     [name]: value
                 }));
 
-                // 🆕 VALIDACIÓN EN TIEMPO REAL
                 const error = validateKilometrajeRealTime(value);
                 setKilometrajeError(error);
 
-                // Limpiar error del backend si existe
                 if (fieldErrors.medicion) {
                     setFieldErrors(prev => {
                         const newErrors = { ...prev };
@@ -231,11 +283,10 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
             }
             return;
         }
-        // Para otros campos, comportamiento normal
+
         setFormData(prev => {
             const newData = { ...prev, [name]: value };
 
-            // Auto-calcular costo cuando cambian litros o precio
             if (name === 'litros' || name === 'precio_por_litro') {
                 const litros = name === 'litros' ? parseFloat(value) || 0 : parseFloat(prev.litros) || 0;
                 const precio = name === 'precio_por_litro' ? parseFloat(value) || 0 : parseFloat(prev.precio_por_litro) || 0;
@@ -245,7 +296,6 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
             return newData;
         });
 
-        // Limpiar errores del backend cuando el usuario empieza a escribir
         if (fieldErrors[name]) {
             setFieldErrors(prev => {
                 const newErrors = { ...prev };
@@ -255,24 +305,47 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
         }
     };
 
-    // ✅ NUEVO: Efecto para cargar historial cuando tengamos la máquina
+    // ✅ EFECTO PARA CARGAR HISTORIAL
     useEffect(() => {
-        if (maquinaAsignada?.id_maquina) {
-            cargarHistorialConsumos(maquinaAsignada.id_maquina, 2); // Últimos 2 consumos
+        if (maquinaSeleccionada?.id_maquina) {
+            cargarHistorialConsumos(maquinaSeleccionada.id_maquina, 2);
         }
-    }, [maquinaAsignada?.id_maquina, cargarHistorialConsumos]);
+    }, [maquinaSeleccionada?.id_maquina, cargarHistorialConsumos]);
+    // 🔧 MEJORAR EL useEffect PARA MANEJAR CAMBIOS DE MÁQUINA
+    useEffect(() => {
+        if (ultimoConsumo && maquinaSeleccionada) {
+            console.log('🔄 Actualizando datos del último consumo:', {
+                maquina: maquinaSeleccionada.nombre_maquina,
+                ultimoKm: ultimoConsumo.medicion || ultimoConsumo.kilometraje,
+                fecha: ultimoConsumo.fecha_consumo
+            });
 
-    // ✅ DEBUG: Detectar tipo de medición de la máquina
-    const tipoMedicion = maquinaAsignada?.tipo_maquina === 'Generador' ? 'Horometro' : 'Kilometraje';
+            setDatosUltimoConsumo({
+                medicion: ultimoConsumo.medicion || ultimoConsumo.kilometraje,
+                fecha_consumo: ultimoConsumo.fecha_consumo || ultimoConsumo.created_at,
+                litros_consumidos: ultimoConsumo.litros_consumidos,
+                fecha_formateada: ultimoConsumo.fecha_consumo ?
+                    new Date(ultimoConsumo.fecha_consumo).toLocaleDateString('es-ES') : null
+            });
+        } else if (maquinaSeleccionada && !ultimoConsumo) {
+            // 🆕 CASO: Máquina seleccionada pero sin historial
+            console.log(`ℹ️ ${maquinaSeleccionada.nombre_maquina} no tiene historial de consumos`);
+            setDatosUltimoConsumo(null);
+        }
+    }, [ultimoConsumo, maquinaSeleccionada]);
 
-    // ✅ NUEVO: Efecto para mostrar errores del operador
+
+    // ✅ DETECTAR TIPO DE MEDICIÓN
+    const tipoMedicion = maquinaSeleccionada?.tipo_maquina === 'Generador' ? 'Horometro' : 'Kilometraje';
+
+    // ✅ EFECTO PARA MOSTRAR ERRORES DEL OPERADOR
     useEffect(() => {
         if (errorOperador) {
             setError({ global: errorOperador });
         }
     }, [errorOperador]);
 
-    // Auto-desvanecer mensajes
+    // ✅ AUTO-DESVANECER MENSAJES
     useEffect(() => {
         if (successMessage) {
             const timer = setTimeout(() => setSuccessMessage(""), 5000);
@@ -280,26 +353,23 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
         }
     }, [successMessage]);
 
-    // 🆕 REEMPLAZAR con este useEffect mejorado:
+    // ✅ EFECTO PARA MANEJAR ERRORES
     useEffect(() => {
         if (error) {
             if (typeof error === 'object' && !error.global) {
-                // Si son errores de campos específicos, hacer scroll al primer error
                 scrollToFirstError(error);
             } else if (error.global && alertRef.current) {
-                // Si es error global, hacer scroll al alert
                 const offset = 100;
                 const top = alertRef.current.getBoundingClientRect().top + window.pageYOffset - offset;
                 window.scrollTo({ top, behavior: "smooth" });
             }
 
-            // Auto-limpiar errores después de 8 segundos
             const timer = setTimeout(() => setError(null), 8000);
             return () => clearTimeout(timer);
         }
     }, [error]);
 
-    // ✅ MODIFICADO: Calcular costo total automáticamente (antes calculaba precio por litro)
+    // ✅ CALCULAR COSTO AUTOMÁTICAMENTE
     useEffect(() => {
         if (formData.precio_por_litro && formData.litros && parseFloat(formData.litros) > 0) {
             const costoCalculado = (parseFloat(formData.precio_por_litro) * parseFloat(formData.litros)).toFixed(2);
@@ -310,8 +380,8 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
         }
     }, [formData.precio_por_litro, formData.litros]);
 
+    // ✅ FUNCIÓN PARA MANEJAR INPUT CHANGE
     const handleInputChange = (field, value) => {
-        // Validación para campos numéricos
         if (field === 'medicion') {
             if (value === "" || /^\d*\.?\d*$/.test(value)) {
                 setFormData(prev => ({
@@ -319,11 +389,9 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                     [field]: value
                 }));
 
-                // 🆕 VALIDACIÓN EN TIEMPO REAL
                 const error = validateKilometrajeRealTime(value);
                 setKilometrajeError(error);
 
-                // Limpiar error del backend si existe
                 if (fieldErrors[field]) {
                     setFieldErrors(prev => {
                         const newErrors = { ...prev };
@@ -335,13 +403,11 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
             return;
         }
 
-        // Para otros campos
         setFormData(prev => ({
             ...prev,
             [field]: value
         }));
 
-        // Limpiar errores del backend cuando el usuario empieza a escribir
         if (fieldErrors[field]) {
             setFieldErrors(prev => {
                 const newErrors = { ...prev };
@@ -351,11 +417,14 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
         }
     };
 
-    // ✅ VALIDACIÓN CORREGIDA - Eliminar validación de faena ya que es fija
+    // ✅ VALIDACIÓN DEL FORMULARIO - CORREGIDA
     const validateForm = () => {
         const errors = {};
 
-        // Validaciones básicas existentes
+        if (!maquinaSeleccionada) {
+            errors.maquina = "Debes seleccionar una máquina";
+        }
+
         if (!formData.numero_boleta.trim()) {
             errors.numero_boleta = "El número de boleta es obligatorio";
         }
@@ -372,38 +441,22 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
             errors.ubicacion = "La ubicación es obligatoria";
         }
 
-        // ✅ VALIDACIÓN AVANZADA PARA KILOMETRAJE
+        // 🆕 VALIDACIÓN CORREGIDA PARA USAR datosUltimoConsumo
         if (!formData.medicion) {
             errors.medicion = "El campo Kilometraje es obligatorio";
         } else {
             const valorKilometraje = parseFloat(formData.medicion);
-            const ultimoKilometraje = ultimoConsumo?.medicion;
+            const ultimoKilometraje = datosUltimoConsumo?.medicion;
 
             if (ultimoKilometraje && valorKilometraje <= ultimoKilometraje) {
                 errors.medicion = `El kilometraje debe ser mayor a ${Math.round(ultimoKilometraje).toLocaleString()} km (último registrado)`;
             }
         }
 
-        // ✅ ELIMINAR: Ya no validamos id_faena porque es fijo
-
         return errors;
     };
 
-    // ✅ FUNCIÓN getFieldName - SOLO PARA KILOMETRAJE
-    const getFieldName = (field) => {
-        const fieldNames = {
-            medicion: 'Kilometraje',
-            numero_boleta: 'Número de Boleta',
-            litros: 'Litros',
-            precio_por_litro: 'Precio por Litro',
-            costo: 'Costo Total',
-            ubicacion: 'Ubicación',
-            observaciones: 'Observaciones'
-        };
-        return fieldNames[field] || field;
-    };
-
-    // 🆕 FUNCIÓN PARA MAPEAR ERRORES DEL BACKEND
+    // ✅ MAPEAR ERRORES DEL BACKEND
     const mapBackendErrors = (backendErrors) => {
         const mappedErrors = {};
         if (backendErrors) {
@@ -417,11 +470,11 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
         return mappedErrors;
     };
 
-    // 2️⃣ MODIFICAR FUNCIÓN handleSubmit PARA INCLUIR REVALIDACIÓN
+    // 🆕 FUNCIÓN handleSubmit SIMPLIFICADA - SIN REVALIDACIÓN
     const handleSubmit = async () => {
         console.log('🚀 Iniciando proceso de envío...');
 
-        // PASO 1: Validación básica del formulario (tu código existente)
+        // PASO 1: Validación básica del formulario
         const errors = validateForm();
         if (Object.keys(errors).length > 0) {
             console.log('❌ Formulario tiene errores, no enviando');
@@ -429,45 +482,9 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
             return;
         }
 
-        console.log('✅ Validación de formulario pasada, procediendo con revalidación...');
+        console.log('✅ Validación de formulario pasada, procediendo con el envío...');
 
-        // PASO 2: 🆕 REVALIDAR ASIGNACIÓN ANTES DEL ENVÍO
-        setValidandoAsignacion(true);
-
-        try {
-            console.log('🔍 Revalidando asignación antes del envío...');
-            const validacion = await revalidarAsignacion();
-
-            if (!validacion.valida) {
-                // ❌ ASIGNACIÓN NO VÁLIDA - DETENER ENVÍO
-                console.log('❌ Asignación no válida:', validacion.mensaje);
-
-                setError({
-                    global: validacion.mensaje || 'Tu asignación de vehículo ha terminado. No puedes hacer más ingresos.'
-                });
-
-                // Opcional: Redirigir o mostrar modal específico
-                setTimeout(() => {
-                    setError(null);
-                    navigate('/OperadorVehiculo'); // O donde quieras redirigir
-                }, 3000);
-
-                return; // 🛑 DETENER AQUÍ - NO ENVIAR
-            }
-
-            console.log('✅ Asignación confirmada como válida, procediendo con el envío...');
-
-        } catch (error) {
-            console.error('❌ Error durante revalidación:', error);
-            setError({
-                global: 'Error verificando tu asignación. Intenta nuevamente.'
-            });
-            return;
-        } finally {
-            setValidandoAsignacion(false);
-        }
-
-        // PASO 3: Proceder con el envío normal (tu código existente)
+        // PASO 2: Proceder con el envío
         setIsLoading(true);
         setError(null);
         setFieldErrors({});
@@ -483,24 +500,22 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                 observaciones: formData.observaciones,
                 medicion: parseFloat(formData.medicion),
                 id_user: usuario.id,
-                id_maquina: maquinaAsignada.id_maquina,
+                id_maquina: maquinaSeleccionada.id_maquina,
                 id_faena: 5
             };
 
-            console.log('📝 Payload preparado con faena fija ID 5:', payload);
+            console.log('📝 Payload preparado:', payload);
 
             const response = await axios.post("/api/chofer/cargas-externas", payload);
 
             console.log('✅ Respuesta recibida:', response);
 
             if (response.data.status === 'success') {
-                // 🆕 NOTIFICAR AL COMPONENTE PADRE DEL ÉXITO (solo para refrescar historial)
                 if (onIngresoExitoso) {
                     console.log('📢 Notificando ingreso exitoso para refrescar historial...');
                     onIngresoExitoso();
                 }
 
-                // Mostrar modal de éxito
                 setCreatedCarga(response.data.data || {
                     numero_boleta: formData.numero_boleta,
                     litros: formData.litros,
@@ -527,7 +542,6 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
         } catch (error) {
             console.error('❌ Error enviando datos:', error);
 
-            // Tu manejo de errores existente...
             if (error.response?.status === 422) {
                 const backendErrors = error.response.data.errors || {};
                 const mappedErrors = mapBackendErrors(backendErrors);
@@ -545,25 +559,25 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
         }
     };
 
-    // 🆕 FUNCIÓN PARA CERRAR MODAL Y DECIDIR QUÉ HACER
+    // 🆕 CERRAR MODAL DE ÉXITO
     const handleCloseSuccessModal = (action) => {
         setShowSuccessModal(false);
         setCreatedCarga(null);
 
         if (action === 'new') {
-            // Quedarse para crear otra carga
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } else {
-            // Volver al dashboard
             navigate('/OperadorVehiculo');
         }
     };
 
+    // ✅ OBTENER ERRORES DE CAMPO
     const getFieldError = (fieldId) => {
         if (!error || typeof error !== 'object') return null;
-        return error[fieldId] || fieldErrors[fieldId]; // 🆕 También revisar fieldErrors
+        return error[fieldId] || fieldErrors[fieldId];
     };
 
+    // ✅ LOADING DEL OPERADOR
     if (loadingOperador) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
@@ -575,7 +589,7 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
         );
     }
 
-    // ✅ VALIDAR QUE TENGA DATOS NECESARIOS
+    // ✅ VALIDAR DATOS NECESARIOS
     if (!usuario?.id && !user?.id) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
@@ -599,7 +613,7 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
 
     return (
         <div className="bg-white border border-gray-200 rounded-lg mb-4 shadow-sm">
-            {/* 🆕 MODAL DE ÉXITO - MANTIENE TU ESTILO VISUAL */}
+            {/* 🆕 MODAL DE ÉXITO */}
             {showSuccessModal && (
                 <div className="fixed inset-0 bg-transparent bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-12">
                     <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
@@ -616,7 +630,6 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                                 La carga ha sido registrada exitosamente.
                             </p>
 
-                            {/* Información de la carga */}
                             {createdCarga && (
                                 <div className="bg-gray-50 rounded-lg p-4 text-left space-y-2 mb-6">
                                     <div className="flex justify-between">
@@ -637,9 +650,8 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="font-medium text-gray-700">Estado:</span>
-                                        <span className="text-orange-600 font-medium capitalize">{createdCarga.estado}</span>
+                                        <span className="text-orange-600 font-medium capitalize">{createdCarga.estado || 'Por Rendir'}</span>
                                     </div>
-                                    {/* ✅ AGREGAR INDICADOR DE FAENA FIJA */}
                                     <div className="flex justify-between">
                                         <span className="font-medium text-gray-700">Ubicación:</span>
                                         <span className="text-blue-600 font-medium">{createdCarga.ubicacion || "Estación de Servicio"}</span>
@@ -659,6 +671,7 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                     </div>
                 </div>
             )}
+
             {/* Alertas */}
             <div ref={alertRef} className="mb-4 sm:mb-6">
                 {error && error.global && (
@@ -669,16 +682,32 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                 )}
             </div>
 
-            {/* Formulario - Mobile Optimized */}
+            {/* Formulario */}
             <div className="bg-white rounded-lg sm:rounded-xl shadow-lg p-4 sm:p-6">
                 <div className="space-y-5 sm:space-y-6">
+                    {/* SECCIÓN 0: Seleccionar máquina a cargar */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                            <FaTruck className="text-orange-500" />
+                            1.- Seleccione la Máquina a Cargar.
+                        </h3>
+                        <div ref={el => errorRefs.current['maquina'] = el}>
+                            <SelectorMaquinasOperadorVehiculo
+                                maquinaSeleccionada={maquinaSeleccionada?.id_maquina}
+                                onSeleccionarMaquina={handleSeleccionarMaquina}
+                                error={getFieldError('maquina')}
+                                placeholder="Selecciona la máquina a cargar..."
+                                required
+                            />
+                        </div>
+                    </div>
+
                     {/* SECCIÓN 1: INFORMACIÓN DE LA BOLETA */}
                     <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
                             <FaFileInvoiceDollar className="text-orange-500" />
-                            1.- Información de la Boleta
+                            2.- Información de la Boleta
                         </h3>
-                        {/* 🆕 AGREGAR ref al div contenedor del campo */}
                         <div ref={el => errorRefs.current['numero_boleta'] = el}>
                             <Label
                                 htmlFor="numero_boleta"
@@ -702,11 +731,11 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                         </div>
                     </div>
 
-                    {/* SECCIÓN 2: INFORMACIÓN DEL COMBUSTIBLE - REORGANIZADA */}
+                    {/* SECCIÓN 2: INFORMACIÓN DEL COMBUSTIBLE */}
                     <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
                             <FaGasPump className="text-blue-500" />
-                            2.- Información del Combustible
+                            3.- Información del Combustible
                         </h3>
 
                         {/* Tipo de Combustible */}
@@ -755,7 +784,6 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
 
                         {/* Litros y Precio por Litro */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {/* AGREGAR ref al div contenedor del campo Litros */}
                             <div ref={el => errorRefs.current['litros'] = el}>
                                 <Label
                                     htmlFor="litros"
@@ -778,7 +806,6 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                                 )}
                             </div>
 
-                            {/* AGREGAR ref al div contenedor del campo Precio por Litro */}
                             <div ref={el => errorRefs.current['precio_por_litro'] = el}>
                                 <Label
                                     htmlFor="precio_por_litro"
@@ -802,7 +829,7 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                             </div>
                         </div>
 
-                        {/* MODIFICADO: Costo Total - Calculado automáticamente */}
+                        {/* Costo Total - Calculado automáticamente */}
                         <div>
                             <Label
                                 htmlFor="costo"
@@ -838,10 +865,9 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                     <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
                             <FaTachometerAlt className="text-orange-500" />
-                            3.- Información del Vehículo
+                            4.- Información del Vehículo
                         </h3>
 
-                        {/* AGREGAR ref al div contenedor del campo Kilometraje */}
                         <div ref={el => errorRefs.current['medicion'] = el}>
                             <InputKilometrajeSimple
                                 label="Kilometraje Actual del Vehículo"
@@ -851,7 +877,8 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                                 onChange={handleChange}
                                 placeholder="125420"
                                 icon={<FaTachometerAlt />}
-                                ultimoConsumo={ultimoConsumo}
+                                ultimoConsumo={datosUltimoConsumo}
+                                maquinaSeleccionada={maquinaSeleccionada} // 🆕 AGREGAR ESTO
                                 required={true}
                                 disabled={isLoading}
                                 className="text-base"
@@ -865,10 +892,9 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                     <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
                             <FaMapMarkerAlt className="text-green-500" />
-                            4.- Ubicación y Detalles
+                            5.- Ubicación y Detalles
                         </h3>
 
-                        {/* AGREGAR ref al div contenedor del campo Ubicación */}
                         <div ref={el => errorRefs.current['ubicacion'] = el}>
                             <Label
                                 htmlFor="ubicacion"
@@ -916,22 +942,17 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                         </div>
                     </div>
 
-                    {/* Botones de acción - Mobile Optimized */}
+                    {/* Botones de acción */}
                     <div className="flex flex-col gap-3 pt-4">
                         <button
                             onClick={() => {
                                 console.log('🔄 Botón clickeado, iniciando proceso...');
                                 handleSubmit();
                             }}
-                            disabled={isLoading || validandoAsignacion || !maquinaAsignada}
+                            disabled={isLoading || !maquinaSeleccionada}
                             className="w-full py-4 text-lg font-semibold shadow-lg bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white rounded-lg transition-colors duration-200 flex items-center justify-center gap-3"
                         >
-                            {validandoAsignacion ? (
-                                <>
-                                    <IoReload className="animate-spin text-lg" />
-                                    <span>Validando asignación...</span>
-                                </>
-                            ) : isLoading ? (
+                            {isLoading ? (
                                 <>
                                     <IoReload className="animate-spin text-lg" />
                                     <span>Registrando carga...</span>
@@ -954,39 +975,9 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                             color="gray"
                             className="w-full py-3 text-base"
                             onClick={() => navigate('/OperadorVehiculo')}
-                            disabled={isLoading || validandoAsignacion}
+                            disabled={isLoading}
                         />
                     </div>
-
-                    {/* 4️⃣ AGREGAR MENSAJE DE INFORMACIÓN SOBRE VALIDACIÓN */}
-                    {validandoAsignacion && (
-                        <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                            <div className="flex items-center gap-2 text-blue-700 text-sm">
-                                <IoReload className="animate-spin" />
-                                <span>Verificando que tu asignación siga activa...</span>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* 5️⃣ MOSTRAR ERROR ESPECÍFICO DE ASIGNACIÓN CON ESTILO DISTINTIVO */}
-                    {error?.global?.includes('asignación') && (
-                        <div className="mt-3 p-4 bg-red-50 border border-red-300 rounded-lg">
-                            <div className="flex items-start gap-2">
-                                <div className="text-red-500 text-xl">⚠️</div>
-                                <div>
-                                    <h4 className="text-red-800 font-semibold text-sm mb-1">
-                                        Asignación Terminada
-                                    </h4>
-                                    <p className="text-red-700 text-sm">
-                                        {error.global}
-                                    </p>
-                                    <p className="text-red-600 text-xs mt-2">
-                                        Contacta a tu supervisor para obtener una nueva asignación.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
         </div>

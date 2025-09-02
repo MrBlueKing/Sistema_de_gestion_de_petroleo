@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class AsignacionUserMaquinaController extends Controller
@@ -416,5 +417,91 @@ class AsignacionUserMaquinaController extends Controller
     public function destroy(string $id)
     {
         //
+    }
+
+    /**
+     * 🆕 NUEVO: Obtener máquinas disponibles para selección del operador
+     * Este método reemplaza la lógica de asignación fija
+     * Endpoint: GET /api/chofer/maquinas-disponibles
+     */
+    public function getMaquinasDisponibles(Request $request): JsonResponse
+    {
+        try {
+            // Obtener máquinas disponibles de las categorías específicas para operadores
+            // Categoría 11: Camionetas normales
+            // Categoría 2: Camionetas arrendadas  
+            $maquinasDisponibles = DB::table('maquinas as m')
+                ->leftJoin('categorias_maquinas as c', 'm.id_categoria', '=', 'c.id_categoria')
+                ->select([
+                    'm.id_maquina',
+                    'm.nombre_maquina',
+                    'm.tipo_maquina',
+                    'm.patente',
+                    'm.estado',
+                    'm.id_categoria',
+                    'm.chc_maquina',
+                    'c.nombre_categoria',
+                    'c.tipo_medicion'
+                ])
+                ->where('m.estado', 1) // Solo máquinas activas
+                ->whereIn('m.id_categoria', [11, 2]) // Solo camionetas y camionetas arrendadas
+                ->orderBy('c.nombre_categoria') // Primero por categoría
+                ->orderBy('m.nombre_maquina') // Luego por nombre
+                ->get()
+                ->map(function ($maquina) {
+                    return [
+                        'id_maquina' => $maquina->id_maquina,
+                        'nombre_maquina' => $maquina->nombre_maquina,
+                        'patente' => $maquina->patente,
+                        'tipo_maquina' => $maquina->tipo_maquina,
+                        'chc_maquina' => $maquina->chc_maquina,
+                        'categoria' => [
+                            'id' => $maquina->id_categoria,
+                            'nombre' => $maquina->nombre_categoria,
+                            'tipo_medicion' => $maquina->tipo_medicion
+                        ],
+                        'estado' => 'disponible',
+                        // Agregar información adicional útil para el frontend
+                        'display_name' => $maquina->nombre_maquina . ' (' . $maquina->patente . ')',
+                        'categoria_display' => $maquina->nombre_categoria ?? 'Sin categoría'
+                    ];
+                });
+
+            // Agrupar por categoría para facilitar el manejo en el frontend
+            $maquinasPorCategoria = $maquinasDisponibles->groupBy('categoria.id');
+
+            // Crear resumen por categoría
+            $resumenCategorias = $maquinasPorCategoria->map(function ($maquinas, $categoriaId) {
+                $primeraCategoria = $maquinas->first()['categoria'];
+                return [
+                    'id_categoria' => $categoriaId,
+                    'nombre_categoria' => $primeraCategoria['nombre'],
+                    'tipo_medicion' => $primeraCategoria['tipo_medicion'],
+                    'cantidad_maquinas' => $maquinas->count(),
+                    'maquinas' => $maquinas->values()
+                ];
+            })->values();
+
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'maquinas' => $maquinasDisponibles->values(), // Lista plana de todas las máquinas
+                    'por_categoria' => $resumenCategorias, // Agrupadas por categoría
+                    'total_maquinas' => $maquinasDisponibles->count(),
+                    'categorias_disponibles' => $maquinasPorCategoria->keys()
+                ],
+                'message' => "Se encontraron {$maquinasDisponibles->count()} máquinas disponibles"
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error en getMaquinasDisponibles: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al obtener máquinas disponibles: ' . $e->getMessage(),
+                'data' => []
+            ], 500);
+        }
     }
 }
