@@ -32,7 +32,10 @@ Route::prefix('chofer')->group(function () {
         // ✅ RUTAS PARA INFORMACIÓN DEL USUARIO
         // Obtener máquina asignada al usuario autenticado (CON apellido del usuario)
         Route::get('/mi-maquina', [AsignacionUserMaquinaController::class, 'getMaquinaUsuario']);
-        
+
+        // 🆕 NUEVO: Obtener máquinas disponibles para selección (reemplazo del sistema de asignación fija)
+        Route::get('/maquinas-disponibles', [AsignacionUserMaquinaController::class, 'getMaquinasDisponibles']);
+
         // 🆕 Alternativa: Solo información del usuario (opcional)
         Route::get('/mi-informacion', [AsignacionUserMaquinaController::class, 'miInformacion']);
 

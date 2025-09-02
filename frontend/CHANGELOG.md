@@ -19,7 +19,7 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 ---
 
-## [Unreleased]
+## [3.0] 2025-09-02
 
 ### Added
 

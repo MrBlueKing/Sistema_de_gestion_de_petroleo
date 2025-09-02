@@ -130,7 +130,7 @@ const Main = () => {
 
       <footer className="mt-12 text-center text-sm text-gray-500">
         <p>&copy; {new Date().getFullYear()} Minera 3H. Todos los derechos reservados.</p>
-        <p className="mt-1">Sistema de Gestión Integral - Versión 2.0.1</p>
+        <p className="mt-1">Sistema de Gestión Integral - Versión 3.0</p>
       </footer>
     </div>
   );

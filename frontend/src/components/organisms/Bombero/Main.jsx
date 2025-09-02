@@ -558,7 +558,7 @@ const Main = () => {
           {/* Footer integrado */}
           <div className="text-center pt-4 sm:pt-6 border-t border-gray-200">
             <p className="text-gray-600 text-xs sm:text-sm">
-              Sistema de Gestión de Combustible v2.1 | Usuario: {user?.nombre} {user?.apellido}
+              Sistema de Gestión de Combustible v3.0 | Usuario: {user?.nombre} {user?.apellido}
             </p>
           </div>
         </div>
