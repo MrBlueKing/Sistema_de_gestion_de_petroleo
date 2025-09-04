@@ -5,6 +5,7 @@ import PageControl from "../../molecules/PageControl";
 import FiltrosComponent from "../../molecules/FiltrosComponent";
 import DetalleCargaModal from "../../molecules/DetalleCargaModal";
 import axios from "../../../lib/axios";
+import SuccessNotificationRendir from "../../molecules/SuccessNotificationRendir";
 import {
   FaCheck,
   FaClock,
@@ -178,14 +179,22 @@ const ConsumosViewOptimized = () => {
   const [successMessage, setSuccessMessage] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-  // Y luego usar esta función handleRendir mejorada:
-  const handleRendir = async (cargaId) => {
-    try {
-      setErrorRendicion(null); // Limpiar errores previos
+  // Estado para notificaciones (como en MainAdminOperador)
+  const [notification, setNotification] = useState({
+    visible: false,
+    title: "",
+    message: ""
+  });
 
+  // Y luego usar esta función handleRendir mejorada:
+  // Función para manejar rendición (igual que en MainAdminOperador)
+  const handleRendir = async (cargaId) => {
+    console.log("Inicio del proceso de rendir carga:", cargaId);
+    try {
       const response = await axios.post(`/api/adminOperador/cargas/${cargaId}/rendir`);
 
       if (response.data.status === "success") {
+        console.log("Respuesta exitosa del servidor:", response.data.status);
         // Actualizar usando la función del hook useConsumos
         actualizarCarga(cargaId, {
           estado: "Rendido",
@@ -195,6 +204,13 @@ const ConsumosViewOptimized = () => {
         // Refrescar datos desde el servidor
         refrescarDatos();
 
+        // 🎉 Mostrar notificación de éxito (IGUAL QUE EN MAINADMINOPERADOR)
+        setNotification({
+          visible: true,
+          title: "🎉 Carga Rendida",
+          message: "La carga ha sido marcada como rendida exitosamente"
+        });
+
         console.log("✅ Carga rendida exitosamente");
 
       } else {
@@ -202,8 +218,19 @@ const ConsumosViewOptimized = () => {
       }
     } catch (error) {
       console.error("❌ Error al rendir carga:", error);
-      setErrorRendicion(`Error al rendir la carga: ${error.response?.data?.message || error.message}`);
+
+      // Mostrar notificación de error
+      setNotification({
+        visible: true,
+        title: "❌ Error en Rendición",
+        message: `Error al rendir la carga: ${error.response?.data?.message || error.message}`
+      });
     }
+  };
+
+  // Función para cerrar la notificación
+  const closeNotification = () => {
+    setNotification({ visible: false, title: "", message: "" });
   };
 
   // Funciones para manejar el modal de detalle
@@ -998,7 +1025,7 @@ const ConsumosViewOptimized = () => {
             {/* Botón limpiar todos */}
             <button
               onClick={limpiarTodosLosFiltros}
-              className="ml-2 px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              className="ml-2 px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors cursor-pointer"
             >
               Limpiar todos
             </button>
@@ -1307,7 +1334,7 @@ const ConsumosViewOptimized = () => {
                           {/* Botón Ver existente */}
                           <button
                             onClick={() => handleVerDetalle(datosFiltrados.id)}
-                            className="inline-flex items-center px-3 py-1 border border-orange-300 text-sm font-medium rounded-md text-orange-700 bg-orange-50 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors"
+                            className="inline-flex items-center px-3 py-1 border border-orange-300 text-sm font-medium rounded-md text-orange-700 bg-orange-50 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors cursor-pointer"
                             title="Ver historial y detalles completos"
                           >
                             <FaEye className="w-3 h-3 mr-1" />
@@ -1318,7 +1345,7 @@ const ConsumosViewOptimized = () => {
                           {datosFiltrados.estado === "Por Rendir" && (
                             <button
                               onClick={() => handleRendir(datosFiltrados.id)}
-                              className="inline-flex items-center px-3 py-1 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                              className="inline-flex items-center px-3 py-1 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors cursor-pointer"
                               title="Marcar carga como rendida"
                               disabled={loading}
                             >
@@ -1386,7 +1413,7 @@ const ConsumosViewOptimized = () => {
                           .length
                       }
                     </strong>{" "}
-                    Por Rendirs
+                    Por Rendir
                   </span>
                   <span>•</span>
                   <span>
@@ -1446,6 +1473,13 @@ const ConsumosViewOptimized = () => {
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         onActionComplete={handleActionComplete}
+      />
+      {/* Componente de notificación de éxito (igual que en MainAdminOperador) */}
+      <SuccessNotificationRendir
+        isVisible={notification.visible}
+        title={notification.title}
+        message={notification.message}
+        onClose={closeNotification}
       />
     </div>
   );
