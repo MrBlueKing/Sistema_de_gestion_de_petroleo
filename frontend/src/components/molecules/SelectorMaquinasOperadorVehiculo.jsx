@@ -142,17 +142,16 @@ const SelectorMaquinasOperadorVehiculo = ({
 
                 <div className="flex items-center space-x-2 flex-shrink-0">
                     {maquinaActual && (
-                        <button
-                            type="button"
+                        <span
+                            role="button"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 handleLimpiar();
                             }}
-                            className="text-gray-400 hover:text-gray-600 p-1"
-                            disabled={disabled}
+                            className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
                         >
                             <FaTimes className="w-3 h-3" />
-                        </button>
+                        </span>
                     )}
                     <FaChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                 </div>
