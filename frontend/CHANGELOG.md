@@ -36,7 +36,7 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 ### Changed
 
-- [WIP] Gerente --> ConsumoPureTable --> Centralizado en la máquina más que en la Faena.
+- [Queued] Gerente --> ConsumoPureTable --> Centralizado en la máquina más que en la Faena.
 
 - [Testing:Sebastian] Gerente --> Dashboard --> Agregar en la comparativa todas las categorias y la opción de ver el costo operacional.
 
@@ -62,6 +62,7 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - [Queued] Administrador Operador Vehiculos --> Consumos View / Panel Principal --> Corregir acción de "Rendir" a un Consumo.
 
+- [Queued] Gerente --> Dashboard  --> Al presionar rapido dos veces el filtro, se bugea.
 
 ### Security
 
