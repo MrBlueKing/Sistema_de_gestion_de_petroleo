@@ -14,6 +14,11 @@ import {
   FiAlertTriangle,
   FiRefreshCw,
   FiActivity,
+  FiEye,
+  FiFilter,
+  FiToggleRight,
+  FiToggleLeft,
+  FiInfo,
   FiTrendingUp,
   FiTrendingDown,
   FiMinus,
@@ -44,26 +49,222 @@ const CompactConsumptionPieChart = ({
   titulo = "Análisis Comparativo Mensual",
   // ✅ NUEVAS PROPS PARA CARGA PARALELA:
 }) => {
- 
-
-    // 🔧 VERSIÓN SEGURA - con destructuring defensivo
+  // 🔧 VERSIÓN SEGURA - con destructuring defensivo
   const chartColorsContext = useChartColors();
-  
+
   const {
     compactChartCanLoad = false,
     handleCompactChartLoad = () => {},
     getColorForCategory: contextGetColor = null,
     hasValidColorMapping = false,
-    isInitialized = false,  // ✅ INCLUIDO Y CON VALOR POR DEFECTO
+    isInitialized = false, // ✅ INCLUIDO Y CON VALOR POR DEFECTO
     categoryColorMapping = {},
     mainChartLoaded = false,
   } = chartColorsContext || {};
 
-
-  console.log("fechicha", fechaDesde, fechaHasta);
-  // Estados principales
+  const [modoVisualizacion, setModoVisualizacion] = useState("iniciales");
   const [periodoActual, setPeriodoActual] = useState([]);
   const [periodoAnterior, setPeriodoAnterior] = useState([]);
+  // Estados para almacenar los datos completos (ambos tipos de categorías)
+  const [datosCompletoActuales, setDatosCompletoActuales] = useState({
+    categoriasIniciales: [],
+    categoriasFinales: [],
+  });
+
+  const [datosCompletoAnteriores, setDatosCompletoAnteriores] = useState({
+    categoriasIniciales: [],
+    categoriasFinales: [],
+  });
+
+  // 🔄 FUNCIÓN PARA CAMBIAR ENTRE MODOS DE VISUALIZACIÓN - CON VERIFICACIÓN DEFENSIVA
+  const alternarModoVisualizacion = () => {
+    const nuevoModo =
+      modoVisualizacion === "iniciales" ? "finales" : "iniciales";
+
+    console.log(
+      `🔄 CompactChart: Cambiando de ${modoVisualizacion} a ${nuevoModo}`
+    );
+    setModoVisualizacion(nuevoModo);
+
+    // 🛡️ VERIFICACIÓN DEFENSIVA: Asegurarse de que los objetos existen
+    const actualesIniciales =
+      datosCompletoActuales?.categoriasIniciales?.length || 0;
+    const actualesFinales =
+      datosCompletoActuales?.categoriasFinales?.length || 0;
+
+    // 🔄 ACTUALIZAR INMEDIATAMENTE LAS CATEGORÍAS MOSTRADAS
+    if (actualesIniciales > 0 || actualesFinales > 0) {
+      console.log("📊 Datos disponibles, actualizando vista...");
+      actualizarCategoriasSegunModo(nuevoModo);
+    } else {
+      console.log("⚠️ No hay datos disponibles para cambiar la vista");
+      console.log("🔍 Estado de datos completos:", {
+        datosCompletoActuales,
+        datosCompletoAnteriores,
+        actualesIniciales,
+        actualesFinales,
+      });
+    }
+  };
+
+  const actualizarCategoriasSegunModo = (modo) => {
+    console.log(
+      `📊 [actualizarCategoriasSegunModo] Iniciando actualización a modo: ${modo}`
+    );
+
+    // 🛡️ VERIFICACIÓN MÁS ROBUSTA
+    if (!datosCompletoActuales || !datosCompletoAnteriores) {
+      console.warn(
+        "⚠️ [actualizarCategoriasSegunModo] Los datos completos no están disponibles:",
+        {
+          tieneActuales: !!datosCompletoActuales,
+          tieneAnteriores: !!datosCompletoAnteriores,
+        }
+      );
+      return;
+    }
+
+    // 🔍 DEBUGGING: Mostrar estructura de los datos
+    console.log(
+      "🔍 [actualizarCategoriasSegunModo] Estructura de datos recibida:",
+      {
+        actuales: {
+          keys: Object.keys(datosCompletoActuales),
+          inicialesCount:
+            datosCompletoActuales.categoriasIniciales?.length || 0,
+          finalesCount: datosCompletoActuales.categoriasFinales?.length || 0,
+        },
+        anteriores: {
+          keys: Object.keys(datosCompletoAnteriores),
+          inicialesCount:
+            datosCompletoAnteriores.categoriasIniciales?.length || 0,
+          finalesCount: datosCompletoAnteriores.categoriasFinales?.length || 0,
+        },
+      }
+    );
+
+    // Seleccionar las categorías según el modo CON VERIFICACIÓN
+    const categoriasParaUsar =
+      modo === "finales"
+        ? datosCompletoActuales.categoriasFinales || []
+        : datosCompletoActuales.categoriasIniciales || [];
+
+    const categoriasAnterioresParaUsar =
+      modo === "finales"
+        ? datosCompletoAnteriores.categoriasFinales || []
+        : datosCompletoAnteriores.categoriasIniciales || [];
+
+    console.log(
+      `📊 [actualizarCategoriasSegunModo] Categorías seleccionadas para modo ${modo}:`,
+      {
+        actuales: categoriasParaUsar.length,
+        anteriores: categoriasAnterioresParaUsar.length,
+        tipoCategoriasActuales:
+          categoriasParaUsar.length > 0 ? categoriasParaUsar[0] : "sin datos",
+        tipoCategoriasAnteriores:
+          categoriasAnterioresParaUsar.length > 0
+            ? categoriasAnterioresParaUsar[0]
+            : "sin datos",
+      }
+    );
+
+    // Verificar que tenemos datos
+    if (
+      categoriasParaUsar.length === 0 &&
+      categoriasAnterioresParaUsar.length === 0
+    ) {
+      console.warn(
+        `⚠️ [actualizarCategoriasSegunModo] No hay datos para mostrar en modo ${modo}`
+      );
+      return;
+    }
+
+    // Recrear la lista unificada con las nuevas categorías
+    const todasCategorias = new Map();
+
+    // Procesar categorías actuales
+    categoriasParaUsar.forEach((cat, index) => {
+      const color = obtenerColor(cat, index);
+      console.log(
+        `🎨 [actualizarCategoriasSegunModo] Color para ${cat.name}: ${color}`
+      );
+
+      todasCategorias.set(cat.name, {
+        name: cat.name,
+        nombre: cat.name, // 🔧 ASEGURAR COMPATIBILIDAD
+        actual: cat.value,
+        anterior: 0,
+        color: color,
+        id: cat.id || index,
+      });
+    });
+
+    // Procesar categorías anteriores
+    categoriasAnterioresParaUsar.forEach((cat, index) => {
+      if (todasCategorias.has(cat.name)) {
+        todasCategorias.get(cat.name).anterior = cat.value;
+      } else {
+        const color = obtenerColor(cat, index + categoriasParaUsar.length);
+        todasCategorias.set(cat.name, {
+          name: cat.name,
+          nombre: cat.name, // 🔧 ASEGURAR COMPATIBILIDAD
+          actual: 0,
+          anterior: cat.value,
+          color: color,
+          id: cat.id || index,
+        });
+      }
+    });
+
+    // Convertir a array y actualizar estados
+    const categoriasFinales = Array.from(todasCategorias.values()).sort(
+      (a, b) => b.actual + b.anterior - (a.actual + a.anterior)
+    );
+
+    console.log(
+      `📊 [actualizarCategoriasSegunModo] Categorías unificadas creadas:`,
+      {
+        total: categoriasFinales.length,
+        conActuales: categoriasFinales.filter((c) => c.actual > 0).length,
+        conAnteriores: categoriasFinales.filter((c) => c.anterior > 0).length,
+        muestra: categoriasFinales
+          .slice(0, 3)
+          .map((c) => ({
+            name: c.name,
+            actual: c.actual,
+            anterior: c.anterior,
+          })),
+      }
+    );
+
+    // 🔄 ACTUALIZAR LOS ESTADOS
+    setCategorias(categoriasFinales);
+    setPeriodoActual(categoriasFinales.filter((cat) => cat.actual > 0));
+    setPeriodoAnterior(categoriasFinales.filter((cat) => cat.anterior > 0));
+
+    console.log(
+      `✅ [actualizarCategoriasSegunModo] Estados actualizados para modo ${modo}`
+    );
+  };
+
+  // 🔧 DEBUGGING ADICIONAL: Agregar este useEffect para monitorear cambios
+  useEffect(() => {
+    console.log("🔍 [MONITOR] Estados actualizados:", {
+      categoriasLength: categorias.length,
+      periodoActualLength: periodoActual.length,
+      periodoAnteriorLength: periodoAnterior.length,
+      modoVisualizacion,
+      tieneDatosCompletos: !!(datosCompletoActuales && datosCompletoAnteriores),
+    });
+  }, [
+    
+    periodoActual,
+    periodoAnterior,
+    modoVisualizacion,
+    datosCompletoActuales,
+    datosCompletoAnteriores,
+  ]);
+
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -365,12 +566,11 @@ const CompactConsumptionPieChart = ({
     return null;
   };
 
+  // 🔄 FUNCIÓN DE PROCESAMIENTO (copiada del código anterior)
   const procesarDatosBackend = (data) => {
-    if (!data || !data.success || !data.categorias) {
-      return [];
-    }
+    console.log("🔧 Procesando datos del backend...", data);
 
-    // Paso 1: Procesar datos iniciales
+    // Paso 1: Procesar datos iniciales (TODO - sin filtros ni agrupaciones)
     let categoriasIniciales = data.categorias
       .map((item, index) => ({
         id: item.id || index,
@@ -380,29 +580,22 @@ const CompactConsumptionPieChart = ({
         maquinas_count: item.maquinas_count || 0,
         originalData: item,
       }))
-      .filter((item) => item.value > 0);
+      .filter((item) => item.value > 0)
+      .sort((a, b) => b.value - a.value);
 
-    console.log("📊 Datos iniciales antes de procesar:", categoriasIniciales);
+    console.log("📊 Categorías iniciales (TODO):", categoriasIniciales);
 
-    // Paso 2: Excluir categorías no deseadas
+    // Paso 2: Procesar categorías finales (OPERACIONALES)
     const categoriasExcluidas = ["Microbus", "Microbús", "MICROBUS"];
-
     const categoriasFiltradas = categoriasIniciales.filter((categoria) => {
       const nombreLimpio = categoria.name.trim();
       const esExcluida = categoriasExcluidas.some((excluida) =>
         nombreLimpio.toLowerCase().includes(excluida.toLowerCase())
       );
-
-      if (esExcluida) {
-        console.log(
-          `🚫 Excluyendo categoría: ${categoria.name} (${categoria.value} L)`
-        );
-      }
-
       return !esExcluida;
     });
 
-    // Paso 3: Agrupar camionetas
+    // Agrupar camionetas
     const categoriasAgrupadas = [];
     let camionetasAgrupadas = {
       name: "Camionetas",
@@ -414,66 +607,37 @@ const CompactConsumptionPieChart = ({
 
     categoriasFiltradas.forEach((categoria) => {
       const nombreLimpio = categoria.name.trim().toLowerCase();
-
-      // Detectar variaciones de "camionetas"
       const esCamioneta =
         nombreLimpio.includes("camioneta") ||
         nombreLimpio.includes("camionetas") ||
         nombreLimpio === "camioneta";
 
       if (esCamioneta) {
-        console.log(
-          `🚚 Agrupando en Camionetas: ${categoria.name} (${categoria.value} L)`
-        );
-
-        // Sumar valores
         camionetasAgrupadas.value += categoria.value;
         camionetasAgrupadas.maquinas_count += categoria.maquinas_count;
         camionetasAgrupadas.categorias_originales.push(categoria.name);
       } else {
-        // Mantener categoría original
         categoriasAgrupadas.push(categoria);
       }
     });
 
-    // Paso 4: Aplicar factor de 0.3% a camionetas si existen
+    // Aplicar factor de 0.3% a camionetas si existen
     if (camionetasAgrupadas.value > 0) {
       const valorOriginal = camionetasAgrupadas.value;
-      camionetasAgrupadas.value = camionetasAgrupadas.value * 0.3; // 30% = 0.3
-
-      console.log(
-        `🔢 Aplicando factor 0.3% a Camionetas: ${valorOriginal.toLocaleString()} L → ${camionetasAgrupadas.value.toLocaleString()} L`
-      );
-      console.log(
-        `📋 Categorías agrupadas en Camionetas: ${camionetasAgrupadas.categorias_originales.join(
-          ", "
-        )}`
-      );
-
-      // Redondear el resultado
+      camionetasAgrupadas.value = camionetasAgrupadas.value * 0.3;
       camionetasAgrupadas.value =
         Math.round(camionetasAgrupadas.value * 100) / 100;
-
-      // Agregar a las categorías finales
       categoriasAgrupadas.push(camionetasAgrupadas);
     }
 
-    // Paso 5: Filtrar valores finales y ordenar
-    const categoriesFinales = categoriasAgrupadas
+    const categoriasFinales = categoriasAgrupadas
       .filter((item) => item.value > 0)
       .sort((a, b) => b.value - a.value);
 
-    console.log("✅ Datos finales procesados:", {
-      excluidas: categoriasIniciales.length - categoriasFiltradas.length,
-      camionetasAgrupadas: camionetasAgrupadas.value > 0 ? 1 : 0,
-      total_final: categoriesFinales.length,
-      categorias_finales: categoriesFinales.map((c) => ({
-        nombre: c.name,
-        valor: c.value,
-      })),
-    });
-
-    return categoriesFinales;
+    return {
+      categoriasIniciales: categoriasIniciales,
+      categoriasFinales: categoriasFinales,
+    };
   };
 
   // Función para obtener datos del backend
@@ -598,7 +762,7 @@ const CompactConsumptionPieChart = ({
     ]
   );
 
-  // Función principal actualizada con validaciones
+  // 🔄 FUNCIÓN CARGAR DATOS ACTUALIZADA
   const cargarDatos = async () => {
     console.log("🔍 CompactConsumptionPieChart: cargarDatos() iniciando...");
 
@@ -614,7 +778,6 @@ const CompactConsumptionPieChart = ({
       console.log(
         "🔍 CompactConsumptionPieChart: Componente no montado, abortando carga"
       );
-
       return;
     }
 
@@ -667,6 +830,7 @@ const CompactConsumptionPieChart = ({
       console.log(
         "🔍 CompactConsumptionPieChart: Iniciando carga paralela de datos..."
       );
+
       const [datosActuales, datosAnteriores] = await Promise.all([
         obtenerDatosPeriodo(fechaDesde, fechaHasta),
         obtenerDatosPeriodo(
@@ -675,7 +839,26 @@ const CompactConsumptionPieChart = ({
         ),
       ]);
 
+      // 🔄 NUEVO: Determinar qué categorías usar según el modo actual
+      // Por defecto mostraremos las categorías iniciales (TODO)
+      const categoriasParaUsar =
+        modoVisualizacion === "finales"
+          ? datosActuales.categoriasFinales
+          : datosActuales.categoriasIniciales;
+
+      const categoriasAnterioresParaUsar =
+        modoVisualizacion === "finales"
+          ? datosAnteriores.categoriasFinales
+          : datosAnteriores.categoriasIniciales;
+
       console.log("🔍 CompactConsumptionPieChart: Datos cargados exitosamente");
+      console.log(`🔄 Modo actual: ${modoVisualizacion}`);
+      console.log("📊 Categorías seleccionadas:", {
+        actuales: categoriasParaUsar.length,
+        anteriores: categoriasAnterioresParaUsar.length,
+        tipoActuales:
+          modoVisualizacion === "finales" ? "Operacionales" : "Todo",
+      });
 
       if (!isMounted.current) {
         console.log(
@@ -684,31 +867,53 @@ const CompactConsumptionPieChart = ({
         return;
       }
 
-      // Logging de resultados
+      // Logging de resultados actualizados
       console.log("📈 Datos cargados:", {
         actual: {
-          categorias: datosActuales.length,
-          total: datosActuales.reduce((sum, cat) => sum + cat.value, 0),
-          datos: datosActuales,
+          categorias: categoriasParaUsar.length,
+          total: categoriasParaUsar.reduce((sum, cat) => sum + cat.value, 0),
+          datos: categoriasParaUsar,
         },
         anterior: {
-          categorias: datosAnteriores.length,
-          total: datosAnteriores.reduce((sum, cat) => sum + cat.value, 0),
-          datos: datosAnteriores,
+          categorias: categoriasAnterioresParaUsar.length,
+          total: categoriasAnterioresParaUsar.reduce(
+            (sum, cat) => sum + cat.value,
+            0
+          ),
+          datos: categoriasAnterioresParaUsar,
+        },
+        // 🆕 NUEVO: Información adicional sobre ambos tipos
+        datosCompletos: {
+          actuales: {
+            iniciales: datosActuales.categoriasIniciales.length,
+            finales: datosActuales.categoriasFinales.length,
+          },
+          anteriores: {
+            iniciales: datosAnteriores.categoriasIniciales.length,
+            finales: datosAnteriores.categoriasFinales.length,
+          },
         },
       });
+
       console.log("Periodo antes del set", periodoAnteriorFechas.descripcion);
       // Guardar la descripción del período para mostrar en la UI
       setPeriodoAnteriorDescripcion(periodoAnteriorFechas.descripcion);
       handleCompactChartLoad();
       console.log("Periodo despues del set", periodoAnteriorFechas.descripcion);
-      // Crear lista unificada de todas las categorías
+
+      // 🔄 NUEVO: Almacenar TODOS los datos para poder cambiar entre modos
+      // Guardamos tanto las categorías iniciales como las finales
+      setDatosCompletoActuales(datosActuales); // { categoriasIniciales: [...], categoriasFinales: [...] }
+      setDatosCompletoAnteriores(datosAnteriores); // { categoriasIniciales: [...], categoriasFinales: [...] }
+
+      // Crear lista unificada de todas las categorías SEGÚN EL MODO ACTUAL
       const todasCategorias = new Map();
 
       console.log(
         "🔍 CompactConsumptionPieChart: Procesando datos actuales..."
       );
-      datosActuales.forEach((cat, index) => {
+
+      categoriasParaUsar.forEach((cat, index) => {
         const color = obtenerColor(cat, index);
         console.log(
           `🎨 CompactConsumptionPieChart: Color para ${cat.name}: ${color}`
@@ -725,7 +930,8 @@ const CompactConsumptionPieChart = ({
       console.log(
         "🔍 CompactConsumptionPieChart: Procesando datos anteriores..."
       );
-      datosAnteriores.forEach((cat, index) => {
+
+      categoriasAnterioresParaUsar.forEach((cat, index) => {
         if (todasCategorias.has(cat.name)) {
           todasCategorias.get(cat.name).anterior = cat.value;
         } else {
@@ -753,8 +959,10 @@ const CompactConsumptionPieChart = ({
         categoriasUnificadas
       );
 
-      setPeriodoActual(datosActuales);
-      setPeriodoAnterior(datosAnteriores);
+      // 🔄 ACTUALIZADO: Ahora guardamos las categorías según el modo actual
+      // ✅ CORRECTO: Guardar los datos completos procesados
+setDatosCompletoActuales(datosActuales); // datosActuales ya tiene { categoriasIniciales: [...], categoriasFinales: [...] }
+setDatosCompletoAnteriores(datosAnteriores); // datosAnteriores también
       setCategorias(categoriasUnificadas);
       initialLoadDone.current = true;
 
@@ -770,9 +978,19 @@ const CompactConsumptionPieChart = ({
         setError(
           error.message || "Error al cargar datos del gráfico de comparación"
         );
-        setPeriodoActual([]);
-        setPeriodoAnterior([]);
+        setDatosCompletoActuales([]);
+        setDatosCompletoAnteriores([]);
         setCategorias([]);
+
+        // 🔄 NUEVO: Limpiar también los datos completos en caso de error
+        setDatosCompletoActuales({
+          categoriasIniciales: [],
+          categoriasFinales: [],
+        });
+        setDatosCompletoAnteriores({
+          categoriasIniciales: [],
+          categoriasFinales: [],
+        });
       }
     } finally {
       if (isMounted.current) {
@@ -840,15 +1058,96 @@ const CompactConsumptionPieChart = ({
         color: obtenerColorInteligente(cat, index),
       }));
 
-     const igual = categorias.every(
-      (c, i) => c.color === categoriasConNuevosColores[i].color
-    );
+      const igual = categorias.every(
+        (c, i) => c.color === categoriasConNuevosColores[i].color
+      );
 
-    if (!igual) {
-      setCategorias(categoriasConNuevosColores);
+      if (!igual) {
+        setCategorias(categoriasConNuevosColores);
+      }
     }
+  }, [
+    waitForColors,
+    hasValidColorMapping,
+    obtenerColorInteligente,
+    categorias,
+  ]);
+
+  // 🔧 SOLUCIÓN: Corrigiendo el useEffect que maneja el cambio de modo
+
+  // REEMPLAZA este useEffect (líneas ~1005-1035):
+  useEffect(() => {
+    console.log(`🔄 Modo de visualización cambió a: ${modoVisualizacion}`);
+
+    // 🛡️ VERIFICACIÓN DEFENSIVA CORREGIDA:
+    // El problema era que estabas verificando si los objetos tenían las propiedades
+    // pero no verificabas si los objetos en sí existían primero
+
+    console.log("🔍 Estado completo de los datos:", {
+      datosCompletoActuales,
+      datosCompletoAnteriores,
+      tieneActuales: !!datosCompletoActuales,
+      tieneAnteriores: !!datosCompletoAnteriores,
+    });
+
+    // VERIFICACIÓN PASO A PASO para debugging
+    if (!datosCompletoActuales) {
+      console.log("⚠️ datosCompletoActuales es null/undefined");
+      return;
     }
-  }, [waitForColors, hasValidColorMapping, obtenerColorInteligente,categorias]);
+
+    if (!datosCompletoAnteriores) {
+      console.log("⚠️ datosCompletoAnteriores es null/undefined");
+      return;
+    }
+
+    // Ahora sí verificar las propiedades internas
+    const actualesIniciales =
+      datosCompletoActuales.categoriasIniciales?.length || 0;
+    const actualesFinales =
+      datosCompletoActuales.categoriasFinales?.length || 0;
+    const anterioresIniciales =
+      datosCompletoAnteriores.categoriasIniciales?.length || 0;
+    const anterioresFinales =
+      datosCompletoAnteriores.categoriasFinales?.length || 0;
+
+    console.log("📊 Estado de los datos completos DETALLADO:", {
+      iniciales: actualesIniciales,
+      finales: actualesFinales,
+      anterioresIniciales: anterioresIniciales,
+      anterioresFinales: anterioresFinales,
+      // 🆕 DEBUGGING ADICIONAL
+      estructuraActuales: Object.keys(datosCompletoActuales),
+      estructuraAnteriores: Object.keys(datosCompletoAnteriores),
+      modoActual: modoVisualizacion,
+    });
+
+    // Verificar que tenemos datos relevantes para el modo actual
+    const tieneDatosParaModo =
+      modoVisualizacion === "finales"
+        ? actualesFinales > 0 || anterioresFinales > 0
+        : actualesIniciales > 0 || anterioresIniciales > 0;
+
+    if (tieneDatosParaModo) {
+      console.log(
+        "📊 Datos disponibles para el modo actual, actualizando categorías..."
+      );
+      actualizarCategoriasSegunModo(modoVisualizacion);
+    } else {
+      console.log(`⚠️ No hay datos para el modo ${modoVisualizacion}`);
+      console.log("🔍 Detalle de disponibilidad:", {
+        modoSolicitado: modoVisualizacion,
+        datosParaFinales: {
+          actuales: actualesFinales,
+          anteriores: anterioresFinales,
+        },
+        datosParaIniciales: {
+          actuales: actualesIniciales,
+          anteriores: anterioresIniciales,
+        },
+      });
+    }
+  }, [modoVisualizacion, datosCompletoActuales, datosCompletoAnteriores]);
 
   // 🔍 LOG ADICIONAL PARA VER EL ESTADO ACTUAL
   useEffect(() => {
@@ -872,15 +1171,119 @@ const CompactConsumptionPieChart = ({
     periodoAnteriorDescripcion,
   ]);
 
-  // Header mejorado para la gerencia
   const HeaderGerencia = () => {
+    const esIniciales = modoVisualizacion === "iniciales";
+    const categoriasActuales = esIniciales
+      ? datosCompletoActuales?.categoriasIniciales?.length || 0
+      : datosCompletoActuales?.categoriasFinales?.length || 0;
+
     return (
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+          <div className="flex items-center">
             <FiPieChart className="text-orange-600 mr-2" />
-            {titulo}
-          </h3>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800">{titulo}</h3>
+              <p className="text-sm text-gray-600">
+                {esIniciales
+                  ? "Vista: TODO (sin filtros)"
+                  : "Vista: OPERACIONAL (filtradas)"}
+              </p>
+            </div>
+          </div>
+
+      <div className="flex items-center space-x-4">
+  <div className="text-right">
+    <p className="text-xs text-gray-500">
+      {esIniciales
+        ? "Mostrando todas las categorías"
+        : "Mostrando categorías operacionales"}
+    </p>
+    <p className="text-xs font-medium text-gray-700">
+      Datos: {categoriasActuales} categorías
+    </p>
+  </div>
+
+<button
+  onClick={alternarModoVisualizacion}
+  disabled={loading}
+  className={`
+    relative grid grid-cols-2 h-9 w-44 rounded-full border border-black
+    transition-colors duration-300 text-xs font-medium overflow-hidden
+    ${loading ? "opacity-50 cursor-not-allowed" : ""}
+  `}
+>
+  {/* Fondo deslizante */}
+  <span
+    className={`
+      absolute inset-y-0 w-1/2 rounded-full bg-gray-100 shadow-md transition-transform duration-300
+      ${esIniciales ? "translate-x-0" : "translate-x-full"}
+    `}
+  />
+
+  {/* Texto Todas */}
+  <span
+    className={`
+      flex items-center justify-center z-10 transition-colors duration-300
+      ${esIniciales ? "text-blue-600 font-semibold" : "text-white"}
+    `}
+  >
+    Todas
+  </span>
+
+  {/* Texto Operacional */}
+  <span
+    className={`
+      flex items-center justify-center z-10 transition-colors duration-300
+      ${!esIniciales ? "text-orange-600 font-semibold" : "text-white"}
+    `}
+  >
+    Operacional
+  </span>
+</button>
+
+
+</div>
+
+        </div>
+
+        {/* 🔄 INFORMACIÓN ADICIONAL DEL MODO */}
+        <div
+          className={`
+        text-xs p-2 rounded-lg border-l-4 
+        ${
+          esIniciales
+            ? "bg-blue-50 border-blue-400 text-blue-800"
+            : "bg-orange-50 border-orange-400 text-orange-800"
+        }
+      `}
+        >
+          <div className="flex items-start space-x-2">
+            <FiInfo className="mt-0.5 flex-shrink-0" />
+            <div>
+              {esIniciales ? (
+                <div>
+                  <p className="font-medium">
+                    Modo: TODO (Categorías Iniciales)
+                  </p>
+                  <p>
+                    Muestra todas las categorías sin aplicar filtros,
+                    exclusiones o agrupaciones.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <p className="font-medium">
+                    Modo: OPERACIONAL (Categorías Finales)
+                  </p>
+                  <p>
+                    Categorías filtradas: excluye microbuses, agrupa camionetas
+                    y aplica factor de 30%.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     );

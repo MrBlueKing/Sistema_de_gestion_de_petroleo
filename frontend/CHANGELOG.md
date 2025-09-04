@@ -36,7 +36,9 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 ### Changed
 
-- [Queued] Gerente --> ConsumoPureTable --> Centralizado en la máquina más que en la Faena.
+- [WIP] Gerente --> ConsumoPureTable --> Centralizado en la máquina más que en la Faena.
+
+- [Testing:Sebastian] Gerente --> Dashboard --> Agregar en la comparativa todas las categorias y la opción de ver el costo operacional.
 
 
 ### Depecrated

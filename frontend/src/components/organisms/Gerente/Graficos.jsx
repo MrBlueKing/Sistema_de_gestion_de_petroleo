@@ -325,10 +325,7 @@ const GraficosContent = ({ children }) => {
           <div className="font-semibold text-gray-800">
             Comparación de Consumo por Categoría de Operación
           </div>
-          <div className="text-xs text-gray-500 font-normal mt-1">
-            Sin considerar Micro y considerando el 30% del consumo de las
-            camionetas
-          </div>
+         
         </div>
       ),
     }),
