@@ -172,7 +172,6 @@ const ConsumosViewOptimized = () => {
 
   // Funciones para manejar el modal de detalle
   const handleVerDetalle = (cargaId) => {
-    console.log("🔍 Abriendo detalle para carga ID:", cargaId);
     setSelectedCargaId(cargaId);
     setIsModalOpen(true);
   };

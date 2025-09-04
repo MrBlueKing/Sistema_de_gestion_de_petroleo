@@ -15,6 +15,8 @@ import {
   FaSearch,
 } from 'react-icons/fa';
 import { FiAlertTriangle, FiTrendingUp, FiFileText } from "react-icons/fi";
+import SuccessNotification from '../../molecules/SuccessNotificationRendir';
+import LoadingButton from '../../molecules/LoadingButtonRendir';
 
 // Importar el layout base y sus componentes
 import AdminLayoutBase, {
@@ -82,6 +84,7 @@ const getFaenaColorsById = (faenaId) => {
   };
 };
 
+
 // 🏢 Componente del logo/icono estilo Copec (evitando copyright)
 const CopecStyleIcon = ({ className = "w-6 h-6" }) => (
   <div className={`${className} flex items-center justify-center`}>
@@ -141,6 +144,15 @@ const MainAdminOperador = () => {
   // 🆕 AGREGAR: Nuevo estado para estadísticas del backend
   const [estadisticasBackend, setEstadisticasBackend] = useState(null);
 
+  // 2. Agregar estados para notificaciones (después de los estados existentes):
+  const [notification, setNotification] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    type: "success"
+  });
+  const [loadingCargas, setLoadingCargas] = useState({});
+
   // Funciones de manejo de modal
   const handleVerDetalle = (cargaId) => {
     setSelectedCargaId(cargaId);
@@ -160,33 +172,55 @@ const MainAdminOperador = () => {
     navigate('/consumos-view-AdminOperador');
   };
 
-  // 1️⃣ CAMBIAR: Función para manejar rendición (reemplaza handleAccion)
+  // 3. Reemplazar la función handleRendir existente con esta:
   const handleRendir = async (cargaId) => {
+    console.log("🚀 Iniciando rendición de carga:", cargaId);
+    setLoadingCargas(prev => ({ ...prev, [cargaId]: true }));
+
     try {
       setError(null);
 
       const response = await axios.post(`/api/adminOperador/cargas/${cargaId}/rendir`);
+      console.log("📡 Respuesta del servidor:", response.data);
 
       if (response.data.status === "success") {
         // Actualizar el estado local
         setCargas((prev) =>
           prev.map((carga) =>
             carga.id === cargaId
-              ? {
-                ...carga,
-                estado: "Rendido",
-                fecha_rendicion: new Date().toISOString(),
-              }
+              ? { ...carga, estado: "Rendido", fecha_rendicion: new Date().toISOString() }
               : carga
           )
         );
+
+        // Mostrar notificación de éxito
+        setNotification({
+          visible: true,
+          title: "🎉 Carga Rendida",
+          message: `La carga ha sido marcada como rendida exitosamente`,
+          type: "success"
+        });
+
+        console.log("✅ Carga rendida exitosamente");
       } else {
-        throw new Error(response.data.message);
+        throw new Error(response.data.message || "Error al rendir la carga");
       }
     } catch (error) {
       console.error("❌ Error al rendir carga:", error);
-      setError(`Error al rendir la carga: ${error.response?.data?.message || error.message}`);
+      setNotification({
+        visible: true,
+        title: "❌ Error al Rendir",
+        message: error.response?.data?.message || error.message || "Error al rendir la carga",
+        type: "error"
+      });
+    } finally {
+      setLoadingCargas(prev => ({ ...prev, [cargaId]: false }));
     }
+  };
+
+  // 4. Función para cerrar notificación:
+  const closeNotification = () => {
+    setNotification({ visible: false, title: "", message: "", type: "success" });
   };
 
   // 6️⃣ CAMBIAR: fetchCargasExternas para capturar estadísticas del backend
@@ -433,22 +467,14 @@ const MainAdminOperador = () => {
               <FaEye className="h-3 w-3" />
               <span>Ver</span>
             </button>
-
-            {carga.estado === "pendiente" && (
-              <>
-                <button
-                  className="text-green-600 hover:text-green-900 text-xs px-2 py-1 border border-green-300 rounded"
-                  onClick={() => handleAccion(carga.id, "aprobado")}
-                >
-                  Aprobar
-                </button>
-                <button
-                  className="text-red-600 hover:text-red-900 text-xs px-2 py-1 border border-red-300 rounded"
-                  onClick={() => handleRechazar(carga.id)}
-                >
-                  Rechazar
-                </button>
-              </>
+            {carga.estado === "Por Rendir" && (
+              <LoadingButton
+                isLoading={loadingCargas[carga.id]}
+                onClick={() => handleRendir(carga.id)}
+                className="inline-flex items-center px-3 py-1 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+              >
+                Rendir
+              </LoadingButton>
             )}
           </div>
         </div>
@@ -549,7 +575,7 @@ const MainAdminOperador = () => {
             {carga.estado === "Por Rendir" && (
               <>
                 <button
-                  onClick={() => handleRendir(carga.id)} // ✅ AGREGAR: Conectar handleRendir con el ID de la carga
+                  onClick={() => handleRendir(carga.id)} // ✅ AGREGAR: Conectar handl eRendir con el ID de la carga
                   className="inline-flex items-center px-3 py-1 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
                   title="Marcar carga como rendida" // ✅ OPCIONAL: Agregar tooltip descriptivo
                   disabled={loading} // ✅ OPCIONAL: Deshabilitar si está cargando
@@ -822,7 +848,16 @@ const MainAdminOperador = () => {
           onActionComplete={handleActionComplete}
         />
       )}
-    </AdminLayoutBase>
+
+      {/* Notificación de Éxito/Error */}
+      <SuccessNotification
+        isVisible={notification.visible}
+        title={notification.title}
+        message={notification.message}
+        type={notification.type}
+        onClose={closeNotification}
+      />
+    </AdminLayoutBase >
   );
 };
 

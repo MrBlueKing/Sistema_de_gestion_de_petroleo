@@ -12,6 +12,8 @@ import {
   FaClock,
   FaCommentAlt,
 } from "react-icons/fa";
+import SuccessNotification from '../molecules/SuccessNotificationRendir';
+import LoadingButton from '../molecules/LoadingButtonRendir';
 import axios from "../../lib/axios";
 
 const DetalleCargaModal = ({ cargaId, isOpen, onClose, onActionComplete }) => {
@@ -64,26 +66,29 @@ const DetalleCargaModal = ({ cargaId, isOpen, onClose, onActionComplete }) => {
     }
   };
 
+  // 2. Agregar estados para notificaciones (después de los estados existentes):
+  const [notification, setNotification] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    type: "success"
+  });
+  const [rendirLoading, setRendirLoading] = useState(false);
+
   // 🔧 CORRECCIÓN para DetalleCargaModal.jsx
 
-  // 1. AGREGAR la función handleRendir específica para el modal
+  // 3. Reemplazar la función handleRendir existente con esta:
   const handleRendir = async () => {
+    console.log("🚀 Iniciando rendición desde modal:", cargaId);
+    setRendirLoading(true);
+
     try {
-      console.log("🚀 Iniciando rendición de carga:", cargaId);
       setError(null);
 
-      const response = await axios.post(
-        `/api/adminOperador/cargas/${cargaId}/rendir` // ✅ Cambiar de /aprobar a /rendir
-      );
-
+      const response = await axios.post(`/api/adminOperador/cargas/${cargaId}/rendir`);
       console.log("📡 Respuesta del servidor:", response.data);
 
       if (response.data.status === "success") {
-        setSuccess({
-          title: "Carga Rendida Exitosamente",
-          message: response.data.message || "La carga ha sido marcada como rendida correctamente."
-        });
-
         // Actualizar el estado de la carga en el modal
         setCarga(prevCarga => ({
           ...prevCarga,
@@ -91,23 +96,39 @@ const DetalleCargaModal = ({ cargaId, isOpen, onClose, onActionComplete }) => {
           fecha_rendicion: new Date().toISOString()
         }));
 
+        // Mostrar notificación de éxito
+        setNotification({
+          visible: true,
+          title: "🎉 Rendición Exitosa",
+          message: response.data.message || "La carga ha sido marcada como rendida correctamente.",
+          type: "success"
+        });
+
         // Llamar callback para actualizar la lista principal
         if (onActionComplete) {
           onActionComplete();
         }
 
-        console.log("✅ Carga rendida exitosamente");
+        console.log("✅ Carga rendida exitosamente desde modal");
       } else {
         throw new Error(response.data.message || "Error al rendir la carga");
       }
     } catch (error) {
       console.error("❌ Error al rendir carga:", error);
-      setError(
-        error.response?.data?.message ||
-        error.message ||
-        "Error al rendir la carga"
-      );
+      setNotification({
+        visible: true,
+        title: "❌ Error al Rendir",
+        message: error.response?.data?.message || error.message || "Error al rendir la carga",
+        type: "error"
+      });
+    } finally {
+      setRendirLoading(false);
     }
+  };
+
+  // 4. Función para cerrar notificación:
+  const closeNotification = () => {
+    setNotification({ visible: false, title: "", message: "", type: "success" });
   };
 
   const formatCurrency = (amount) => {
@@ -429,47 +450,24 @@ const DetalleCargaModal = ({ cargaId, isOpen, onClose, onActionComplete }) => {
         {/* Actions */}
         {carga && carga.estado === "Por Rendir" && !mostrarRechazo && (
           <div className="flex items-center justify-end space-x-4 p-6 border-t border-gray-200">
-            <button
+            <LoadingButton
+              isLoading={rendirLoading}
               onClick={handleRendir}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
             >
-              Rendir
-            </button>
+              Rendir Carga
+            </LoadingButton>
           </div>
         )}
 
-        {/* Formulario de rechazo */}
-        {mostrarRechazo && (
-          <div className="p-6 border-t border-gray-200 bg-red-50">
-            <h4 className="text-lg font-semibold text-red-800 mb-3">
-              Rechazar Carga
-            </h4>
-            <textarea
-              value={motivoRechazo}
-              onChange={(e) => setMotivoRechazo(e.target.value)}
-              placeholder="Ingrese el motivo del rechazo..."
-              className="w-full p-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-              rows="3"
-            />
-            <div className="flex items-center justify-end space-x-3 mt-3">
-              <button
-                onClick={() => {
-                  setMostrarRechazo(false);
-                  setMotivoRechazo("");
-                }}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleRechazar}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-              >
-                Confirmar Rechazo
-              </button>
-            </div>
-          </div>
-        )}
+        {/* Notificación de Éxito/Error */}
+        <SuccessNotification
+          isVisible={notification.visible}
+          title={notification.title}
+          message={notification.message}
+          type={notification.type}
+          onClose={closeNotification}
+        />
       </div>
     </div>
   );

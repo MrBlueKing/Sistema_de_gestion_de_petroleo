@@ -23,7 +23,7 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 ### Added
 
-- [Queued] Administrador Operador Vehiculos --> Consumos View --> Agregar totales para la tabla consumos y mejorar el filtro de usuarios. 
+- [WIP] Administrador Operador Vehiculos --> Consumos View --> Agregar totales para la tabla consumos y mejorar el filtro de usuarios. 
 
 - [Queued] Global --> Centralizar un controlador de colores por faena reutilizable.
 
@@ -49,7 +49,7 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 ### Removed
 
-- [Queued] Administrador Operador Vehiculos --> Eliminar Asignación Usuario Maquina y Guardar Drag & Drop.
+- [Testing:Nico] Administrador Operador Vehiculos --> Eliminar Asignación Usuario Maquina y Guardar Drag & Drop.
 
 - [Queued] Recepciones Movil --> Eliminar Información repetida (detalles de recepción).
 
@@ -62,7 +62,7 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - [Testing:Nico] Operador Vehiculos --> Historial --> Reemplazar historial antiguo por uno nuevo centrado en el user que traiga las estadisticas de las maquinas que el cargo.
 
-- [WIP] Administrador Operador Vehiculos --> Consumos View / Panel Principal --> Corregir acción de "Rendir" a un Consumo.
+- [Testing:Nico] Administrador Operador Vehiculos --> Consumos View / Panel Principal --> Corregir acción de "Rendir" a un Consumo.
 
 
 ### Security
