@@ -4,6 +4,7 @@ import UniversalTableFilter from "../../molecules/UniversalTableFilter";
 import PageControl from "../../molecules/PageControl";
 import FiltrosComponent from "../../molecules/FiltrosComponent";
 import DetalleCargaModal from "../../molecules/DetalleCargaModal";
+import axios from "../../../lib/axios";
 import {
   FaCheck,
   FaClock,
@@ -169,6 +170,41 @@ const ConsumosViewOptimized = () => {
 
   // 🆕 Estado para ubicaciones disponibles
   const [ubicacionesDisponibles, setUbicacionesDisponibles] = useState([]);
+
+  // Al inicio del componente, después de los otros estados
+  const [errorRendicion, setErrorRendicion] = useState(null);
+
+  // Estados para el modal de éxito
+  const [successMessage, setSuccessMessage] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  // Y luego usar esta función handleRendir mejorada:
+  const handleRendir = async (cargaId) => {
+    try {
+      setErrorRendicion(null); // Limpiar errores previos
+
+      const response = await axios.post(`/api/adminOperador/cargas/${cargaId}/rendir`);
+
+      if (response.data.status === "success") {
+        // Actualizar usando la función del hook useConsumos
+        actualizarCarga(cargaId, {
+          estado: "Rendido",
+          fecha_rendicion: new Date().toISOString(),
+        });
+
+        // Refrescar datos desde el servidor
+        refrescarDatos();
+
+        console.log("✅ Carga rendida exitosamente");
+
+      } else {
+        throw new Error(response.data.message);
+      }
+    } catch (error) {
+      console.error("❌ Error al rendir carga:", error);
+      setErrorRendicion(`Error al rendir la carga: ${error.response?.data?.message || error.message}`);
+    }
+  };
 
   // Funciones para manejar el modal de detalle
   const handleVerDetalle = (cargaId) => {
@@ -547,9 +583,8 @@ const ConsumosViewOptimized = () => {
         .filter(Boolean);
       if (usuariosSeleccionados.length > 0) {
         resultado = resultado.filter((carga) => {
-          const nombreCompleto = `${carga.user?.nombre || ""} ${
-            carga.user?.apellido || ""
-          }`.trim();
+          const nombreCompleto = `${carga.user?.nombre || ""} ${carga.user?.apellido || ""
+            }`.trim();
           return nombreCompleto
             .toLowerCase()
             .includes(filtrosAvanzados.usuario.toLowerCase());
@@ -673,11 +708,11 @@ const ConsumosViewOptimized = () => {
   const ITEMS_PER_PAGE = 10; // Agregar esta constante al inicio
 
   // ✅ CORRECTO - Cambiar por:
-const datosPaginados = useMemo(() => {
-  const inicio = (currentPage - 1) * ITEMS_PER_PAGE;
-  const fin = currentPage * ITEMS_PER_PAGE;
-  return datosFiltrados.slice(inicio, fin); // 👈 Usar datosFiltrados
-}, [datosFiltrados, currentPage]);
+  const datosPaginados = useMemo(() => {
+    const inicio = (currentPage - 1) * ITEMS_PER_PAGE;
+    const fin = currentPage * ITEMS_PER_PAGE;
+    return datosFiltrados.slice(inicio, fin); // 👈 Usar datosFiltrados
+  }, [datosFiltrados, currentPage]);
 
   // ✅ useEffect para actualizar páginas automáticamente
   useEffect(() => {
@@ -707,7 +742,7 @@ const datosPaginados = useMemo(() => {
             Administra y supervisa todos los consumos de combustible
           </p>
         </div>
-         </div>
+      </div>
 
       {/* 🆕 FILTROS COMPONENT - MODO UBICACIONES */}
       <FiltrosComponent
@@ -938,16 +973,16 @@ const datosPaginados = useMemo(() => {
                     {key === "numero_boleta"
                       ? "Boleta"
                       : key === "usuario"
-                      ? "Usuario"
-                      : key === "maquina"
-                      ? "Máquina"
-                      : key === "patente"
-                      ? "Patente"
-                      : key === "ubicacion"
-                      ? "Ubicación"
-                      : key === "estado"
-                      ? "Estado"
-                      : key}
+                        ? "Usuario"
+                        : key === "maquina"
+                          ? "Máquina"
+                          : key === "patente"
+                            ? "Patente"
+                            : key === "ubicacion"
+                              ? "Ubicación"
+                              : key === "estado"
+                                ? "Estado"
+                                : key}
                     :{" "}
                     {value.length > 20 ? `${value.substring(0, 20)}...` : value}
                     <button
@@ -1016,12 +1051,12 @@ const datosPaginados = useMemo(() => {
                       (
                       {Object.values(filtrosAvanzados).filter((v) => v).length +
                         (filtrosFecha.fechaDesde ||
-                        filtrosFecha.fechaHasta ||
-                        filtrosFecha.faenaSeleccionada !== "todas"
+                          filtrosFecha.fechaHasta ||
+                          filtrosFecha.faenaSeleccionada !== "todas"
                           ? 1
                           : 0) +
                         (filtrosFechaPersonalizados.fechaDesde ||
-                        filtrosFechaPersonalizados.fechaHasta
+                          filtrosFechaPersonalizados.fechaHasta
                           ? 1
                           : 0) +
                         (searchTerm ? 1 : 0) +
@@ -1040,18 +1075,18 @@ const datosPaginados = useMemo(() => {
                     {ordenColumna === "created_at"
                       ? "Fecha"
                       : ordenColumna === "numero_boleta"
-                      ? "N° Boleta"
-                      : ordenColumna === "usuario"
-                      ? "Usuario"
-                      : ordenColumna === "maquina"
-                      ? "Máquina"
-                      : ordenColumna === "litros"
-                      ? "Litros"
-                      : ordenColumna === "costo"
-                      ? "Costo"
-                      : ordenColumna === "estado"
-                      ? "Estado"
-                      : ordenColumna}
+                        ? "N° Boleta"
+                        : ordenColumna === "usuario"
+                          ? "Usuario"
+                          : ordenColumna === "maquina"
+                            ? "Máquina"
+                            : ordenColumna === "litros"
+                              ? "Litros"
+                              : ordenColumna === "costo"
+                                ? "Costo"
+                                : ordenColumna === "estado"
+                                  ? "Estado"
+                                  : ordenColumna}
                   </strong>{" "}
                   {direccionOrden === "desc" ? "↓" : "↑"}
                 </span>
@@ -1174,9 +1209,9 @@ const datosPaginados = useMemo(() => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200"
-              style={{
-              minHeight: "800px", // 🎯 ALTURA MÍNIMA para evitar saltos
-            }}>
+                style={{
+                  minHeight: "800px", // 🎯 ALTURA MÍNIMA para evitar saltos
+                }}>
                 {datosPaginados.map((datosFiltrados) => {
                   const configEstado =
                     estadosConfig[datosFiltrados.estado] || estadosConfig.PorRendir;
@@ -1189,13 +1224,11 @@ const datosPaginados = useMemo(() => {
                   return (
                     <tr
                       key={datosFiltrados.id}
-                      className={`hover:bg-gray-50 transition-colors ${
-                        esCargaExterna ? coloresFaena.copecBg : coloresFaena.bg
-                      } ${
-                        esCargaExterna
+                      className={`hover:bg-gray-50 transition-colors ${esCargaExterna ? coloresFaena.copecBg : coloresFaena.bg
+                        } ${esCargaExterna
                           ? coloresFaena.copecBorder
                           : coloresFaena.border
-                      } border-l-4`}
+                        } border-l-4`}
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {new Date(datosFiltrados.created_at).toLocaleDateString(
@@ -1211,9 +1244,8 @@ const datosPaginados = useMemo(() => {
                         {datosFiltrados.numero_boleta}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {`${datosFiltrados.user?.nombre || ""} ${
-                          datosFiltrados.user?.apellido || ""
-                        }`}
+                        {`${datosFiltrados.user?.nombre || ""} ${datosFiltrados.user?.apellido || ""
+                          }`}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         <div>
@@ -1225,11 +1257,10 @@ const datosPaginados = useMemo(() => {
                           </div>
                           {/* Mostrar ubicación real con estilo de faena */}
                           <div
-                            className={`text-xs font-medium flex items-center gap-1 ${
-                              esCargaExterna
-                                ? coloresFaena.copecBlue
-                                : coloresFaena.icon
-                            }`}
+                            className={`text-xs font-medium flex items-center gap-1 ${esCargaExterna
+                              ? coloresFaena.copecBlue
+                              : coloresFaena.icon
+                              }`}
                           >
                             <span>{coloresFaena.emoji}</span>
                             {datosFiltrados.ubicacion || "Sin ubicación"}
@@ -1242,11 +1273,10 @@ const datosPaginados = useMemo(() => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                         <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            esCargaExterna
-                              ? coloresFaena.copecBadge
-                              : coloresFaena.badge
-                          }`}
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${esCargaExterna
+                            ? coloresFaena.copecBadge
+                            : coloresFaena.badge
+                            }`}
                         >
                           {Number(datosFiltrados.litros).toLocaleString()}
                         </span>
@@ -1254,11 +1284,10 @@ const datosPaginados = useMemo(() => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                         <span
-                          className={`font-semibold ${
-                            esCargaExterna
-                              ? coloresFaena.copecBlue
-                              : coloresFaena.icon
-                          }`}
+                          className={`font-semibold ${esCargaExterna
+                            ? coloresFaena.copecBlue
+                            : coloresFaena.icon
+                            }`}
                         >
                           ${Number(datosFiltrados.costo).toLocaleString()}
                         </span>
@@ -1274,31 +1303,56 @@ const datosPaginados = useMemo(() => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                        <button
-                          onClick={() => handleVerDetalle(datosFiltrados.id)}
-                          className="inline-flex items-center px-3 py-1 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                          title="Ver historial y detalles completos"
-                        >
-                          <FaEye className="w-3 h-3 mr-1" />
-                          Ver
-                        </button>
+                        <div className="flex items-center space-x-2">
+                          {/* Botón Ver existente */}
+                          <button
+                            onClick={() => handleVerDetalle(datosFiltrados.id)}
+                            className="inline-flex items-center px-3 py-1 border border-orange-300 text-sm font-medium rounded-md text-orange-700 bg-orange-50 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors"
+                            title="Ver historial y detalles completos"
+                          >
+                            <FaEye className="w-3 h-3 mr-1" />
+                            Ver
+                          </button>
+
+                          {/* 🆕 NUEVO: Botón Rendir - solo si el estado es "Por Rendir" */}
+                          {datosFiltrados.estado === "Por Rendir" && (
+                            <button
+                              onClick={() => handleRendir(datosFiltrados.id)}
+                              className="inline-flex items-center px-3 py-1 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                              title="Marcar carga como rendida"
+                              disabled={loading}
+                            >
+                              {loading ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-700 mr-1"></div>
+                                  Procesando...
+                                </>
+                              ) : (
+                                <>
+                                  <FaCheckCircle className="w-3 h-3 mr-1" />
+                                  Rendir
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
                 })}
-                 {/* 🆕 FILAS VACÍAS PARA MANTENER ALTURA MÍNIMA */}
-            {datosFiltrados.length < 4 &&
-              Array.from({ length: 4 - datosFiltrados.length }).map(
-                (_, index) => (
-                  <tr
-                    key={`empty-${index}`}
-                    className="h-20" // Altura similar a las filas reales
-                    style={{ opacity: 0 }} // Invisible pero mantiene el espacio
-                  >
-                    <td colSpan="4">&nbsp;</td>
-                  </tr>
-                )
-              )}
+                {/* 🆕 FILAS VACÍAS PARA MANTENER ALTURA MÍNIMA */}
+                {datosFiltrados.length < 4 &&
+                  Array.from({ length: 4 - datosFiltrados.length }).map(
+                    (_, index) => (
+                      <tr
+                        key={`empty-${index}`}
+                        className="h-20" // Altura similar a las filas reales
+                        style={{ opacity: 0 }} // Invisible pero mantiene el espacio
+                      >
+                        <td colSpan="4">&nbsp;</td>
+                      </tr>
+                    )
+                  )}
               </tbody>
             </table>
           </div>
