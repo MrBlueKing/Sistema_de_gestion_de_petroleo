@@ -48,9 +48,10 @@ const DashboardComparativo = ({
   const abortControllerRef = useRef(null);
   const isMounted = useRef(true);
   const loadingRef = useRef(false); // Prevenir cargas duplicadas
-
+  const lastFiltersRef = useRef({ faenaSeleccionada: null, fechaDesde: null, fechaHasta: null, refreshKey: null });
   // 🚀 OPTIMIZACIÓN: Cache de datos para evitar re-consultas innecesarias
   const cacheRef = useRef(new Map());
+  const isFirstLoad = useRef(true); // 🆕 Para manejar la carga inicial
 
 // 🔧 SOLUCIÓN COMPLETA: Función calcularPeriodoAnterior que maneja correctamente los días por mes
 
@@ -168,136 +169,156 @@ const calcularPeriodoAnterior = () => {
   // 🔍 DEBUGGING: Agrega este console.log para verificar
   console.log("🔍 DashboardComparativo periodoAnterior:", periodoAnterior);
 
-  // 🚀 FUNCIÓN OPTIMIZADA: Obtener datos de un período específico
-  const obtenerDatosPeriodo = async (fechaInicio, fechaFin, signal) => {
-    // Cache key para evitar consultas duplicadas
-    const cacheKey = `${fechaInicio}_${fechaFin}_${faenaSeleccionada}`;
 
-    // Verificar cache primero
-    if (cacheRef.current.has(cacheKey)) {
-      console.log("📦 Usando datos del cache:", cacheKey);
-      return cacheRef.current.get(cacheKey);
+const obtenerDatosPeriodo = async (fechaInicio, fechaFin, signal = null) => {
+  console.log("📊 DashboardComparativo: Consultando período:", {
+    fechaInicio,
+    fechaFin,
+    faenaSeleccionada,
+    timestamp: Date.now(),
+  });
+
+  const params = {
+    desde: fechaInicio,
+    hasta: fechaFin,
+    faena: faenaSeleccionada,
+  };
+
+  // Configuración axios con signal (pero solo si está disponible)
+  const axiosConfig = signal ? { signal, timeout: 10000 } : { timeout: 10000 };
+
+  try {
+    // 🚀 USAR ENDPOINTS QUE SABEMOS QUE FUNCIONAN (según tu apiService.jsx)
+    const [
+      kpisResponse,      // Para total
+      faenasResponse,    // Para faenas
+      equiposResponse,   // Para categorías y equipos
+    ] = await Promise.all([
+      // 1. KPIs generales (incluye total)
+      axios.get("/api/informes-kpi", { 
+        params: { ...params, tipo: "kpis_consumo" },
+        ...axiosConfig
+      }),
+      // 2. Consumo por faenas
+      axios.get("/api/informes-kpi", { 
+        params: { ...params, tipo: "consumo_faenas" },
+        ...axiosConfig
+      }),
+      // 3. Consumo por equipos (incluye categorías)
+      axios.get("/api/informes-kpi", { 
+        params: { ...params, tipo: "consumo_equipos" },
+        ...axiosConfig
+      }),
+    ]);
+
+    // ✅ VERIFICAR SI FUE ABORTADA (sin throw inmediato)
+    if (signal?.aborted) {
+      console.log("🚫 Request cancelada - retornando null");
+      return null;
     }
 
-    console.log("📊 DashboardComparativo: Consultando período:", {
-      fechaInicio,
-      fechaFin,
-      faenaSeleccionada,
-      timestamp: Date.now(),
+    console.log("📊 DashboardComparativo: Respuestas recibidas:", {
+      kpis: kpisResponse?.data ? "✅" : "❌",
+      faenas: faenasResponse?.data ? "✅" : "❌", 
+      equipos: equiposResponse?.data ? "✅" : "❌",
     });
 
-    const params = {
-      desde: fechaInicio,
-      hasta: fechaFin,
-      faena: faenaSeleccionada,
-    };
+    // 🔧 PROCESAMIENTO ROBUSTO DE DATOS
+    
+    // 1. 📊 TOTAL GENERAL (desde kpis_consumo)
+    let totalConsumo = 0;
+    if (kpisResponse?.data?.data) {
+      totalConsumo = kpisResponse.data.data.consumo_total_mes || 
+                    kpisResponse.data.data.consumo_total || 
+                    kpisResponse.data.data.total_litros || 0;
+    }
 
-    try {
-      // 🚀 OPTIMIZACIÓN: Consultas paralelas más eficientes (3 en lugar de 4)
-      const [totalResponse, faenasResponse, equiposResponse] =
-        await Promise.all([
-          axios.get("/api/informes-kpi", {
-            params: { ...params, tipo: "kpis_consumo" },
-            signal,
-          }),
-          axios.get("/api/informes-kpi", {
-            params: { ...params, tipo: "consumo_faenas" },
-            signal,
-          }),
-          axios.get("/api/informes-kpi", {
-            params: { ...params, tipo: "consumo_equipos" },
-            signal,
-          }),
-        ]);
+    // 2. 📈 POR FAENAS
+    let faenas = [];
+    if (faenasResponse?.data?.data && Array.isArray(faenasResponse.data.data)) {
+      faenas = faenasResponse.data.data.map(f => ({
+        faena: f.name || f.nombre || f.faena || "Sin nombre",
+        litros_consumidos: parseFloat(f.consumo || f.litros_consumidos || 0),
+      }));
+    }
 
-      // Verificar si la request fue cancelada
-      if (signal.aborted) {
-        console.log("🚫 Request cancelada");
-        return null;
-      }
-
-      console.log("📊 DashboardComparativo: Respuestas recibidas:", {
-        total: totalResponse.data,
-        faenas: faenasResponse.data,
-        equipos: equiposResponse.data,
-      });
-
-      // PROCESAR LOS DATOS SEGÚN LA ESTRUCTURA DE LA API
-      // 1. Total general
-      const totalConsumo = totalResponse.data?.data?.consumo_total_mes || 0;
-
-      // 2. Por faenas
-      const faenas = faenasResponse.data?.data || [];
-
-      // 3. Por categorías (extraer de equipos)
-      const equipos = equiposResponse.data?.data || [];
-
-      // 🚀 OPTIMIZACIÓN: Procesamiento más eficiente de categorías usando Map
-      const categoriasMap = new Map();
-      equipos.forEach((equipo) => {
-        const categoria = equipo.categoria || "Sin categoría";
-        const consumo = parseFloat(equipo.consumo || 0);
+    // 3. 📋 POR EQUIPOS Y CATEGORÍAS
+    let equipos = [];
+    let categoriasMap = new Map();
+    
+    if (equiposResponse?.data?.data && Array.isArray(equiposResponse.data.data)) {
+      const equiposRaw = equiposResponse.data.data;
+      
+      equiposRaw.forEach((equipo) => {
+        const consumo = parseFloat(equipo.consumo || equipo.litros_consumidos || 0);
+        
+        // Para equipos
+        equipos.push({
+          nombre_equipo: equipo.nombre || equipo.nombre_equipo || "Sin nombre",
+          patente: equipo.patente || "",
+          litros_consumidos: consumo,
+        });
+        
+        // Para categorías
+        const categoria = equipo.categoria || equipo.categoria_nombre || "Sin categoría";
         categoriasMap.set(
           categoria,
           (categoriasMap.get(categoria) || 0) + consumo
         );
       });
 
-      const categoriasArray = Array.from(categoriasMap.entries()).map(
-        ([categoria, consumo]) => ({
-          categoria,
-          litros_consumidos: consumo,
-        })
-      );
-
-      // 4. Top equipos con categoría incluida (optimizado)
-      const topEquipos = equipos
-        .map((equipo) => ({
-          nombre_equipo: equipo.nombre || "Sin nombre",
-          patente: equipo.patente || "",
-          categoria: equipo.categoria || "Sin categoría",
-          litros_consumidos: parseFloat(equipo.consumo || 0),
-        }))
-        .sort((a, b) => b.litros_consumidos - a.litros_consumidos);
-
-      console.log("📊 DashboardComparativo: Datos procesados:", {
-        totalConsumo,
-        faenasCount: faenas.length,
-        categoriasCount: categoriasArray.length,
-        equiposCount: topEquipos.length,
-      });
-
-      const resultado = {
-        total: totalConsumo,
-        faenas: faenas.map((f) => ({
-          faena: f.name || f.nombre || "Sin nombre",
-          litros_consumidos: parseFloat(f.consumo || 0),
-        })),
-        categorias: categoriasArray,
-        equipos: topEquipos,
-      };
-
-      // 🚀 Guardar en cache con TTL de 5 minutos
-      cacheRef.current.set(cacheKey, resultado);
-
-      return resultado;
-    } catch (error) {
-      if (error.name === "AbortError") {
-        console.log("🚫 Request abortada por el usuario");
-        return null;
-      }
-
-      console.error("❌ DashboardComparativo: Error en consulta:", error);
-
-      // FALLBACK: Devolver datos vacíos pero válidos
-      return {
-        total: 0,
-        faenas: [],
-        categorias: [],
-        equipos: [],
-      };
+      // Ordenar equipos por consumo y tomar top 10
+      equipos = equipos
+        .sort((a, b) => b.litros_consumidos - a.litros_consumidos)
+        .slice(0, 10);
     }
-  };
+
+    // Convertir categorías a array
+    const categoriasArray = Array.from(categoriasMap.entries()).map(
+      ([categoria, consumo]) => ({
+        categoria,
+        litros_consumidos: consumo,
+      })
+    );
+
+    console.log("📊 DashboardComparativo: Datos procesados:", {
+      totalConsumo,
+      faenasCount: faenas.length,
+      categoriasCount: categoriasArray.length,
+      equiposCount: equipos.length,
+    });
+
+    // ✅ RETORNAR DATOS
+    return {
+      total: totalConsumo,
+      faenas,
+      categorias: categoriasArray,
+      equipos,
+    };
+
+  } catch (error) {
+    // ✅ MANEJO DE ERRORES MEJORADO
+    if (signal?.aborted || error.name === 'AbortError') {
+      console.log("🚫 Request abortada correctamente");
+      return null;
+    }
+
+    console.error("❌ DashboardComparativo: Error en consulta:", {
+      message: error.message,
+      status: error.response?.status,
+      url: error.config?.url,
+    });
+    
+    // 🔧 FALLBACK: Datos vacíos pero válidos
+    return {
+      total: 0,
+      faenas: [],
+      categorias: [],
+      equipos: [],
+    };
+  }
+};
+
 
   // 🚀 FUNCIÓN PRINCIPAL CON TODAS LAS PROTECCIONES OPTIMIZADA
   const cargarTodosLosDatos = async () => {
@@ -525,26 +546,219 @@ const calcularPeriodoAnterior = () => {
     }
   };
 
-  // 🚀 USEEFFECT CON DEBOUNCE Y PROTECCIÓN OPTIMIZADO
-  useEffect(() => {
-    // Validación rápida
-    if (!fechaDesde || !fechaHasta) {
-      console.log("🚫 Fechas faltantes, no cargando datos");
+
+useEffect(() => {
+  // ✅ VALIDACIONES INICIALES
+  if (!fechaDesde || !fechaHasta) {
+    console.log("🚫 Fechas faltantes, no cargando datos");
+    return;
+  }
+
+  // ✅ COMPARAR FILTROS PARA EVITAR CARGAS INNECESARIAS
+  const currentFilters = { faenaSeleccionada, fechaDesde, fechaHasta, refreshKey };
+  const lastFilters = lastFiltersRef.current;
+
+  const hasRealChanges = 
+    currentFilters.faenaSeleccionada !== lastFilters.faenaSeleccionada ||
+    currentFilters.fechaDesde !== lastFilters.fechaDesde ||
+    currentFilters.fechaHasta !== lastFilters.fechaHasta ||
+    currentFilters.refreshKey !== lastFilters.refreshKey ||
+    isFirstLoad.current; // 🆕 Incluir primera carga
+
+  if (!hasRealChanges) {
+    console.log("🚫 Sin cambios reales, omitiendo carga");
+    return;
+  }
+
+  console.log("⚡ DashboardComparativo: Cambios detectados, iniciando carga", {
+    isFirstLoad: isFirstLoad.current,
+    cambios: currentFilters
+  });
+
+  // ✅ ACTUALIZAR REFS
+  lastFiltersRef.current = currentFilters;
+  isFirstLoad.current = false;
+
+  // 🔄 FUNCIÓN DE CARGA MEJORADA
+  const cargarDatosSeguro = async () => {
+    // Solo cancelar si hay un request activo Y es diferente
+    if (abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
+      console.log("🔄 Cancelando request anterior");
+      abortControllerRef.current.abort();
+    }
+
+    // Crear nuevo controller
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+
+    if (!isMounted.current || loadingRef.current) {
       return;
     }
 
-    console.log("⏱️ DashboardComparativo: Programando carga con debounce");
+    loadingRef.current = true;
+    setLoading(true);
+    setError(null);
 
-    // Debounce de 100ms para mejor performance
-    const timeoutId = setTimeout(() => {
-      if (isMounted.current && !loadingRef.current) {
-        cargarTodosLosDatos();
+    try {
+      // ✅ VERIFICAR FILTROS ANTES DE PROCESAR
+      const currentCheck = { faenaSeleccionada, fechaDesde, fechaHasta, refreshKey };
+      if (JSON.stringify(currentFilters) !== JSON.stringify(currentCheck)) {
+        console.log("🔄 Filtros cambiaron durante setup, cancelando");
+        return;
       }
-    }, 100);
 
-    // Cleanup del timeout
-    return () => clearTimeout(timeoutId);
-  }, [faenaSeleccionada, fechaDesde, fechaHasta, refreshKey]);
+      const periodoAnterior = calcularPeriodoAnterior();
+      setPeriodoAnteriorDescripcion(periodoAnterior.descripcion);
+
+      console.log("📊 Cargando períodos:", {
+        actual: `${fechaDesde} al ${fechaHasta}`,
+        anterior: `${periodoAnterior.fechaDesde} al ${periodoAnterior.fechaHasta}`,
+      });
+
+      // ✅ CARGAR DATOS CON TIMEOUT
+      const [datosActuales, datosAnteriores] = await Promise.all([
+        obtenerDatosPeriodo(fechaDesde, fechaHasta, signal),
+        obtenerDatosPeriodo(periodoAnterior.fechaDesde, periodoAnterior.fechaHasta, signal)
+      ]);
+
+      // ✅ VERIFICAR SI FUE CANCELADO
+      if (signal.aborted || !datosActuales || !datosAnteriores || !isMounted.current) {
+        console.log("🚫 Carga cancelada o datos nulos");
+        return;
+      }
+
+      // ✅ VERIFICAR FILTROS AL FINAL
+      const finalCheck = { faenaSeleccionada, fechaDesde, fechaHasta, refreshKey };
+      if (JSON.stringify(currentFilters) !== JSON.stringify(finalCheck)) {
+        console.log("🚫 Filtros cambiaron durante carga, descartando resultados");
+        return;
+      }
+
+      console.log("✅ Aplicando datos con filtros consistentes");
+
+      // ✅ APLICAR DATOS
+      setDatosTotal({
+        actual: datosActuales.total,
+        anterior: datosAnteriores.total,
+      });
+
+      // 📊 PROCESAR FAENAS
+      const todasFaenas = new Map();
+      
+      datosActuales.faenas.forEach((faena, index) => {
+        const chartColors = ["#f97316", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6"];
+        todasFaenas.set(faena.faena, {
+          name: faena.faena,
+          actual: faena.litros_consumidos,
+          anterior: 0,
+          color: chartColors[index % chartColors.length],
+        });
+      });
+
+      datosAnteriores.faenas.forEach((faena) => {
+        if (todasFaenas.has(faena.faena)) {
+          todasFaenas.get(faena.faena).anterior = faena.litros_consumidos;
+        } else {
+          todasFaenas.set(faena.faena, {
+            name: faena.faena,
+            actual: 0,
+            anterior: faena.litros_consumidos,
+            color: "#666",
+          });
+        }
+      });
+
+      setDatosFaenas(Array.from(todasFaenas.values()));
+
+      // 📊 PROCESAR CATEGORÍAS (similar lógica)
+      const todasCategorias = new Map();
+      
+      datosActuales.categorias.forEach((cat, index) => {
+        const chartColors = ["#f97316", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6"];
+        todasCategorias.set(cat.categoria, {
+          name: cat.categoria,
+          actual: cat.litros_consumidos,
+          anterior: 0,
+          color: chartColors[index % chartColors.length],
+        });
+      });
+
+      datosAnteriores.categorias.forEach((cat) => {
+        if (todasCategorias.has(cat.categoria)) {
+          todasCategorias.get(cat.categoria).anterior = cat.litros_consumidos;
+        } else {
+          todasCategorias.set(cat.categoria, {
+            name: cat.categoria,
+            actual: 0,
+            anterior: cat.litros_consumidos,
+            color: "#666",
+          });
+        }
+      });
+
+      setDatosCategorias(Array.from(todasCategorias.values()));
+
+      // 📊 PROCESAR EQUIPOS (similar lógica)
+      const todosEquipos = new Map();
+      
+      datosActuales.equipos.forEach((eq, index) => {
+        const chartColors = ["#f97316", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6"];
+        const key = `${eq.nombre_equipo}-${eq.patente}`;
+        todosEquipos.set(key, {
+          name: eq.nombre_equipo,
+          patente: eq.patente,
+          actual: eq.litros_consumidos,
+          anterior: 0,
+          color: chartColors[index % chartColors.length],
+        });
+      });
+
+      datosAnteriores.equipos.forEach((eq) => {
+        const key = `${eq.nombre_equipo}-${eq.patente}`;
+        if (todosEquipos.has(key)) {
+          todosEquipos.get(key).anterior = eq.litros_consumidos;
+        } else {
+          todosEquipos.set(key, {
+            name: eq.nombre_equipo,
+            patente: eq.patente,
+            actual: 0,
+            anterior: eq.litros_consumidos,
+            color: "#666",
+          });
+        }
+      });
+
+      setDatosEquipos(Array.from(todosEquipos.values()));
+
+      console.log("🎉 DashboardComparativo: Datos aplicados exitosamente");
+
+    } catch (error) {
+      if (signal.aborted || error.name === "AbortError") {
+        console.log("🚫 Carga cancelada correctamente");
+        return;
+      }
+
+      console.error("❌ Error cargando datos:", error);
+      if (isMounted.current) {
+        setError(`Error al cargar datos: ${error.message}`);
+      }
+    } finally {
+      if (isMounted.current) {
+        setLoading(false);
+        loadingRef.current = false;
+      }
+    }
+  };
+
+  // ✅ EJECUTAR CON PEQUEÑO DELAY PARA ESTABILIDAD
+  const timeoutId = setTimeout(cargarDatosSeguro, 100);
+  
+  return () => {
+    clearTimeout(timeoutId);
+  };
+
+}, [faenaSeleccionada, fechaDesde, fechaHasta, refreshKey]);
+
 
   // 🚀 OPTIMIZACIÓN: Limpiar cache cuando cambien filtros importantes
   useEffect(() => {
@@ -552,16 +766,17 @@ const calcularPeriodoAnterior = () => {
     cacheRef.current.clear();
   }, [faenaSeleccionada]);
 
-  // Cleanup al desmontar
-  useEffect(() => {
-    isMounted.current = true;
-    return () => {
-      isMounted.current = false;
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, []);
+ useEffect(() => {
+  isMounted.current = true;
+  return () => {
+    isMounted.current = false;
+    if (abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
+      abortControllerRef.current.abort();
+    }
+    lastFiltersRef.current = { faenaSeleccionada: null, fechaDesde: null, fechaHasta: null, refreshKey: null };
+    isFirstLoad.current = true;
+  };
+}, []);
 
   // 🚀 MEMOIZAR TOOLTIPS para evitar re-renders costosos
   const CustomTooltipCombinado = useMemo(
