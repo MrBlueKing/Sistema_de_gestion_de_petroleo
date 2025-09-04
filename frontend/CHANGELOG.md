@@ -38,6 +38,8 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - [Queued] Gerente --> ConsumoPureTable --> Centralizado en la máquina más que en la Faena.
 
+- [Queued] Gerente --> Dashboard --> Agregar en la comparativa todas las categorias y la opción de ver el costo operacional.
+
 
 ### Depecrated
 
@@ -56,9 +58,9 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - [Queued] Administrador Operador Vehiculos --> Crear Users --> Agregar Todas las validaciones correspondientes y ver que hacer con guion.
 
-- [Queued] Operador Vehiculos --> Historial --> Reemplazar historial antiguo por uno nuevo centrado en el user que traiga las estadisticas de las maquinas que el cargo.
+- [Testing:Nico] Operador Vehiculos --> Historial --> Reemplazar historial antiguo por uno nuevo centrado en el user que traiga las estadisticas de las maquinas que el cargo.
 
-- [Queued] Administrador Operador Vehiculos --> Consumos View / Panel Principal --> Corregir acción de "Rendir" a un Consumo.
+- [WIP] Administrador Operador Vehiculos --> Consumos View / Panel Principal --> Corregir acción de "Rendir" a un Consumo.
 
 
 ### Security
@@ -67,7 +69,7 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 
 
-## [3.2]
+## [3.0] - 2025-09-02
 
 ### Added
 

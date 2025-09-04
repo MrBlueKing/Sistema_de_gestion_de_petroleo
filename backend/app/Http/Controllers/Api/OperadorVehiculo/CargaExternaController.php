@@ -102,60 +102,65 @@ class CargaExternaController extends Controller
     {
         try {
             $user = $request->user();
+            Log::info("Obteniendo cargas para usuario ID: {$user->id}");
 
-            // Obtener cargas del usuario
-            $cargas = CargaExterna::where('id_user', $user->id)
+            // 🆕 PARÁMETRO PARA LÍMITE DINÁMICO
+            $limite = $request->get('limite', 50); // Default 50 en lugar de 5
+
+            $now = Carbon::now();
+
+            // Cargas del mes actual directamente desde DB
+            $cargasMes = CargaExterna::where('id_user', $user->id)
+                ->whereMonth('created_at', $now->month)
+                ->whereYear('created_at', $now->year)
                 ->orderBy('created_at', 'desc')
                 ->get();
 
-            // Calcular resumen del mes actual
-            $mesActual = Carbon::now()->format('Y-m');
-            $cargasMes = $cargas->filter(function ($carga) use ($mesActual) {
-                return Carbon::parse($carga->fecha_carga)->format('Y-m') === $mesActual;
-            });
-
+            // Resumen del mes actual (se mantiene igual)
             $resumen = [
-                'pendientes' => $cargasMes->where('estado', 'pendiente')->count(),
-                'aprobadas' => $cargasMes->where('estado', 'aprobado')->count(),
-                'rechazadas' => $cargasMes->where('estado', 'rechazado')->count(),
-                'total_mes' => $cargasMes->count(),
-                'litros_mes' => $cargasMes->sum('litros'),
-                'costo_mes' => $cargasMes->sum('costo')
+                'pendientes'  => $cargasMes->where('estado', 'pendiente')->count(),
+                'aprobadas'   => $cargasMes->where('estado', 'aprobado')->count(),
+                'rechazadas'  => $cargasMes->where('estado', 'rechazado')->count(),
+                'total_mes'   => $cargasMes->count(),
+                'litros_mes'  => $cargasMes->sum('litros'),
+                'costo_mes'   => $cargasMes->sum('costo'),
             ];
 
-            // Obtener las 5 cargas más recientes
-            $cargasRecientes = $cargas->take(5)->map(function ($carga) {
+            // 🚀 CAMBIO PRINCIPAL: Respetar el límite solicitado
+            $cargasRecientes = $cargasMes->take($limite)->map(function ($carga) {
                 return [
-                    'id' => $carga->id,
-                    'numero_boleta' => $carga->numero_boleta,
-                    'fecha' => $carga->fecha_carga,
-                    'fecha_legible' => Carbon::parse($carga->fecha_carga)->format('d M Y'),
-                    'litros' => $carga->litros,
-                    'costo' => $carga->costo,
+                    'id'              => $carga->id,
+                    'numero_boleta'   => $carga->numero_boleta,
+                    'fecha'           => $carga->created_at,
+                    'fecha_legible'   => Carbon::parse($carga->created_at)->format('d M Y'),
+                    'litros'          => $carga->litros,
+                    'costo'           => $carga->costo,
                     'precio_por_litro' => $carga->precio_por_litro,
-                    'ubicacion' => $carga->ubicacion,
-                    'estado' => $carga->estado,
+                    'ubicacion'       => $carga->ubicacion,
+                    'estado'          => $carga->estado,
                     'tipo_combustible' => $carga->tipo_combustible,
-                    'observaciones' => $carga->observaciones
+                    'observaciones'   => $carga->observaciones,
                 ];
             });
 
+            Log::info("Cargas devueltas: {$cargasRecientes->count()} de {$cargasMes->count()} totales");
+
             return response()->json([
-                'status' => 'success',
-                'data' => [
-                    'resumen' => $resumen,
-                    'cargas_recientes' => $cargasRecientes,
-                    'total_cargas' => $cargas->count()
-                ],
+                'status'  => 'success',
+                // 🔄 ESTRUCTURA SIMPLIFICADA - directamente en el root
+                'resumen'        => $resumen,
+                'cargas_recientes' => $cargasRecientes,
+                'total_cargas'   => $cargasMes->count(),
                 'message' => "Datos del usuario obtenidos correctamente"
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => 'Error al obtener cargas del usuario: ' . $e->getMessage()
             ], 500);
         }
     }
+
 
     public function cargasMesActual(Request $request)
     {
