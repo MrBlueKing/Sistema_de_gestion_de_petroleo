@@ -48,717 +48,464 @@ const DashboardComparativo = ({
   const abortControllerRef = useRef(null);
   const isMounted = useRef(true);
   const loadingRef = useRef(false); // Prevenir cargas duplicadas
-  const lastFiltersRef = useRef({ faenaSeleccionada: null, fechaDesde: null, fechaHasta: null, refreshKey: null });
+  const lastFiltersRef = useRef({
+    faenaSeleccionada: null,
+    fechaDesde: null,
+    fechaHasta: null,
+    refreshKey: null,
+  });
   // 🚀 OPTIMIZACIÓN: Cache de datos para evitar re-consultas innecesarias
   const cacheRef = useRef(new Map());
   const isFirstLoad = useRef(true); // 🆕 Para manejar la carga inicial
 
-// 🔧 SOLUCIÓN COMPLETA: Función calcularPeriodoAnterior que maneja correctamente los días por mes
+  // 🔧 SOLUCIÓN COMPLETA: Función calcularPeriodoAnterior que maneja correctamente los días por mes
 
-const calcularPeriodoAnterior = () => {
-  if (!fechaDesde || !fechaHasta) {
-    return {
-      fechaDesde: "",
-      fechaHasta: "",
-      descripcion: "Fechas inválidas",
+  const calcularPeriodoAnterior = () => {
+    if (!fechaDesde || !fechaHasta) {
+      return {
+        fechaDesde: "",
+        fechaHasta: "",
+        descripcion: "Fechas inválidas",
+      };
+    }
+
+    // 📅 FUNCIÓN AUXILIAR: Obtener días en un mes específico
+    const getDiasEnMes = (year, month) => {
+      // month es 1-12 (enero = 1, diciembre = 12)
+      return new Date(year, month, 0).getDate();
     };
-  }
 
-  // 📅 FUNCIÓN AUXILIAR: Obtener días en un mes específico
-  const getDiasEnMes = (year, month) => {
-    // month es 1-12 (enero = 1, diciembre = 12)
-    return new Date(year, month, 0).getDate();
-  };
+    // Parsear fechas de entrada
+    const [yearDesde, monthDesde, dayDesde] = fechaDesde.split("-").map(Number);
+    const [yearHasta, monthHasta, dayHasta] = fechaHasta.split("-").map(Number);
 
-  // Parsear fechas de entrada
-  const [yearDesde, monthDesde, dayDesde] = fechaDesde.split("-").map(Number);
-  const [yearHasta, monthHasta, dayHasta] = fechaHasta.split("-").map(Number);
+    // Calcular mes anterior para fecha inicio
+    let yearAnteriorDesde = yearDesde;
+    let monthAnteriorDesde = monthDesde - 1;
+    if (monthAnteriorDesde < 1) {
+      monthAnteriorDesde = 12;
+      yearAnteriorDesde -= 1;
+    }
 
-  // Calcular mes anterior para fecha inicio
-  let yearAnteriorDesde = yearDesde;
-  let monthAnteriorDesde = monthDesde - 1;
-  if (monthAnteriorDesde < 1) {
-    monthAnteriorDesde = 12;
-    yearAnteriorDesde -= 1;
-  }
+    // Calcular mes anterior para fecha fin
+    let yearAnteriorHasta = yearHasta;
+    let monthAnteriorHasta = monthHasta - 1;
+    if (monthAnteriorHasta < 1) {
+      monthAnteriorHasta = 12;
+      yearAnteriorHasta -= 1;
+    }
 
-  // Calcular mes anterior para fecha fin
-  let yearAnteriorHasta = yearHasta;
-  let monthAnteriorHasta = monthHasta - 1;
-  if (monthAnteriorHasta < 1) {
-    monthAnteriorHasta = 12;
-    yearAnteriorHasta -= 1;
-  }
+    // 🔧 CORRECCIÓN CRÍTICA: Ajustar días si el mes anterior tiene menos días
+    let dayAnteriorDesde = dayDesde;
+    let dayAnteriorHasta = dayHasta;
 
-  // 🔧 CORRECCIÓN CRÍTICA: Ajustar días si el mes anterior tiene menos días
-  let dayAnteriorDesde = dayDesde;
-  let dayAnteriorHasta = dayHasta;
+    // Verificar días máximos para el mes anterior de la fecha inicio
+    const maxDiasAnteriorDesde = getDiasEnMes(
+      yearAnteriorDesde,
+      monthAnteriorDesde
+    );
+    if (dayAnteriorDesde > maxDiasAnteriorDesde) {
+      dayAnteriorDesde = maxDiasAnteriorDesde;
+      console.log(
+        `🔧 Ajuste fecha inicio: Día ${dayDesde} → ${dayAnteriorDesde} (mes ${monthAnteriorDesde} solo tiene ${maxDiasAnteriorDesde} días)`
+      );
+    }
 
-  // Verificar días máximos para el mes anterior de la fecha inicio
-  const maxDiasAnteriorDesde = getDiasEnMes(yearAnteriorDesde, monthAnteriorDesde);
-  if (dayAnteriorDesde > maxDiasAnteriorDesde) {
-    dayAnteriorDesde = maxDiasAnteriorDesde;
-    console.log(`🔧 Ajuste fecha inicio: Día ${dayDesde} → ${dayAnteriorDesde} (mes ${monthAnteriorDesde} solo tiene ${maxDiasAnteriorDesde} días)`);
-  }
+    // Verificar días máximos para el mes anterior de la fecha fin
+    const maxDiasAnteriorHasta = getDiasEnMes(
+      yearAnteriorHasta,
+      monthAnteriorHasta
+    );
+    if (dayAnteriorHasta > maxDiasAnteriorHasta) {
+      dayAnteriorHasta = maxDiasAnteriorHasta;
+      console.log(
+        `🔧 Ajuste fecha fin: Día ${dayHasta} → ${dayAnteriorHasta} (mes ${monthAnteriorHasta} solo tiene ${maxDiasAnteriorHasta} días)`
+      );
+    }
 
-  // Verificar días máximos para el mes anterior de la fecha fin
-  const maxDiasAnteriorHasta = getDiasEnMes(yearAnteriorHasta, monthAnteriorHasta);
-  if (dayAnteriorHasta > maxDiasAnteriorHasta) {
-    dayAnteriorHasta = maxDiasAnteriorHasta;
-    console.log(`🔧 Ajuste fecha fin: Día ${dayHasta} → ${dayAnteriorHasta} (mes ${monthAnteriorHasta} solo tiene ${maxDiasAnteriorHasta} días)`);
-  }
+    // Formatear fechas como YYYY-MM-DD
+    const fechaInicioAnterior = `${yearAnteriorDesde}-${monthAnteriorDesde
+      .toString()
+      .padStart(2, "0")}-${dayAnteriorDesde.toString().padStart(2, "0")}`;
+    const fechaFinAnterior = `${yearAnteriorHasta}-${monthAnteriorHasta
+      .toString()
+      .padStart(2, "0")}-${dayAnteriorHasta.toString().padStart(2, "0")}`;
 
-  // Formatear fechas como YYYY-MM-DD
-  const fechaInicioAnterior = `${yearAnteriorDesde}-${monthAnteriorDesde
-    .toString()
-    .padStart(2, "0")}-${dayAnteriorDesde.toString().padStart(2, "0")}`;
-  const fechaFinAnterior = `${yearAnteriorHasta}-${monthAnteriorHasta
-    .toString()
-    .padStart(2, "0")}-${dayAnteriorHasta.toString().padStart(2, "0")}`;
-
-  // Generar descripción
-  const descripcion = `${new Date(fechaInicioAnterior).toLocaleDateString("es-ES", {
-    month: "short",
-    day: "numeric"
-  })} - ${new Date(fechaFinAnterior).toLocaleDateString("es-ES", {
-    month: "short", 
-    day: "numeric"
-  })}`;
-
-  // Logging para debugging
-  console.log("🔍 Cálculo período anterior:", {
-    entrada: {
-      desde: fechaDesde,
-      hasta: fechaHasta
-    },
-    calculado: {
-      desde: fechaInicioAnterior,
-      hasta: fechaFinAnterior
-    },
-    ajustes: {
-      diaDesdeAjustado: dayDesde !== dayAnteriorDesde,
-      diaHastaAjustado: dayHasta !== dayAnteriorHasta,
-      diasMaximosEnMesAnterior: {
-        inicio: maxDiasAnteriorDesde,
-        fin: maxDiasAnteriorHasta
+    // Generar descripción
+    const descripcion = `${new Date(fechaInicioAnterior).toLocaleDateString(
+      "es-ES",
+      {
+        month: "short",
+        day: "numeric",
       }
-    },
-    descripcion
-  });
+    )} - ${new Date(fechaFinAnterior).toLocaleDateString("es-ES", {
+      month: "short",
+      day: "numeric",
+    })}`;
 
-  return {
-    fechaDesde: fechaInicioAnterior,
-    fechaHasta: fechaFinAnterior,
-    descripcion,
-    // 🆕 METADATOS ADICIONALES para debugging
-    metadatos: {
-      ajusteDiaInicio: dayDesde !== dayAnteriorDesde,
-      ajusteDiaFin: dayHasta !== dayAnteriorHasta,
-      diasOriginales: { inicio: dayDesde, fin: dayHasta },
-      diasAjustados: { inicio: dayAnteriorDesde, fin: dayAnteriorHasta }
-    }
-  };
-};
-  const periodoAnterior = useMemo(() => {
-    if (!fechaDesde || !fechaHasta) return null;
-
-    // Usar la función corregida en lugar del cálculo directo
-    return calcularPeriodoAnterior();
-  }, [fechaDesde, fechaHasta]);
-
-  // 🔍 DEBUGGING: Agrega este console.log para verificar
-  console.log("🔍 DashboardComparativo periodoAnterior:", periodoAnterior);
-
-
-const obtenerDatosPeriodo = async (fechaInicio, fechaFin, signal = null) => {
-  console.log("📊 DashboardComparativo: Consultando período:", {
-    fechaInicio,
-    fechaFin,
-    faenaSeleccionada,
-    timestamp: Date.now(),
-  });
-
-  const params = {
-    desde: fechaInicio,
-    hasta: fechaFin,
-    faena: faenaSeleccionada,
-  };
-
-  // Configuración axios con signal (pero solo si está disponible)
-  const axiosConfig = signal ? { signal, timeout: 10000000000000 } : { timeout: 10000000000000 };
-
-  try {
-    // 🚀 USAR ENDPOINTS QUE SABEMOS QUE FUNCIONAN (según tu apiService.jsx)
-    const [
-      kpisResponse,      // Para total
-      faenasResponse,    // Para faenas
-      equiposResponse,   // Para categorías y equipos
-    ] = await Promise.all([
-      // 1. KPIs generales (incluye total)
-      axios.get("/api/informes-kpi", { 
-        params: { ...params, tipo: "kpis_consumo" },
-        ...axiosConfig
-      }),
-      // 2. Consumo por faenas
-      axios.get("/api/informes-kpi", { 
-        params: { ...params, tipo: "consumo_faenas" },
-        ...axiosConfig
-      }),
-      // 3. Consumo por equipos (incluye categorías)
-      axios.get("/api/informes-kpi", { 
-        params: { ...params, tipo: "consumo_equipos" },
-        ...axiosConfig
-      }),
-    ]);
-
-    // ✅ VERIFICAR SI FUE ABORTADA (sin throw inmediato)
-    if (signal?.aborted) {
-      console.log("🚫 Request cancelada - retornando null");
-      return null;
-    }
-
-    console.log("📊 DashboardComparativo: Respuestas recibidas:", {
-      kpis: kpisResponse?.data ? "✅" : "❌",
-      faenas: faenasResponse?.data ? "✅" : "❌", 
-      equipos: equiposResponse?.data ? "✅" : "❌",
+    // Logging para debugging
+    console.log("🔍 Cálculo período anterior:", {
+      entrada: {
+        desde: fechaDesde,
+        hasta: fechaHasta,
+      },
+      calculado: {
+        desde: fechaInicioAnterior,
+        hasta: fechaFinAnterior,
+      },
+      ajustes: {
+        diaDesdeAjustado: dayDesde !== dayAnteriorDesde,
+        diaHastaAjustado: dayHasta !== dayAnteriorHasta,
+        diasMaximosEnMesAnterior: {
+          inicio: maxDiasAnteriorDesde,
+          fin: maxDiasAnteriorHasta,
+        },
+      },
+      descripcion,
     });
 
-    // 🔧 PROCESAMIENTO ROBUSTO DE DATOS
-    
-    // 1. 📊 TOTAL GENERAL (desde kpis_consumo)
-    let totalConsumo = 0;
-    if (kpisResponse?.data?.data) {
-      totalConsumo = kpisResponse.data.data.consumo_total_mes || 
-                    kpisResponse.data.data.consumo_total || 
-                    kpisResponse.data.data.total_litros || 0;
-    }
+    return {
+      fechaDesde: fechaInicioAnterior,
+      fechaHasta: fechaFinAnterior,
+      descripcion,
+      // 🆕 METADATOS ADICIONALES para debugging
+      metadatos: {
+        ajusteDiaInicio: dayDesde !== dayAnteriorDesde,
+        ajusteDiaFin: dayHasta !== dayAnteriorHasta,
+        diasOriginales: { inicio: dayDesde, fin: dayHasta },
+        diasAjustados: { inicio: dayAnteriorDesde, fin: dayAnteriorHasta },
+      },
+    };
+  };
 
-    // 2. 📈 POR FAENAS
-    let faenas = [];
-    if (faenasResponse?.data?.data && Array.isArray(faenasResponse.data.data)) {
-      faenas = faenasResponse.data.data.map(f => ({
-        faena: f.name || f.nombre || f.faena || "Sin nombre",
-        litros_consumidos: parseFloat(f.consumo || f.litros_consumidos || 0),
-      }));
-    }
+  const obtenerDatosPeriodo = async (fechaInicio, fechaFin, signal = null) => {
+    console.log("📊 DashboardComparativo: Consultando período:", {
+      fechaInicio,
+      fechaFin,
+      faenaSeleccionada,
+      timestamp: Date.now(),
+    });
 
-    // 3. 📋 POR EQUIPOS Y CATEGORÍAS
-    let equipos = [];
-    let categoriasMap = new Map();
-    
-    if (equiposResponse?.data?.data && Array.isArray(equiposResponse.data.data)) {
-      const equiposRaw = equiposResponse.data.data;
-      
-      equiposRaw.forEach((equipo) => {
-        const consumo = parseFloat(equipo.consumo || equipo.litros_consumidos || 0);
-        
-        // Para equipos
-        equipos.push({
-          nombre_equipo: equipo.nombre || equipo.nombre_equipo || "Sin nombre",
-          patente: equipo.patente || "",
-          litros_consumidos: consumo,
+    const params = {
+      desde: fechaInicio,
+      hasta: fechaFin,
+      faena: faenaSeleccionada,
+    };
+
+    const axiosConfig = signal
+      ? { signal, timeout: 10000000000000 }
+      : { timeout: 10000000000000 };
+
+    try {
+      const [kpisResponse, faenasResponse, equiposResponse] = await Promise.all(
+        [
+          axios.get("/api/informes-kpi", {
+            params: { ...params, tipo: "kpis_consumo" },
+            ...axiosConfig,
+          }),
+          axios.get("/api/informes-kpi", {
+            params: { ...params, tipo: "consumo_faenas" },
+            ...axiosConfig,
+          }),
+          axios.get("/api/informes-kpi", {
+            params: { ...params, tipo: "consumo_equipos" },
+            ...axiosConfig,
+          }),
+        ]
+      );
+
+      if (signal?.aborted) {
+        console.log("🚫 Request cancelada - retornando null");
+        throw new Error("abortado"); // ⚡ Lanzamos error especial
+      }
+
+      // 🔧 PROCESAMIENTO DE DATOS (igual que antes)
+      let totalConsumo = 0;
+      if (kpisResponse?.data?.data) {
+        totalConsumo =
+          kpisResponse.data.data.consumo_total_mes ||
+          kpisResponse.data.data.consumo_total ||
+          kpisResponse.data.data.total_litros ||
+          0;
+      }
+
+      let faenas = [];
+      if (
+        faenasResponse?.data?.data &&
+        Array.isArray(faenasResponse.data.data)
+      ) {
+        faenas = faenasResponse.data.data.map((f) => ({
+          faena: f.name || f.nombre || f.faena || "Sin nombre",
+          litros_consumidos: parseFloat(f.consumo || f.litros_consumidos || 0),
+        }));
+      }
+
+      let equipos = [];
+      let categoriasMap = new Map();
+
+      if (
+        equiposResponse?.data?.data &&
+        Array.isArray(equiposResponse.data.data)
+      ) {
+        const equiposRaw = equiposResponse.data.data;
+
+        equiposRaw.forEach((equipo) => {
+          const consumo = parseFloat(
+            equipo.consumo || equipo.litros_consumidos || 0
+          );
+
+          equipos.push({
+            nombre_equipo:
+              equipo.nombre || equipo.nombre_equipo || "Sin nombre",
+            patente: equipo.patente || "",
+            litros_consumidos: consumo,
+          });
+
+          const categoria =
+            equipo.categoria || equipo.categoria_nombre || "Sin categoría";
+          categoriasMap.set(
+            categoria,
+            (categoriasMap.get(categoria) || 0) + consumo
+          );
         });
-        
-        // Para categorías
-        const categoria = equipo.categoria || equipo.categoria_nombre || "Sin categoría";
-        categoriasMap.set(
+
+        equipos = equipos
+          .sort((a, b) => b.litros_consumidos - a.litros_consumidos)
+          .slice(0, 10);
+      }
+
+      const categoriasArray = Array.from(categoriasMap.entries()).map(
+        ([categoria, consumo]) => ({
           categoria,
-          (categoriasMap.get(categoria) || 0) + consumo
-        );
+          litros_consumidos: consumo,
+        })
+      );
+
+      return {
+        total: totalConsumo,
+        faenas,
+        categorias: categoriasArray,
+        equipos,
+      };
+    } catch (error) {
+      if (
+        signal?.aborted ||
+        error.name === "AbortError" ||
+        error.message === "abortado" ||
+        error.code === "ERR_CANCELED"
+      ) {
+        console.log("🚫 Request abortada correctamente");
+        throw new Error("abortado"); // ⚡ Para distinguir en el useEffect
+      }
+
+      console.error("❌ DashboardComparativo: Error en consulta:", {
+        message: error.message,
+        status: error.response?.status,
+        url: error.config?.url,
       });
 
-      // Ordenar equipos por consumo y tomar top 10
-      equipos = equipos
-        .sort((a, b) => b.litros_consumidos - a.litros_consumidos)
-        .slice(0, 10);
+      // 🔧 fallback: datos vacíos
+      return {
+        total: 0,
+        faenas: [],
+        categorias: [],
+        equipos: [],
+      };
     }
+  };
 
-    // Convertir categorías a array
-    const categoriasArray = Array.from(categoriasMap.entries()).map(
-      ([categoria, consumo]) => ({
-        categoria,
-        litros_consumidos: consumo,
-      })
-    );
+  useEffect(() => {
+    if (!fechaDesde || !fechaHasta) return;
 
-    console.log("📊 DashboardComparativo: Datos procesados:", {
-      totalConsumo,
-      faenasCount: faenas.length,
-      categoriasCount: categoriasArray.length,
-      equiposCount: equipos.length,
-    });
-
-    // ✅ RETORNAR DATOS
-    return {
-      total: totalConsumo,
-      faenas,
-      categorias: categoriasArray,
-      equipos,
-    };
-
-  } catch (error) {
-    // ✅ MANEJO DE ERRORES MEJORADO
-    if (signal?.aborted || error.name === 'AbortError') {
-      console.log("🚫 Request abortada correctamente");
-      return null;
-    }
-
-    console.error("❌ DashboardComparativo: Error en consulta:", {
-      message: error.message,
-      status: error.response?.status,
-      url: error.config?.url,
-    });
-    
-    // 🔧 FALLBACK: Datos vacíos pero válidos
-    return {
-      total: 0,
-      faenas: [],
-      categorias: [],
-      equipos: [],
-    };
-  }
-};
-
-
-  // 🚀 FUNCIÓN PRINCIPAL CON TODAS LAS PROTECCIONES OPTIMIZADA
-  const cargarTodosLosDatos = async () => {
-    // Validaciones iniciales
-    if (!isMounted.current || !fechaDesde || !fechaHasta || !periodoAnterior) {
-      console.log("🚫 Carga cancelada: validaciones iniciales fallaron");
-      return;
-    }
-
-    // Prevenir cargas concurrentes
-    if (loadingRef.current) {
-      console.log("🚫 Carga cancelada: ya hay una carga en progreso");
-      return;
-    }
-
-    // Cancelar request anterior si existe
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
-    // Crear nuevo AbortController
-    abortControllerRef.current = new AbortController();
-    const signal = abortControllerRef.current.signal;
-
-    console.log("🚀 DashboardComparativo: Iniciando carga única:", {
-      timestamp: Date.now(),
+    const currentFilters = {
+      faenaSeleccionada,
       fechaDesde,
       fechaHasta,
-      faenaSeleccionada,
       refreshKey,
-    });
+    };
+    const lastFilters = lastFiltersRef.current;
 
-    loadingRef.current = true;
-    setLoading(true);
-    setError(null);
-    setPeriodoAnteriorDescripcion(periodoAnterior.descripcion);
+    const hasRealChanges =
+      currentFilters.faenaSeleccionada !== lastFilters.faenaSeleccionada ||
+      currentFilters.fechaDesde !== lastFilters.fechaDesde ||
+      currentFilters.fechaHasta !== lastFilters.fechaHasta ||
+      currentFilters.refreshKey !== lastFilters.refreshKey ||
+      isFirstLoad.current;
 
-    try {
-      console.log("📊 DashboardComparativo: Períodos calculados:", {
-        actual: `${fechaDesde} al ${fechaHasta}`,
-        anterior: `${periodoAnterior.fechaDesde} al ${periodoAnterior.fechaHasta}`,
-      });
+    if (!hasRealChanges) return;
 
-      // 🚀 Cargar ambos períodos en paralelo
-      const [datosActuales, datosAnteriores] = await Promise.all([
-        obtenerDatosPeriodo(fechaDesde, fechaHasta, signal),
-        obtenerDatosPeriodo(
-          periodoAnterior.fechaDesde,
-          periodoAnterior.fechaHasta,
-          signal
-        ),
-      ]);
+    lastFiltersRef.current = currentFilters;
+    isFirstLoad.current = false;
 
-      // Verificar si fue cancelado o hay datos nulos
-      if (signal.aborted || !datosActuales || !datosAnteriores) {
-        console.log("🚫 Carga cancelada o datos nulos");
-        return;
+    const cargarDatosSeguro = async () => {
+      setLoading(true);
+      setError(null);
+      setDatosTotal({ actual: 0, anterior: 0 });
+      setDatosFaenas([]);
+      setDatosCategorias([]);
+      setDatosEquipos([]);
+      setPeriodoAnteriorDescripcion("");
+
+      if (
+        abortControllerRef.current &&
+        !abortControllerRef.current.signal.aborted
+      ) {
+        console.log("🔄 Cancelando request anterior");
+        abortControllerRef.current.abort();
       }
 
-      if (!isMounted.current) return;
+      abortControllerRef.current = new AbortController();
+      const signal = abortControllerRef.current.signal;
 
-      console.log("📊 DashboardComparativo: Datos obtenidos:", {
-        actuales: datosActuales,
-        anteriores: datosAnteriores,
-      });
+      try {
+        const periodoAnterior = calcularPeriodoAnterior();
+        if (!periodoAnterior) return;
 
-      // GRÁFICO 1: Total general
-      setDatosTotal({
-        actual: datosActuales.total,
-        anterior: datosAnteriores.total,
-      });
+        setPeriodoAnteriorDescripcion(periodoAnterior.descripcion);
 
-      // GRÁFICO 2: Por faenas - unificar datos para gráfico de barras (optimizado con Map)
-      const todasFaenas = new Map();
+        const [datosActualesRaw, datosAnterioresRaw] = await Promise.all([
+          obtenerDatosPeriodo(fechaDesde, fechaHasta, signal),
+          obtenerDatosPeriodo(
+            periodoAnterior.fechaDesde,
+            periodoAnterior.fechaHasta,
+            signal
+          ),
+        ]);
 
-      datosActuales.faenas.forEach((faena) => {
-        todasFaenas.set(faena.faena, {
-          name: faena.faena,
-          actual: faena.litros_consumidos,
-          anterior: 0,
+        const datosActuales = datosActualesRaw || {
+          total: 0,
+          faenas: [],
+          categorias: [],
+          equipos: [],
+        };
+        const datosAnteriores = datosAnterioresRaw || {
+          total: 0,
+          faenas: [],
+          categorias: [],
+          equipos: [],
+        };
+
+        if (!isMounted.current || signal.aborted) return;
+
+        // ✅ Aplicar datos totales
+        setDatosTotal({
+          actual: datosActuales.total,
+          anterior: datosAnteriores.total,
         });
-      });
 
-      datosAnteriores.faenas.forEach((faena) => {
-        if (todasFaenas.has(faena.faena)) {
-          todasFaenas.get(faena.faena).anterior = faena.litros_consumidos;
-        } else {
+        // 📊 Procesar faenas
+        const todasFaenas = new Map();
+        const chartColors = [
+          "#f97316",
+          "#3b82f6",
+          "#10b981",
+          "#f59e0b",
+          "#8b5cf6",
+        ];
+
+        datosActuales.faenas.forEach((faena, index) => {
           todasFaenas.set(faena.faena, {
             name: faena.faena,
-            actual: 0,
-            anterior: faena.litros_consumidos,
+            actual: faena.litros_consumidos,
+            anterior: 0,
+            color: chartColors[index % chartColors.length],
           });
-        }
-      });
-
-      setDatosFaenas(Array.from(todasFaenas.values()));
-
-      // GRÁFICO 3: Por categorías - unificar datos para gráfico de barras (optimizado)
-      const todasCategorias = new Map();
-
-      datosActuales.categorias.forEach((cat) => {
-        todasCategorias.set(cat.categoria, {
-          name: cat.categoria,
-          actual: cat.litros_consumidos,
-          anterior: 0,
         });
-      });
 
-      datosAnteriores.categorias.forEach((cat) => {
-        if (todasCategorias.has(cat.categoria)) {
-          todasCategorias.get(cat.categoria).anterior = cat.litros_consumidos;
-        } else {
+        datosAnteriores.faenas.forEach((faena) => {
+          if (todasFaenas.has(faena.faena)) {
+            todasFaenas.get(faena.faena).anterior = faena.litros_consumidos;
+          } else {
+            todasFaenas.set(faena.faena, {
+              name: faena.faena,
+              actual: 0,
+              anterior: faena.litros_consumidos,
+              color: "#666",
+            });
+          }
+        });
+
+        setDatosFaenas(Array.from(todasFaenas.values()));
+
+        // 📊 Procesar categorías
+        const todasCategorias = new Map();
+
+        datosActuales.categorias.forEach((cat, index) => {
           todasCategorias.set(cat.categoria, {
             name: cat.categoria,
-            actual: 0,
-            anterior: cat.litros_consumidos,
+            actual: cat.litros_consumidos,
+            anterior: 0,
+            color: chartColors[index % chartColors.length],
           });
-        }
-      });
-
-      // APLICAR ORDENAMIENTO POR INCIDENCIA TOTAL (optimizado)
-      const categoriasConIncidencia = Array.from(todasCategorias.values())
-        .filter((cat) => cat.actual > 0 || cat.anterior > 0)
-        .map((cat) => ({
-          ...cat,
-          // CALCULAR INCIDENCIA TOTAL (suma de ambos períodos)
-          incidenciaTotal: (cat.actual || 0) + (cat.anterior || 0),
-          // CALCULAR CAMBIO PORCENTUAL
-          cambioPorc:
-            cat.anterior > 0
-              ? ((cat.actual - cat.anterior) / cat.anterior) * 100
-              : cat.actual > 0
-              ? 100
-              : 0,
-        }))
-        .sort((a, b) => b.incidenciaTotal - a.incidenciaTotal);
-
-      setDatosCategorias(categoriasConIncidencia);
-
-      // GRÁFICO 4: Top equipos - unificar datos para gráfico de barras (optimizado)
-      const todosEquipos = new Map();
-
-      datosActuales.equipos.forEach((equipo) => {
-        const key = `${equipo.nombre_equipo || equipo.patente || "Sin nombre"}`;
-        todosEquipos.set(key, {
-          name: key,
-          patente: equipo.patente,
-          categoria: equipo.categoria || "Sin categoría",
-          actual: equipo.litros_consumidos,
-          anterior: 0,
         });
-      });
 
-      datosAnteriores.equipos.forEach((equipo) => {
-        const key = `${equipo.nombre_equipo || equipo.patente || "Sin nombre"}`;
-        if (todosEquipos.has(key)) {
-          todosEquipos.get(key).anterior = equipo.litros_consumidos;
-        } else {
-          todosEquipos.set(key, {
-            name: key,
-            patente: equipo.patente,
-            categoria: equipo.categoria || "Sin categoría",
-            actual: 0,
-            anterior: equipo.litros_consumidos,
-          });
-        }
-      });
-
-      // ORDENAR POR CATEGORÍA (SEGÚN INCIDENCIA) Y LUEGO POR CONSUMO DENTRO DE CADA CATEGORÍA
-      const equiposOrdenados = Array.from(todosEquipos.values());
-
-      // 1. Calcular incidencia total por categoría
-      const incidenciaPorCategoria = equiposOrdenados.reduce((acc, equipo) => {
-        const categoria = equipo.categoria || "Sin categoría";
-        const incidenciaEquipo = (equipo.actual || 0) + (equipo.anterior || 0);
-
-        if (!acc[categoria]) {
-          acc[categoria] = 0;
-        }
-        acc[categoria] += incidenciaEquipo;
-        return acc;
-      }, {});
-
-      // 2. Ordenar equipos: primero por incidencia de categoría, luego por incidencia individual
-      const equiposOrdenadosPorIncidencia = equiposOrdenados.sort((a, b) => {
-        const categoriaA = a.categoria || "Sin categoría";
-        const categoriaB = b.categoria || "Sin categoría";
-
-        // Primero ordenar por incidencia total de la categoría (mayor a menor)
-        const incidenciaCategoriaA = incidenciaPorCategoria[categoriaA];
-        const incidenciaCategoriaB = incidenciaPorCategoria[categoriaB];
-
-        if (incidenciaCategoriaA !== incidenciaCategoriaB) {
-          return incidenciaCategoriaB - incidenciaCategoriaA;
-        }
-
-        // Dentro de la misma categoría, ordenar por incidencia individual (mayor a menor)
-        const incidenciaA = (a.actual || 0) + (a.anterior || 0);
-        const incidenciaB = (b.actual || 0) + (b.anterior || 0);
-        return incidenciaB - incidenciaA;
-      });
-
-      setDatosEquipos(equiposOrdenadosPorIncidencia);
-
-      console.log("✅ DashboardComparativo: Datos cargados exitosamente");
-    } catch (error) {
-      if (error.name === "AbortError") {
-        console.log("🚫 Carga abortada");
-        return;
-      }
-
-      console.error("❌ DashboardComparativo: Error cargando datos:", error);
-      if (isMounted.current) {
-        setError(
-          `Error al cargar los datos: ${
-            error.response?.data?.message || error.message
-          }`
-        );
-      }
-    } finally {
-      if (isMounted.current) {
-        setLoading(false);
-        loadingRef.current = false;
-      }
-    }
-  };
-
-
-useEffect(() => {
-  // ✅ VALIDACIONES INICIALES
-  if (!fechaDesde || !fechaHasta) {
-    console.log("🚫 Fechas faltantes, no cargando datos");
-    return;
-  }
-
-  // ✅ COMPARAR FILTROS PARA EVITAR CARGAS INNECESARIAS
-  const currentFilters = { faenaSeleccionada, fechaDesde, fechaHasta, refreshKey };
-  const lastFilters = lastFiltersRef.current;
-
-  const hasRealChanges = 
-    currentFilters.faenaSeleccionada !== lastFilters.faenaSeleccionada ||
-    currentFilters.fechaDesde !== lastFilters.fechaDesde ||
-    currentFilters.fechaHasta !== lastFilters.fechaHasta ||
-    currentFilters.refreshKey !== lastFilters.refreshKey ||
-    isFirstLoad.current; // 🆕 Incluir primera carga
-
-  if (!hasRealChanges) {
-    console.log("🚫 Sin cambios reales, omitiendo carga");
-    return;
-  }
-
-  console.log("⚡ DashboardComparativo: Cambios detectados, iniciando carga", {
-    isFirstLoad: isFirstLoad.current,
-    cambios: currentFilters
-  });
-
-  // ✅ ACTUALIZAR REFS
-  lastFiltersRef.current = currentFilters;
-  isFirstLoad.current = false;
-
-  // 🔄 FUNCIÓN DE CARGA MEJORADA
-  const cargarDatosSeguro = async () => {
-    // Solo cancelar si hay un request activo Y es diferente
-    if (abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
-      console.log("🔄 Cancelando request anterior");
-      abortControllerRef.current.abort();
-    }
-
-    // Crear nuevo controller
-    abortControllerRef.current = new AbortController();
-    const signal = abortControllerRef.current.signal;
-
-    if (!isMounted.current || loadingRef.current) {
-      return;
-    }
-
-    loadingRef.current = true;
-    setLoading(true);
-    setError(null);
-
-    try {
-      // ✅ VERIFICAR FILTROS ANTES DE PROCESAR
-      const currentCheck = { faenaSeleccionada, fechaDesde, fechaHasta, refreshKey };
-      if (JSON.stringify(currentFilters) !== JSON.stringify(currentCheck)) {
-        console.log("🔄 Filtros cambiaron durante setup, cancelando");
-        return;
-      }
-
-      const periodoAnterior = calcularPeriodoAnterior();
-      setPeriodoAnteriorDescripcion(periodoAnterior.descripcion);
-
-      console.log("📊 Cargando períodos:", {
-        actual: `${fechaDesde} al ${fechaHasta}`,
-        anterior: `${periodoAnterior.fechaDesde} al ${periodoAnterior.fechaHasta}`,
-      });
-
-      // ✅ CARGAR DATOS CON TIMEOUT
-      const [datosActuales, datosAnteriores] = await Promise.all([
-        obtenerDatosPeriodo(fechaDesde, fechaHasta, signal),
-        obtenerDatosPeriodo(periodoAnterior.fechaDesde, periodoAnterior.fechaHasta, signal)
-      ]);
-
-      // ✅ VERIFICAR SI FUE CANCELADO
-      if (signal.aborted || !datosActuales || !datosAnteriores || !isMounted.current) {
-        console.log("🚫 Carga cancelada o datos nulos");
-        return;
-      }
-
-      // ✅ VERIFICAR FILTROS AL FINAL
-      const finalCheck = { faenaSeleccionada, fechaDesde, fechaHasta, refreshKey };
-      if (JSON.stringify(currentFilters) !== JSON.stringify(finalCheck)) {
-        console.log("🚫 Filtros cambiaron durante carga, descartando resultados");
-        return;
-      }
-
-      console.log("✅ Aplicando datos con filtros consistentes");
-
-      // ✅ APLICAR DATOS
-      setDatosTotal({
-        actual: datosActuales.total,
-        anterior: datosAnteriores.total,
-      });
-
-      // 📊 PROCESAR FAENAS
-      const todasFaenas = new Map();
-      
-      datosActuales.faenas.forEach((faena, index) => {
-        const chartColors = ["#f97316", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6"];
-        todasFaenas.set(faena.faena, {
-          name: faena.faena,
-          actual: faena.litros_consumidos,
-          anterior: 0,
-          color: chartColors[index % chartColors.length],
+        datosAnteriores.categorias.forEach((cat) => {
+          if (todasCategorias.has(cat.categoria)) {
+            todasCategorias.get(cat.categoria).anterior = cat.litros_consumidos;
+          } else {
+            todasCategorias.set(cat.categoria, {
+              name: cat.categoria,
+              actual: 0,
+              anterior: cat.litros_consumidos,
+              color: "#666",
+            });
+          }
         });
-      });
 
-      datosAnteriores.faenas.forEach((faena) => {
-        if (todasFaenas.has(faena.faena)) {
-          todasFaenas.get(faena.faena).anterior = faena.litros_consumidos;
-        } else {
-          todasFaenas.set(faena.faena, {
-            name: faena.faena,
-            actual: 0,
-            anterior: faena.litros_consumidos,
-            color: "#666",
-          });
-        }
-      });
+        setDatosCategorias(Array.from(todasCategorias.values()));
 
-      setDatosFaenas(Array.from(todasFaenas.values()));
+        // 📊 Procesar equipos
+        const todosEquipos = new Map();
 
-      // 📊 PROCESAR CATEGORÍAS (similar lógica)
-      const todasCategorias = new Map();
-      
-      datosActuales.categorias.forEach((cat, index) => {
-        const chartColors = ["#f97316", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6"];
-        todasCategorias.set(cat.categoria, {
-          name: cat.categoria,
-          actual: cat.litros_consumidos,
-          anterior: 0,
-          color: chartColors[index % chartColors.length],
-        });
-      });
-
-      datosAnteriores.categorias.forEach((cat) => {
-        if (todasCategorias.has(cat.categoria)) {
-          todasCategorias.get(cat.categoria).anterior = cat.litros_consumidos;
-        } else {
-          todasCategorias.set(cat.categoria, {
-            name: cat.categoria,
-            actual: 0,
-            anterior: cat.litros_consumidos,
-            color: "#666",
-          });
-        }
-      });
-
-      setDatosCategorias(Array.from(todasCategorias.values()));
-
-      // 📊 PROCESAR EQUIPOS (similar lógica)
-      const todosEquipos = new Map();
-      
-      datosActuales.equipos.forEach((eq, index) => {
-        const chartColors = ["#f97316", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6"];
-        const key = `${eq.nombre_equipo}-${eq.patente}`;
-        todosEquipos.set(key, {
-          name: eq.nombre_equipo,
-          patente: eq.patente,
-          actual: eq.litros_consumidos,
-          anterior: 0,
-          color: chartColors[index % chartColors.length],
-        });
-      });
-
-      datosAnteriores.equipos.forEach((eq) => {
-        const key = `${eq.nombre_equipo}-${eq.patente}`;
-        if (todosEquipos.has(key)) {
-          todosEquipos.get(key).anterior = eq.litros_consumidos;
-        } else {
+        datosActuales.equipos.forEach((eq, index) => {
+          const key = `${eq.nombre_equipo}-${eq.patente}`;
           todosEquipos.set(key, {
             name: eq.nombre_equipo,
             patente: eq.patente,
-            actual: 0,
-            anterior: eq.litros_consumidos,
-            color: "#666",
+            actual: eq.litros_consumidos,
+            anterior: 0,
+            color: chartColors[index % chartColors.length],
           });
+        });
+
+        datosAnteriores.equipos.forEach((eq) => {
+          const key = `${eq.nombre_equipo}-${eq.patente}`;
+          if (todosEquipos.has(key)) {
+            todosEquipos.get(key).anterior = eq.litros_consumidos;
+          } else {
+            todosEquipos.set(key, {
+              name: eq.nombre_equipo,
+              patente: eq.patente,
+              actual: 0,
+              anterior: eq.litros_consumidos,
+              color: "#666",
+            });
+          }
+        });
+
+        setDatosEquipos(Array.from(todosEquipos.values()));
+
+        console.log("🎉 DashboardComparativo: Datos aplicados exitosamente");
+      } catch (error) {
+        if (error.message === "abortado") {
+          console.log("🚫 Request abortado (ignorado)");
+          return;
         }
-      });
 
-      setDatosEquipos(Array.from(todosEquipos.values()));
-
-      console.log("🎉 DashboardComparativo: Datos aplicados exitosamente");
-
-    } catch (error) {
-      if (signal.aborted || error.name === "AbortError") {
-        console.log("🚫 Carga cancelada correctamente");
-        return;
+        console.error("❌ Error cargando datos:", error);
+        if (isMounted.current)
+          setError(`Error al cargar datos: ${error.message}`);
+      } finally {
+        if (isMounted.current) {
+          setLoading(false);
+          loadingRef.current = false;
+        }
       }
+    };
 
-      console.error("❌ Error cargando datos:", error);
-      if (isMounted.current) {
-        setError(`Error al cargar datos: ${error.message}`);
-      }
-    } finally {
-      if (isMounted.current) {
-        setLoading(false);
-        loadingRef.current = false;
-      }
-    }
-  };
-
-  // ✅ EJECUTAR CON PEQUEÑO DELAY PARA ESTABILIDAD
-  const timeoutId = setTimeout(cargarDatosSeguro, 100);
-  
-  return () => {
-    clearTimeout(timeoutId);
-  };
-
-}, [faenaSeleccionada, fechaDesde, fechaHasta, refreshKey]);
-
+    const timeoutId = setTimeout(cargarDatosSeguro, 300);
+    return () => clearTimeout(timeoutId);
+  }, [faenaSeleccionada, fechaDesde, fechaHasta, refreshKey]);
 
   // 🚀 OPTIMIZACIÓN: Limpiar cache cuando cambien filtros importantes
   useEffect(() => {
@@ -766,17 +513,25 @@ useEffect(() => {
     cacheRef.current.clear();
   }, [faenaSeleccionada]);
 
- useEffect(() => {
-  isMounted.current = true;
-  return () => {
-    isMounted.current = false;
-    if (abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
-      abortControllerRef.current.abort();
-    }
-    lastFiltersRef.current = { faenaSeleccionada: null, fechaDesde: null, fechaHasta: null, refreshKey: null };
-    isFirstLoad.current = true;
-  };
-}, []);
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+      if (
+        abortControllerRef.current &&
+        !abortControllerRef.current.signal.aborted
+      ) {
+        abortControllerRef.current.abort();
+      }
+      lastFiltersRef.current = {
+        faenaSeleccionada: null,
+        fechaDesde: null,
+        fechaHasta: null,
+        refreshKey: null,
+      };
+      isFirstLoad.current = true;
+    };
+  }, []);
 
   // 🚀 MEMOIZAR TOOLTIPS para evitar re-renders costosos
   const CustomTooltipCombinado = useMemo(

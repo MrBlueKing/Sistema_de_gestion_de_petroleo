@@ -384,8 +384,7 @@ const GraficosContent = ({ children }) => {
     [shouldRenderCompact, compactChartProps]
   );
 
-  // OPTIMIZACIÓN: Key estable para evitar re-mount del gráfico principal
-  const stableChartKey = useMemo(() => `main-chart-stable`, []);
+ 
 
   const MemoizedDashboardComparativo = useMemo(
     () =>
