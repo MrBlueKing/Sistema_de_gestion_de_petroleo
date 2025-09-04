@@ -9,6 +9,9 @@ import {
   Tooltip,
   Legend,
   LabelList,
+  ReferenceArea,
+  ReferenceLine ,
+  Rectangle,
 } from "recharts";
 import {
   FiPieChart,
@@ -178,7 +181,14 @@ const DashboardComparativo = ({
     };
   };
 
-  const obtenerDatosPeriodo = async (fechaInicio, fechaFin, signal = null) => {
+  const obtenerDatosPeriodo = async (fechaInicio, fechaFin, signal) => {
+    const cacheKey = `${fechaInicio}_${fechaFin}_${faenaSeleccionada}`;
+
+    if (cacheRef.current.has(cacheKey)) {
+      console.log("📦 Usando datos del cache:", cacheKey);
+      return cacheRef.current.get(cacheKey);
+    }
+
     console.log("📊 DashboardComparativo: Consultando período:", {
       fechaInicio,
       fechaFin,
@@ -192,87 +202,41 @@ const DashboardComparativo = ({
       faena: faenaSeleccionada,
     };
 
-    const axiosConfig = signal
-      ? { signal, timeout: 10000000000000 }
-      : { timeout: 10000000000000 };
-
     try {
-      const [kpisResponse, faenasResponse, equiposResponse] = await Promise.all(
-        [
+      const [totalResponse, faenasResponse, equiposResponse] =
+        await Promise.all([
           axios.get("/api/informes-kpi", {
             params: { ...params, tipo: "kpis_consumo" },
-            ...axiosConfig,
+            signal,
           }),
           axios.get("/api/informes-kpi", {
             params: { ...params, tipo: "consumo_faenas" },
-            ...axiosConfig,
+            signal,
           }),
           axios.get("/api/informes-kpi", {
             params: { ...params, tipo: "consumo_equipos" },
-            ...axiosConfig,
+            signal,
           }),
-        ]
-      );
+        ]);
 
-      if (signal?.aborted) {
-        console.log("🚫 Request cancelada - retornando null");
-        throw new Error("abortado"); // ⚡ Lanzamos error especial
+      if (signal.aborted) {
+        console.log("🚫 Request cancelada");
+        return null;
       }
 
-      // 🔧 PROCESAMIENTO DE DATOS (igual que antes)
-      let totalConsumo = 0;
-      if (kpisResponse?.data?.data) {
-        totalConsumo =
-          kpisResponse.data.data.consumo_total_mes ||
-          kpisResponse.data.data.consumo_total ||
-          kpisResponse.data.data.total_litros ||
-          0;
-      }
+      const totalConsumo = totalResponse.data?.data?.consumo_total_mes || 0;
+      const faenas = faenasResponse.data?.data || [];
+      const equipos = equiposResponse.data?.data || [];
 
-      let faenas = [];
-      if (
-        faenasResponse?.data?.data &&
-        Array.isArray(faenasResponse.data.data)
-      ) {
-        faenas = faenasResponse.data.data.map((f) => ({
-          faena: f.name || f.nombre || f.faena || "Sin nombre",
-          litros_consumidos: parseFloat(f.consumo || f.litros_consumidos || 0),
-        }));
-      }
-
-      let equipos = [];
-      let categoriasMap = new Map();
-
-      if (
-        equiposResponse?.data?.data &&
-        Array.isArray(equiposResponse.data.data)
-      ) {
-        const equiposRaw = equiposResponse.data.data;
-
-        equiposRaw.forEach((equipo) => {
-          const consumo = parseFloat(
-            equipo.consumo || equipo.litros_consumidos || 0
-          );
-
-          equipos.push({
-            nombre_equipo:
-              equipo.nombre || equipo.nombre_equipo || "Sin nombre",
-            patente: equipo.patente || "",
-            litros_consumidos: consumo,
-          });
-
-          const categoria =
-            equipo.categoria || equipo.categoria_nombre || "Sin categoría";
-          categoriasMap.set(
-            categoria,
-            (categoriasMap.get(categoria) || 0) + consumo
-          );
-        });
-
-        equipos = equipos
-          .sort((a, b) => b.litros_consumidos - a.litros_consumidos)
-          .slice(0, 10);
-      }
+      const categoriasMap = new Map();
+      equipos.forEach((equipo) => {
+        const categoria = equipo.categoria || "Sin categoría";
+        const consumo = parseFloat(equipo.consumo || 0);
+        categoriasMap.set(
+          categoria,
+          (categoriasMap.get(categoria) || 0) + consumo
+        );
+      });
 
       const categoriasArray = Array.from(categoriasMap.entries()).map(
         ([categoria, consumo]) => ({
@@ -281,36 +245,49 @@ const DashboardComparativo = ({
         })
       );
 
-      return {
-        total: totalConsumo,
-        faenas,
-        categorias: categoriasArray,
-        equipos,
-      };
-    } catch (error) {
-      if (
-        signal?.aborted ||
-        error.name === "AbortError" ||
-        error.message === "abortado" ||
-        error.code === "ERR_CANCELED"
-      ) {
-        console.log("🚫 Request abortada correctamente");
-        throw new Error("abortado"); // ⚡ Para distinguir en el useEffect
-      }
+      // ✅ Mantener todos los equipos, incluso si su consumo es 0
+      const todosEquipos = equipos.map((equipo) => ({
+        nombre_equipo: equipo.nombre || "Sin nombre",
+        patente: equipo.patente || "",
+        categoria: equipo.categoria || "Sin categoría",
+        litros_consumidos: parseFloat(equipo.consumo || 0),
+      }));
 
-      console.error("❌ DashboardComparativo: Error en consulta:", {
-        message: error.message,
-        status: error.response?.status,
-        url: error.config?.url,
+      // Ordenamiento: primero por consumo descendente, pero los 0 quedan al final
+      const topEquipos = todosEquipos.sort((a, b) => {
+        if (b.litros_consumidos === 0 && a.litros_consumidos !== 0) return 1;
+        if (a.litros_consumidos === 0 && b.litros_consumidos !== 0) return -1;
+        return b.litros_consumidos - a.litros_consumidos;
       });
 
-      // 🔧 fallback: datos vacíos
-      return {
-        total: 0,
-        faenas: [],
-        categorias: [],
-        equipos: [],
+      console.log("📊 DashboardComparativo: Datos procesados:", {
+        totalConsumo,
+        faenasCount: faenas.length,
+        categoriasCount: categoriasArray.length,
+        equiposCount: topEquipos.length,
+      });
+
+      const resultado = {
+        total: totalConsumo,
+        faenas: faenas.map((f) => ({
+          faena: f.name || f.nombre || "Sin nombre",
+          litros_consumidos: parseFloat(f.consumo || 0),
+        })),
+        categorias: categoriasArray,
+        equipos: topEquipos,
       };
+
+      cacheRef.current.set(cacheKey, resultado);
+
+      return resultado;
+    } catch (error) {
+      if (error.name === "AbortError") {
+        console.log("🚫 Request abortada por el usuario");
+        return null;
+      }
+
+      console.error("❌ DashboardComparativo: Error en consulta:", error);
+      return { total: 0, faenas: [], categorias: [], equipos: [] };
     }
   };
 
@@ -357,13 +334,20 @@ const DashboardComparativo = ({
       abortControllerRef.current = new AbortController();
       const signal = abortControllerRef.current.signal;
 
+      loadingRef.current = true;
+
       try {
         const periodoAnterior = calcularPeriodoAnterior();
         if (!periodoAnterior) return;
 
         setPeriodoAnteriorDescripcion(periodoAnterior.descripcion);
 
-        const [datosActualesRaw, datosAnterioresRaw] = await Promise.all([
+        console.log("📊 DashboardComparativo: Períodos calculados:", {
+          actual: `${fechaDesde} al ${fechaHasta}`,
+          anterior: `${periodoAnterior.fechaDesde} al ${periodoAnterior.fechaHasta}`,
+        });
+
+        const [datosActuales, datosAnteriores] = await Promise.all([
           obtenerDatosPeriodo(fechaDesde, fechaHasta, signal),
           obtenerDatosPeriodo(
             periodoAnterior.fechaDesde,
@@ -372,46 +356,28 @@ const DashboardComparativo = ({
           ),
         ]);
 
-        const datosActuales = datosActualesRaw || {
-          total: 0,
-          faenas: [],
-          categorias: [],
-          equipos: [],
-        };
-        const datosAnteriores = datosAnterioresRaw || {
-          total: 0,
-          faenas: [],
-          categorias: [],
-          equipos: [],
-        };
+        if (signal.aborted || !datosActuales || !datosAnteriores) {
+          console.log("🚫 Carga cancelada o datos nulos");
+          return;
+        }
 
-        if (!isMounted.current || signal.aborted) return;
+        if (!isMounted.current) return;
 
-        // ✅ Aplicar datos totales
+        // ✅ Total general
         setDatosTotal({
           actual: datosActuales.total,
           anterior: datosAnteriores.total,
         });
 
-        // 📊 Procesar faenas
+        // 📊 Faenas
         const todasFaenas = new Map();
-        const chartColors = [
-          "#f97316",
-          "#3b82f6",
-          "#10b981",
-          "#f59e0b",
-          "#8b5cf6",
-        ];
-
         datosActuales.faenas.forEach((faena, index) => {
           todasFaenas.set(faena.faena, {
             name: faena.faena,
             actual: faena.litros_consumidos,
             anterior: 0,
-            color: chartColors[index % chartColors.length],
           });
         });
-
         datosAnteriores.faenas.forEach((faena) => {
           if (todasFaenas.has(faena.faena)) {
             todasFaenas.get(faena.faena).anterior = faena.litros_consumidos;
@@ -420,25 +386,20 @@ const DashboardComparativo = ({
               name: faena.faena,
               actual: 0,
               anterior: faena.litros_consumidos,
-              color: "#666",
             });
           }
         });
-
         setDatosFaenas(Array.from(todasFaenas.values()));
 
-        // 📊 Procesar categorías
+        // 📊 Categorías con incidencia y cambio porcentual
         const todasCategorias = new Map();
-
-        datosActuales.categorias.forEach((cat, index) => {
+        datosActuales.categorias.forEach((cat) => {
           todasCategorias.set(cat.categoria, {
             name: cat.categoria,
             actual: cat.litros_consumidos,
             anterior: 0,
-            color: chartColors[index % chartColors.length],
           });
         });
-
         datosAnteriores.categorias.forEach((cat) => {
           if (todasCategorias.has(cat.categoria)) {
             todasCategorias.get(cat.categoria).anterior = cat.litros_consumidos;
@@ -447,54 +408,90 @@ const DashboardComparativo = ({
               name: cat.categoria,
               actual: 0,
               anterior: cat.litros_consumidos,
-              color: "#666",
             });
           }
         });
 
-        setDatosCategorias(Array.from(todasCategorias.values()));
+        const categoriasConIncidencia = Array.from(todasCategorias.values())
+          .filter((cat) => cat.actual > 0 || cat.anterior > 0)
+          .map((cat) => ({
+            ...cat,
+            incidenciaTotal: (cat.actual || 0) + (cat.anterior || 0),
+            cambioPorc:
+              cat.anterior > 0
+                ? ((cat.actual - cat.anterior) / cat.anterior) * 100
+                : cat.actual > 0
+                ? 100
+                : 0,
+          }))
+          .sort((a, b) => b.incidenciaTotal - a.incidenciaTotal);
 
-        // 📊 Procesar equipos
+        setDatosCategorias(categoriasConIncidencia);
+
+        // 📊 Top equipos por categoría e incidencia
         const todosEquipos = new Map();
-
-        datosActuales.equipos.forEach((eq, index) => {
-          const key = `${eq.nombre_equipo}-${eq.patente}`;
+        datosActuales.equipos.forEach((equipo) => {
+          const key = `${
+            equipo.nombre_equipo || equipo.patente || "Sin nombre"
+          }`;
           todosEquipos.set(key, {
-            name: eq.nombre_equipo,
-            patente: eq.patente,
-            actual: eq.litros_consumidos,
+            name: key,
+            patente: equipo.patente,
+            categoria: equipo.categoria || "Sin categoría",
+            actual: equipo.litros_consumidos,
             anterior: 0,
-            color: chartColors[index % chartColors.length],
           });
         });
-
-        datosAnteriores.equipos.forEach((eq) => {
-          const key = `${eq.nombre_equipo}-${eq.patente}`;
+        datosAnteriores.equipos.forEach((equipo) => {
+          const key = `${
+            equipo.nombre_equipo || equipo.patente || "Sin nombre"
+          }`;
           if (todosEquipos.has(key)) {
-            todosEquipos.get(key).anterior = eq.litros_consumidos;
+            todosEquipos.get(key).anterior = equipo.litros_consumidos;
           } else {
             todosEquipos.set(key, {
-              name: eq.nombre_equipo,
-              patente: eq.patente,
+              name: key,
+              patente: equipo.patente,
+              categoria: equipo.categoria || "Sin categoría",
               actual: 0,
-              anterior: eq.litros_consumidos,
-              color: "#666",
+              anterior: equipo.litros_consumidos,
             });
           }
         });
 
-        setDatosEquipos(Array.from(todosEquipos.values()));
+        const equiposArray = Array.from(todosEquipos.values());
+        const incidenciaPorCategoria = equiposArray.reduce((acc, equipo) => {
+          const cat = equipo.categoria || "Sin categoría";
+          acc[cat] =
+            (acc[cat] || 0) + (equipo.actual || 0) + (equipo.anterior || 0);
+          return acc;
+        }, {});
 
-        console.log("🎉 DashboardComparativo: Datos aplicados exitosamente");
+        const equiposOrdenados = equiposArray.sort((a, b) => {
+          const incCatA = incidenciaPorCategoria[a.categoria] || 0;
+          const incCatB = incidenciaPorCategoria[b.categoria] || 0;
+          if (incCatB !== incCatA) return incCatB - incCatA;
+          const incA = (a.actual || 0) + (a.anterior || 0);
+          const incB = (b.actual || 0) + (b.anterior || 0);
+          return incB - incA;
+        });
+
+        setDatosEquipos(equiposOrdenados);
+
+        console.log("✅ DashboardComparativo: Datos cargados exitosamente");
       } catch (error) {
-        if (error.message === "abortado") {
-          console.log("🚫 Request abortado (ignorado)");
+        if (error.name === "AbortError") {
+          console.log("🚫 Carga abortada");
           return;
         }
-
-        console.error("❌ Error cargando datos:", error);
-        if (isMounted.current)
-          setError(`Error al cargar datos: ${error.message}`);
+        console.error("❌ DashboardComparativo: Error cargando datos:", error);
+        if (isMounted.current) {
+          setError(
+            `Error al cargar los datos: ${
+              error.response?.data?.message || error.message
+            }`
+          );
+        }
       } finally {
         if (isMounted.current) {
           setLoading(false);
@@ -907,6 +904,26 @@ const DashboardComparativo = ({
       ? datosEquipos
       : datosEquipos.filter((item) => item.actual > 0 || item.anterior > 0);
 
+    // 🔹 Definir colores por categoría automáticamente
+    const categoriaColorMap = {};
+    const coloresCategorias = [
+      "#fef3c7",
+      "#e0f2fe",
+      "#d1fae5",
+      "#fee2e2",
+      "#ede9fe",
+    ]; // colores pastel
+    let colorIndex = 0;
+
+    // Asignar un color a cada categoría única en tus datos filtrados
+    datosFiltrados.forEach((item) => {
+      if (!categoriaColorMap[item.categoria]) {
+        categoriaColorMap[item.categoria] =
+          coloresCategorias[colorIndex % coloresCategorias.length];
+        colorIndex++;
+      }
+    });
+
     // 🎯 Calcular ancho dinámico: más datos = más ancho
     const anchoMinimo = Math.max(datosFiltrados.length * 100, 800); // 100px por barra, mínimo 800px
 
@@ -962,17 +979,35 @@ const DashboardComparativo = ({
                   tickFormatter={(value) => value}
                   domain={[0, "dataMax + 500"]}
                 />
-                <Tooltip
-                  content={CustomTooltipEquipos}
-                  offset={50}
-                  position={{ x: undefined, y: undefined }}
-                />
+                <Tooltip content={CustomTooltipEquipos} offset={50} />
                 <Legend
                   wrapperStyle={{ fontSize: "12px" }}
                   iconType="rect"
                   verticalAlign="top"
                   height={36}
                 />
+
+                {/* Aquí agregamos las líneas separadoras */}
+                {(() => {
+                  const separadores = [];
+                  let lastCategoria = null;
+                  datosFiltrados.forEach((d, i) => {
+                    if (lastCategoria && d.categoria !== lastCategoria) {
+                      // Dibujar línea entre categorías
+                      separadores.push(
+                        <ReferenceLine
+                          key={`sep-${i}`}
+                          x={i - 0.5}
+                          stroke="#9ca3af"
+                          strokeDasharray="3 3"
+                        />
+                      );
+                    }
+                    lastCategoria = d.categoria;
+                  });
+                  return separadores;
+                })()}
+
                 <Bar
                   dataKey="anterior"
                   fill="#3b82f6"
