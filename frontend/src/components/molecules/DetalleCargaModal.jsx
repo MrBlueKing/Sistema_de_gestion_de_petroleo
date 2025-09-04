@@ -190,7 +190,7 @@ const DetalleCargaModal = ({ cargaId, isOpen, onClose, onActionComplete }) => {
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
           >
             <FaTimes className="w-6 h-6" />
           </button>
@@ -453,7 +453,7 @@ const DetalleCargaModal = ({ cargaId, isOpen, onClose, onActionComplete }) => {
             <LoadingButton
               isLoading={rendirLoading}
               onClick={handleRendir}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium cursor-pointer"
             >
               Rendir Carga
             </LoadingButton>
