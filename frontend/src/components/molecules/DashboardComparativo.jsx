@@ -185,7 +185,7 @@ const obtenerDatosPeriodo = async (fechaInicio, fechaFin, signal = null) => {
   };
 
   // Configuración axios con signal (pero solo si está disponible)
-  const axiosConfig = signal ? { signal, timeout: 10000 } : { timeout: 10000 };
+  const axiosConfig = signal ? { signal, timeout: 10000000000000 } : { timeout: 10000000000000 };
 
   try {
     // 🚀 USAR ENDPOINTS QUE SABEMOS QUE FUNCIONAN (según tu apiService.jsx)
