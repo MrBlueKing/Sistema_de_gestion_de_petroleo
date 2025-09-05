@@ -461,7 +461,7 @@ const MainAdminOperador = () => {
 
           <div className="flex items-center space-x-2">
             <button
-              className="text-orange-600 hover:text-orange-900 flex items-center space-x-1 text-xs"
+              className="text-orange-600 hover:text-orange-900 flex items-center space-x-1 text-xs cursor-pointer"
               onClick={() => handleVerDetalle(carga.id)}
             >
               <FaEye className="h-3 w-3" />
@@ -471,7 +471,7 @@ const MainAdminOperador = () => {
               <LoadingButton
                 isLoading={loadingCargas[carga.id]}
                 onClick={() => handleRendir(carga.id)}
-                className="inline-flex items-center px-3 py-1 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                className="inline-flex items-center px-3 py-1 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors cursor-pointer"
               >
                 Rendir
               </LoadingButton>
@@ -565,7 +565,7 @@ const MainAdminOperador = () => {
           <div className="flex items-center space-x-2">
             <button
               onClick={() => handleVerDetalle(carga.id)}
-              className="inline-flex items-center px-3 py-1 border border-orange-300 text-sm font-medium rounded-md text-orange-700 bg-orange-50 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors"
+              className="inline-flex items-center px-3 py-1 border border-orange-300 text-sm font-medium rounded-md text-orange-700 bg-orange-50 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors cursor-pointer"
               title="Ver historial y detalles completos"
             >
               <FaEye className="w-3 h-3 mr-1" />
@@ -576,7 +576,7 @@ const MainAdminOperador = () => {
               <>
                 <button
                   onClick={() => handleRendir(carga.id)} // ✅ AGREGAR: Conectar handl eRendir con el ID de la carga
-                  className="inline-flex items-center px-3 py-1 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                  className="inline-flex items-center px-3 py-1 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors cursor-pointer"
                   title="Marcar carga como rendida" // ✅ OPCIONAL: Agregar tooltip descriptivo
                   disabled={loading} // ✅ OPCIONAL: Deshabilitar si está cargando
                 >
@@ -588,7 +588,7 @@ const MainAdminOperador = () => {
                   ) : (
                     <>
                       <FaCheckCircle className="w-3 h-3 mr-1" />
-                      Rendir
+                      Rendir 
                     </>
                   )}
                 </button>
