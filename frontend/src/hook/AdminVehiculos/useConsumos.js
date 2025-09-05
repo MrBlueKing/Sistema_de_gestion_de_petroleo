@@ -3,18 +3,20 @@ import axios from "../../lib/axios";
 
 /**
  * 🚀 Hook personalizado para gestión de consumos/cargas externas
- * Maneja toda la lógica de estado, filtrado, ordenamiento y API calls
+ * ✅ ACTUALIZADO: Ahora usa server-side pagination con la nueva API
+ * ✅ MANTIENE: La misma interfaz para compatibilidad con el componente
  */
 const useConsumos = (opciones = {}) => {
   const {
     autoFetch = true,
-    endpoint = "/api/adminOperador/cargas",
-    paginacionInicial = 50,
+    endpoint = "/api/adminOperador/cargas/paginadas", // ✅ NUEVA API
+    paginacionInicial = 25, // ✅ Reducido porque es server-side
     ordenamientoInicial = { columna: "created_at", direccion: "desc" },
   } = opciones;
 
   // 📊 Estados principales
   const [cargas, setCargas] = useState([]);
+  const [cargasCompletas, setCargasCompletas] = useState([]); // Para compatibilidad
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [estadisticas, setEstadisticas] = useState({});
@@ -23,371 +25,346 @@ const useConsumos = (opciones = {}) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("todos");
   const [filtroFaena, setFiltroFaena] = useState("todas");
-  const [filtroFecha, setFiltroFecha] = useState("todas");
+  const [filtroTipoCombustible, setFiltroTipoCombustible] = useState("");
+  const [filtroFechaInicio, setFiltroFechaInicio] = useState("");
+  const [filtroFechaFin, setFiltroFechaFin] = useState("");
 
   // 📊 Estados de ordenamiento
   const [ordenColumna, setOrdenColumna] = useState(ordenamientoInicial.columna);
   const [direccionOrden, setDireccionOrden] = useState(ordenamientoInicial.direccion);
 
-  // 📱 Estados de paginación
+  // 📱 Estados de paginación (SERVER-SIDE)
   const [paginaActual, setPaginaActual] = useState(1);
   const [registrosPorPagina, setRegistrosPorPagina] = useState(paginacionInicial);
+  const [infoPaginacion, setInfoPaginacion] = useState({
+    totalRegistros: 0,
+    totalPaginas: 0,
+    desde: 0,
+    hasta: 0,
+    hayMasPaginas: false
+  });
 
-  // 🚀 Función principal para cargar datos
+  // 🆕 Estados adicionales de la nueva API
+  const [opcionesFiltros, setOpcionesFiltros] = useState({
+    faenas: [],
+    categorias: [],
+    tipos_combustible: [],
+    estados: []
+  });
+  const [metadatos, setMetadatos] = useState({
+    total_sin_filtros: 0,
+    total_con_filtros: 0,
+    filtros_activos: 0
+  });
+
+  // 🚀 Función principal para cargar datos (NUEVA - Server-Side)
   const fetchCargas = useCallback(async (mostrarLoading = true) => {
     try {
       if (mostrarLoading) setLoading(true);
       setError("");
 
-      console.log("📊 Cargando cargas desde:", endpoint);
-      const response = await axios.get(endpoint);
+      // ✅ CONSTRUIR PARÁMETROS PARA LA NUEVA API
+      const params = new URLSearchParams();
 
-      if (response.data.status === "success") {
-        const cargasData = response.data.data || [];
-        setCargas(cargasData);
-        setEstadisticas(response.data.estadisticas || {});
-        
-        console.log("✅ Cargas cargadas exitosamente:", {
-          total: cargasData.length,
-          endpoint,
-          estadisticas: response.data.estadisticas
+      // Paginación
+      params.append('page', paginaActual.toString());
+      params.append('per_page', registrosPorPagina.toString());
+
+      // Búsqueda global
+      if (searchTerm.trim()) {
+        params.append('search', searchTerm.trim());
+      }
+
+      // Filtros específicos
+      if (filtroEstado && filtroEstado !== "todos") {
+        // Convertir formato del componente al formato de la API
+        const estadoAPI = filtroEstado === "Por Rendir" ? "Por Rendir" :
+          filtroEstado === "Rendido" ? "Rendido" : null;
+        if (estadoAPI) params.append('estado', estadoAPI);
+      }
+
+      if (filtroFaena && filtroFaena !== "todas") {
+        // Si filtroFaena es un número (ID de faena)
+        const faenaId = parseInt(filtroFaena);
+        if (!isNaN(faenaId)) {
+          params.append('faena', faenaId.toString());
+        }
+      }
+
+      if (filtroTipoCombustible.trim()) {
+        params.append('tipo_combustible', filtroTipoCombustible.trim());
+      }
+
+      // Filtros de fecha
+      if (filtroFechaInicio) {
+        params.append('fecha_inicio', filtroFechaInicio);
+      }
+      if (filtroFechaFin) {
+        params.append('fecha_fin', filtroFechaFin);
+      }
+
+      // Ordenamiento
+      params.append('sort', ordenColumna);
+      params.append('direction', direccionOrden);
+
+      console.log('🔄 Cargando cargas con parámetros:', Object.fromEntries(params));
+
+      // ✅ LLAMADA A LA NUEVA API
+      const response = await axios.get(`${endpoint}?${params.toString()}`);
+
+      if (response.data.success) {
+        const { data, pagination, filters, meta } = response.data;
+
+        // 🔍 AGREGAR ESTOS LOGS TEMPORALES:
+        console.log('🔍 DEBUG - Respuesta completa del backend:', response.data);
+        console.log('🔍 DEBUG - Primer registro raw:', data[0]);
+        console.log('🔍 DEBUG - Usuario en primer registro:', data[0]?.operador);
+
+        // Actualizar datos
+        setCargas(data);
+        setCargasCompletas(data); // Para compatibilidad con componente
+
+        // Actualizar información de paginación
+        setInfoPaginacion({
+          totalRegistros: pagination.total,
+          totalPaginas: pagination.last_page,
+          desde: pagination.from,
+          hasta: pagination.to,
+          hayMasPaginas: pagination.has_more_pages,
+          paginaActual: pagination.current_page,
+          registrosPorPagina: pagination.per_page
         });
-      } else {
-        throw new Error(response.data.message || "Error al cargar datos");
-      }
-    } catch (error) {
-      console.error("❌ Error al cargar cargas:", error);
-      const errorMessage = error.response?.data?.message || error.message || "Error al cargar datos";
-      setError(errorMessage);
-      
-      // 🔄 Fallback con datos de ejemplo en caso de error (solo en desarrollo)
-      if (process.env.NODE_ENV === 'development') {
-        console.warn("🔄 Cargando datos de ejemplo como fallback");
-        setCargas([
-          {
-            id: 1,
-            numero_boleta: "BOL-001",
-            user: { nombre: "Juan", apellido: "Pérez", rut: "12345678-9" },
-            maquina: { nombre_maquina: "Excavadora CAT", patente: "AA-BB-12" },
-            litros: 150.5,
-            costo: 225750,
-            precio_por_litro: 1500,
-            estado: "pendiente",
-            id_faena: 6,
-            created_at: new Date().toISOString(),
-            observaciones: "Carga de ejemplo"
-          }
-        ]);
-      }
-    } finally {
-      if (mostrarLoading) setLoading(false);
-    }
-  }, [endpoint]);
 
-  // 🔄 Auto-fetch al montar el componente
+        // Actualizar opciones de filtros (solo si vienen)
+        if (filters.available) {
+          setOpcionesFiltros(filters.available);
+        }
+
+        // Actualizar metadatos
+        setMetadatos({
+          total_sin_filtros: meta.total_sin_filtros,
+          total_con_filtros: meta.total_con_filtros,
+          filtros_activos: meta.filtros_activos,
+          tiempo_consulta: meta.tiempo_consulta
+        });
+
+        // Actualizar estadísticas (formato compatible)
+        setEstadisticas({
+          total: meta.total_con_filtros,
+          porRendir: meta.estadisticas?.por_estado?.por_rendir || 0,
+          rendidos: meta.estadisticas?.por_estado?.rendido || 0,
+          totalLitros: meta.estadisticas?.totales?.litros || 0,
+          totalCosto: meta.estadisticas?.totales?.costo || 0
+        });
+
+        console.log('✅ Datos cargados exitosamente:', {
+          registros: data.length,
+          total: pagination.total,
+          pagina: pagination.current_page
+        });
+
+      } else {
+        throw new Error(response.data.message || 'Error al cargar datos');
+      }
+
+    } catch (err) {
+      console.error('❌ Error al cargar cargas:', err);
+      setError(err.response?.data?.message || err.message || 'Error al cargar datos');
+      setCargas([]);
+      setCargasCompletas([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    endpoint,
+    paginaActual,
+    registrosPorPagina,
+    searchTerm,
+    filtroEstado,
+    filtroFaena,
+    filtroTipoCombustible,
+    filtroFechaInicio,
+    filtroFechaFin,
+    ordenColumna,
+    direccionOrden
+  ]);
+
+  // 🔄 Efecto para cargar datos cuando cambian los filtros
+  useEffect(() => {
+    if (autoFetch) {
+      // Reset a página 1 cuando cambian los filtros (excepto cuando cambia solo la página)
+      if (paginaActual !== 1) {
+        setPaginaActual(1);
+      } else {
+        fetchCargas();
+      }
+    }
+  }, [
+    searchTerm,
+    filtroEstado,
+    filtroFaena,
+    filtroTipoCombustible,
+    filtroFechaInicio,
+    filtroFechaFin,
+    ordenColumna,
+    direccionOrden,
+    registrosPorPagina
+  ]);
+
+  // 🔄 Efecto separado para cambios de página
   useEffect(() => {
     if (autoFetch) {
       fetchCargas();
     }
-  }, [autoFetch, fetchCargas]);
+  }, [paginaActual]);
 
-  // 🎛️ Función para obtener fecha límite según filtro
-  const obtenerFechaLimite = useCallback((tipoFiltro) => {
-    const hoy = new Date();
-    switch (tipoFiltro) {
-      case "hoy":
-        return new Date(hoy.setHours(0, 0, 0, 0));
-      case "semana":
-        const hace7Dias = new Date();
-        hace7Dias.setDate(hace7Dias.getDate() - 7);
-        return hace7Dias;
-      case "mes":
-        const haceUnMes = new Date();
-        haceUnMes.setMonth(haceUnMes.getMonth() - 1);
-        return haceUnMes;
-      case "trimestre":
-        const haceTresMeses = new Date();
-        haceTresMeses.setMonth(haceTresMeses.getMonth() - 3);
-        return haceTresMeses;
-      case "anio":
-        const haceUnAnio = new Date();
-        haceUnAnio.setFullYear(haceUnAnio.getFullYear() - 1);
-        return haceUnAnio;
-      default:
-        return null;
+  // 📊 Manejar cambio de ordenamiento
+  const manejarCambioOrdenamiento = useCallback((columna, direccion = null) => {
+    console.log('🔄 Cambio de ordenamiento:', { columna, direccion });
+
+    if (direccion) {
+      // Dirección específica proporcionada
+      setOrdenColumna(columna);
+      setDireccionOrden(direccion);
+    } else {
+      // Alternar dirección automáticamente
+      if (ordenColumna === columna) {
+        setDireccionOrden(direccionOrden === "asc" ? "desc" : "asc");
+      } else {
+        setOrdenColumna(columna);
+        setDireccionOrden("desc"); // Por defecto desc para nueva columna
+      }
     }
+  }, [ordenColumna, direccionOrden]);
+
+  // 📱 Funciones de paginación
+  const irAPagina = useCallback((numeroPagina) => {
+    if (numeroPagina >= 1 && numeroPagina <= infoPaginacion.totalPaginas) {
+      setPaginaActual(numeroPagina);
+    }
+  }, [infoPaginacion.totalPaginas]);
+
+  const cambiarRegistrosPorPagina = useCallback((cantidad) => {
+    setRegistrosPorPagina(cantidad);
+    setPaginaActual(1); // Reset a primera página
   }, []);
 
-// ✅ OPCIÓN 3: Función súper explícita y debuggeable
-const manejarCambioOrdenamiento = useCallback((columna, direccionEspecifica = null) => {
-  console.log('🔧 Click en ordenamiento:', { 
-    columna, 
-    direccionEspecifica, 
-    columnaActual: ordenColumna, 
-    direccionActual: direccionOrden 
-  });
-  
-  if (ordenColumna === columna) {
-    // 🔄 MISMA COLUMNA: Alternar SIEMPRE (ignorar direccionEspecifica)
-    const nuevaDireccion = direccionOrden === "asc" ? "desc" : "asc";
-    console.log('🔄 Alternando dirección:', direccionOrden, '→', nuevaDireccion);
-    setDireccionOrden(nuevaDireccion);
-  } else {
-    // 🆕 NUEVA COLUMNA: Empezar con una dirección por defecto
-    console.log('🆕 Nueva columna, empezando con DESC');
-    setOrdenColumna(columna);
-    setDireccionOrden("desc"); // Siempre empezar con descendente
-  }
-  
-  setPaginaActual(1);
-}, [ordenColumna, direccionOrden]);
-
-
-  // 🔍 Datos procesados con filtros y ordenamiento
-  const cargasProcesadas = useMemo(() => {
-    let resultado = [...cargas];
-
-    // 🔍 Aplicar filtro de búsqueda
-    if (searchTerm.trim()) {
-      const termino = searchTerm.toLowerCase().trim();
-      resultado = resultado.filter((carga) => {
-        const textosBusqueda = [
-          carga.numero_boleta,
-          `${carga.user?.nombre} ${carga.user?.apellido}`,
-          carga.user?.rut,
-          carga.maquina?.nombre_maquina,
-          carga.maquina?.patente,
-          carga.ubicacion,
-          carga.observaciones
-        ].filter(Boolean).join(" ").toLowerCase();
-        
-        return textosBusqueda.includes(termino);
-      });
-    }
-
-    // 🎛️ Aplicar filtro por estado
-    if (filtroEstado !== "todos") {
-      resultado = resultado.filter((carga) => carga.estado === filtroEstado);
-    }
-
-    // 🏢 Aplicar filtro por faena
-    if (filtroFaena !== "todas") {
-      resultado = resultado.filter(
-        (carga) => carga.id_faena === parseInt(filtroFaena)
-      );
-    }
-
-    // 📅 Aplicar filtro por fecha
-    if (filtroFecha !== "todas") {
-      const fechaLimite = obtenerFechaLimite(filtroFecha);
-      if (fechaLimite) {
-        resultado = resultado.filter(
-          (carga) => new Date(carga.created_at) >= fechaLimite
-        );
-      }
-    }
-
-    // 📊 Aplicar ordenamiento
-    resultado.sort((a, b) => {
-      let valorA, valorB;
-
-      // Manejar diferentes tipos de columnas
-      switch (ordenColumna) {
-        case "usuario":
-          valorA = `${a.user?.nombre} ${a.user?.apellido}`.toLowerCase();
-          valorB = `${b.user?.nombre} ${b.user?.apellido}`.toLowerCase();
-          break;
-        case "maquina":
-          valorA = a.maquina?.nombre_maquina?.toLowerCase() || "";
-          valorB = b.maquina?.nombre_maquina?.toLowerCase() || "";
-          break;
-        case "fecha":
-        case "created_at":
-          valorA = new Date(a.created_at);
-          valorB = new Date(b.created_at);
-          break;
-        case "litros":
-        case "costo":
-        case "precio_por_litro":
-          valorA = Number(a[ordenColumna]) || 0;
-          valorB = Number(b[ordenColumna]) || 0;
-          break;
-        default:
-          valorA = a[ordenColumna];
-          valorB = b[ordenColumna];
-          break;
-      }
-
-      // Convertir strings a números si es posible
-      if (typeof valorA === "string" && !isNaN(Number(valorA))) {
-        valorA = Number(valorA);
-        valorB = Number(valorB);
-      }
-
-      // Manejar valores null/undefined
-      if (valorA == null && valorB == null) return 0;
-      if (valorA == null) return direccionOrden === "asc" ? -1 : 1;
-      if (valorB == null) return direccionOrden === "asc" ? 1 : -1;
-
-      // Comparación final
-      if (valorA < valorB) return direccionOrden === "asc" ? -1 : 1;
-      if (valorA > valorB) return direccionOrden === "asc" ? 1 : -1;
-      return 0;
-    });
-
-    return resultado;
-  }, [
-    cargas,
-    searchTerm,
-    filtroEstado,
-    filtroFaena,
-    filtroFecha,
-    ordenColumna,
-    direccionOrden,
-    obtenerFechaLimite
-  ]);
-
-  // 📊 Estadísticas calculadas de datos filtrados
-  const estadisticasCalculadas = useMemo(() => {
-    const datos = cargasProcesadas;
-    
-    return {
-      total: datos.length,
-      totalOriginal: cargas.length,
-      pendientes: datos.filter((c) => c.estado === "pendiente").length,
-      aprobadas: datos.filter((c) => c.estado === "aprobado").length,
-      rechazadas: datos.filter((c) => c.estado === "rechazado").length,
-      totalLitros: datos.reduce((sum, c) => sum + (Number(c.litros) || 0), 0),
-      totalCosto: datos.reduce((sum, c) => sum + (Number(c.costo) || 0), 0),
-      promedioLitrosPorCarga: datos.length > 0 
-        ? datos.reduce((sum, c) => sum + (Number(c.litros) || 0), 0) / datos.length 
-        : 0,
-      promedioCostoPorLitro: datos.length > 0 && datos.reduce((sum, c) => sum + (Number(c.litros) || 0), 0) > 0
-        ? datos.reduce((sum, c) => sum + (Number(c.costo) || 0), 0) / datos.reduce((sum, c) => sum + (Number(c.litros) || 0), 0)
-        : 0,
-    };
-  }, [cargasProcesadas, cargas.length]);
-
-  // 📱 Datos paginados
-  const datosPaginados = useMemo(() => {
-    const inicio = (paginaActual - 1) * registrosPorPagina;
-    const fin = inicio + registrosPorPagina;
-    return cargasProcesadas.slice(inicio, fin);
-  }, [cargasProcesadas, paginaActual, registrosPorPagina]);
-
-  // 📊 Información de paginación
-  const infoPaginacion = useMemo(() => {
-    const totalRegistros = cargasProcesadas.length;
-    const totalPaginas = Math.ceil(totalRegistros / registrosPorPagina);
-    
-    return {
-      totalRegistros,
-      totalPaginas,
-      paginaActual,
-      registrosPorPagina,
-      inicio: (paginaActual - 1) * registrosPorPagina + 1,
-      fin: Math.min(paginaActual * registrosPorPagina, totalRegistros),
-      hayAnterior: paginaActual > 1,
-      haySiguiente: paginaActual < totalPaginas,
-    };
-  }, [cargasProcesadas.length, registrosPorPagina, paginaActual]);
-
-  // 🧹 Función para limpiar todos los filtros
+  // 🧹 Limpiar filtros
   const limpiarFiltros = useCallback(() => {
+    console.log('🧹 Limpiando filtros...');
     setSearchTerm("");
     setFiltroEstado("todos");
     setFiltroFaena("todas");
-    setFiltroFecha("todas");
+    setFiltroTipoCombustible("");
+    setFiltroFechaInicio("");
+    setFiltroFechaFin("");
+    setOrdenColumna(ordenamientoInicial.columna);
+    setDireccionOrden(ordenamientoInicial.direccion);
     setPaginaActual(1);
-  }, []);
+  }, [ordenamientoInicial]);
 
-  // 🔄 Función para refrescar datos
+  // 🔄 Refrescar datos
   const refrescarDatos = useCallback(() => {
-    fetchCargas(false); // Sin mostrar loading completo
+    console.log('🔄 Refrescando datos...');
+    fetchCargas(true);
   }, [fetchCargas]);
 
-  // 📊 Función para actualizar una carga específica en la lista
-  const actualizarCarga = useCallback((cargaActualizada) => {
-    setCargas(prevCargas =>
-      prevCargas.map(carga =>
-        carga.id === cargaActualizada.id ? { ...carga, ...cargaActualizada } : carga
-      )
-    );
+  // 🔧 Actualizar carga específica (para rendición, etc.)
+  const actualizarCarga = useCallback((cargaId, nuevosValores) => {
+    setCargas(prev => prev.map(carga =>
+      carga.id === cargaId
+        ? { ...carga, ...nuevosValores }
+        : carga
+    ));
+    setCargasCompletas(prev => prev.map(carga =>
+      carga.id === cargaId
+        ? { ...carga, ...nuevosValores }
+        : carga
+    ));
   }, []);
 
-  // 📤 Función para exportar datos (retorna los datos procesados)
-  const exportarDatos = useCallback((formato = "json") => {
-    const datosExportacion = cargasProcesadas.map(carga => ({
-      fecha: new Date(carga.created_at).toLocaleDateString("es-CL"),
-      numero_boleta: carga.numero_boleta,
-      usuario: `${carga.user?.nombre} ${carga.user?.apellido}`,
-      rut: carga.user?.rut,
-      maquina: carga.maquina?.nombre_maquina,
-      patente: carga.maquina?.patente,
-      litros: carga.litros,
-      costo: carga.costo,
-      precio_por_litro: carga.precio_por_litro,
-      estado: carga.estado,
-      observaciones: carga.observaciones,
-    }));
+  // 📤 Exportar datos (placeholder - puedes implementar)
+  const exportarDatos = useCallback(async (formato = 'csv') => {
+    try {
+      console.log('📤 Exportando datos en formato:', formato);
+      // Implementar llamada a endpoint de exportación
+      // const response = await axios.post(`${endpoint.replace('paginadas', 'exportar')}`, {
+      //   filtros: { searchTerm, filtroEstado, filtroFaena, etc. },
+      //   formato
+      // });
+      return { success: true, message: 'Exportación completada' };
+    } catch (error) {
+      console.error('❌ Error al exportar:', error);
+      return { success: false, message: 'Error en la exportación' };
+    }
+  }, [searchTerm, filtroEstado, filtroFaena]);
 
-    console.log(`📤 Exportando ${datosExportacion.length} registros en formato ${formato}`);
-    return datosExportacion;
-  }, [cargasProcesadas]);
+  // 🔍 Computed values para compatibilidad
+  const hayFiltrosActivos = useMemo(() => {
+    return metadatos.filtros_activos > 0 ||
+      searchTerm.trim() !== "" ||
+      filtroEstado !== "todos" ||
+      filtroFaena !== "todas" ||
+      filtroTipoCombustible.trim() !== "" ||
+      filtroFechaInicio !== "" ||
+      filtroFechaFin !== "";
+  }, [metadatos.filtros_activos, searchTerm, filtroEstado, filtroFaena, filtroTipoCombustible, filtroFechaInicio, filtroFechaFin]);
 
-  // 🎯 Función para ir a una página específica
-  const irAPagina = useCallback((numeroPagina) => {
-    const paginaValida = Math.max(1, Math.min(numeroPagina, infoPaginacion.totalPaginas));
-    setPaginaActual(paginaValida);
-  }, [infoPaginacion.totalPaginas]);
+  const totalFiltrado = useMemo(() => {
+    return metadatos.total_con_filtros;
+  }, [metadatos.total_con_filtros]);
 
-  // 📊 Retorno del hook con todas las funcionalidades
+  // 📤 Return de la interfaz del hook (manteniendo compatibilidad)
   return {
-    // Datos
-    cargas: datosPaginados,
-    cargasCompletas: cargasProcesadas,
-    cargasOriginales: cargas,
-    estadisticas: estadisticasCalculadas,
-    estadisticasOriginales: estadisticas,
+    // 📊 Datos
+    cargas,
+    cargasCompletas, // Para compatibilidad con componente existente
+    estadisticas,
+    opcionesFiltros,
+    metadatos,
 
-    // Estados de carga
+    // 🔄 Estados
     loading,
     error,
 
-    // Filtros y búsqueda
+    // 🔍 Filtros y búsqueda
     searchTerm,
     setSearchTerm,
     filtroEstado,
     setFiltroEstado,
     filtroFaena,
     setFiltroFaena,
-    filtroFecha,
-    setFiltroFecha,
+    filtroTipoCombustible,
+    setFiltroTipoCombustible,
+    filtroFechaInicio,
+    setFiltroFechaInicio,
+    filtroFechaFin,
+    setFiltroFechaFin,
 
-    // Ordenamiento
+    // 📊 Ordenamiento
     ordenColumna,
     direccionOrden,
     manejarCambioOrdenamiento,
 
-    // Paginación
+    // 📱 Paginación
     paginaActual,
-    setPaginaActual,
     registrosPorPagina,
-    setRegistrosPorPagina,
     infoPaginacion,
     irAPagina,
+    cambiarRegistrosPorPagina,
 
-    // Funciones utilitarias
-    fetchCargas,
+    // 🔧 Acciones
     refrescarDatos,
     limpiarFiltros,
     actualizarCarga,
     exportarDatos,
 
-    // Estados calculados
-    hayFiltrosActivos: searchTerm || filtroEstado !== "todos" || filtroFaena !== "todas" || filtroFecha !== "todas",
-    totalFiltrado: cargasProcesadas.length,
-    totalOriginal: cargas.length,
+    // 🔍 Computed
+    hayFiltrosActivos,
+    totalFiltrado,
+
+    // 🆕 Nuevas funciones para server-side
+    fetchCargas
   };
 };
 

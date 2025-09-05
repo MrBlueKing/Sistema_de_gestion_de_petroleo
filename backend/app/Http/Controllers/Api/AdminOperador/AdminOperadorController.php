@@ -279,7 +279,6 @@ class AdminOperadorController extends Controller
             ]);
         } catch (\Exception $e) {
             Log::error('Error al obtener detalle:', [
-                'carga_id' => $id,
                 'error' => $e->getMessage()
             ]);
 
@@ -323,7 +322,6 @@ class AdminOperadorController extends Controller
             ]);
         } catch (\Exception $e) {
             Log::error('Error al rendir carga:', [
-                'carga_id' => $id,
                 'error' => $e->getMessage()
             ]);
 
@@ -2203,4 +2201,6 @@ class AdminOperadorController extends Controller
             ], 500);
         }
     }
+
+    
 }
