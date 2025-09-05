@@ -29,14 +29,14 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - [Queued] Rol Jefe Mina --> Visualización similar a gerente, pero con el filtro fijo a su user.id_faena.
 
-- [Queued] Gerente --> Gestión Ingresos --> Añadir Información de la feana y paginación de la lista.
+- [WIP] Gerente --> Gestión Ingresos --> Añadir Información de la feana y paginación de la lista.
 
 - [Queued] Gerente --> ConsumosView --> Mejorar a Historial Maquina y corregir pdf.
 
 
 ### Changed
 
-- [Queued] Gerente --> ConsumoPureTable --> Centralizado en la máquina más que en la Faena.
+- [Testing:Sebastian] Gerente --> ConsumoPureTable --> Centralizado en la máquina más que en la Faena.
 
 - [Testing:Sebastian] Gerente --> Dashboard --> Agregar en la comparativa todas las categorias y la opción de ver el costo operacional.
 

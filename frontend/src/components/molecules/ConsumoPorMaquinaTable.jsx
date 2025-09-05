@@ -1248,6 +1248,7 @@ const ConsumoPorMaquinaPureTable = ({
                       </div>
                     </div>
                   </td>
+
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-col space-y-2">
                       <div>
@@ -1279,40 +1280,238 @@ const ConsumoPorMaquinaPureTable = ({
                       </div>
                     </div>
                   </td>
-                  <td className="px-6  text-center">
-                    <div className="flex flex-col ">
-                      <span
-                        
-                      >
-                        <span className="text-xs mr-1">{faenaColors.icon}</span>
-                        {maquina.faena}
+                  <td className="px-6 py-4 text-left">
+                    <div className="flex flex-col space-y-1">
+                      {(() => {
+                        const faenaInfo =
+                          maquina.analisis_completo?.maquina?.faena;
+
+                        if (
+                          !faenaInfo ||
+                          !faenaInfo.faenas_detalle ||
+                          faenaInfo.faenas_detalle.length === 0
+                        ) {
+                          return (
+                            <span className="text-gray-500 text-sm">N/A</span>
+                          );
+                        }
+
+                        if (faenaInfo.faenas_detalle.length === 1) {
+                          // Una sola faena
+                          const faena = faenaInfo.faenas_detalle[0];
+                          const faenaColors = getFaenaColorsSutil(faena.nombre);
+
+                          return (
+                            <div className="flex items-center">
+                              <span className="text-xs mr-1">
+                                {faenaColors.icon}
+                              </span>
+                              <span className="font-medium text-gray-800">
+                                {faena.nombre}
+                              </span>
+                              <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                                {faena.consumos} reg.
+                              </span>
+                            </div>
+                          );
+                        }
+
+                        // Múltiples faenas
+                        const totalConsumos = faenaInfo.faenas_detalle.reduce(
+                          (sum, f) => sum + f.consumos,
+                          0
+                        );
+
+                        return (
+                          <div className="space-y-1">
+                            <div className="flex items-center text-xs text-gray-600 border-b border-gray-200 pb-1">
+                              <span className="font-medium">
+                                {faenaInfo.total_faenas} faenas
+                              </span>
+                              <span className="ml-2 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                                {totalConsumos} reg.
+                              </span>
+                            </div>
+
+                            {faenaInfo.faenas_detalle.map((faena, index) => {
+                              const faenaColors = getFaenaColorsSutil(
+                                faena.nombre
+                              );
+                              const porcentaje = (
+                                (faena.consumos / totalConsumos) *
+                                100
+                              ).toFixed(1);
+
+                              return (
+                                <div
+                                  key={index}
+                                  className="flex items-center justify-between text-xs"
+                                >
+                                  <div className="flex items-center">
+                                    <span className="mr-1">
+                                      {faenaColors.icon}
+                                    </span>
+                                    <span className="font-medium text-gray-700">
+                                      {faena.nombre}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center space-x-1">
+                                    <span className="text-gray-600">
+                                      {faena.consumos}
+                                    </span>
+                                    <span className="text-gray-500">
+                                      ({porcentaje}%)
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </td>
+                  
+                  
+                  
+{/*  // Columna Consumo Total - Reemplazar en ConsumoPorMaquinaPureTable.jsx*/}
+
+<td className="px-6 py-4 whitespace-nowrap text-right">
+  <div className="flex flex-col items-end space-y-1">
+    {/* NUEVA SECCIÓN: Solo distribución por faenas (sin total principal) */}
+    {(() => {
+      const faenaInfo = maquina.analisis_completo?.maquina?.faena;
+      
+      // Si hay una sola faena, mostrar formato simple
+      if (!faenaInfo || !faenaInfo.faenas_detalle || faenaInfo.faenas_detalle.length <= 1) {
+        return (
+          <div className="flex flex-col items-end">
+            <div className="text-sm font-bold text-gray-900">
+              {maquina.litros_totales.toLocaleString("es-CL", {
+                maximumFractionDigits: 1,
+              })}L
+            </div>
+            <div className="text-xs text-gray-500">
+              {maquina.litros_confirmados > 0 && (
+                <span className="text-green-600">
+                  {maquina.litros_confirmados}L conf.
+                </span>
+              )}
+              {maquina.litros_simulados > 0 && (
+                <span className="text-blue-600 ml-1">
+                  +{maquina.litros_simulados}L sim.
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      }
+
+      // Calcular litros confirmados EXACTOS por faena usando faena_id
+      const litrosConfirmadosPorFaena = {};
+      
+      // Inicializar contadores para todas las faenas
+      faenaInfo.faenas_detalle.forEach(faena => {
+        litrosConfirmadosPorFaena[faena.id] = {
+          nombre: faena.nombre,
+          confirmados: 0,
+          simulados: 0
+        };
+      });
+
+      // Sumar litros confirmados REALES por faena
+      const periodosConfirmados = maquina.analisis_completo?.periodos_confirmados || [];
+      periodosConfirmados.forEach(periodo => {
+        const faenaId = periodo.faena_id;
+        const litros = periodo.consumo.litros;
+        
+        if (litrosConfirmadosPorFaena[faenaId]) {
+          litrosConfirmadosPorFaena[faenaId].confirmados += litros;
+        }
+      });
+
+      // Determinar faena de la última carga para asignar simulados
+      let faenaUltimaCarga = null;
+      const ultimaCargaInfo = maquina.analisis_completo?.ultima_carga_info;
+      
+      if (ultimaCargaInfo) {
+        faenaUltimaCarga = ultimaCargaInfo.faena_id;
+      } else if (periodosConfirmados.length > 0) {
+        // Fallback: usar último período confirmado
+        const ultimoPeriodo = periodosConfirmados[periodosConfirmados.length - 1];
+        faenaUltimaCarga = ultimoPeriodo.faena_id;
+      }
+
+      // Asignar simulados a la faena de la última carga
+      const litrosSimuladosTotal = maquina.litros_simulados;
+      if (faenaUltimaCarga && litrosConfirmadosPorFaena[faenaUltimaCarga]) {
+        litrosConfirmadosPorFaena[faenaUltimaCarga].simulados = litrosSimuladosTotal;
+      }
+
+      // Crear array para mostrar, solo faenas con datos
+      const distribucionPorFaena = Object.entries(litrosConfirmadosPorFaena)
+        .filter(([_, datos]) => datos.confirmados > 0 || datos.simulados > 0)
+        .map(([faenaId, datos]) => ({
+          id: parseInt(faenaId),
+          nombre: datos.nombre,
+          confirmados: datos.confirmados,
+          simulados: datos.simulados,
+          total: datos.confirmados + datos.simulados,
+          esUltimaCarga: parseInt(faenaId) === faenaUltimaCarga
+        }));
+
+      if (distribucionPorFaena.length === 0) return null;
+
+      const totalGeneral = maquina.litros_confirmados + maquina.litros_simulados;
+
+      return (
+        <div className="space-y-1">
+          <div className="text-xs text-gray-600 font-medium">Por faena:</div>
+          {distribucionPorFaena.map((faena) => {
+            const faenaColors = getFaenaColorsSutil(faena.nombre);
+            const porcentajeTotal = ((faena.total / totalGeneral) * 100).toFixed(1);
+            
+            return (
+              <div key={faena.id} className="space-y-0.5">
+                {/* Línea principal: Faena y total */}
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center space-x-1">
+                    <span style={{ fontSize: '8px' }}>{faenaColors.icon}</span>
+                    <span className="text-gray-700 font-medium">{faena.nombre}</span>
+                    {faena.esUltimaCarga && faena.simulados > 0 && (
+                      <span className="text-blue-500" title="Última carga registrada">⏱</span>
+                    )}
+                  </div>
+                  <div className="text-gray-800 font-semibold">
+                    {Math.round(faena.total)}L ({porcentajeTotal}%)
+                  </div>
+                </div>
+                
+                {/* Badges de confirmados/simulados */}
+                <div className="flex justify-end">
+                  <div className="flex space-x-1">
+                    {faena.confirmados > 0 && (
+                      <span className="text-green-700 bg-green-100 px-1.5 py-0.5 rounded text-xs">
+                        {Math.round(faena.confirmados)}L conf.
                       </span>
-                    </div>
-                    
-                  </td>
-                  {/* Columna Consumo Total */}
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <div className="flex flex-col items-end">
-                      <div className="text-sm font-bold text-gray-900">
-                        {maquina.litros_totales.toLocaleString("es-CL", {
-                          maximumFractionDigits: 1,
-                        })}
-                        L
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {maquina.litros_confirmados > 0 && (
-                          <span className="text-green-600">
-                            {maquina.litros_confirmados}L conf.
-                          </span>
-                        )}
-                        {maquina.litros_simulados > 0 && (
-                          <span className="text-blue-600 ml-1">
-                            +{maquina.litros_simulados}L sim.
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </td>
+                    )}
+                    {faena.simulados > 0 && (
+                      <span className="text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded text-xs">
+                        {Math.round(faena.simulados)}L sim.
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    })()}
+  </div>
+</td>
+
+
                   {/* Columna Precio Específico */}
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="text-sm font-medium text-gray-900">
@@ -1330,37 +1529,7 @@ const ConsumoPorMaquinaPureTable = ({
                         <div className="text-sm font-bold text-gray-900">
                           {maquina.rendimiento.formateado}
                         </div>
-                        <div
-                          className={`text-xs px-2 py-1 rounded-full ${getBadgeRendimiento(
-                            maquina.rendimiento.interpretacion
-                          )}`}
-                        >
-                          {(() => {
-                            // 🔧 PROCESAR TEXTO Y DIVIDIR POR GUIÓN
-                            const textoLimpio =
-                              maquina.rendimiento.interpretacion
-                                .replace("Consumo ", "")
-                                .replace(" - revisar eficiencia", "")
-                                .replace(
-                                  " - revisar condiciones operativas",
-                                  ""
-                                );
-
-                            // 👈 SI CONTIENE GUIÓN, DIVIDIR EN DOS LÍNEAS
-                            if (textoLimpio.includes(" - ")) {
-                              const partes = textoLimpio.split(" - ");
-                              return (
-                                <div className="text-center">
-                                  <div>{partes[0]}</div>
-                                  <div>{partes[1]}</div>
-                                </div>
-                              );
-                            }
-
-                            // 👈 SI NO TIENE GUIÓN, MOSTRAR NORMAL
-                            return textoLimpio;
-                          })()}
-                        </div>
+                        
                       </div>
                     ) : (
                       <div className="text-sm text-gray-400 italic">
@@ -1410,8 +1579,6 @@ const ConsumoPorMaquinaPureTable = ({
       <div className="bg-gray-50 px-6 py-4 border-t">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-2 md:space-y-0">
           <div className="text-sm text-gray-600">
-            
-            
             <div className="text-xs text-blue-600 mt-1 flex items-center">
               <FiClock className="h-3 w-3 mr-1" />
               Período: {formatearFechaHora(fechaDesde, horaDesde)} -{" "}

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -440,6 +441,8 @@ class ConsumoCategoriasController extends Controller
                     'promedio_por_hora_laboral' => $horasLaboralesReales > 0 ? round($consumo['litros_confirmados'] / $horasLaboralesReales, 2) : 0,
                     'intensidad_uso' => $this->clasificarIntensidadUso($consumo['litros_confirmados'], $diasLaborales)
                 ],
+                'faena_id' => $consumo['id_faena'],
+
                 'confirmacion' => [
                     'metodo' => 'Recarga posterior confirma consumo anterior',
                     'referencia' => $consumo['confirmado_por'] ?? 'N/A',
@@ -495,9 +498,6 @@ class ConsumoCategoriasController extends Controller
         return 'No determinado';
     }
 
-    /**
-     * ✅ MÉTODO ACTUALIZADO: procesarCategoria con separación por faenas
-     */
     private function procesarCategoria($categoria, $fechaInicio, $fechaFin, $idFaena, $incluirSimulacion, $incluirSabados, $incluirDomingos, $momentoConsulta)
     {
         try {
@@ -522,8 +522,8 @@ class ConsumoCategoriasController extends Controller
             $totalSimulado = 0;
 
             foreach ($maquinas as $maquina) {
-                // ✅ USAR NUEVA FUNCIÓN: Separar por faenas si es necesario
-                $analisisMaquinaPorFaenas = $this->analizarMaquinaConSeparacionFaenas(
+                // ✅ CAMBIO PRINCIPAL: Usar función MODIFICADA que consolida
+                $analisisMaquina = $this->analizarMaquinaConSeparacionFaenas(
                     $maquina->id_maquina,
                     $fechaInicio,
                     $fechaFin,
@@ -535,13 +535,13 @@ class ConsumoCategoriasController extends Controller
                     $idFaena
                 );
 
-                // Agregar cada entrada (una por faena si hay múltiples)
-                foreach ($analisisMaquinaPorFaenas as $analisisFaena) {
-                    $analisisPorMaquina[] = $analisisFaena;
+                // ✅ CAMBIO: Solo agregar la primera entrada (consolidada)
+                if (!empty($analisisMaquina)) {
+                    $analisisPorMaquina[] = $analisisMaquina[0]; // Solo tomar la primera (consolidada)
 
                     // Acumular totales
-                    $totalConfirmado += $analisisFaena['resumen_ejecutivo']['litros_confirmados'];
-                    $totalSimulado += $analisisFaena['resumen_ejecutivo']['litros_simulados'];
+                    $totalConfirmado += $analisisMaquina[0]['resumen_ejecutivo']['litros_confirmados'];
+                    $totalSimulado += $analisisMaquina[0]['resumen_ejecutivo']['litros_simulados'];
                 }
             }
 
@@ -569,10 +569,10 @@ class ConsumoCategoriasController extends Controller
                         'estado' => $m->estado ?? 'N/A'
                     ];
                 }, $maquinas->toArray()),
-                'analisis_detallado' => $analisisPorMaquina, // ✅ Ahora incluye separación por faenas
+                'analisis_detallado' => $analisisPorMaquina, // ✅ UNA entrada por máquina
                 'resumen_categoria' => [
                     'maquinas_procesadas' => count($maquinas),
-                    'entradas_procesadas' => count($analisisPorMaquina), // ✅ NUEVO: Total de entradas
+                    'entradas_procesadas' => count($analisisPorMaquina),
                     'consumo_confirmado_litros' => round($totalConfirmado, 2),
                     'consumo_simulado_litros' => round($totalSimulado, 2),
                     'consumo_total_litros' => round($totalConfirmado + $totalSimulado, 2),
@@ -581,19 +581,20 @@ class ConsumoCategoriasController extends Controller
                         : 0,
                     'costo_total_estimado' => round($costoTotal, 0),
                     'precio_promedio_litro' => round($precioPromedio, 0),
-                    'nota_separacion' => count($analisisPorMaquina) > count($maquinas)
-                        ? 'Algunas máquinas aparecen múltiples veces (operan en diferentes faenas)'
-                        : 'Una entrada por máquina',
-                    'eficiencia_vs_teorica' => $this->calcularEficienciaVsTeorica($totalConfirmado, $categoria, $fechaInicio, $fechaFin, $incluirSabados, $incluirDomingos)
+                    'nota_analisis' => 'Análisis consolidado por máquina'
                 ]
             ];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
+            Log::error('Error en procesarCategoria:', [
+                'error' => $e->getMessage(),
+                'categoria' => $categoria->id_categoria
+            ]);
+
             return [
                 'categoria' => $this->formatearInfoCategoria($categoria),
                 'maquinas_analizadas' => [],
                 'analisis_detallado' => [],
-                'resumen_categoria' => $this->resumenVacio(),
-                'error' => $e->getMessage()
+                'resumen_categoria' => $this->resumenVacio()
             ];
         }
     }
@@ -1676,311 +1677,349 @@ class ConsumoCategoriasController extends Controller
     }
 
 
-   /**
- * 🎯 SOLUCIÓN CORRECTA: Usar procesarCategoria para mes current con contexto del filtro
- */
-private function obtenerSimulacionUsandoProcesarCategoria($idMaquina, $mesKey, $categoria, $idFaena, $fechaInicio = null, $fechaFin = null)
-{
-    try {
-        Log::info("🎯 USANDO PROCESARCATEGORIA PARA MES CURRENT", [
-            'maquina' => $idMaquina,
-            'mes' => $mesKey,
-            'categoria_id' => $categoria->id_categoria ?? $categoria->id_categoria_maquina
-        ]);
+    /**
+     * 🎯 SOLUCIÓN CORRECTA: Usar procesarCategoria para mes current con contexto del filtro
+     */
+    private function obtenerSimulacionUsandoProcesarCategoria($idMaquina, $mesKey, $categoria, $idFaena, $fechaInicio = null, $fechaFin = null)
+    {
+        try {
+            Log::info("🎯 USANDO PROCESARCATEGORIA PARA MES CURRENT", [
+                'maquina' => $idMaquina,
+                'mes' => $mesKey,
+                'categoria_id' => $categoria->id_categoria ?? $categoria->id_categoria_maquina
+            ]);
 
-        // 1️⃣ FORZAR EXACTAMENTE EL MISMO PERÍODO QUE SI CONSULTARAS SOLO ESTE MES
-        $inicioMes = Carbon::createFromFormat('Y-m', $mesKey)->startOfMonth();
-        
-        // 🚀 USAR LA FECHA ESPECÍFICA DEL FILTRO ORIGINAL PARA ESTE MES
-        $fechaInicioFiltroOriginal = Carbon::parse($fechaInicio ?? $inicioMes->format('Y-m-d'));
-        $fechaFinFiltroOriginal = Carbon::parse($fechaFin ?? Carbon::now()->format('Y-m-d'));
-        
-        // Si el filtro original empieza después del inicio del mes, usar esa fecha
-        if ($fechaInicioFiltroOriginal->format('Y-m') === $mesKey && $fechaInicioFiltroOriginal->gte($inicioMes)) {
-            $inicioMesAjustado = $fechaInicioFiltroOriginal->copy();
-        } else {
-            $inicioMesAjustado = $inicioMes->copy();
-        }
-        
-        // Si el filtro original termina antes del fin del mes, usar esa fecha
-        $finMes = Carbon::createFromFormat('Y-m', $mesKey)->endOfMonth();
-        if ($fechaFinFiltroOriginal->format('Y-m') === $mesKey && $fechaFinFiltroOriginal->lte($finMes)) {
-            $finPeriodo = $fechaFinFiltroOriginal->copy();
-        } else {
-            // Si no es el mes actual, usar fin de mes; si es actual, usar hasta hoy
-            $hoy = Carbon::now();
-            if ($hoy->format('Y-m') === $mesKey) {
-                $finPeriodo = $hoy->copy();
+
+
+            // 1️⃣ FORZAR EXACTAMENTE EL MISMO PERÍODO QUE SI CONSULTARAS SOLO ESTE MES
+            $inicioMes = Carbon::createFromFormat('Y-m', $mesKey)->startOfMonth();
+
+            // 🚀 USAR LA FECHA ESPECÍFICA DEL FILTRO ORIGINAL PARA ESTE MES
+            $fechaInicioFiltroOriginal = Carbon::parse($fechaInicio ?? $inicioMes->format('Y-m-d'));
+            $fechaFinFiltroOriginal = Carbon::parse($fechaFin ?? Carbon::now()->format('Y-m-d'));
+
+            // Si el filtro original empieza después del inicio del mes, usar esa fecha
+            if ($fechaInicioFiltroOriginal->format('Y-m') === $mesKey && $fechaInicioFiltroOriginal->gte($inicioMes)) {
+                $inicioMesAjustado = $fechaInicioFiltroOriginal->copy();
             } else {
-                $finPeriodo = $finMes->copy();
+                $inicioMesAjustado = $inicioMes->copy();
             }
-        }
 
-        Log::info("📅 PERÍODO FORZADO PARA PROCESARCATEGORIA", [
-            'mes_consultado' => $mesKey,
-            'inicio_ajustado' => $inicioMesAjustado->format('Y-m-d H:i'),
-            'fin_ajustado' => $finPeriodo->format('Y-m-d H:i'),
-            'origen_inicio' => $inicioMesAjustado->eq($inicioMes) ? 'inicio_mes' : 'filtro_original',
-            'origen_fin' => $finPeriodo->format('Y-m') === $mesKey ? 'filtro_ajustado' : 'calculado',
-            'es_mes_actual' => Carbon::now()->format('Y-m') === $mesKey
-        ]);
+            // Si el filtro original termina antes del fin del mes, usar esa fecha
+            $finMes = Carbon::createFromFormat('Y-m', $mesKey)->endOfMonth();
+            if ($fechaFinFiltroOriginal->format('Y-m') === $mesKey && $fechaFinFiltroOriginal->lte($finMes)) {
+                $finPeriodo = $fechaFinFiltroOriginal->copy();
+            } else {
+                // Si no es el mes actual, usar fin de mes; si es actual, usar hasta hoy
+                $hoy = Carbon::now();
+                if ($hoy->format('Y-m') === $mesKey) {
+                    $finPeriodo = $hoy->copy();
+                } else {
+                    $finPeriodo = $finMes->copy();
+                }
+            }
 
-        // 2️⃣ Llamar a procesarCategoria con el período EXACTO
-        $resultadoCategoria = $this->procesarCategoria(
-            $categoria,
-            $inicioMesAjustado->format('Y-m-d'),
-            $finPeriodo->format('Y-m-d'),
-            $idFaena,
-            true, // incluir simulación
-            true, // incluir sábados
-            false, // no incluir domingos
-            $finPeriodo // momento consulta
-        );
-
-        if (!$resultadoCategoria || empty($resultadoCategoria['analisis_detallado'])) {
-            Log::warning("procesarCategoria no devolvió datos para la categoría", [
-                'resultado_vacio' => !$resultadoCategoria,
-                'analisis_vacio' => empty($resultadoCategoria['analisis_detallado'] ?? []),
-                'keys_resultado' => $resultadoCategoria ? array_keys($resultadoCategoria) : [],
-                'count_analisis' => isset($resultadoCategoria['analisis_detallado']) ? count($resultadoCategoria['analisis_detallado']) : 0
+            Log::info("📅 PERÍODO FORZADO PARA PROCESARCATEGORIA", [
+                'mes_consultado' => $mesKey,
+                'inicio_ajustado' => $inicioMesAjustado->format('Y-m-d H:i'),
+                'fin_ajustado' => $finPeriodo->format('Y-m-d H:i'),
+                'origen_inicio' => $inicioMesAjustado->eq($inicioMes) ? 'inicio_mes' : 'filtro_original',
+                'origen_fin' => $finPeriodo->format('Y-m') === $mesKey ? 'filtro_ajustado' : 'calculado',
+                'es_mes_actual' => Carbon::now()->format('Y-m') === $mesKey
             ]);
-            return ['litros_simulados' => 0, 'medicion_simulada' => 0];
-        }
 
-        Log::info("✅ procesarCategoria devolvió datos", [
-            'count_analisis_detallado' => count($resultadoCategoria['analisis_detallado']),
-            'maquinas_encontradas' => array_map(function($item) {
-                return [
-                    'id' => $item['maquina']['id'] ?? 'sin_id',
-                    'nombre' => $item['maquina']['nombre'] ?? 'sin_nombre'
-                ];
-            }, $resultadoCategoria['analisis_detallado'])
-        ]);
 
-        // 3️⃣ Buscar específicamente la máquina que necesitamos
-        $maquinaEncontrada = null;
-        foreach ($resultadoCategoria['analisis_detallado'] as $maquinaData) {
-            Log::info("🔍 Revisando máquina en resultado", [
-                'id_en_resultado' => $maquinaData['maquina']['id'] ?? 'sin_id',
-                'id_buscado' => $idMaquina,
-                'match' => ($maquinaData['maquina']['id'] ?? null) == $idMaquina
-            ]);
-            
-            if ($maquinaData['maquina']['id'] == $idMaquina) {
-                $maquinaEncontrada = $maquinaData;
-                Log::info("✅ Máquina encontrada", [
-                    'resumen_keys' => array_keys($maquinaData['resumen_ejecutivo'] ?? []),
-                    'rendimiento_keys' => array_keys($maquinaData['rendimiento'] ?? []),
-                    'tiene_simulacion' => isset($maquinaData['resumen_ejecutivo']['litros_simulados'])
+            // Detectar si es múltiples faenas y obtener faena de última carga
+            $idFaenaParaSimulacion = $idFaena; // Por defecto usar el original
+
+            if ($idFaena === null) {
+                // Es múltiples faenas, necesitamos obtener el id_faena de la última carga
+                $ultimaCarga = DB::table('consumos')
+                    ->where('id_equipo', $idMaquina)
+                    ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
+                    ->orderBy('fecha_consumo', 'desc')
+                    ->first();
+
+                if ($ultimaCarga) {
+                    $idFaenaParaSimulacion = $ultimaCarga->id_faena;
+                    Log::info("🎯 MÚLTIPLES FAENAS: Usando faena de última carga para simulación", [
+                        'faena_ultima_carga' => $idFaenaParaSimulacion,
+
+
+                    ]);
+                }
+            }
+
+            $resultadoCategoria = $this->procesarCategoria(
+                $categoria,
+                $inicioMesAjustado,  // <- Objeto Carbon
+                $finPeriodo,         // <- Objeto Carbon
+                $idFaenaParaSimulacion,
+                true,
+                true,
+                false,
+                $finPeriodo
+            );
+
+            if (!$resultadoCategoria || empty($resultadoCategoria['analisis_detallado'])) {
+                Log::warning("procesarCategoria no devolvió datos para la categoría", [
+                    'resultado_vacio' => !$resultadoCategoria,
+                    'analisis_vacio' => empty($resultadoCategoria['analisis_detallado'] ?? []),
+                    'keys_resultado' => $resultadoCategoria ? array_keys($resultadoCategoria) : [],
+                    'count_analisis' => isset($resultadoCategoria['analisis_detallado']) ? count($resultadoCategoria['analisis_detallado']) : 0
                 ]);
-                break;
+                return ['litros_simulados' => 0, 'medicion_simulada' => 0];
             }
-        }
 
-        if (!$maquinaEncontrada) {
-            Log::warning("Máquina {$idMaquina} no encontrada en resultado de procesarCategoria", [
-                'maquinas_disponibles' => array_map(function($item) {
-                    return $item['maquina']['id'] ?? 'sin_id';
+            Log::info("✅ procesarCategoria devolvió datos", [
+                'count_analisis_detallado' => count($resultadoCategoria['analisis_detallado']),
+                'maquinas_encontradas' => array_map(function ($item) {
+                    return [
+                        'id' => $item['maquina']['id'] ?? 'sin_id',
+                        'nombre' => $item['maquina']['nombre'] ?? 'sin_nombre'
+                    ];
                 }, $resultadoCategoria['analisis_detallado'])
             ]);
-            return ['litros_simulados' => 0, 'medicion_simulada' => 0];
-        }
 
-        // 4️⃣ Extraer los datos de simulación exactamente como los devuelve procesarCategoria
-        $resumen = $maquinaEncontrada['resumen_ejecutivo'];
-        $rendimiento = $maquinaEncontrada['rendimiento'];
-        $detalle = $rendimiento['detalle_calculo'] ?? [];
+            // 3️⃣ Buscar específicamente la máquina que necesitamos
+            $maquinaEncontrada = null;
+            foreach ($resultadoCategoria['analisis_detallado'] as $maquinaData) {
+                Log::info("🔍 Revisando máquina en resultado", [
+                    'id_en_resultado' => $maquinaData['maquina']['id'] ?? 'sin_id',
+                    'id_buscado' => $idMaquina,
+                    'match' => ($maquinaData['maquina']['id'] ?? null) == $idMaquina
+                ]);
 
-        $litrosSimulados = $resumen['litros_simulados'] ?? 0;
-        
-        // Extraer medición simulada según el tipo
-        if ($categoria->tipo_medicion === 'Kilometraje') {
-            $medicionSimulada = $detalle['km_proyectadas'] ?? 0;
-        } else {
-            $medicionSimulada = $detalle['horas_proyectadas'] ?? 0;
-        }
-
-        Log::info("✅ SIMULACIÓN EXTRAÍDA DE PROCESARCATEGORIA", [
-            'litros_simulados' => $litrosSimulados,
-            'medicion_simulada' => $medicionSimulada,
-            'litros_confirmados' => $resumen['litros_confirmados'] ?? 0,
-            'rendimiento_valor' => $rendimiento['rendimiento_valor'] ?? 0,
-            'detalle_completo' => $detalle
-        ]);
-
-        return [
-            'litros_simulados' => $litrosSimulados,
-            'medicion_simulada' => $medicionSimulada,
-            'litros_confirmados' => $resumen['litros_confirmados'] ?? 0,
-            'rendimiento_detalle' => $detalle,
-            'origen_datos' => 'procesarCategoria_mes_current'
-        ];
-
-    } catch (\Exception $e) {
-        Log::error("Error obteniendo simulación con procesarCategoria máquina {$idMaquina}: " . $e->getMessage());
-        return [
-            'litros_simulados' => 0,
-            'medicion_simulada' => 0,
-            'error' => $e->getMessage()
-        ];
-    }
-}
-
-
-/**
- * 🔥 MÉTODO CORREGIDO: calcularCostoDiaComparativaMensual usando la misma lógica que el método principal
- */
-private function calcularCostoDiaComparativaMensual($idMaquina, $fechaInicio, $fechaFin, $categoria, $idFaena = null)
-{
-    try {
-        Log::info('🚀 INICIO COMPARATIVA MENSUAL CON PROCESARCATEGORIA', [
-            'maquina' => $idMaquina,
-            'fecha_inicio' => $fechaInicio,
-            'fecha_fin' => $fechaFin,
-            'categoria' => $categoria->nombre_categoria ?? 'Sin nombre',
-            'tipo_medicion' => $categoria->tipo_medicion ?? 'Horometro'
-        ]);
-
-        // USAR MÉTODOS CON LÓGICA DE CONFIRMACIÓN
-        $litrosPorMeses = $this->calcularLitrosPorMeses($idMaquina, $fechaInicio, $fechaFin, $idFaena);
-        $diasTurnoPorMeses = $this->calcularDiasTurnoPorMesesConLogicaConfirmacion($idMaquina, $fechaInicio, $fechaFin, $categoria, $idFaena);
-
-        $comparativaMensual = [];
-        $totales = ['litros_total' => 0, 'valor_total' => 0, 'dias_turno_total' => 0, 'meses_con_datos' => 0, 'km_total' => 0];
-
-        // Determinar qué mes tratar como "current"
-        $mesCurrentCarbon = Carbon::now();
-        $mesTratarComoCurrent = $mesCurrentCarbon->format('Y-m');
-
-        // Si el mes current no tiene datos, usar el último mes con datos
-        if (!isset($litrosPorMeses[$mesTratarComoCurrent])) {
-            $mesesOrdenados = array_keys($litrosPorMeses);
-            sort($mesesOrdenados);
-            $mesTratarComoCurrent = end($mesesOrdenados);
-        }
-
-        Log::info("🎯 MES TRATADO COMO CURRENT: {$mesTratarComoCurrent}");
-
-        foreach ($litrosPorMeses as $mesKey => $datosLitros) {
-            $medicionPorMeses = $this->calcularMedicionPorMesesConLogicaCurrent($idMaquina, $fechaInicio, $fechaFin, $categoria, $idFaena);
-            $medicionMes = $medicionPorMeses[$mesKey] ?? null;
-            $diasTurno = $diasTurnoPorMeses[$mesKey] ?? null;
-
-            if (!$diasTurno || $diasTurno['dias_turno'] <= 0) {
-                continue;
-            }
-
-            // 🎯 INICIALIZAR VARIABLES
-            $litrosTotalesMes = $datosLitros['litros_mes'];
-            $medicionTotalMes = $medicionMes ? $medicionMes['medicion_mes'] : 0;
-            $litrosSimulados = 0;
-            $medicionSimulada = 0;
-            $tipoCalculo = $datosLitros['tipo_calculo'] ?? 'desconocido';
-
-            // 🚀 SI ES MES CURRENT: USAR PROCESARCATEGORIA CON LA MISMA LÓGICA
-            if ($mesKey === $mesTratarComoCurrent && $mesTratarComoCurrent !== null) {
-                $simulacionProcesar = $this->obtenerSimulacionUsandoProcesarCategoria(
-                    $idMaquina,
-                    $mesKey,
-                    $categoria,
-                    $idFaena,
-                    $fechaInicio,
-                    $fechaFin
-                );
-
-                if (isset($simulacionProcesar['origen_datos'])) {
-                    $litrosSimulados = $simulacionProcesar['litros_simulados'];
-                    $medicionSimulada = $simulacionProcesar['medicion_simulada'];
-                    $litrosTotalesMes = $datosLitros['litros_mes'] + $litrosSimulados;
-                    $medicionTotalMes = ($medicionMes['medicion_mes'] ?? 0) + $medicionSimulada;
-                    $tipoCalculo = 'mes_current_logica_un_solo_mes';
+                if ($maquinaData['maquina']['id'] == $idMaquina) {
+                    $maquinaEncontrada = $maquinaData;
+                    Log::info("✅ Máquina encontrada", [
+                        'resumen_keys' => array_keys($maquinaData['resumen_ejecutivo'] ?? []),
+                        'rendimiento_keys' => array_keys($maquinaData['rendimiento'] ?? []),
+                        'tiene_simulacion' => isset($maquinaData['resumen_ejecutivo']['litros_simulados'])
+                    ]);
+                    break;
                 }
             }
 
-            // 🆕 NUEVO: CALCULAR COSTO USANDO EXACTAMENTE LA MISMA LÓGICA QUE EL MÉTODO PRINCIPAL
+            if (!$maquinaEncontrada) {
+                Log::warning("Máquina {$idMaquina} no encontrada en resultado de procesarCategoria", [
+                    'maquinas_disponibles' => array_map(function ($item) {
+                        return $item['maquina']['id'] ?? 'sin_id';
+                    }, $resultadoCategoria['analisis_detallado'])
+                ]);
+                return ['litros_simulados' => 0, 'medicion_simulada' => 0];
+            }
+
+            // 4️⃣ Extraer los datos de simulación exactamente como los devuelve procesarCategoria
+            $resumen = $maquinaEncontrada['resumen_ejecutivo'];
+            $rendimiento = $maquinaEncontrada['rendimiento'];
+            $detalle = $rendimiento['detalle_calculo'] ?? [];
+
+            $litrosSimulados = $resumen['litros_simulados'] ?? 0;
+
+            // Extraer medición simulada según el tipo
             if ($categoria->tipo_medicion === 'Kilometraje') {
-                if ($mesKey === $mesTratarComoCurrent) {
-                    // ✅ PARA MES CURRENT: Usar la misma fórmula que el método principal
-                    // rendimiento_valor × precio_promedio_litro
-                    $rendimientoValor = $medicionTotalMes > 0 ? ($litrosTotalesMes / $medicionTotalMes) : 0;
-                    $costoPorKm = round($rendimientoValor * $datosLitros['precio_promedio'], 0);
-                    
-                    Log::info("🚛 COSTO KM MES CURRENT {$mesKey} (LÓGICA CORREGIDA): {$rendimientoValor} L/km × {$datosLitros['precio_promedio']} = {$costoPorKm}");
-                } else {
-                    // Para meses anteriores: usar la lógica anterior
-                    $rendimientoMes = $medicionTotalMes > 0 ? ($litrosTotalesMes / $medicionTotalMes) : 0;
-                    $costoPorKm = round($rendimientoMes * $datosLitros['precio_promedio'], 0);
-                    
-                    Log::info("🚛 COSTO KM MES ANTERIOR {$mesKey}: {$rendimientoMes} L/km × {$datosLitros['precio_promedio']} = {$costoPorKm}");
-                }
+                $medicionSimulada = $detalle['km_proyectadas'] ?? 0;
             } else {
-                // Para Horometro: mantener la lógica original
-                $costoPorKm = round($datosLitros['valor_mes'] / $diasTurno['dias_turno'], 0);
-                
-                Log::info("⏰ COSTO DÍA MES {$mesKey}: $" . number_format($costoPorKm, 0, ',', '.') . " por día");
+                $medicionSimulada = $detalle['horas_proyectadas'] ?? 0;
             }
 
-            // ✅ APLICAR EL VALOR CALCULADO
-            $comparativaMensual[$mesKey] = [
-                'mes' => $mesKey,
-                'mes_nombre' => $this->obtenerNombreMesEspanol($mesKey),
-                'litros_mes' => $litrosTotalesMes,
-                'litros_confirmados' => $datosLitros['litros_mes'],
+            Log::info("✅ SIMULACIÓN EXTRAÍDA DE PROCESARCATEGORIA", [
                 'litros_simulados' => $litrosSimulados,
-                'medicion_confirmada' => $medicionMes ? $medicionMes['medicion_mes'] : 0,
                 'medicion_simulada' => $medicionSimulada,
-                'medicion_total' => $medicionTotalMes,
-                'valor_mes' => round($litrosTotalesMes * $datosLitros['precio_promedio'], 0),
-                'dias_turno' => round($diasTurno['dias_turno'], 2),
-                'costo_por_dia' => $costoPorKm, // ✅ ESTE ES EL VALOR CORREGIDO
-                'costo_por_km' => $categoria->tipo_medicion === 'Kilometraje' ? $costoPorKm : null,
-                'precio_promedio_litro' => $datosLitros['precio_promedio'],
-                'registros_mes' => $datosLitros['registros_mes'],
-                'intensidad_uso' => $this->clasificarIntensidadUso($litrosTotalesMes, $diasTurno['dias_turno']),
-                'tipo_calculo' => $tipoCalculo,
-                'es_mes_current' => $mesKey === $mesTratarComoCurrent,
-                'incluye_simulacion' => $litrosSimulados > 0
+                'litros_confirmados' => $resumen['litros_confirmados'] ?? 0,
+                'rendimiento_valor' => $rendimiento['rendimiento_valor'] ?? 0,
+                'detalle_completo' => $detalle
+            ]);
+
+            Log::info('🔍 DEBUG ANTES DE PROCESARCATEGORIA', [
+                'maquina' => $idMaquina,
+                'mes' => $mesKey,
+                'id_faena_para_simulacion' => $idFaenaParaSimulacion,
+                'fecha_inicio' => $inicioMesAjustado->format('Y-m-d'),
+                'fecha_fin' => $finPeriodo->format('Y-m-d')
+            ]);
+
+            // Después de $resultadoCategoria:
+            Log::info('🔍 DEBUG RESULTADO PROCESARCATEGORIA', [
+                'tiene_analisis_detallado' => !empty($resultadoCategoria['analisis_detallado']),
+                'count_maquinas' => count($resultadoCategoria['analisis_detallado'] ?? []),
+                'maquina_encontrada' => $maquinaEncontrada ? 'SI' : 'NO',
+                'litros_simulados' => $maquinaEncontrada ? ($maquinaEncontrada['resumen_ejecutivo']['litros_simulados'] ?? 0) : 'N/A'
+            ]);
+
+            return [
+                'litros_simulados' => $litrosSimulados,
+                'medicion_simulada' => $medicionSimulada,
+                'litros_confirmados' => $resumen['litros_confirmados'] ?? 0,
+                'rendimiento_detalle' => $detalle,
+                'origen_datos' => 'procesarCategoria_mes_current'
             ];
-
-            // Acumular totales
-            $totales['litros_total'] += $litrosTotalesMes;
-            $totales['valor_total'] += $litrosTotalesMes * $datosLitros['precio_promedio'];
-            $totales['dias_turno_total'] += $diasTurno['dias_turno'];
-            $totales['meses_con_datos']++;
-            if ($categoria->tipo_medicion === 'Kilometraje') {
-                $totales['km_total'] += $medicionTotalMes;
-            }
+        } catch (\Exception $e) {
+            Log::error("Error obteniendo simulación con procesarCategoria máquina {$idMaquina}: " . $e->getMessage());
+            return [
+                'litros_simulados' => 0,
+                'medicion_simulada' => 0,
+                'error' => $e->getMessage()
+            ];
         }
-
-        // Calcular promedios
-        if ($categoria->tipo_medicion === 'Kilometraje') {
-            $totalKm = $totales['km_total'];
-            $costoPorKmPromedio = $totalKm > 0 ? round($totales['valor_total'] / $totalKm, 6) : 0;
-            $costoPorDiaPromedio = $costoPorKmPromedio; // Para kilometraje, el "costo por día" es realmente por km
-        } else {
-            $costoPorDiaPromedio = $totales['dias_turno_total'] > 0 ?
-                round($totales['valor_total'] / $totales['dias_turno_total'], 0) : 0;
-            $costoPorKmPromedio = null;
-        }
-
-        return [
-            'comparativa_mensual' => $comparativaMensual,
-            'resumen_periodo' => [
-                'meses_analizados' => count($comparativaMensual),
-                'litros_total_periodo' => round($totales['litros_total'], 2),
-                'valor_total_periodo' => round($totales['valor_total'], 0),
-                'costo_por_dia_promedio' => $costoPorDiaPromedio,
-                'costo_por_km_promedio' => $costoPorKmPromedio,
-                'km_total_periodo' => $categoria->tipo_medicion === 'Kilometraje' ? $totalKm : null,
-                'incluye_simulacion' => true,
-                'mes_current_identificado' => $mesTratarComoCurrent
-            ]
-        ];
-    } catch (\Exception $e) {
-        Log::error("Error calculando costo día comparativa con procesarCategoria máquina {$idMaquina}: " . $e->getMessage());
-        return ['comparativa_mensual' => [], 'resumen_periodo' => []];
     }
-}
+
+
+    /**
+     * 🔥 MÉTODO CORREGIDO: calcularCostoDiaComparativaMensual usando la misma lógica que el método principal
+     */
+    private function calcularCostoDiaComparativaMensual($idMaquina, $fechaInicio, $fechaFin, $categoria, $idFaena = null)
+    {
+        try {
+            Log::info('🚀 INICIO COMPARATIVA MENSUAL CON PROCESARCATEGORIA', [
+                'maquina' => $idMaquina,
+                'fecha_inicio' => $fechaInicio,
+                'fecha_fin' => $fechaFin,
+                'categoria' => $categoria->nombre_categoria ?? 'Sin nombre',
+                'tipo_medicion' => $categoria->tipo_medicion ?? 'Horometro'
+            ]);
+
+            // USAR MÉTODOS CON LÓGICA DE CONFIRMACIÓN
+            $litrosPorMeses = $this->calcularLitrosPorMeses($idMaquina, $fechaInicio, $fechaFin, $idFaena);
+            $diasTurnoPorMeses = $this->calcularDiasTurnoPorMesesConLogicaConfirmacion($idMaquina, $fechaInicio, $fechaFin, $categoria, $idFaena);
+
+            $comparativaMensual = [];
+            $totales = ['litros_total' => 0, 'valor_total' => 0, 'dias_turno_total' => 0, 'meses_con_datos' => 0, 'km_total' => 0];
+
+            // Determinar qué mes tratar como "current"
+            $mesCurrentCarbon = Carbon::now();
+            $mesTratarComoCurrent = $mesCurrentCarbon->format('Y-m');
+
+            // Si el mes current no tiene datos, usar el último mes con datos
+            if (!isset($litrosPorMeses[$mesTratarComoCurrent])) {
+                $mesesOrdenados = array_keys($litrosPorMeses);
+                sort($mesesOrdenados);
+                $mesTratarComoCurrent = end($mesesOrdenados);
+            }
+
+            Log::info("🎯 MES TRATADO COMO CURRENT: {$mesTratarComoCurrent}");
+
+            foreach ($litrosPorMeses as $mesKey => $datosLitros) {
+                $medicionPorMeses = $this->calcularMedicionPorMesesConLogicaCurrent($idMaquina, $fechaInicio, $fechaFin, $categoria, $idFaena);
+                $medicionMes = $medicionPorMeses[$mesKey] ?? null;
+                $diasTurno = $diasTurnoPorMeses[$mesKey] ?? null;
+
+                if (!$diasTurno || $diasTurno['dias_turno'] <= 0) {
+                    continue;
+                }
+
+                // 🎯 INICIALIZAR VARIABLES
+                $litrosTotalesMes = $datosLitros['litros_mes'];
+                $medicionTotalMes = $medicionMes ? $medicionMes['medicion_mes'] : 0;
+                $litrosSimulados = 0;
+                $medicionSimulada = 0;
+                $tipoCalculo = $datosLitros['tipo_calculo'] ?? 'desconocido';
+
+                // 🚀 SI ES MES CURRENT: USAR PROCESARCATEGORIA CON LA MISMA LÓGICA
+                if ($mesKey === $mesTratarComoCurrent && $mesTratarComoCurrent !== null) {
+                    $simulacionProcesar = $this->obtenerSimulacionUsandoProcesarCategoria(
+                        $idMaquina,
+                        $mesKey,
+                        $categoria,
+                        null,
+                        $fechaInicio,
+                        $fechaFin
+                    );
+
+                    if (isset($simulacionProcesar['origen_datos'])) {
+                        $litrosSimulados = $simulacionProcesar['litros_simulados'];
+                        $medicionSimulada = $simulacionProcesar['medicion_simulada'];
+                        $litrosTotalesMes = $datosLitros['litros_mes'] + $litrosSimulados;
+                        $medicionTotalMes = ($medicionMes['medicion_mes'] ?? 0) + $medicionSimulada;
+                        $tipoCalculo = 'mes_current_logica_un_solo_mes';
+                    }
+                }
+
+                // 🆕 NUEVO: CALCULAR COSTO USANDO EXACTAMENTE LA MISMA LÓGICA QUE EL MÉTODO PRINCIPAL
+                if ($categoria->tipo_medicion === 'Kilometraje') {
+                    if ($mesKey === $mesTratarComoCurrent) {
+                        // ✅ PARA MES CURRENT: Usar la misma fórmula que el método principal
+                        // rendimiento_valor × precio_promedio_litro
+                        $rendimientoValor = $medicionTotalMes > 0 ? ($litrosTotalesMes / $medicionTotalMes) : 0;
+                        $costoPorKm = round($rendimientoValor * $datosLitros['precio_promedio'], 0);
+
+                        Log::info("🚛 COSTO KM MES CURRENT {$mesKey} (LÓGICA CORREGIDA): {$rendimientoValor} L/km × {$datosLitros['precio_promedio']} = {$costoPorKm}");
+                    } else {
+                        // Para meses anteriores: usar la lógica anterior
+                        $rendimientoMes = $medicionTotalMes > 0 ? ($litrosTotalesMes / $medicionTotalMes) : 0;
+                        $costoPorKm = round($rendimientoMes * $datosLitros['precio_promedio'], 0);
+
+                        Log::info("🚛 COSTO KM MES ANTERIOR {$mesKey}: {$rendimientoMes} L/km × {$datosLitros['precio_promedio']} = {$costoPorKm}");
+                    }
+                } else {
+                    // Para Horometro: mantener la lógica original
+                    $costoPorKm = round($datosLitros['valor_mes'] / $diasTurno['dias_turno'], 0);
+
+                    Log::info("⏰ COSTO DÍA MES {$mesKey}: $" . number_format($costoPorKm, 0, ',', '.') . " por día");
+                }
+
+                // ✅ APLICAR EL VALOR CALCULADO
+                $comparativaMensual[$mesKey] = [
+                    'mes' => $mesKey,
+                    'mes_nombre' => $this->obtenerNombreMesEspanol($mesKey),
+                    'litros_mes' => $litrosTotalesMes,
+                    'litros_confirmados' => $datosLitros['litros_mes'],
+                    'litros_simulados' => $litrosSimulados,
+                    'medicion_confirmada' => $medicionMes ? $medicionMes['medicion_mes'] : 0,
+                    'medicion_simulada' => $medicionSimulada,
+                    'medicion_total' => $medicionTotalMes,
+                    'valor_mes' => round($litrosTotalesMes * $datosLitros['precio_promedio'], 0),
+                    'dias_turno' => round($diasTurno['dias_turno'], 2),
+                    'costo_por_dia' => $costoPorKm, // ✅ ESTE ES EL VALOR CORREGIDO
+                    'costo_por_km' => $categoria->tipo_medicion === 'Kilometraje' ? $costoPorKm : null,
+                    'precio_promedio_litro' => $datosLitros['precio_promedio'],
+                    'registros_mes' => $datosLitros['registros_mes'],
+                    'intensidad_uso' => $this->clasificarIntensidadUso($litrosTotalesMes, $diasTurno['dias_turno']),
+                    'tipo_calculo' => $tipoCalculo,
+                    'es_mes_current' => $mesKey === $mesTratarComoCurrent,
+                    'incluye_simulacion' => $litrosSimulados > 0
+                ];
+
+                // Acumular totales
+                $totales['litros_total'] += $litrosTotalesMes;
+                $totales['valor_total'] += $litrosTotalesMes * $datosLitros['precio_promedio'];
+                $totales['dias_turno_total'] += $diasTurno['dias_turno'];
+                $totales['meses_con_datos']++;
+                if ($categoria->tipo_medicion === 'Kilometraje') {
+                    $totales['km_total'] += $medicionTotalMes;
+                }
+            }
+
+            // Calcular promedios
+            if ($categoria->tipo_medicion === 'Kilometraje') {
+                $totalKm = $totales['km_total'];
+                $costoPorKmPromedio = $totalKm > 0 ? round($totales['valor_total'] / $totalKm, 6) : 0;
+                $costoPorDiaPromedio = $costoPorKmPromedio; // Para kilometraje, el "costo por día" es realmente por km
+            } else {
+                $costoPorDiaPromedio = $totales['dias_turno_total'] > 0 ?
+                    round($totales['valor_total'] / $totales['dias_turno_total'], 0) : 0;
+                $costoPorKmPromedio = null;
+            }
+
+            return [
+                'comparativa_mensual' => $comparativaMensual,
+                'resumen_periodo' => [
+                    'meses_analizados' => count($comparativaMensual),
+                    'litros_total_periodo' => round($totales['litros_total'], 2),
+                    'valor_total_periodo' => round($totales['valor_total'], 0),
+                    'costo_por_dia_promedio' => $costoPorDiaPromedio,
+                    'costo_por_km_promedio' => $costoPorKmPromedio,
+                    'km_total_periodo' => $categoria->tipo_medicion === 'Kilometraje' ? $totalKm : null,
+                    'incluye_simulacion' => true,
+                    'mes_current_identificado' => $mesTratarComoCurrent
+                ]
+            ];
+        } catch (\Exception $e) {
+            Log::error("Error calculando costo día comparativa con procesarCategoria máquina {$idMaquina}: " . $e->getMessage());
+            return ['comparativa_mensual' => [], 'resumen_periodo' => []];
+        }
+    }
 
 
     private function calcularDiasTurnoMaquinaMensualEspecifico($idMaquina, $mesKey, $categoria, $idFaena = null)
@@ -2127,50 +2166,49 @@ private function calcularCostoDiaComparativaMensual($idMaquina, $fechaInicio, $f
         ];
     }
 
-    
-/**
- * 🇪🇸 MÉTODO AUXILIAR: Obtener nombre del mes en español
- */
-private function obtenerNombreMesEspanol($mesKey)
-{
-    try {
-        // Validar formato
-        if (!is_string($mesKey) || !preg_match('/^\d{4}-\d{2}$/', $mesKey)) {
+
+    /**
+     * 🇪🇸 MÉTODO AUXILIAR: Obtener nombre del mes en español
+     */
+    private function obtenerNombreMesEspanol($mesKey)
+    {
+        try {
+            // Validar formato
+            if (!is_string($mesKey) || !preg_match('/^\d{4}-\d{2}$/', $mesKey)) {
+                return "Mes {$mesKey}";
+            }
+
+            // Extraer año y mes
+            [$año, $mes] = explode('-', $mesKey);
+            $numeroMes = intval($mes);
+
+            // Array de meses en español
+            $mesesEspanol = [
+                1 => 'Enero',
+                2 => 'Febrero',
+                3 => 'Marzo',
+                4 => 'Abril',
+                5 => 'Mayo',
+                6 => 'Junio',
+                7 => 'Julio',
+                8 => 'Agosto',
+                9 => 'Septiembre',
+                10 => 'Octubre',
+                11 => 'Noviembre',
+                12 => 'Diciembre'
+            ];
+
+            if (isset($mesesEspanol[$numeroMes])) {
+                return $mesesEspanol[$numeroMes] . ' ' . $año;
+            }
+
+            // Fallback usando Carbon si falla el array
+            return Carbon::createFromFormat('Y-m', $mesKey)->format('F Y');
+        } catch (\Exception $e) {
+            Log::error("Error obteniendo nombre del mes: " . $e->getMessage());
             return "Mes {$mesKey}";
         }
-
-        // Extraer año y mes
-        [$año, $mes] = explode('-', $mesKey);
-        $numeroMes = intval($mes);
-
-        // Array de meses en español
-        $mesesEspanol = [
-            1 => 'Enero',
-            2 => 'Febrero', 
-            3 => 'Marzo',
-            4 => 'Abril',
-            5 => 'Mayo',
-            6 => 'Junio',
-            7 => 'Julio',
-            8 => 'Agosto',
-            9 => 'Septiembre',
-            10 => 'Octubre',
-            11 => 'Noviembre',
-            12 => 'Diciembre'
-        ];
-
-        if (isset($mesesEspanol[$numeroMes])) {
-            return $mesesEspanol[$numeroMes] . ' ' . $año;
-        }
-
-        // Fallback usando Carbon si falla el array
-        return Carbon::createFromFormat('Y-m', $mesKey)->format('F Y');
-
-    } catch (\Exception $e) {
-        Log::error("Error obteniendo nombre del mes: " . $e->getMessage());
-        return "Mes {$mesKey}";
     }
-}
 
 
     /**
@@ -2331,13 +2369,27 @@ private function obtenerNombreMesEspanol($mesKey)
         return $resultado;
     }
 
-    /**
-     * ✅ NUEVO: Analizar máquina separando por faenas cuando opera en múltiples
-     */
+
     private function analizarMaquinaConSeparacionFaenas($idMaquina, $fechaInicio, $fechaFin, $categoria, $incluirSimulacion, $incluirSabados, $incluirDomingos, $momentoConsulta, $idFaena = null)
     {
-        // 1. Obtener todas las faenas donde esta máquina tuvo consumos en el período
-        $faenasConConsumos = DB::table('consumos')
+        // ✅ CAMBIO: Obtener TODOS los consumos (consolidados) en lugar de separarlos por faena
+        $query = DB::table('consumos')
+            ->where('id_equipo', $idMaquina)
+            ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin]);
+
+        // Solo aplicar filtro de faena si se especifica
+        if ($idFaena) {
+            $query->where('id_faena', $idFaena);
+        }
+
+        $cargas = $query->orderBy('fecha_consumo')->get();
+
+        if ($cargas->isEmpty()) {
+            return []; // Sin datos para esta máquina
+        }
+
+        // ✅ NUEVO: Obtener info de faenas para metadata (pero sin separar análisis)
+        $faenasOperacion = DB::table('consumos')
             ->join('faenas', 'consumos.id_faena', '=', 'faenas.id_faena')
             ->where('consumos.id_equipo', $idMaquina)
             ->whereBetween('consumos.fecha_consumo', [$fechaInicio, $fechaFin])
@@ -2348,89 +2400,87 @@ private function obtenerNombreMesEspanol($mesKey)
                 'faenas.id_faena',
                 'faenas.ubicacion',
                 'faenas.detalle',
-                DB::raw('COUNT(*) as consumos_count'),
-                DB::raw('MIN(consumos.fecha_consumo) as primera_fecha'),
-                DB::raw('MAX(consumos.fecha_consumo) as ultima_fecha')
+                DB::raw('COUNT(*) as consumos_count')
             ])
             ->groupBy('faenas.id_faena', 'faenas.ubicacion', 'faenas.detalle')
-            ->orderBy('faenas.id_faena')
             ->get();
 
-        if ($faenasConConsumos->isEmpty()) {
-            return []; // Sin datos para esta máquina
+        // ✅ CAMBIO: Análisis consolidado (igual que analizarMaquinaEnFaenaEspecifica pero sin filtro de faena)
+        $analisisConsolidado = $this->analizarMaquinaEnFaenaEspecifica(
+            $idMaquina,
+            null, // ✅ NULL = no filtrar por faena específica 
+            $fechaInicio,
+            $fechaFin,
+            $categoria,
+            $incluirSimulacion,
+            $incluirSabados,
+            $incluirDomingos,
+            $momentoConsulta
+        );
+
+        if (empty($analisisConsolidado['consumos_confirmados']) && empty($analisisConsolidado['simulacion'])) {
+            return [];
         }
 
-        $resultadosPorFaena = [];
+        // ✅ CAMBIO: Crear estadísticas detalladas consolidadas
+        $estadisticasDetalladas = $this->calcularEstadisticasDetalladasMaquina(
+            (object)[
+                'id_maquina' => $idMaquina,
+                'nombre_maquina' => $this->obtenerNombreMaquina($idMaquina),
+                'patente' => $this->obtenerPatenteMaquina($idMaquina),
+                'estado' => 'operativo'
+            ],
+            $analisisConsolidado,
+            $categoria,
+            $fechaInicio,
+            $fechaFin,
+            $incluirSabados,
+            $incluirDomingos,
+            $idFaena
+        );
 
-        // 2. Analizar cada faena por separado
-        foreach ($faenasConConsumos as $faenaInfo) {
-            $analisisFaena = $this->analizarMaquinaEnFaenaEspecifica(
-                $idMaquina,
-                $faenaInfo->id_faena,
-                $fechaInicio,
-                $fechaFin,
-                $categoria,
-                $incluirSimulacion,
-                $incluirSabados,
-                $incluirDomingos,
-                $momentoConsulta
-            );
+        // ✅ CAMBIO: Retornar UNA SOLA entrada con datos consolidados
+        return [[
+            'maquina' => [
+                'id' => $idMaquina,
+                'nombre' => $this->obtenerNombreMaquina($idMaquina),
+                'patente' => $this->obtenerPatenteMaquina($idMaquina),
+                'tipo' => $categoria->nombre_categoria,
+                'tipo_medicion' => $categoria->tipo_medicion,
+                'faena' => [
+                    'total_faenas' => $faenasOperacion->count(),
+                    'faenas_detalle' => $faenasOperacion->map(function ($f) {
+                        return [
+                            'id' => $f->id_faena,
+                            'nombre' => $f->ubicacion,
+                            'consumos' => $f->consumos_count
+                        ];
+                    })->toArray(),
+                    'origen' => 'consolidado_todas_faenas'
+                ],
+                'estado' => 'operativo'
+            ],
+            'resumen_ejecutivo' => $estadisticasDetalladas['resumen'],
+            'rendimiento' => $estadisticasDetalladas['rendimiento'],
+            'costos' => $estadisticasDetalladas['costos'],
+            'periodos_confirmados' => $this->formatearPeriodosConfirmados($analisisConsolidado['consumos_confirmados'], $incluirSabados, $incluirDomingos),
+            'simulacion' => $analisisConsolidado['simulacion'] ? $this->formatearSimulacion($analisisConsolidado['simulacion'], $incluirSabados, $incluirDomingos) : null,
+            'estadisticas' => $this->calcularEstadisticasMaquina($analisisConsolidado, $categoria, $incluirSabados, $incluirDomingos),
 
-            if (!empty($analisisFaena['consumos_confirmados']) || !empty($analisisFaena['simulacion'])) {
-                // 3. Crear entrada separada para esta faena
-                $estadisticasDetalladas = $this->calcularEstadisticasDetalladasMaquina(
-                    (object)[
-                        'id_maquina' => $idMaquina,
-                        'nombre_maquina' => $this->obtenerNombreMaquina($idMaquina),
-                        'patente' => $this->obtenerPatenteMaquina($idMaquina),
-                        'estado' => 'operativo'
-                    ],
-                    $analisisFaena,
-                    $categoria,
-                    $fechaInicio,
-                    $fechaFin,
-                    $incluirSabados,
-                    $incluirDomingos,
-                    $faenaInfo->id_faena
-                );
-
-                $resultadosPorFaena[] = [
-                    'maquina' => [
-                        'id' => $idMaquina,
-                        'nombre' => $this->obtenerNombreMaquina($idMaquina),
-                        'patente' => $this->obtenerPatenteMaquina($idMaquina),
-                        'tipo' => $categoria->nombre_categoria,
-                        'tipo_medicion' => $categoria->tipo_medicion,
-                        'faena' => [
-                            'id' => $faenaInfo->id_faena,
-                            'nombre' => $faenaInfo->ubicacion,
-                            'detalle' => $faenaInfo->detalle,
-                            'consumos_en_periodo' => $faenaInfo->consumos_count,
-                            'periodo_operacion' => [
-                                'desde' => $faenaInfo->primera_fecha,
-                                'hasta' => $faenaInfo->ultima_fecha
-                            ],
-                            'origen' => 'faena_especifica_separada'
-                        ],
-                        'estado' => 'operativo'
-                    ],
-                    'resumen_ejecutivo' => $estadisticasDetalladas['resumen'],
-                    'rendimiento' => $estadisticasDetalladas['rendimiento'],
-                    'costos' => $estadisticasDetalladas['costos'],
-                    'periodos_confirmados' => $this->formatearPeriodosConfirmados($analisisFaena['consumos_confirmados'], $incluirSabados, $incluirDomingos),
-                    'simulacion' => $analisisFaena['simulacion'] ? $this->formatearSimulacion($analisisFaena['simulacion'], $incluirSabados, $incluirDomingos) : null,
-                    'estadisticas' => $this->calcularEstadisticasMaquina($analisisFaena, $categoria, $incluirSabados, $incluirDomingos),
-                    'info_consulta' => [
-                        'momento_consulta' => $momentoConsulta->format('Y-m-d H:i:s'),
-                        'faena_separada' => true,
-                        'total_faenas_maquina' => $faenasConConsumos->count(),
-                        'ajuste_aplicado' => $analisisFaena['ajuste_consulta'] ?? null
-                    ]
-                ];
-            }
-        }
-
-        return $resultadosPorFaena;
+            // ✅ AGREGAR ESTA LÍNEA AQUÍ:
+            'ultima_carga_info' => !$cargas->isEmpty() ? [
+                'faena_id' => $cargas->last()->id_faena,
+                'fecha' => $cargas->last()->fecha_consumo,
+                'litros' => $cargas->last()->litros_consumidos
+            ] : null,
+            'info_consulta' => [
+                'momento_consulta' => $momentoConsulta->format('Y-m-d H:i:s'),
+                'tipo_analisis' => 'consolidado',
+                'cargas_procesadas' => count($cargas),
+                'faenas_involucradas' => $faenasOperacion->count(),
+                'ajuste_aplicado' => $analisisConsolidado['ajuste_consulta'] ?? null
+            ]
+        ]];
     }
 
     /**
@@ -2450,16 +2500,18 @@ private function obtenerNombreMesEspanol($mesKey)
             ->value('patente') ?? 'N/A';
     }
 
-    /**
-     * ✅ NUEVO: Analizar máquina en una faena específica
-     */
+
     private function analizarMaquinaEnFaenaEspecifica($idMaquina, $idFaena, $fechaInicio, $fechaFin, $categoria, $incluirSimulacion, $incluirSabados, $incluirDomingos, $momentoConsulta)
     {
-        // Filtrar consumos solo de esta faena específica
+        // ✅ CAMBIO: Permitir idFaena = null para análisis consolidado
         $query = DB::table('consumos')
             ->where('id_equipo', $idMaquina)
-            ->where('id_faena', $idFaena) // ✅ FILTRO ESPECÍFICO
             ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin]);
+
+        // ✅ CAMBIO: Solo filtrar por faena si idFaena NO es null
+        if ($idFaena !== null) {
+            $query->where('id_faena', $idFaena);
+        }
 
         $cargas = $query->orderBy('fecha_consumo')->get();
 
@@ -2468,7 +2520,7 @@ private function obtenerNombreMesEspanol($mesKey)
                 'consumos_confirmados' => [],
                 'simulacion' => null,
                 'total_confirmado' => 0,
-                'ajuste_consulta' => 'sin_datos_en_faena'
+                'ajuste_consulta' => $idFaena === null ? 'sin_datos_consolidado' : 'sin_datos_en_faena'
             ];
         }
 
@@ -2482,7 +2534,7 @@ private function obtenerNombreMesEspanol($mesKey)
 
             $consumoConfirmado = [
                 'id_maquina' => $idMaquina,
-                'id_faena' => $idFaena,
+                'id_faena' => $cargaActual->id_faena, // ✅ Mantener faena original de cada carga
                 'fecha_inicio' => $cargaActual->fecha_consumo,
                 'fecha_fin' => $cargaSiguiente->fecha_consumo,
                 'litros_confirmados' => (float) $cargaActual->litros_consumidos,
@@ -2516,7 +2568,8 @@ private function obtenerNombreMesEspanol($mesKey)
                     'stock_ultima_carga' => $ultimaCarga->litros_consumidos,
                     'simulacion_limitada_por_stock' => $simulacion['limitado_por_stock'] ?? false,
                     'momento_consulta_aplicado' => $momentoConsulta->format('Y-m-d H:i:s'),
-                    'faena_especifica' => $idFaena
+                    'tipo_analisis' => $idFaena === null ? 'consolidado' : 'faena_especifica',
+                    'faena_procesada' => $idFaena
                 ];
             }
         }
