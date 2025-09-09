@@ -25,14 +25,15 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - [Testing:Nico] Administrador Operador Vehiculos --> Consumos View --> Agregar totales para la tabla consumos y mejorar el filtro de usuarios. 
 
-- [Queued] Global --> Centralizar un controlador de colores por faena reutilizable.
+- [TESTING:SEBASTIAN] Global --> Centralizar un controlador de colores por faena reutilizable.
 
 - [Queued] Rol Jefe Mina --> Visualización similar a gerente, pero con el filtro fijo a su user.id_faena.
 
-- [WIP] Gerente --> Gestión Ingresos --> Añadir Información de la feana y paginación de la lista.
+- [Testing:Sebastian] Gerente --> Gestión Ingresos --> Añadir Información de la faena y paginación de la lista.
 
-- [Queued] Gerente --> ConsumosView --> Mejorar a Historial Maquina y corregir pdf.
+- [TESTING:SEBASTIAN] Gerente --> ConsumosView --> Mejorar a Historial Maquina y corregir pdf.
 
+- [WIP:NICO] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
 
 ### Changed
 
@@ -40,8 +41,7 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - [Testing:Sebastian] Gerente --> Dashboard --> Agregar en la comparativa todas las categorias y la opción de ver el costo operacional.
 
-- [Queued] Gerente --> Dashboard --> Agregar en la comparativa todas las categorias y la opción de ver el costo operacional.
-
+- [TESTING:SEBASTIAN] Gerente --> Dashboard --> Agregar en la comparativa todas las categorias y la opción de ver el costo operacional.
 
 ### Depecrated
 
@@ -51,10 +51,9 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - [Testing:Nico] Administrador Operador Vehiculos --> Eliminar Asignación Usuario Maquina y Guardar Drag & Drop.
 
-- [Queued] Recepciones Movil --> Eliminar Información repetida (detalles de recepción).
+- [WIP:Nico] Recepciones Movil --> Eliminar Información repetida (detalles de recepción).
 
-- [Queued] Hostorial Maqiuna Bombero --> Eliminar Acumulado por registro.
-
+- [Ready] Historial Maqiuna Bombero --> Eliminar Acumulado por registro, Mejorar Bloqueo de boton.
 
 ### Fixed
 
@@ -64,13 +63,11 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - [Testing:Nico] Administrador Operador Vehiculos --> Consumos View / Panel Principal --> Corregir acción de "Rendir" a un Consumo.
 
-- [Queued] Gerente --> Dashboard  --> Al presionar rapido dos veces el filtro, se bugea.
+- [TESTING:SEBASTIAN] Gerente --> Dashboard --> Al presionar rapido dos veces el filtro fecha, se bugea.
 
 ### Security
 
 - Ninguno
-
-
 
 ## [3.0] - 2025-09-02
 
@@ -80,10 +77,6 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - [Ready] ADMINISTRADOR: Se añadirá una nueva funcionalidad que permitirá una gestión más eficiente de los permisos asociados a las máquinas.
 
-- [Queued] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
-
-- [Queued] Rol de jefe de mina.
-
 - [Ready] Encargado de Operaciones de Combustible: A traves de la solicitud de gerencia, ahora el rol "Encargado de Operaciones de Combustible" debe ser dividio en dos roles, manteniendo el rol "bombero" como rol principal y que tendra privilegios como realizar la recepcion de petroleo. mientras que el nuevo rol "asistente_bombero" sera restringido, solo pudiendo hacer ingresos de consumos.
 
 - [Ready] Se agregaron filtros por columnas y ordenamiento
@@ -92,7 +85,7 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - [Testing] Agregar graficos comparativos con periodos anteriores de consumo para la operación.
 
-- [Queued] Agregar graficos comparativos con periodos anteriores para consumos por Total / Faena/ Maquinas.
+- [Ready] Agregar graficos comparativos con periodos anteriores para consumos por Total / Faena/ Maquinas.
 
 - [Testing] Operador vehiculo:Implementación de un nuevo rol destinado a registrar el consumo de combustible de las camionetas internas. Ademas de realizar la validación del kilometraje ingresado y la visualización de las dos últimas cargas realizadas.
 
@@ -108,13 +101,9 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
         Gerente.Table Rendimiento Maquinas
         Bombero.ConsumoView
 
-- [Testing] Admin Operador Vehiculos: Visualización general del sistema con funcionalidades.
-        - Consumos View con integración de boletas.
-        - Asignar Maquina a Operador(Users).
-        - Ingresar Maquinas.
+- [Testing] Admin Operador Vehiculos: Visualización general del sistema con funcionalidades. - Consumos View con integración de boletas. - Asignar Maquina a Operador(Users). - Ingresar Maquinas.
 
-- [WIP] Administración General: Se agrega la opcion de crear Maquinas.
-
+- [Ready] Administración General: Se agrega la opcion de crear Maquinas.
 
 ### Changed
 
@@ -124,7 +113,7 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 -[ready] Mejorar visualización de gráficos de torta en Gerente: optimizar la distribución y legibilidad de los nombres de las máquinas.En Bombero: ajustar la presentación para mejorar la distribución y comprensión del consumo.
 
--[WIP] Administrador de Operador de Vehiculos: Se modifica datos visuales(por rendir y rendido) en el panel administrativo como tambien se añadirá más información como litros mes vs mes anterior, ademas se modificara el mensaje de "error" para cuando se quiera desactivar un usuario(Operador vehiculo) que tenga una máquina asignada.
+-[ready] Administrador de Operador de Vehiculos: Se modifica datos visuales(por rendir y rendido) en el panel administrativo como tambien se añadirá más información como litros mes vs mes anterior, ademas se modificara el mensaje de "error" para cuando se quiera desactivar un usuario(Operador vehiculo) que tenga una máquina asignada.
 
 ### Depecrated
 
@@ -168,7 +157,7 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - [Ready] Advertencia por diferencia de mediciones: Se debe implementar una advertencia visual (como cambio de color) cuando la diferencia entre mediciones exceda los límites definidos.
 
-- [Queued] Rol de jefe de mina, bombero 2 y operador vehiculo.
+- [Ready] bombero 2 y operador vehiculo.
 
 ### Changed
 

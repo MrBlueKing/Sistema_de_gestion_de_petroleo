@@ -40,60 +40,68 @@ class PDFService {
     };
   }
 
-  // 🆕 FUNCIÓN PARA OBTENER NOMBRE DE FAENA
-  async obtenerNombreFaena(user, filters) {
-    try {
-      // CASO 1: Si es "todas las faenas"
-      if (filters?.faenaSeleccionada === 'todas') {
-        if (filters?.faenas && filters.faenas.length > 1) {
-          return `Todas las faenas (${filters.faenas.length} faenas)`;
-        }
+ // 🆕 FUNCIÓN SIMPLIFICADA - SIN LLAMADAS API INNECESARIAS
+obtenerNombreFaena(user, filters) {
+  try {
+    // CASO 1: HistorialMaquinasView - Faenas seleccionadas
+    if (filters?.selectedFaenas && Array.isArray(filters.selectedFaenas)) {
+      if (filters.selectedFaenas.length === 1) {
+        return filters.selectedFaenas[0]; // Una sola faena
+      } else if (filters.selectedFaenas.length > 1) {
+        return `Múltiples faenas (${filters.selectedFaenas.length})`; // Varias faenas
       }
+    }
 
-      // CASO 2: Si hay filtro de faena específica (Gerente)
-      if (filters?.faenaSeleccionada && filters.faenaSeleccionada !== 'todas') {
-        // Buscar en las faenas disponibles del filtro
-        if (filters?.faenas && filters.faenas.length > 0) {
-          const faenaEncontrada = filters.faenas.find(f => 
-            f.value == filters.faenaSeleccionada || f.id == filters.faenaSeleccionada
-          );
-          if (faenaEncontrada) {
-            return faenaEncontrada.label || faenaEncontrada.nombre || faenaEncontrada.ubicacion;
-          }
-        }
-        
-        // Si no se encuentra en filtros, consultar API
-        try {
-          const response = await axios.get(`/api/faenasDisponibles`);
-          if (response.data?.success && response.data.faenas) {
-            const faenaEncontrada = response.data.faenas.find(f => f.id == filters.faenaSeleccionada);
-            if (faenaEncontrada) {
-              return faenaEncontrada.ubicacion || faenaEncontrada.nombre || `Faena ${filters.faenaSeleccionada}`;
-            }
-          }
-        } catch (error) {
-          console.warn('Error consultando faenas:', error);
-        }
-        
-        return `Faena ${filters.faenaSeleccionada}`;
+    // CASO 2: ConsumosViewGerente - "todas las faenas"
+    if (filters?.faenaSeleccionada === 'todas') {
+      if (filters?.faenas && filters.faenas.length > 1) {
+        return `Todas las faenas (${filters.faenas.length} faenas)`;
       }
+      return 'Todas las faenas';
+    }
 
-      // CASO 3: Usar faena del usuario (Bombero o fallback)
-      if (user?.faena?.ubicacion) {
-        return user.faena.ubicacion;
+    // CASO 3: ConsumosViewGerente - Faena específica
+    if (filters?.faenaSeleccionada && filters.faenaSeleccionada !== 'todas') {
+      // ✅ Buscar en las faenas disponibles del filtro (SIN API CALL)
+      if (filters?.faenas && filters.faenas.length > 0) {
+        const faenaEncontrada = filters.faenas.find(f => 
+          f.value == filters.faenaSeleccionada || f.id == filters.faenaSeleccionada
+        );
+        if (faenaEncontrada) {
+          return faenaEncontrada.label || faenaEncontrada.nombre || faenaEncontrada.ubicacion;
+        }
       }
       
-      if (user?.nombre_faena) {
-        return user.nombre_faena;
-      }
-
-      return 'Sistema de Gestión de Petróleo';
-    } catch (error) {
-      console.warn('Error obteniendo nombre de faena:', error);
-      return 'Sistema de Gestión de Petróleo';
+      // ✅ Fallback simple - sin API call
+      return `Faena ${filters.faenaSeleccionada}`;
     }
-  }
 
+    // CASO 4: Bombero - Usar faena del usuario
+    if (user?.faena?.ubicacion) {
+      return user.faena.ubicacion;
+    }
+    
+    if (user?.nombre_faena) {
+      return user.nombre_faena;
+    }
+
+    // CASO 5: Fallback con mapeo local (para casos edge)
+    if (user?.id_faena) {
+      const faenaMap = {
+        1: 'Cabildo',
+        4: 'Tiltil',
+        5: 'Estación de Servicio',
+      };
+      return faenaMap[user.id_faena] || `Faena ${user.id_faena}`;
+    }
+
+    return 'Sistema de Gestión de Petróleo';
+    
+  } catch (error) {
+    console.warn('Error obteniendo nombre de faena:', error);
+    return 'Sistema de Gestión de Petróleo';
+  }
+}
   // Función principal para generar PDF
   async generateConsumptionPDF(data) {
     try {
@@ -106,8 +114,7 @@ class PDFService {
       this.initializePaginationTracker(totalItems, currentPage, consumos);
 
       // 🆕 OBTENER NOMBRE DE FAENA
-      const nombreFaena = await this.obtenerNombreFaena(user, filters);
-
+const nombreFaena = this.obtenerNombreFaena(user, filters);
       // Header mejorado con nombre de faena
       yPosition = this.addProfessionalHeader(doc, yPosition, nombreFaena);
 

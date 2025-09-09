@@ -1,0 +1,188 @@
+// src/constants/faenaColors.js
+// 🎨 SISTEMA CENTRALIZADO DE COLORES POR FAENA
+
+export const FAENA_COLORS = {
+  1: {
+    name: "Cabildo",
+    // Colores para fondo y bordes
+    bg: "bg-green-50",
+    border: "border-l-green-400",
+    borderFull: "border-green-200",
+    
+    // Badges y etiquetas
+    badge: "bg-green-100 text-green-800",
+    
+    // Iconos y textos
+    icon: "text-green-600",
+    text: "text-green-800",
+    
+    // Gradientes
+    gradient: "bg-gradient-to-r from-green-600 to-green-700",
+    gradientLight: "bg-gradient-to-r from-green-50 to-green-100/50",
+    
+    // Colores específicos (hex)
+    primary: "#059669", // green-600
+    light: "#d1fae5",   // green-100
+    dark: "#047857",    // green-700
+    
+    // Elementos decorativos
+    emoji: "🌿",
+    id: 1
+  },
+  
+  4: {
+    name: "Tiltil",
+    // Colores para fondo y bordes
+    bg: "bg-red-50/30",
+    border: "border-l-red-400",
+    borderFull: "border-red-200",
+    
+    // Badges y etiquetas
+    badge: "bg-red-100 text-red-800",
+    
+    // Iconos y textos
+    icon: "text-red-600",
+    text: "text-red-800",
+    
+    // Gradientes
+    gradient: "bg-gradient-to-r from-red-600 to-red-700",
+    gradientLight: "bg-gradient-to-r from-red-50 to-red-100/50",
+    
+    // Colores específicos (hex)
+    primary: "#dc2626", // red-600
+    light: "#fee2e2",   // red-100
+    dark: "#b91c1c",    // red-700
+    
+    // Elementos decorativos
+    emoji: "🏔️",
+    id: 4
+  },
+  
+  5: {
+    name: "Estacion de Servicio",
+    // Colores para fondo y bordes
+    bg: "bg-blue-50/40",
+    border: "border-l-blue-500",
+    borderFull: "border-blue-200",
+    
+    // Badges y etiquetas
+    badge: "bg-blue-100 text-blue-800",
+    
+    // Iconos y textos
+    icon: "text-blue-600",
+    text: "text-blue-800",
+    
+    // Gradientes
+    gradient: "bg-gradient-to-r from-blue-600 to-blue-700",
+    gradientLight: "bg-gradient-to-r from-blue-50 to-blue-100/50",
+    
+    // Colores específicos (hex)
+    primary: "#2563eb", // blue-600
+    light: "#dbeafe",   // blue-100
+    dark: "#1d4ed8",    // blue-700
+    
+    // Colores especiales estilo Copec
+    copecBlue: "text-[#0066cc]",
+    copecBg: "bg-gradient-to-r from-blue-50 to-blue-100/50",
+    copecBorder: "border-l-[#0066cc]",
+    copecBadge: "bg-[#0066cc]/10 text-[#0066cc]",
+    copecPrimary: "#0066cc",
+    
+    // Elementos decorativos
+    emoji: "⛽",
+    id: 5
+  },
+  
+ 
+  
+};
+
+// 🔧 COLORES POR DEFECTO para faenas desconocidas
+export const DEFAULT_FAENA_COLORS = {
+  name: "Faena Desconocida",
+  bg: "bg-gray-50/25",
+  border: "border-l-gray-400",
+  borderFull: "border-gray-200",
+  badge: "bg-gray-100 text-gray-800",
+  icon: "text-gray-600",
+  text: "text-gray-800",
+  gradient: "bg-gradient-to-r from-gray-500 to-gray-600",
+  gradientLight: "bg-gradient-to-r from-gray-50 to-gray-100/50",
+  primary: "#6b7280", // gray-500
+  light: "#f3f4f6",   // gray-100
+  dark: "#374151",    // gray-700
+  emoji: "🏢",
+  id: null
+};
+
+// 🛠️ FUNCIÓN INTELIGENTE: Detecta automáticamente si es ID o nombre
+export const getFaenaColors = (faenaIdOrName) => {
+  // Si no se proporciona nada, devolver colores por defecto
+  if (faenaIdOrName === null || faenaIdOrName === undefined) {
+    return DEFAULT_FAENA_COLORS;
+  }
+
+  // Detectar si es un número (ID) o string (nombre)
+  const isNumber = typeof faenaIdOrName === 'number' || 
+                   (typeof faenaIdOrName === 'string' && !isNaN(parseInt(faenaIdOrName)));
+
+  if (isNumber) {
+    // Es un ID de faena
+    const id = typeof faenaIdOrName === 'string' ? parseInt(faenaIdOrName) : faenaIdOrName;
+    const faenaInfo = FAENA_COLORS[id];
+    if (faenaInfo) {
+      return faenaInfo;
+    }
+  } else {
+    // Es un nombre de faena
+    if (typeof faenaIdOrName === 'string') {
+      const normalizedName = faenaIdOrName.trim().toLowerCase();
+      
+      for (const [key, colors] of Object.entries(FAENA_COLORS)) {
+        if (colors.name.toLowerCase() === normalizedName) {
+          return colors;
+        }
+      }
+    }
+  }
+  
+  return DEFAULT_FAENA_COLORS;
+};
+
+// 🛠️ FUNCIÓN ESPECÍFICA: Obtener colores por ID (mantener para compatibilidad)
+export const getFaenaColorsById = (faenaId) => {
+  return getFaenaColors(faenaId);
+};
+
+// 🛠️ FUNCIÓN ESPECÍFICA: Obtener colores por nombre (mantener para compatibilidad)
+export const getFaenaColorsByName = (faenaName) => {
+  return getFaenaColors(faenaName);
+};
+
+// 🛠️ FUNCIÓN DE UTILIDAD: Obtener solo colores hex
+export const getFaenaHexColors = (faenaId) => {
+  const colors = getFaenaColorsById(faenaId);
+  return {
+    primary: colors.primary,
+    light: colors.light,
+    dark: colors.dark,
+    name: colors.name,
+    emoji: colors.emoji
+  };
+};
+
+// 🛠️ FUNCIÓN DE UTILIDAD: Obtener lista de todas las faenas
+export const getAllFaenas = () => {
+  return Object.values(FAENA_COLORS).map(faena => ({
+    id: faena.id,
+    name: faena.name,
+    emoji: faena.emoji,
+    primary: faena.primary
+  }));
+};
+
+// 🛠️ FUNCIÓN DE UTILIDAD: Verificar si existe una faena
+export const faenaExists = (faenaId) => {
+  const id = typeof faenaId === 'string' ? parseInt(faenaId) : faenaId;
+  return FAENA_COLORS.hasOwnProperty(id);
+};

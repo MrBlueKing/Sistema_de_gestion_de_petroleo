@@ -13,7 +13,7 @@ import {
 } from "react-icons/fa";
 import axios from "../../../lib/axios";
 import { UserContext } from "../../../context/userContext";
-import Header from "../Bombero/Header";
+import Header from "../Todos/UniversalHeader";
 
 // Componente DateFilter integrado
 const DateFilter = ({
@@ -575,7 +575,7 @@ const RecepcionesView = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-100 py-4 sm:py-6 px-3 sm:px-4">
       <div className="max-w-7xl mx-auto">
-        <Header />
+        <Header type="bombero"/>
 
         {/* Filtros de fecha */}
         <DateFilter

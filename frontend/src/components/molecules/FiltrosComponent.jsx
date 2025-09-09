@@ -11,18 +11,19 @@ const FiltrosComponent = ({
   faenaSeleccionada = "todas",
   setFaenaSeleccionada,
   faenas = [],
-  
+
   // 🆕 Props para el nuevo sistema de onChange (OPCIONAL - para ConsumoView)
   onChange,
-  
+
   // 🆕 Props específicas para ConsumoView
   mostrarEquipoFilter = false,
   equipoFilter = "",
   placeholderEquipo = "Buscar equipo...",
-  
+  labelEquipo = "Filtrar por Equipo", // 🆕 AGREGAR ESTA LÍNEA
+
   // 🆕 NUEVA PROP: Modo de operación
   modo = "faenas", // "faenas" o "ubicaciones"
-  
+
   // Props de configuración (mantenidas para compatibilidad)
   incluirHoras = false,
   horaDesde = "08:00",
@@ -33,10 +34,10 @@ const FiltrosComponent = ({
   tituloPersonalizado = null,
   mostrarTitulo = true,
   mostrarResumen = true, // Para compatibilidad con VerificacionIngresos
-  
+
   // Props de estado
   cargando = false,
-  
+
   // 🆕 Props adicionales para personalización
   className = "",
   compacto = false,
@@ -47,7 +48,7 @@ const FiltrosComponent = ({
   // Estado interno para validación
   const [estadoValidacion, setEstadoValidacion] = useState({
     valido: true,
-    mensaje: ""
+    mensaje: "",
   });
 
   // 🆕 Configuración dinámica basada en el modo
@@ -57,15 +58,15 @@ const FiltrosComponent = ({
       iconoColor: "text-orange-500",
       label: "Faena",
       placeholder: "Todas las faenas",
-      todasLabel: "Todas las faenas"
+      todasLabel: "Todas las faenas",
     },
     ubicaciones: {
       icono: FaMapMarkerAlt,
-      iconoColor: "text-blue-500", 
+      iconoColor: "text-blue-500",
       label: "Ubicación",
       placeholder: "Todas las ubicaciones",
-      todasLabel: "Todas las ubicaciones"
-    }
+      todasLabel: "Todas las ubicaciones",
+    },
   };
 
   const config = configuracion[modo] || configuracion.faenas;
@@ -96,44 +97,78 @@ const FiltrosComponent = ({
       if (setHoraDesde && !horaDesde) setHoraDesde("08:00");
       if (setHoraHasta && !horaHasta) setHoraHasta("18:00");
     }
-  }, [fechaDesde, fechaHasta, setFechaDesde, setFechaHasta, incluirHoras, horaDesde, horaHasta, setHoraDesde, setHoraHasta]);
+  }, [
+    fechaDesde,
+    fechaHasta,
+    setFechaDesde,
+    setFechaHasta,
+    incluirHoras,
+    horaDesde,
+    horaHasta,
+    setHoraDesde,
+    setHoraHasta,
+  ]);
 
   // Validar fechas y horas
   useEffect(() => {
     if (fechaDesde && fechaHasta && fechaDesde > fechaHasta) {
       setEstadoValidacion({
         valido: false,
-        mensaje: "La fecha 'Desde' no puede ser posterior a la fecha 'Hasta'"
+        mensaje: "La fecha 'Desde' no puede ser posterior a la fecha 'Hasta'",
       });
-    } else if (incluirHoras && horaDesde && horaHasta && fechaDesde === fechaHasta && horaDesde >= horaHasta) {
+    } else if (
+      incluirHoras &&
+      horaDesde &&
+      horaHasta &&
+      fechaDesde === fechaHasta &&
+      horaDesde >= horaHasta
+    ) {
       setEstadoValidacion({
         valido: false,
-        mensaje: "La hora 'Desde' debe ser anterior a la hora 'Hasta' cuando es el mismo día"
+        mensaje:
+          "La hora 'Desde' debe ser anterior a la hora 'Hasta' cuando es el mismo día",
       });
     } else {
       setEstadoValidacion({
         valido: true,
-        mensaje: ""
+        mensaje: "",
       });
     }
   }, [fechaDesde, fechaHasta, horaDesde, horaHasta, incluirHoras]);
 
-  // 🆕 Función para manejar cambios usando el nuevo sistema onChange
-  const notificarCambio = useCallback((nuevosCambios) => {
-    if (onChange) {
-      const cambiosCompletos = {
-        fechaDesde,
-        fechaHasta,
-        horaDesde,
-        horaHasta,
-        faenaSeleccionada,
-        ...(mostrarEquipoFilter && { equipoFilter: equipoFilterInterno }),
-        ...nuevosCambios
-      };
-      
-      onChange(cambiosCompletos);
-    }
-  }, [onChange, fechaDesde, fechaHasta, horaDesde, horaHasta, faenaSeleccionada, equipoFilterInterno, mostrarEquipoFilter]);
+  const notificarCambio = useCallback(
+    (nuevosCambios) => {
+      if (onChange) {
+        const cambiosCompletos = {
+          fechaDesde,
+          fechaHasta,
+          horaDesde,
+          horaHasta,
+          faenaSeleccionada,
+          // 🔧 SOLUCIÓN: Enviar numeroDocumento si el label incluye "Documento"
+          ...(mostrarEquipoFilter && {
+            [labelEquipo.includes("Documento")
+              ? "numeroDocumento"
+              : "equipoFilter"]: equipoFilterInterno,
+          }),
+          ...nuevosCambios,
+        };
+
+        onChange(cambiosCompletos);
+      }
+    },
+    [
+      onChange,
+      fechaDesde,
+      fechaHasta,
+      horaDesde,
+      horaHasta,
+      faenaSeleccionada,
+      equipoFilterInterno,
+      mostrarEquipoFilter,
+      labelEquipo,
+    ]
+  );
 
   // Manejadores de cambio - COMPATIBLES CON AMBOS SISTEMAS
   const handleFechaDesdeChange = (valor) => {
@@ -181,22 +216,24 @@ const FiltrosComponent = ({
     }
   };
 
-  // 🆕 Manejador para el filtro de equipo
-  const handleEquipoFilterChange = (valor) => {
-    setEquipoFilterInterno(valor);
-    if (onChange) {
-      notificarCambio({ equipoFilter: valor });
-    }
-  };
+ const handleEquipoFilterChange = (valor) => {
+  setEquipoFilterInterno(valor);
+  if (onChange) {
+    // 🔧 SOLUCIÓN: Enviar la clave correcta según el contexto
+    const clave = labelEquipo.includes("Documento") ? "numeroDocumento" : "equipoFilter";
+    notificarCambio({ [clave]: valor });
+  }
+};
 
-  // 🆕 Función para limpiar filtro de equipo
-  const limpiarEquipoFilter = () => {
-    setEquipoFilterInterno("");
-    if (onChange) {
-      notificarCambio({ equipoFilter: "" });
-    }
-  };
-
+  // 🔧 CAMBIAR POR:
+const limpiarEquipoFilter = () => {
+  setEquipoFilterInterno("");
+  if (onChange) {
+    // 🔧 SOLUCIÓN: Enviar la clave correcta según el contexto
+    const clave = labelEquipo.includes("Documento") ? "numeroDocumento" : "equipoFilter";
+    notificarCambio({ [clave]: "" });
+  }
+};
   // Función para formatear fecha y hora
   const formatearFechaHora = (fecha, hora) => {
     if (!fecha) return "";
@@ -205,23 +242,31 @@ const FiltrosComponent = ({
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
-      ...(incluirHoras && hora ? {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false
-      } : {})
+      ...(incluirHoras && hora
+        ? {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          }
+        : {}),
     });
   };
 
   // 🆕 Función para obtener nombre según el modo
   const getNombreOpcion = (id) => {
     if (id === "todas") return config.todasLabel;
-    const opcion = faenas.find(f => f.value === id || f.value === id.toString());
+    const opcion = faenas.find(
+      (f) => f.value === id || f.value === id.toString()
+    );
     return opcion ? opcion.label : `${config.label} ${id}`;
   };
 
   // Determinar si hay filtros activos
-  const hayFiltrosActivos = fechaDesde || fechaHasta || (mostrarEquipoFilter && equipoFilterInterno) || (mostrarFaenas && faenaSeleccionada !== "todas");
+  const hayFiltrosActivos =
+    fechaDesde ||
+    fechaHasta ||
+    (mostrarEquipoFilter && equipoFilterInterno) ||
+    (mostrarFaenas && faenaSeleccionada !== "todas");
 
   return (
     <div className={`space-y-4 ${className}`}>
@@ -239,18 +284,19 @@ const FiltrosComponent = ({
 
       {/* Contenedor de filtros */}
       <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-        <div className={`grid gap-4 ${
-          incluirHoras
-            ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-5'
-            : compacto
-              ? 'grid-cols-1 md:grid-cols-2'
+        <div
+          className={`grid gap-4 ${
+            incluirHoras
+              ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-5"
+              : compacto
+              ? "grid-cols-1 md:grid-cols-2"
               : mostrarFaenas && mostrarEquipoFilter
-                ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'
-                : mostrarFaenas || mostrarEquipoFilter
-                  ? 'grid-cols-1 md:grid-cols-3'
-                  : 'grid-cols-1 md:grid-cols-2'
-        }`}>
-
+              ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"
+              : mostrarFaenas || mostrarEquipoFilter
+              ? "grid-cols-1 md:grid-cols-3"
+              : "grid-cols-1 md:grid-cols-2"
+          }`}
+        >
           {/* 🆕 MEJORADO: Faena/Ubicación - Dinámico según el modo */}
           {mostrarFaenas && (
             <div className={incluirHoras ? "" : "md:col-span-1"}>
@@ -263,7 +309,7 @@ const FiltrosComponent = ({
                 onChange={(e) => handleFaenaChange(e.target.value)}
                 disabled={cargando}
                 className={`w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
-                  cargando ? 'opacity-50 cursor-not-allowed' : ''
+                  cargando ? "opacity-50 cursor-not-allowed" : ""
                 }`}
               >
                 <option value="todas">{config.todasLabel}</option>
@@ -273,7 +319,7 @@ const FiltrosComponent = ({
                   </option>
                 ))}
               </select>
-              
+
               {/* 🆕 Indicador del modo activo */}
               {modo === "ubicaciones" && faenas.length > 0 && (
                 <div className="text-xs text-blue-600 mt-1">
@@ -287,8 +333,12 @@ const FiltrosComponent = ({
           {mostrarEquipoFilter && (
             <div className={incluirHoras ? "" : "md:col-span-1"}>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                <FaTruck className="inline mr-2 text-green-500" />
-                Filtrar por Equipo
+                {labelEquipo.includes("Documento") ? (
+                  <FaMapMarkerAlt className="inline mr-2 text-blue-500" />
+                ) : (
+                  <FaTruck className="inline mr-2 text-green-500" />
+                )}
+                {labelEquipo}
               </label>
               <div className="relative">
                 <input
@@ -296,9 +346,9 @@ const FiltrosComponent = ({
                   value={equipoFilterInterno}
                   onChange={(e) => handleEquipoFilterChange(e.target.value)}
                   placeholder={placeholderEquipo}
-                  disabled={cargando}
+                  
                   className={`w-full px-3 py-2 pl-10 pr-10 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-                    cargando ? 'opacity-50 cursor-not-allowed' : ''
+                    cargando ? "opacity-50 cursor-not-allowed" : ""
                   }`}
                 />
                 <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -332,7 +382,7 @@ const FiltrosComponent = ({
               onChange={(e) => handleFechaDesdeChange(e.target.value)}
               disabled={cargando}
               className={`w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
-                cargando ? 'opacity-50 cursor-not-allowed' : ''
+                cargando ? "opacity-50 cursor-not-allowed" : ""
               }`}
             />
           </div>
@@ -349,7 +399,7 @@ const FiltrosComponent = ({
               onChange={(e) => handleFechaHastaChange(e.target.value)}
               disabled={cargando}
               className={`w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
-                cargando ? 'opacity-50 cursor-not-allowed' : ''
+                cargando ? "opacity-50 cursor-not-allowed" : ""
               }`}
             />
           </div>
@@ -369,7 +419,7 @@ const FiltrosComponent = ({
                   onChange={(e) => handleHoraDesdeChange(e.target.value)}
                   disabled={cargando}
                   className={`w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                    cargando ? 'opacity-50 cursor-not-allowed' : ''
+                    cargando ? "opacity-50 cursor-not-allowed" : ""
                   }`}
                 />
               </div>
@@ -386,7 +436,7 @@ const FiltrosComponent = ({
                   onChange={(e) => handleHoraHastaChange(e.target.value)}
                   disabled={cargando}
                   className={`w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                    cargando ? 'opacity-50 cursor-not-allowed' : ''
+                    cargando ? "opacity-50 cursor-not-allowed" : ""
                   }`}
                 />
               </div>

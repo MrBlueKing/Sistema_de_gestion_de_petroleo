@@ -948,6 +948,7 @@ class ConsumoController extends Controller
                     'cu.updated_at',
                     'cu.tipo_consumo',
                     'cu.tipo_consumo_origen', // 🆕 NUEVO: Campo que indica si es INTERNO o EXTERNO
+                    'm.id_maquina', // 🆕 AÑADIDO
                     'm.nombre_maquina',
                     'mi.patente',
                     'cm.tipo_medicion',
@@ -1029,6 +1030,7 @@ class ConsumoController extends Controller
                 'cu.updated_at',
                 'cu.tipo_consumo',
                 'cu.tipo_consumo_origen', // 🆕 NUEVO
+                'm.id_maquina', // 🆕 AGREGADO
                 'm.nombre_maquina',
                 'mi.patente',
                 'cm.tipo_medicion',
@@ -1130,6 +1132,7 @@ class ConsumoController extends Controller
                     'numeral_inicial' => $consumo->numeral_inicial ? number_format($consumo->numeral_inicial, 3, '.', '') : null,
                     'numeral_final' => $consumo->numeral_final ? number_format($consumo->numeral_final, 3, '.', '') : null,
                     'observacion' => $consumo->observacion,
+                    'id_maquina' => $consumo->id_maquina, // 🆕 AÑADIDO
                     'nombre_maquina' => $consumo->nombre_maquina,
                     'patente' => $consumo->patente,
                     'tipo_medicion' => $consumo->tipo_medicion,
@@ -1206,10 +1209,17 @@ class ConsumoController extends Controller
                     : 0,
             ];
 
+
+            // 🆕 NUEVA FUNCIONALIDAD: Agregar validación de mediciones anómalas
+            $consumosConValidacion = $this->agregarValidacionMedicionesAnomalas($consumosTransformados);
+
+            // 🆕 Estadísticas de mediciones anómalas
+            $anomalasStats = $this->calcularEstadisticasAnomalas($consumosConValidacion);
+
             return response()->json([
                 'success' => true,
-                'data' => $consumosTransformados,
-                'stats' => $stats,
+                'data' => $consumosConValidacion,
+                'stats' => array_merge($stats, ['mediciones_anomalas' => $anomalasStats]),
                 'pagination' => [
                     'current_page' => (int) $page,
                     'per_page' => (int) $perPage,
@@ -1241,6 +1251,176 @@ class ConsumoController extends Controller
             ], 500);
         }
     }
+
+
+    /**
+     * 🆕 MÉTODO NUEVO: Agregar validación de mediciones anómalas
+     */
+    private function agregarValidacionMedicionesAnomalas($consumos)
+    {
+        try {
+            Log::info('🔍 Iniciando validación de mediciones anómalas para ' . count($consumos) . ' consumos');
+
+            $consumosConValidacion = [];
+
+            foreach ($consumos as $consumo) {
+                // Convertir a array para facilitar la manipulación
+                $consumoArray = is_array($consumo) ? $consumo : (array) $consumo;
+
+                // Por defecto, no es anómalo
+                $consumoArray['anomalo'] = false;
+                $consumoArray['diferencia_medicion'] = null;
+                $consumoArray['tipo_anomalia'] = null;
+                $consumoArray['umbral_superado'] = null;
+
+                // Solo validar si tenemos los datos necesarios
+                if (
+                    isset($consumoArray['id_maquina']) &&
+                    isset($consumoArray['tipo_medicion']) &&
+                    isset($consumoArray['medicion']) &&
+                    isset($consumoArray['fecha_consumo']) &&
+                    $consumoArray['id_maquina'] &&
+                    $consumoArray['medicion']
+                ) {
+
+                    // Buscar el consumo anterior de la misma máquina usando id_maquina
+                    $consumoAnterior = $this->obtenerConsumoAnteriorPorMaquina($consumoArray['id_maquina'], $consumoArray['fecha_consumo']);
+
+                    if ($consumoAnterior && $consumoAnterior->medicion) {
+
+                        // Calcular diferencia de medición
+                        $medicionActual = floatval(str_replace(',', '', $consumoArray['medicion']));
+                        $medicionAnterior = floatval($consumoAnterior->medicion);
+                        $diferenciaMedicion = $medicionActual - $medicionAnterior;
+
+                        $consumoArray['diferencia_medicion'] = round($diferenciaMedicion, 2);
+
+                        // Determinar umbrales según tipo de medición
+                        $umbral = 0;
+                        $tipoMedicion = strtolower($consumoArray['tipo_medicion']);
+
+                        if ($tipoMedicion === 'horometro') {
+                            $umbral = 12; // 12 horas
+                        } elseif ($tipoMedicion === 'kilometraje') {
+                            $umbral = 500; // 500 km
+                        }
+
+                        // Validar si es anómalo (solo si la diferencia es positiva y supera el umbral)
+                        if ($diferenciaMedicion > $umbral && $umbral > 0) {
+                            $consumoArray['anomalo'] = true;
+                            $consumoArray['tipo_anomalia'] = $tipoMedicion;
+                            $consumoArray['umbral_superado'] = $umbral;
+
+                            Log::info("🚨 Medición anómala detectada", [
+                                'id_consumo' => $consumoArray['id_consumo'],
+                                'id_maquina' => $consumoArray['id_maquina'],
+                                'nombre_maquina' => $consumoArray['nombre_maquina'],
+                                'patente' => $consumoArray['patente'],
+                                'tipo_medicion' => $tipoMedicion,
+                                'medicion_actual' => $medicionActual,
+                                'medicion_anterior' => $medicionAnterior,
+                                'diferencia' => $diferenciaMedicion,
+                                'umbral' => $umbral
+                            ]);
+                        }
+                    } else {
+                        // Si no hay consumo anterior, no podemos validar
+                        Log::debug("Sin consumo anterior para validación", [
+                            'id_consumo' => $consumoArray['id_consumo'],
+                            'id_maquina' => $consumoArray['id_maquina'],
+                            'nombre_maquina' => $consumoArray['nombre_maquina'] ?? 'N/A',
+                            'patente' => $consumoArray['patente'] ?? 'N/A'
+                        ]);
+                    }
+                }
+
+                $consumosConValidacion[] = $consumoArray;
+            }
+
+            Log::info('✅ Validación de mediciones anómalas completada');
+            return $consumosConValidacion;
+        } catch (\Exception $e) {
+            Log::error('❌ Error en validación de mediciones anómalas: ' . $e->getMessage());
+
+            // En caso de error, devolver consumos originales sin validación
+            return collect($consumos)->map(function ($consumo) {
+                $consumoArray = is_array($consumo) ? $consumo : (array) $consumo;
+                $consumoArray['anomalo'] = false;
+                $consumoArray['diferencia_medicion'] = null;
+                $consumoArray['tipo_anomalia'] = null;
+                $consumoArray['umbral_superado'] = null;
+                return $consumoArray;
+            })->all();
+        }
+    }
+
+    /**
+     * 🆕 MÉTODO AUXILIAR: Obtener consumo anterior de una máquina por ID
+     */
+    private function obtenerConsumoAnteriorPorMaquina($idMaquina, $fechaConsumoActual)
+    {
+        try {
+            // Usar la vista unificada para obtener el consumo anterior
+            return DB::table('consumos_unificados as cu')
+                ->leftJoin('maquinas as m', 'cu.id_equipo', '=', 'm.id_maquina')
+                ->where('m.id_maquina', $idMaquina)
+                ->where('cu.fecha_consumo', '<', $fechaConsumoActual)
+                ->whereNotNull('cu.medicion')
+                ->orderBy('cu.fecha_consumo', 'DESC')
+                ->select('cu.medicion', 'cu.fecha_consumo', 'cu.id_consumo', 'm.id_maquina')
+                ->first();
+        } catch (\Exception $e) {
+            Log::error('Error obteniendo consumo anterior por máquina: ' . $e->getMessage(), [
+                'id_maquina' => $idMaquina,
+                'fecha_consumo_actual' => $fechaConsumoActual
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * 🆕 MÉTODO AUXILIAR: Calcular estadísticas de mediciones anómalas
+     */
+    private function calcularEstadisticasAnomalas($consumos)
+    {
+        try {
+            $totalConsumos = count($consumos);
+            $consumosAnomalos = collect($consumos)->where('anomalo', true);
+            $totalAnomalos = $consumosAnomalos->count();
+
+            $anomalasPorTipo = $consumosAnomalos->groupBy('tipo_anomalia')->map(function ($grupo) {
+                return $grupo->count();
+            });
+
+            return [
+                'total_consumos_analizados' => $totalConsumos,
+                'total_anomalos' => $totalAnomalos,
+                'porcentaje_anomalos' => $totalConsumos > 0
+                    ? round(($totalAnomalos / $totalConsumos) * 100, 2)
+                    : 0,
+                'anomalos_por_tipo' => [
+                    'horometro' => $anomalasPorTipo['horometro'] ?? 0,
+                    'kilometraje' => $anomalasPorTipo['kilometraje'] ?? 0
+                ],
+                'umbrales_utilizados' => [
+                    'horometro' => '12 horas',
+                    'kilometraje' => '500 km'
+                ]
+            ];
+        } catch (\Exception $e) {
+            Log::error('Error calculando estadísticas anómalas: ' . $e->getMessage());
+            return [
+                'total_consumos_analizados' => 0,
+                'total_anomalos' => 0,
+                'porcentaje_anomalos' => 0,
+                'anomalos_por_tipo' => ['horometro' => 0, 'kilometraje' => 0],
+                'umbrales_utilizados' => ['horometro' => '12 horas', 'kilometraje' => '500 km']
+            ];
+        }
+    }
+
+
+
     /**
      * Obtener el equipo más usado desde una colección
      */

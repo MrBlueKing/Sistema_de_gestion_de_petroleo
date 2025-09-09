@@ -7,56 +7,9 @@ import {
   FiTrendingUp,
   FiRefreshCw,
 } from "react-icons/fi";
+import { getFaenaColors } from '../../context/faenaColor';
 
-// 🎨 CONFIGURACIÓN DE COLORES SUTILES POR FAENA
-const FAENA_COLORS_SUBTLE = {
-  Cabildo: {
-    id: 1,
-    light: "bg-green-50/30", // Verde muy suave con transparencia
-    border: "border-l-green-300/40", // Borde izquierdo sutil
-    hover: "hover:bg-green-50/50", // Hover ligeramente más visible
-    badge: "bg-green-100/70 text-green-700/80", // Badge con transparencia
-    icon: "🌿",
-  },
-  Tiltil: {
-    id: 4,
-    light: "bg-red-50/30", // Rojo muy suave con transparencia
-    border: "border-l-red-300/40", // Borde izquierdo sutil
-    hover: "hover:bg-red-50/50", // Hover ligeramente más visible
-    badge: "bg-red-100/70 text-red-700/80", // Badge con transparencia
-    icon: "🏔️",
-  },
-};
 
-// 🛠️ Función para obtener colores SUTILES de una faena
-const getFaenaColorsSutil = (faenaName) => {
-  if (!faenaName || typeof faenaName !== "string") {
-    return {
-      light: "bg-gray-50/20", // Gris muy suave
-      border: "border-l-gray-300/30", // Borde gris sutil
-      hover: "hover:bg-gray-50/40", // Hover sutil
-      badge: "bg-gray-100/60 text-gray-700/70",
-      icon: "🏢",
-    };
-  }
-
-  const normalizedName = faenaName.trim();
-
-  for (const [key, colors] of Object.entries(FAENA_COLORS_SUBTLE)) {
-    if (key.toLowerCase() === normalizedName.toLowerCase()) {
-      return colors;
-    }
-  }
-
-  // Color por defecto MUY SUTIL para faenas desconocidas
-  return {
-    light: "bg-blue-50/25", // Azul muy suave para gráficos
-    border: "border-l-blue-300/35", // Borde azul sutil
-    hover: "hover:bg-blue-50/45", // Hover sutil
-    badge: "bg-blue-100/65 text-blue-700/75",
-    icon: "🏢",
-  };
-};
 
 const IngresosPorFaenaTable = ({
   fechaDesde,
@@ -379,11 +332,11 @@ const IngresosPorFaenaTable = ({
           </thead>
         <tbody className="bg-white divide-y divide-gray-200">
   {datosFiltrados.map((faena, index) => {
-    const faenaColors = getFaenaColorsSutil(faena.nombre_faena);
+    const faenaColors = getFaenaColors(faena.nombre_faena);
     return (
       <tr
         key={`${faena.id_faena}-${index}`}
-        className={`${faenaColors.light} ${faenaColors.border} ${faenaColors.hover} transition-all duration-200 group`}
+        className={`${faenaColors.bg} ${faenaColors.border} ${faenaColors.hover} transition-all duration-200 group`}
         style={{
           minHeight: `${Math.max(860, 100 / datosFiltrados.length)}px` // 👈 Altura mínima distribuida
         }}
@@ -391,7 +344,7 @@ const IngresosPorFaenaTable = ({
         <td className="px-6 py-4 whitespace-nowrap">
           <div className="flex flex-col">
             <div className="font-medium text-gray-900 text-sm flex items-center">
-              <span className="text-sm mr-2">{faenaColors.icon}</span>
+              <span className="text-sm mr-2">{faenaColors.emoji}</span>
               {faena.nombre_faena}
             </div>
             <div className="text-xs text-gray-500">
