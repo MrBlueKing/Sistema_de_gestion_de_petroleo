@@ -15,78 +15,13 @@ import {
 } from "react-icons/fa";
 import axios from "../../../lib/axios";
 import { UserContext } from "../../../context/userContext";
-import Header from "../Bombero/Header";
+import Header from "../Todos/UniversalHeader";
+import { getFaenaColors } from '../../../context/faenaColor';
+
 
 // Importar componente desde pdf/components
 import PDFGenerator from '../../../pdf/components/PDFGenerator';
 
-// 🎨 CONFIGURACIÓN DE COLORES POR FAENA - IGUAL QUE HistorialMaquinasView
-const FAENA_COLORS = {
-    'Cabildo': {
-        id: 1,
-        primary: 'from-green-700 to-green-800',
-        light: 'bg-green-50',
-        border: 'border-green-200',
-        text: 'text-green-800',
-        badge: 'bg-green-100 text-green-800',
-        icon: '🌿',
-        gradient: 'bg-gradient-to-r from-green-600 to-green-700'
-    },
-    'Tiltil': {
-        id: 4,
-        primary: 'from-red-700 to-red-800',
-        light: 'bg-red-50',
-        border: 'border-red-200',
-        text: 'text-red-800',
-        badge: 'bg-red-100 text-red-800',
-        icon: '🏔️',
-        gradient: 'bg-gradient-to-r from-red-600 to-red-700'
-    },
-    'Estacion de Servicio': {
-        id: 5,
-        primary: 'from-blue-700 to-blue-800',
-        light: 'bg-blue-50',
-        border: 'border-blue-200',
-        text: 'text-blue-800',
-        badge: 'bg-blue-100 text-blue-800',
-        icon: '🏔️',
-        gradient: 'bg-gradient-to-r from-blue-600 to-blue-700'
-    }
-};
-
-// 🛠️ Función para obtener colores de una faena
-const getFaenaColors = (faenaName) => {
-    if (!faenaName || typeof faenaName !== 'string') {
-        return {
-            primary: 'from-gray-600 to-gray-700',
-            light: 'bg-gray-50',
-            border: 'border-gray-200',
-            text: 'text-gray-800',
-            badge: 'bg-gray-100 text-gray-800',
-            icon: '🏢',
-            gradient: 'bg-gradient-to-r from-gray-500 to-gray-600'
-        };
-    }
-
-    const normalizedName = faenaName.trim();
-    
-    for (const [key, colors] of Object.entries(FAENA_COLORS)) {
-        if (key.toLowerCase() === normalizedName.toLowerCase()) {
-            return colors;
-        }
-    }
-
-    // Color por defecto para faenas desconocidas (azul para bomberos)
-    return {
-        primary: 'from-blue-600 to-blue-700',
-        light: 'bg-blue-50',
-        border: 'border-blue-200',
-        text: 'text-blue-800',
-        badge: 'bg-blue-100 text-blue-800',
-        icon: '🏢',
-        gradient: 'bg-gradient-to-r from-blue-500 to-blue-600'
-    };
-};
 
 // Configuración de paginación
 const ITEMS_PER_PAGE = 10;
@@ -471,11 +406,11 @@ const ConsumoCard = ({ consumo, formatearFecha, formatNumber }) => {
   const faenaColors = getFaenaColors(consumo.faena);
 
   return (
-    <div className={`${faenaColors.light} border ${faenaColors.border} border-l-4 rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 group relative`}>
+    <div className={`${faenaColors.bg} border ${faenaColors.border} border-l-4 rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 group relative`}>
       {/* 🆕 AGREGAR: Badge de faena en la esquina superior derecha */}
       <div className="absolute top-2 right-2 z-10">
         <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${faenaColors.badge} shadow-md transform group-hover:scale-105 transition-transform duration-200`}>
-          <span className="text-xs">{faenaColors.icon}</span>
+          <span className="text-xs">{faenaColors.emoji}</span>
           {consumo.faena}
         </span>
       </div>
@@ -756,7 +691,7 @@ const ConsumosView = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-100 py-4 sm:py-6 px-3 sm:px-4">
       <div className="max-w-7xl mx-auto">
-        <Header />
+        <Header type="bombero"/>
 
         {/* Filtros de fecha y equipo */}
         <DateFilter
@@ -931,7 +866,7 @@ const ConsumosView = () => {
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-black-100">
                       {consumos.length > 0 ? (
                         consumos.map((consumo, index) => {
                           const { fecha, hora } = formatearFecha(consumo.fecha_consumo);
@@ -942,14 +877,14 @@ const ConsumosView = () => {
                           return (
                             <tr
                               key={consumo.id_consumo || index}
-                              className={`relative ${faenaColors.light} border-l-4 ${faenaColors.border} hover:shadow-lg hover:bg-opacity-80 transition-all duration-200 group`}
+                              className={`relative ${faenaColors.bg} border-l-4 ${faenaColors.border} hover:shadow-lg hover:bg-opacity-80 transition-all duration-200 group`}
                             >
                               {/* 🆕 CELDA CON BADGE DE FAENA */}
                               <td className="relative py-4 sm:py-5 px-4 sm:px-6 text-sm">
                                 {/* Badge de faena en la esquina superior derecha */}
                                 <div className="absolute top-1 right-1 z-10">
                                   <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${faenaColors.badge} shadow-md transform group-hover:scale-105 transition-transform duration-200`}>
-                                    <span className="text-xs">{faenaColors.icon}</span>
+                                    <span className="text-xs">{faenaColors.emoji}</span>
                                     {consumo.faena}
                                   </span>
                                 </div>

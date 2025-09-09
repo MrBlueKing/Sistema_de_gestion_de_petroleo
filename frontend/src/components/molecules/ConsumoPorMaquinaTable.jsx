@@ -21,53 +21,8 @@ import {
 } from "react-icons/fi";
 
 import UniversalTableFilter from "../../components/molecules/UniversalTableFilter";
-const FAENA_COLORS_SUBTLE = {
-  Cabildo: {
-    id: 1,
-    light: "bg-green-50/30", // Verde muy suave con transparencia
-    border: "border-l-green-300/40", // Borde izquierdo sutil
-    hover: "hover:bg-green-50/50", // Hover ligeramente más visible
-    badge: "bg-green-100/70 text-green-700/80", // Badge con transparencia
-    icon: "🌿",
-  },
-  Tiltil: {
-    id: 4,
-    light: "bg-red-50/30", // Rojo muy suave con transparencia
-    border: "border-l-red-300/40", // Borde izquierdo sutil
-    hover: "hover:bg-red-50/50", // Hover ligeramente más visible
-    badge: "bg-red-100/70 text-red-700/80", // Badge con transparencia
-    icon: "🏔️",
-  },
-};
-// 🛠️ Función para obtener colores SUTILES de una faena
-const getFaenaColorsSutil = (faenaName) => {
-  if (!faenaName || typeof faenaName !== "string") {
-    return {
-      light: "bg-gray-50/20", // Gris muy suave
-      border: "border-l-gray-300/30", // Borde gris sutil
-      hover: "hover:bg-gray-50/40", // Hover sutil
-      badge: "bg-gray-100/60 text-gray-700/70",
-      icon: "🏢",
-    };
-  }
+import { getFaenaColors } from '../../context/faenaColor';
 
-  const normalizedName = faenaName.trim();
-
-  for (const [key, colors] of Object.entries(FAENA_COLORS_SUBTLE)) {
-    if (key.toLowerCase() === normalizedName.toLowerCase()) {
-      return colors;
-    }
-  }
-
-  // Color por defecto MUY SUTIL para faenas desconocidas
-  return {
-    light: "bg-blue-50/25", // Azul muy suave para gráficos
-    border: "border-l-blue-300/35", // Borde azul sutil
-    hover: "hover:bg-blue-50/45", // Hover sutil
-    badge: "bg-blue-100/65 text-blue-700/75",
-    icon: "🏢",
-  };
-};
 
 const ColumnaValorTotal = ({ maquina }) => {
   const [showTooltip, setShowTooltip] = useState(false);
@@ -1216,12 +1171,12 @@ const ConsumoPorMaquinaPureTable = ({
             {/* Usar datos procesados (filtrados y ordenados) */}
             {datosProcesados.map((maquina, index) => {
               // 🆕 AGREGAR: Obtener colores sutiles de la faena
-              const faenaColors = getFaenaColorsSutil(maquina.faena);
+              const faenaColors = getFaenaColors(maquina.faena);
               return (
                 <tr
                   key={`${maquina.id_maquina}-${index}`}
                   // 🎨 NUEVA LÍNEA: Aplicar colores sutiles
-                  className={`${faenaColors.light} ${faenaColors.border} ${faenaColors.hover} transition-all duration-200 ease-in-out transform group`}
+                  className={`${faenaColors.bg} ${faenaColors.border} ${faenaColors.hover} transition-all duration-200 ease-in-out transform group`}
                   style={{
                     animationDelay: `${index * 50}ms`,
                     animation: "fadeInUp 0.4s ease-out forwards",
@@ -1299,12 +1254,12 @@ const ConsumoPorMaquinaPureTable = ({
                         if (faenaInfo.faenas_detalle.length === 1) {
                           // Una sola faena
                           const faena = faenaInfo.faenas_detalle[0];
-                          const faenaColors = getFaenaColorsSutil(faena.nombre);
+                          const faenaColors = getFaenaColors(faena.nombre);
 
                           return (
                             <div className="flex items-center">
                               <span className="text-xs mr-1">
-                                {faenaColors.icon}
+                                {faenaColors.emoji}
                               </span>
                               <span className="font-medium text-gray-800">
                                 {faena.nombre}
@@ -1334,7 +1289,7 @@ const ConsumoPorMaquinaPureTable = ({
                             </div>
 
                             {faenaInfo.faenas_detalle.map((faena, index) => {
-                              const faenaColors = getFaenaColorsSutil(
+                              const faenaColors = getFaenaColors(
                                 faena.nombre
                               );
                               const porcentaje = (
@@ -1349,7 +1304,7 @@ const ConsumoPorMaquinaPureTable = ({
                                 >
                                   <div className="flex items-center">
                                     <span className="mr-1">
-                                      {faenaColors.icon}
+                                      {faenaColors.emoji}
                                     </span>
                                     <span className="font-medium text-gray-700">
                                       {faena.nombre}
@@ -1468,7 +1423,7 @@ const ConsumoPorMaquinaPureTable = ({
         <div className="space-y-1">
           <div className="text-xs text-gray-600 font-medium">Por faena:</div>
           {distribucionPorFaena.map((faena) => {
-            const faenaColors = getFaenaColorsSutil(faena.nombre);
+            const faenaColors = getFaenaColors(faena.nombre);
             const porcentajeTotal = ((faena.total / totalGeneral) * 100).toFixed(1);
             
             return (
@@ -1476,7 +1431,7 @@ const ConsumoPorMaquinaPureTable = ({
                 {/* Línea principal: Faena y total */}
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center space-x-1">
-                    <span style={{ fontSize: '8px' }}>{faenaColors.icon}</span>
+                    <span style={{ fontSize: '8px' }}>{faenaColors.emoji}</span>
                     <span className="text-gray-700 font-medium">{faena.nombre}</span>
                     {faena.esUltimaCarga && faena.simulados > 0 && (
                       <span className="text-blue-500" title="Última carga registrada">⏱</span>

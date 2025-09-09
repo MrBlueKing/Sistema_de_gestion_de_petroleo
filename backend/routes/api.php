@@ -60,6 +60,9 @@ Route::get('/verificacion-ingresos', [VerificacionIngresosController::class, 'in
 // Obtener detalle de un ingreso específico
 Route::get('/verificacion-ingresos{id}', [VerificacionIngresosController::class, 'show']);
 
+Route::get('/estadisticas', [VerificacionIngresosController::class, 'estadisticas']);
+
+
 // Obtener resumen de errores por período
 Route::get('/verificacion-ingresos/resumen', [VerificacionIngresosController::class, 'resumen']);
 

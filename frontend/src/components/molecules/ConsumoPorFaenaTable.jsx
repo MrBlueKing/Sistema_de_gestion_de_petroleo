@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import axios from '../../lib/axios';
 import { FiLoader, FiAlertCircle, FiInfo, FiMapPin, FiClock, FiDroplet, FiTrendingUp } from "react-icons/fi";
+import { getFaenaColors } from '../../context/faenaColor';
 
 const ConsumoPorFaenaTable = ({ 
   fechaDesde, 
@@ -22,33 +23,6 @@ const ConsumoPorFaenaTable = ({
     return `${fecha} ${hora}:00`;
   };
 
-  // FUNCIÓN ESTÉTICA: Obtener colores por faena (del componente original)
-  const getFaenaColorsSutil = (nombreFaena) => {
-    const colores = {
-      'Cabildo': { 
-         light: "bg-green-50/30", // Verde muy suave con transparencia
-    border: "border-l-green-300/40", // Borde izquierdo sutil
-    hover: "hover:bg-green-50/50", // Hover ligeramente más visible
-    badge: "bg-green-100/70 text-green-700/80", // Badge con transparencia
-    icon: "🌿",
-      },
-      'Tiltil': { 
-       light: "bg-red-50/30", // Rojo muy suave con transparencia
-    border: "border-l-red-300/40", // Borde izquierdo sutil
-    hover: "hover:bg-red-50/50", // Hover ligeramente más visible
-    badge: "bg-red-100/70 text-red-700/80", // Badge con transparencia
-    icon: "🏔️",
-      }
-    };
-
-    return colores[nombreFaena] || { 
-      light: 'bg-gray-50', 
-      border: 'border-l-4 border-gray-400', 
-      hover: 'hover:bg-gray-100',
-      icon: '📍',
-      accent: 'text-gray-600'
-    };
-  };
 
   // FUNCIÓN PRINCIPAL: Procesar datos usando periodos_confirmados (lógica del nuevo componente)
   const procesarDatosConPeriodosConfirmados = (analisisPorCategoria) => {
@@ -366,23 +340,21 @@ const ConsumoPorFaenaTable = ({
 
           <tbody className="bg-white divide-y divide-gray-200">
             {datosConsumo.map((faena, index) => {
-              const faenaColors = getFaenaColorsSutil(faena.nombre_faena);
+              const faenaColors = getFaenaColors(faena.nombre_faena);
               return (
                 <tr
                   key={`faena-${faena.id_faena}-${index}`}
-                  className={`${faenaColors.light} ${faenaColors.border} ${faenaColors.hover} transition-all duration-200 group`}
+                  className={`${faenaColors.bg} ${faenaColors.border} ${faenaColors.hover} transition-all duration-200 group`}
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-col">
                       <div className="flex items-center">
-                        <span className="text-lg mr-2">{faenaColors.icon}</span>
+                        <span className="text-lg mr-2">{faenaColors.emoji}</span>
                         <div>
                           <div className={`text-sm font-medium ${faenaColors.accent}`}>
                             {faena.nombre_faena}
                           </div>
-                          <div className="text-xs text-gray-500">
-                            ID: {faena.id_faena}
-                          </div>
+                          
                         </div>
                       </div>
                     </div>

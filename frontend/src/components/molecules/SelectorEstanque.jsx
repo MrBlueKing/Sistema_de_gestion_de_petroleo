@@ -802,40 +802,7 @@ const SelectorEstanque = ({
         </div>
       )}
 
-      {/* Información adicional para estanques móviles (destino) */}
-      {esSeleccionDestino && estanqueSeleccionado && (
-        <div className="mt-4 p-3 bg-green-50 rounded border border-green-200">
-          <div className="text-sm">
-            <div className="flex items-center text-green-600 mb-2">
-              <FaCheckCircle className="mr-2" />
-              <span className="font-medium">Estanque destino seleccionado</span>
-            </div>
-            <div className="space-y-1 text-xs text-gray-600">
-              <div className="flex justify-between">
-                <span>Estanque:</span>
-                <span className="font-medium">{estanqueSeleccionado.nombre}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Espacio disponible:</span>
-                <span className="font-medium text-green-600">
-                  {((estanqueSeleccionado.capacidad || 0) - (estanqueSeleccionado.stock_actual || 0)).toLocaleString()}L
-                </span>
-              </div>
-              {litrosRequeridos > 0 && (
-                <div className="flex justify-between">
-                  <span>Litros requeridos:</span>
-                  <span className={`font-medium ${((estanqueSeleccionado.capacidad || 0) - (estanqueSeleccionado.stock_actual || 0)) >= litrosRequeridos
-                    ? 'text-green-600'
-                    : 'text-red-600'
-                    }`}>
-                    {litrosRequeridos.toLocaleString()}L
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      
     </div>
   );
 };
