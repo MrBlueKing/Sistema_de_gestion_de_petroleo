@@ -4,7 +4,7 @@ import UniversalHeader from '../../organisms/Todos/UniversalHeader';
 
 // Importar los componentes de vista (asumiendo que existen)
 import MainAdminOperador from '../../organisms/AdminOperador/MainAdminOperador';
-import ConsumoViewAdminOperador from '../../organisms/AdminOperador/ConsumoView';
+import ConsumoViewAdminOperador from '../../organisms/AdminOperador/AdminCargasView';
 import GestionarMaquinas from '../../organisms/AdminOperador/GestionarMaquinasOperador';
 import GestionarUsuariosOperador from '../../organisms/AdminOperador/GestionarUsuariosOperador';
 

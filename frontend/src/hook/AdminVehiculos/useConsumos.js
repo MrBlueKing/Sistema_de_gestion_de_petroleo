@@ -29,6 +29,12 @@ const useConsumos = (opciones = {}) => {
   const [filtroFechaInicio, setFiltroFechaInicio] = useState("");
   const [filtroFechaFin, setFiltroFechaFin] = useState("");
 
+  // ✅ AGREGAR ESTOS ESTADOS FALTANTES (después de línea ~31)
+  const [filtroOperador, setFiltroOperador] = useState("");
+  const [filtroMaquina, setFiltroMaquina] = useState("");
+  const [filtroPatente, setFiltroPatente] = useState("");
+  const [filtroNumeroBoleta, setFiltroNumeroBoleta] = useState("");
+
   // 📊 Estados de ordenamiento
   const [ordenColumna, setOrdenColumna] = useState(ordenamientoInicial.columna);
   const [direccionOrden, setDireccionOrden] = useState(ordenamientoInicial.direccion);
@@ -69,6 +75,23 @@ const useConsumos = (opciones = {}) => {
       // Paginación
       params.append('page', paginaActual.toString());
       params.append('per_page', registrosPorPagina.toString());
+
+      // Filtros específicos adicionales
+      if (filtroOperador.trim()) {
+        params.append('operador', filtroOperador.trim());
+      }
+
+      if (filtroMaquina.trim()) {
+        params.append('maquina', filtroMaquina.trim());
+      }
+
+      if (filtroPatente.trim()) {
+        params.append('patente', filtroPatente.trim());
+      }
+
+      if (filtroNumeroBoleta.trim()) {
+        params.append('numero_boleta', filtroNumeroBoleta.trim());
+      }
 
       // Búsqueda global
       if (searchTerm.trim()) {
@@ -185,14 +208,18 @@ const useConsumos = (opciones = {}) => {
     filtroTipoCombustible,
     filtroFechaInicio,
     filtroFechaFin,
+    // ✅ AGREGAR LOS NUEVOS FILTROS:
+    filtroOperador,
+    filtroMaquina,
+    filtroPatente,
+    filtroNumeroBoleta,
     ordenColumna,
     direccionOrden
   ]);
 
-  // 🔄 Efecto para cargar datos cuando cambian los filtros
+  // ✅ ACTUALIZAR DEPENDENCIAS DEL useEffect (línea ~200 aprox)
   useEffect(() => {
     if (autoFetch) {
-      // Reset a página 1 cuando cambian los filtros (excepto cuando cambia solo la página)
       if (paginaActual !== 1) {
         setPaginaActual(1);
       } else {
@@ -206,6 +233,11 @@ const useConsumos = (opciones = {}) => {
     filtroTipoCombustible,
     filtroFechaInicio,
     filtroFechaFin,
+    // ✅ AGREGAR LOS NUEVOS FILTROS:
+    filtroOperador,
+    filtroMaquina,
+    filtroPatente,
+    filtroNumeroBoleta,
     ordenColumna,
     direccionOrden,
     registrosPorPagina
@@ -258,6 +290,11 @@ const useConsumos = (opciones = {}) => {
     setFiltroTipoCombustible("");
     setFiltroFechaInicio("");
     setFiltroFechaFin("");
+    // ✅ AGREGAR LOS NUEVOS FILTROS:
+    setFiltroOperador("");
+    setFiltroMaquina("");
+    setFiltroPatente("");
+    setFiltroNumeroBoleta("");
     setOrdenColumna(ordenamientoInicial.columna);
     setDireccionOrden(ordenamientoInicial.direccion);
     setPaginaActual(1);
@@ -307,8 +344,13 @@ const useConsumos = (opciones = {}) => {
       filtroFaena !== "todas" ||
       filtroTipoCombustible.trim() !== "" ||
       filtroFechaInicio !== "" ||
-      filtroFechaFin !== "";
-  }, [metadatos.filtros_activos, searchTerm, filtroEstado, filtroFaena, filtroTipoCombustible, filtroFechaInicio, filtroFechaFin]);
+      filtroFechaFin !== "" ||
+      // ✅ AGREGAR LOS NUEVOS FILTROS:
+      filtroOperador.trim() !== "" ||
+      filtroMaquina.trim() !== "" ||
+      filtroPatente.trim() !== "" ||
+      filtroNumeroBoleta.trim() !== "";
+  }, [metadatos.filtros_activos, searchTerm, filtroEstado, filtroFaena, filtroTipoCombustible, filtroFechaInicio, filtroFechaFin, filtroOperador, filtroMaquina, filtroPatente, filtroNumeroBoleta]);
 
   const totalFiltrado = useMemo(() => {
     return metadatos.total_con_filtros;
@@ -318,7 +360,7 @@ const useConsumos = (opciones = {}) => {
   return {
     // 📊 Datos
     cargas,
-    cargasCompletas, // Para compatibilidad con componente existente
+    cargasCompletas,
     estadisticas,
     opcionesFiltros,
     metadatos,
@@ -340,6 +382,15 @@ const useConsumos = (opciones = {}) => {
     setFiltroFechaInicio,
     filtroFechaFin,
     setFiltroFechaFin,
+    // ✅ AGREGAR LOS NUEVOS FILTROS:
+    filtroOperador,
+    setFiltroOperador,
+    filtroMaquina,
+    setFiltroMaquina,
+    filtroPatente,
+    setFiltroPatente,
+    filtroNumeroBoleta,
+    setFiltroNumeroBoleta,
 
     // 📊 Ordenamiento
     ordenColumna,

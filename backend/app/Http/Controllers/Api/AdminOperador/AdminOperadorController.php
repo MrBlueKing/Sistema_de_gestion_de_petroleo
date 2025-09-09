@@ -212,12 +212,31 @@ class AdminOperadorController extends Controller
     {
         try {
             $carga = CargaExterna::with([
-                'user:id,nombre,apellido',
-                'maquina:id_maquina,nombre_maquina,patente',
+                'user:id,rut,nombre,apellido,email',
+                'maquina:id_maquina,nombre_maquina,patente,id_categoria',
                 'maquina.categoria:id_categoria,nombre_categoria',
                 'faena:id_faena,ubicacion',
                 'aprobadoPor:id,nombre,apellido'
             ])->findOrFail($id);
+
+            // 🔍 Log completo del objeto con relaciones
+            Log::info('📦 Datos obtenidos de la carga externa:', $carga->toArray());
+
+            // También puedes loggear cosas específicas:
+            Log::info('🛠 Maquina:', [
+                'id' => $carga->maquina->id_maquina ?? null,
+                'nombre' => $carga->maquina->nombre_maquina ?? 'N/A',
+            ]);
+
+            Log::info('📂 Categoria de la máquina:', [
+                'id' => $carga->maquina->categoria->id_categoria ?? null,
+                'nombre' => $carga->maquina->categoria->nombre_categoria ?? 'Sin categoría',
+            ]);
+
+            Log::info('🏗 Faena:', [
+                'id' => $carga->faena->id_faena ?? null,
+                'ubicacion' => $carga->faena->ubicacion ?? 'N/A',
+            ]);
 
             // Convertir estado al nuevo sistema
             $estadoNuevo = $this->convertirEstadoViejo($carga->estado);
@@ -244,9 +263,11 @@ class AdminOperadorController extends Controller
                 // Relaciones (igual que antes)
                 'user' => [
                     'id' => $carga->user->id ?? null,
+                    'rut' => $carga->user->rut ?? 'N/A',
                     'nombre' => $carga->user->nombre ?? 'N/A',
                     'apellido' => $carga->user->apellido ?? '',
-                    'nombre_completo' => ($carga->user->nombre ?? 'N/A') . ' ' . ($carga->user->apellido ?? '')
+                    'nombre_completo' => ($carga->user->nombre ?? 'N/A') . ' ' . ($carga->user->apellido ?? ''),
+                    'email' => $carga->user->email ?? 'No Proporcionado',
                 ],
 
                 'maquina' => [
@@ -2201,6 +2222,4 @@ class AdminOperadorController extends Controller
             ], 500);
         }
     }
-
-    
 }

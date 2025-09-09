@@ -23,7 +23,7 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 ### Added
 
-- [WIP] Administrador Operador Vehiculos --> Consumos View --> Agregar totales para la tabla consumos y mejorar el filtro de usuarios. 
+- [Testing:Nico] Administrador Operador Vehiculos --> Consumos View --> Agregar totales para la tabla consumos y mejorar el filtro de usuarios. 
 
 - [Queued] Global --> Centralizar un controlador de colores por faena reutilizable.
 

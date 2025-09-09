@@ -46,7 +46,7 @@ import FormularioOperador from "../components/templates/OperadorVehiculo/Formula
 
 // Importaciones AdministradorOperadorVehiculo
 import MenuPrincipalAdminOperador from "../pages/AdminOperador/MenuPrincipalAdminOperador";
-import ConsumoViewAdminOperador from "../components/organisms/AdminOperador/ConsumoView";
+import ConsumoViewAdminOperador from "../components/organisms/AdminOperador/AdminCargasView";
 
 const AppRoutes = () => {
   return (

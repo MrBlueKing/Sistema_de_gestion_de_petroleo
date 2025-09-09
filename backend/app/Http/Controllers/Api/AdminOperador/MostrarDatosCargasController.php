@@ -25,7 +25,6 @@ class MostrarDatosCargasController extends Controller
         try {
             Log::info('📊 Iniciando listado paginado de cargas externas', [
                 'parametros' => $request->all(),
-                'usuario_id' => auth()->id()
             ]);
 
             // ✅ VALIDAR PARÁMETROS DE ENTRADA
@@ -39,8 +38,13 @@ class MostrarDatosCargasController extends Controller
                 'fecha_inicio' => 'date',
                 'fecha_fin' => 'date|after_or_equal:fecha_inicio',
                 'sort' => 'string|in:fecha,numero_boleta,operador,maquina,litros,estado,faena,costo,created_at',
-                //                                                                                    ↑ agregar
-                'direction' => 'string|in:asc,desc'
+                'direction' => 'string|in:asc,desc',
+
+                // 🆕 NUEVOS FILTROS ESPECÍFICOS
+                'operador' => 'string|max:100',          // Filtro por ID de operador
+                'maquina' => 'string|max:100',     // Filtro por ID de máquina  
+                'patente' => 'string|max:10',                      // Filtro por patente específica
+                'numero_boleta' => 'string|max:50'                 // Filtro específico por boleta
             ]);
 
             if ($validator->fails()) {
@@ -62,8 +66,16 @@ class MostrarDatosCargasController extends Controller
             $fechaFin = $request->get('fecha_fin');
             $sort = $request->get('sort', 'created_at');
             $direction = $request->get('direction', 'desc');
+            $operador = $request->input('operador');
+            $maquina = $request->input('maquina');
+            $patente = $request->input('patente');
+            $numeroBoleta = $request->input('numero_boleta');
 
             Log::info('📊 Parámetros procesados:', compact(
+                'operador',
+                'maquina',
+                'patente',
+                'numeroBoleta',
                 'page',
                 'perPage',
                 'search',
@@ -178,9 +190,50 @@ class MostrarDatosCargasController extends Controller
             if ($fechaFin) {
                 $queryFiltrado->whereDate('ce.created_at', '<=', $fechaFin);
             }
+            if ($operador) {
+                $queryFiltrado->where(function ($q) use ($operador) {
+                    $q->where('u.nombre', 'LIKE', "%{$operador}%")
+                        ->orWhere('u.apellido', 'LIKE', "%{$operador}%")
+                        ->orWhere('u.rut', 'LIKE', "%{$operador}%")
+                        ->orWhereRaw("CONCAT(u.nombre, ' ', u.apellido) LIKE ?", ["%{$operador}%"]);
+                });
+            }
+
+            if ($maquina) {
+                $queryFiltrado->where(function ($q) use ($maquina) {
+                    $q->where('m.nombre_maquina', 'LIKE', "%{$maquina}%")
+                        ->orWhere('m.patente', 'LIKE', "%{$maquina}%");
+                });
+            }
+
+            if ($patente) {
+                $queryFiltrado->where('m.patente', $patente);
+            }
+
+            if ($numeroBoleta) {
+                $queryFiltrado->where('ce.numero_boleta', 'like', '%' . $numeroBoleta . '%');
+            }
 
             // ✅ OBTENER TOTAL CON FILTROS (IMPORTANTE: esto es lo que resuelve el problema)
             $totalConFiltros = (clone $queryFiltrado)->count();
+
+            // ✅ OBTENER TOTAL CON FILTROS (IMPORTANTE: esto es lo que resuelve el problema)
+            $totalConFiltros = (clone $queryFiltrado)->count();
+
+            // ✅ CALCULAR ESTADÍSTICAS FILTRADAS (NUEVA SECCIÓN)
+            $estadisticasFiltradas = $this->calcularEstadisticasFiltradas([
+                'search' => $search,
+                'estado' => $estado,
+                'faena' => $faena,
+                'tipoCombustible' => $tipoCombustible,
+                'fechaInicio' => $fechaInicio,
+                'fechaFin' => $fechaFin,
+                // ✅ AGREGAR LOS FILTROS FALTANTES:
+                'operador' => $operador,
+                'maquina' => $maquina,
+                'patente' => $patente,
+                'numeroBoleta' => $numeroBoleta
+            ]);
 
             // ✅ APLICAR ORDENAMIENTO
             $sortColumn = match ($sort) {
@@ -274,7 +327,19 @@ class MostrarDatosCargasController extends Controller
             $opcionesFiltros = $this->obtenerOpcionesFiltrosCargas();
 
             // ✅ ESTADÍSTICAS ADICIONALES
-            $estadisticas = $this->calcularEstadisticasCargas($totalSinFiltros, $totalConFiltros);
+            // ✅ ESTADÍSTICAS ADICIONALES (REEMPLAZAR LA LÍNEA EXISTENTE)
+            $estadisticas = [
+                'por_estado' => [
+                    'por_rendir' => $estadisticasFiltradas['por_rendir'],
+                    'rendido' => $estadisticasFiltradas['rendido']
+                ],
+                'totales' => [
+                    'litros' => $estadisticasFiltradas['total_litros'],
+                    'costo' => $estadisticasFiltradas['total_costo'],
+                    'precio_promedio' => $estadisticasFiltradas['precio_promedio']
+                ],
+                'porcentaje_filtrado' => $totalSinFiltros > 0 ? round(($totalConFiltros / $totalSinFiltros) * 100, 1) : 0
+            ];
 
             // ✅ PREPARAR RESPUESTA FINAL
             $response = [
@@ -306,11 +371,23 @@ class MostrarDatosCargasController extends Controller
                 ],
                 'meta' => [
                     'total_sin_filtros' => $totalSinFiltros,
-                    'total_con_filtros' => $totalConFiltros,
+                    'total_con_filtros' => $estadisticasFiltradas['total_registros'], // ✅ Usar este valor
                     'filtros_activos' => $this->contarFiltrosActivos($request),
                     'tiempo_consulta' => round(microtime(true) - LARAVEL_START, 3),
                     'registros_por_pagina' => $perPage,
-                    'estadisticas' => $estadisticas
+                    'estadisticas' => [
+                        'por_estado' => [
+                            'por_rendir' => $estadisticasFiltradas['por_rendir'],
+                            'rendido' => $estadisticasFiltradas['rendido']
+                        ],
+                        'totales' => [
+                            'litros' => $estadisticasFiltradas['total_litros'],
+                            'costo' => $estadisticasFiltradas['total_costo'],
+                            'precio_promedio' => $estadisticasFiltradas['precio_promedio']
+                        ],
+                        'porcentaje_filtrado' => $totalSinFiltros > 0 ?
+                            round(($estadisticasFiltradas['total_registros'] / $totalSinFiltros) * 100, 1) : 0
+                    ]
                 ]
             ];
 
@@ -370,7 +447,8 @@ class MostrarDatosCargasController extends Controller
     }
 
     /**
-     * 📊 Obtener opciones disponibles para filtros de cargas
+     * 📊 MÉTODO CORREGIDO: Obtener opciones disponibles para filtros de cargas
+     * ✅ SOLUCIONADO: Nombre de tabla corregido
      */
     private function obtenerOpcionesFiltrosCargas(): array
     {
@@ -381,8 +459,8 @@ class MostrarDatosCargasController extends Controller
                 ->orderBy('ubicacion')
                 ->get();
 
-            // Obtener categorías de máquinas (TABLA REAL: categoria_maquinas)
-            $categorias = DB::table('categoria_maquinas')
+            // ✅ CORREGIDO: Usar el nombre correcto de tabla (con 's' al final)
+            $categorias = DB::table('categorias_maquinas')  // ← CAMBIADO: era 'categoria_maquinas'
                 ->select('id_categoria as id', 'nombre_categoria as nombre')
                 ->orderBy('nombre_categoria')
                 ->get();
@@ -429,7 +507,11 @@ class MostrarDatosCargasController extends Controller
                 ]
             ];
         } catch (\Exception $e) {
-            Log::error('Error obteniendo opciones de filtros:', ['error' => $e->getMessage()]);
+            Log::error('Error obteniendo opciones de filtros:', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
             return [
                 'faenas' => [],
                 'categorias' => [],
@@ -485,7 +567,131 @@ class MostrarDatosCargasController extends Controller
      */
     private function contarFiltrosActivos(Request $request): int
     {
-        $filtros = ['search', 'estado', 'faena', 'tipo_combustible', 'fecha_inicio', 'fecha_fin'];
+        $filtros = [
+            'search',
+            'estado',
+            'faena',
+            'tipo_combustible',
+            'fecha_inicio',
+            'fecha_fin',
+            // ✅ AGREGAR LOS NUEVOS FILTROS:
+            'operador',
+            'maquina',
+            'patente',
+            'numero_boleta'
+        ];
         return collect($filtros)->filter(fn($filtro) => $request->filled($filtro))->count();
+    }
+
+    /* 📈 MÉTODO CORREGIDO: Calcular estadísticas de cargas FILTRADAS
+     * ✅ SOLUCIONADO: Error SQL de GROUP BY
+     */
+    private function calcularEstadisticasFiltradas($parametros): array
+    {
+        try {
+            Log::info('📊 Calculando estadísticas filtradas...');
+
+            // ✅ CREAR UNA NUEVA QUERY SOLO PARA ESTADÍSTICAS (sin los joins complejos)
+            $queryEstadisticas = DB::table('cargas_externas as ce');
+
+            // ✅ APLICAR LOS MISMOS FILTROS QUE EL QUERY PRINCIPAL
+            if (!empty($parametros['search'])) {
+                $searchTerm = '%' . $parametros['search'] . '%';
+                $queryEstadisticas->where(function ($query) use ($searchTerm) {
+                    $query->where('ce.numero_boleta', 'like', $searchTerm)
+                        ->orWhere('ce.ubicacion', 'like', $searchTerm)
+                        ->orWhere('ce.observaciones', 'like', $searchTerm);
+                });
+            }
+
+            if (!empty($parametros['estado'])) {
+                $queryEstadisticas->where('ce.estado', $parametros['estado']);
+            }
+
+            if (!empty($parametros['faena'])) {
+                $queryEstadisticas->where('ce.id_faena', $parametros['faena']);
+            }
+
+            if (!empty($parametros['tipoCombustible'])) {
+                $queryEstadisticas->where('ce.tipo_combustible', $parametros['tipoCombustible']);
+            }
+
+            if (!empty($parametros['fechaInicio'])) {
+                $queryEstadisticas->whereDate('ce.created_at', '>=', $parametros['fechaInicio']);
+            }
+
+            if (!empty($parametros['fechaFin'])) {
+                $queryEstadisticas->whereDate('ce.created_at', '<=', $parametros['fechaFin']);
+            }
+
+            if (!empty($parametros['operador'])) {
+                $queryEstadisticas->leftJoin('users as u2', 'ce.id_user', '=', 'u2.id')
+                    ->where(function ($q) use ($parametros) {
+                        $operador = $parametros['operador'];
+                        $q->where('u2.nombre', 'LIKE', "%{$operador}%")
+                            ->orWhere('u2.apellido', 'LIKE', "%{$operador}%")
+                            ->orWhere('u2.rut', 'LIKE', "%{$operador}%")
+                            ->orWhereRaw("CONCAT(u2.nombre, ' ', u2.apellido) LIKE ?", ["%{$operador}%"]);
+                    });
+            }
+
+            if (!empty($parametros['maquina'])) {
+                $queryEstadisticas->leftJoin('maquinas as m3', 'ce.id_maquina', '=', 'm3.id_maquina')
+                    ->where(function ($q) use ($parametros) {
+                        $maquina = $parametros['maquina'];
+                        $q->where('m3.nombre_maquina', 'LIKE', "%{$maquina}%")
+                            ->orWhere('m3.patente', 'LIKE', "%{$maquina}%");
+                    });
+            }
+
+            if (!empty($parametros['patente'])) {
+                $queryEstadisticas->join('maquinas as m2', 'ce.id_maquina', '=', 'm2.id_maquina')
+                    ->where('m2.patente', $parametros['patente']);
+            }
+
+            if (!empty($parametros['numeroBoleta'])) {
+                $queryEstadisticas->where('ce.numero_boleta', 'like', '%' . $parametros['numeroBoleta'] . '%');
+            }
+
+            // ✅ EJECUTAR QUERY SOLO CON AGREGACIONES
+            $estadisticas = $queryEstadisticas
+                ->selectRaw('
+                COUNT(*) as total_registros,
+                SUM(CASE WHEN ce.estado = "Por Rendir" THEN 1 ELSE 0 END) as por_rendir,
+                SUM(CASE WHEN ce.estado = "Rendido" THEN 1 ELSE 0 END) as rendido,
+                COALESCE(SUM(ce.litros), 0) as total_litros,
+                COALESCE(SUM(ce.costo), 0) as total_costo,
+                COALESCE(AVG(ce.precio_por_litro), 0) as precio_promedio
+            ')
+                ->first();
+
+            $resultado = [
+                'total_registros' => (int) ($estadisticas->total_registros ?? 0),
+                'por_rendir' => (int) ($estadisticas->por_rendir ?? 0),
+                'rendido' => (int) ($estadisticas->rendido ?? 0),
+                'total_litros' => (float) ($estadisticas->total_litros ?? 0),
+                'total_costo' => (float) ($estadisticas->total_costo ?? 0),
+                'precio_promedio' => (float) ($estadisticas->precio_promedio ?? 0)
+            ];
+
+            Log::info('✅ Estadísticas filtradas calculadas:', $resultado);
+
+            return $resultado;
+        } catch (\Exception $e) {
+            Log::error('❌ Error calculando estadísticas filtradas:', [
+                'error' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile()
+            ]);
+
+            return [
+                'total_registros' => 0,
+                'por_rendir' => 0,
+                'rendido' => 0,
+                'total_litros' => 0,
+                'total_costo' => 0,
+                'precio_promedio' => 0
+            ];
+        }
     }
 }

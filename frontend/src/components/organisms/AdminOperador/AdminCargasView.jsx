@@ -1,30 +1,33 @@
 // AdminCargasView.jsx
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   FaGasPump, FaSearch, FaTimes, FaFilter, FaChevronDown,
   FaSync, FaEdit, FaCheck, FaClock, FaExclamationTriangle,
-  FaChevronLeft, FaChevronRight, FaEye
+  FaChevronLeft, FaChevronRight, FaEye, FaCheckCircle, FaDollarSign
 } from 'react-icons/fa';
 import useConsumos from '../../../hook/AdminVehiculos/useConsumos'; // Ajusta la ruta según tu estructura
 import axios from '../../../lib/axios'; // Ajusta la ruta según tu estructura
+import DetalleCargaModal from '../../molecules/DetalleCargaModal';
+import SuccessNotificationRendir from '../../molecules/SuccessNotificationRendir';
+import PageControl from '../../molecules/PageControl';
 
 // Componente de Badge para estados
 const EstadoBadge = ({ estado, estadoBadge }) => {
   const { label, color, icon, class: badgeClass } = estadoBadge;
-  
+
   const iconMap = {
     clock: FaClock,
     check: FaCheck
   };
-  
+
   const IconComponent = iconMap[icon] || FaClock;
-  
+
   const colorClasses = {
     warning: 'bg-yellow-100 text-yellow-800 border-yellow-200',
     success: 'bg-green-100 text-green-800 border-green-200',
     danger: 'bg-red-100 text-red-800 border-red-200'
   };
-  
+
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${colorClasses[color] || colorClasses.warning}`}>
       <IconComponent className="w-3 h-3" />
@@ -33,81 +36,23 @@ const EstadoBadge = ({ estado, estadoBadge }) => {
   );
 };
 
-// Componente de Paginación
-const Pagination = ({ paginaActual, infoPaginacion, irAPagina }) => {
-  const { totalPaginas, desde, hasta, totalRegistros } = infoPaginacion;
-  
-  if (totalPaginas <= 1) return null;
-  
-  return (
-    <div className="flex items-center justify-between flex-col sm:flex-row gap-4 mt-6 pt-4 border-t border-gray-200">
-      <div className="text-sm text-gray-600">
-        Mostrando <span className="font-medium">{desde}</span> a{" "}
-        <span className="font-medium">{hasta}</span> de{" "}
-        <span className="font-medium">{totalRegistros}</span> cargas
-      </div>
-      
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => irAPagina(paginaActual - 1)}
-          disabled={paginaActual === 1}
-          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-            paginaActual === 1
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
-          }`}
-        >
-          <FaChevronLeft className="w-3 h-3" />
-        </button>
-        
-        {/* Páginas visibles */}
-        {Array.from({ length: Math.min(5, totalPaginas) }, (_, i) => {
-          const page = i + Math.max(1, paginaActual - 2);
-          if (page > totalPaginas) return null;
-          
-          return (
-            <button
-              key={page}
-              onClick={() => irAPagina(page)}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                page === paginaActual
-                  ? "bg-blue-600 text-white"
-                  : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
-              }`}
-            >
-              {page}
-            </button>
-          );
-        })}
-        
-        <button
-          onClick={() => irAPagina(paginaActual + 1)}
-          disabled={paginaActual === totalPaginas}
-          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-            paginaActual === totalPaginas
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
-          }`}
-        >
-          <FaChevronRight className="w-3 h-3" />
-        </button>
-      </div>
-    </div>
-  );
-};
-
 // Componente principal
 const AdminCargasView = () => {
   // Estados locales para modales y acciones
-  const [mostrarFiltros, setMostrarFiltros] = useState(false);
+  const [mostrarFiltros, setMostrarFiltros] = useState(true);
   const [cargaSeleccionada, setCargaSeleccionada] = useState(null);
   const [procesandoCambioEstado, setProcesandoCambioEstado] = useState(null);
+  const [selectedCargaId, setSelectedCargaId] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  // ✅ AGREGAR: Estado específico para errores de rendición
+  const [errorRendicion, setErrorRendicion] = useState(null);
 
   // Hook personalizado para cargas
   const {
     cargas,
     loading,
     error,
+    estadisticas,
     searchTerm,
     setSearchTerm,
     filtroEstado,
@@ -120,6 +65,14 @@ const AdminCargasView = () => {
     setFiltroFechaInicio,
     filtroFechaFin,
     setFiltroFechaFin,
+    filtroOperador,
+    setFiltroOperador,
+    filtroMaquina,
+    setFiltroMaquina,
+    filtroPatente,
+    setFiltroPatente,
+    filtroNumeroBoleta,
+    setFiltroNumeroBoleta,
     paginaActual,
     infoPaginacion,
     irAPagina,
@@ -132,47 +85,126 @@ const AdminCargasView = () => {
     metadatos
   } = useConsumos();
 
-  // Función para cambiar estado de carga
-  const cambiarEstadoCarga = useCallback(async (cargaId, nuevoEstado) => {
+  // ✅ DEBUGGING: Agregar logs cada vez que cambien las estadísticas
+  useEffect(() => {
+    console.log('🔍 DEBUG - Estadísticas cambiaron:', estadisticas);
+    console.log('🔍 DEBUG - Metadatos cambiaron:', metadatos);
+    console.log('🔍 DEBUG - Loading:', loading);
+    console.log('🔍 DEBUG - Hay filtros activos:', hayFiltrosActivos);
+  }, [estadisticas, metadatos, loading, hayFiltrosActivos]);
+
+
+  // ✅ AGREGAR: Los nuevos filtros al debugging
+  useEffect(() => {
+    console.log('🔍 DEBUG - Filtros cambiaron:', {
+      searchTerm,
+      filtroEstado,
+      filtroFaena,
+      filtroTipoCombustible,
+      filtroFechaInicio,
+      filtroFechaFin,
+      // ✅ AGREGAR ESTOS:
+      filtroOperador,
+      filtroMaquina,
+      filtroPatente,
+      filtroNumeroBoleta
+    });
+  }, [searchTerm, filtroEstado, filtroFaena, filtroTipoCombustible, filtroFechaInicio, filtroFechaFin, filtroOperador, filtroMaquina, filtroPatente, filtroNumeroBoleta]);
+
+  // 2. Agregar estados para notificaciones (después de los estados existentes):
+  const [notification, setNotification] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    type: "success"
+  });
+  const [loadingCargas, setLoadingCargas] = useState({});
+
+  // Funciones de manejo de modal
+  const handleVerDetalle = (cargaId) => {
+    setSelectedCargaId(cargaId);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedCargaId(null);
+  };
+
+  const handleActionComplete = () => {
+    fetchCargasExternas();
+  };
+
+  // Función para cerrar la notificación
+  const closeNotification = () => {
+    setNotification({ visible: false, title: "", message: "" });
+  };
+
+  // 3. Reemplazar la función handleRendir existente con esta:
+  const handleRendir = async (cargaId) => {
+    console.log("🚀 Iniciando rendición de carga:", cargaId);
+    setLoadingCargas(prev => ({ ...prev, [cargaId]: true }));
+
     try {
-      setProcesandoCambioEstado(cargaId);
-      
-      // Llamada a la API para cambiar estado
+      setErrorRendicion(null); // ✅ Usar el setter local correcto
+
       const response = await axios.post(`/api/adminOperador/cargas/${cargaId}/rendir`);
-      
-      if (response.data.success) {
-        // Actualizar el estado local
+      console.log("📡 Respuesta del servidor:", response.data);
+
+      if (response.data.status === "success") {
+        // Tu lógica de éxito...
         actualizarCarga(cargaId, {
-          estado: nuevoEstado,
-          estado_badge: {
-            label: nuevoEstado,
-            color: nuevoEstado === 'Rendido' ? 'success' : 'warning',
-            icon: nuevoEstado === 'Rendido' ? 'check' : 'clock',
-            class: nuevoEstado === 'Rendido' ? 'badge-success' : 'badge-warning'
-          },
-          fecha_aprobacion: nuevoEstado === 'Rendido' ? new Date().toISOString() : null
+          estado: "Rendido",
+          fecha_rendicion: new Date().toISOString(),
         });
-        
-        // Mostrar mensaje de éxito (opcional)
-        alert(`Carga ${nuevoEstado.toLowerCase()} exitosamente`);
-      } else {
-        throw new Error(response.data.message || 'Error al cambiar estado');
+
+        refrescarDatos();
+
+        setNotification({
+          visible: true,
+          title: "🎉 Carga Rendida",
+          message: "La carga ha sido marcada como rendida exitosamente"
+        });
       }
     } catch (error) {
-      console.error('Error al cambiar estado:', error);
-      alert('Error al cambiar el estado de la carga: ' + error.message);
+      console.error("❌ Error al rendir carga:", error);
+      setErrorRendicion(error.message); // ✅ Usar el setter local correcto
+
+      setNotification({
+        visible: true,
+        title: "❌ Error",
+        message: error.message || "Error al rendir la carga"
+      });
     } finally {
-      setProcesandoCambioEstado(null);
+      setLoadingCargas(prev => ({ ...prev, [cargaId]: false }));
     }
-  }, [actualizarCarga]);
+  };
 
   // Función para ver detalles
   const verDetalles = useCallback((carga) => {
     setCargaSeleccionada(carga);
   }, []);
 
+  // ✅ FUNCIÓN para formatear moneda
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat("es-CL", {
+      style: "currency",
+      currency: "CLP",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount || 0);
+  };
+
+  // ✅ FUNCIÓN para formatear números grandes
+  const formatNumber = (number) => {
+    return new Intl.NumberFormat("es-CL", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(number || 0);
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -190,7 +222,7 @@ const AdminCargasView = () => {
                 </p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-3">
               <button
                 onClick={refrescarDatos}
@@ -204,54 +236,22 @@ const AdminCargasView = () => {
           </div>
         </div>
       </div>
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Estadísticas rápidas */}
-        {metadatos && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Total Cargas</p>
-                  <p className="text-2xl font-bold text-gray-900">{metadatos.total_con_filtros}</p>
+        {/* ✅ AGREGAR: Indicador de carga para las estadísticas */}
+        {loading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-6">
+            {[...Array(6)].map((_, index) => (
+              <div key={index} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 animate-pulse">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="h-4 bg-gray-200 rounded w-20 mb-2"></div>
+                    <div className="h-8 bg-gray-200 rounded w-16"></div>
+                    <div className="h-3 bg-gray-200 rounded w-24 mt-2"></div>
+                  </div>
+                  <div className="h-6 w-6 bg-gray-200 rounded"></div>
                 </div>
-                <FaGasPump className="text-blue-600 text-xl" />
               </div>
-            </div>
-            
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Por Rendir</p>
-                  <p className="text-2xl font-bold text-yellow-600">
-                    {cargas.filter(c => c.estado === 'Por Rendir').length}
-                  </p>
-                </div>
-                <FaClock className="text-yellow-600 text-xl" />
-              </div>
-            </div>
-            
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Rendidas</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    {cargas.filter(c => c.estado === 'Rendido').length}
-                  </p>
-                </div>
-                <FaCheck className="text-green-600 text-xl" />
-              </div>
-            </div>
-            
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Filtros Activos</p>
-                  <p className="text-2xl font-bold text-blue-600">{metadatos.filtros_activos}</p>
-                </div>
-                <FaFilter className="text-blue-600 text-xl" />
-              </div>
-            </div>
+            ))}
           </div>
         )}
 
@@ -279,16 +279,15 @@ const AdminCargasView = () => {
                   </button>
                 )}
               </div>
-              
+
               {/* Botones de acción */}
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setMostrarFiltros(!mostrarFiltros)}
-                  className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${
-                    mostrarFiltros || hayFiltrosActivos
-                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${mostrarFiltros || hayFiltrosActivos
+                    ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
                 >
                   <FaFilter className="w-4 h-4" />
                   Filtros
@@ -299,7 +298,7 @@ const AdminCargasView = () => {
                   )}
                   <FaChevronDown className={`w-3 h-3 transition-transform ${mostrarFiltros ? 'rotate-180' : ''}`} />
                 </button>
-                
+
                 {hayFiltrosActivos && (
                   <button
                     onClick={limpiarFiltros}
@@ -389,10 +388,166 @@ const AdminCargasView = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
+
+                {/* ✅ AGREGAR: Filtro por operador */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Operador (Nombre/RUT)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Zed, Krilin, 203022451"
+                    value={filtroOperador}
+                    onChange={(e) => setFiltroOperador(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* ✅ AGREGAR: Filtro por máquina */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Máquina (Nombre/Patente)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej: FORD 76, LPPY-76"
+                    value={filtroMaquina}
+                    onChange={(e) => setFiltroMaquina(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* ✅ AGREGAR: Filtro por patente */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Patente</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: LPPY-76"
+                    value={filtroPatente}
+                    onChange={(e) => setFiltroPatente(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* ✅ AGREGAR: Filtro por número de boleta */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Número Boleta</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: 35167856"
+                    value={filtroNumeroBoleta}
+                    onChange={(e) => setFiltroNumeroBoleta(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
               </div>
             )}
           </div>
         </div>
+
+        {/* ✅ TARJETAS DE ESTADÍSTICAS CORREGIDAS */}
+        {(metadatos || estadisticas) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-6">
+
+            {/* Total Cargas - Ya funciona bien */}
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Cargas</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {metadatos?.total_con_filtros || estadisticas?.total || 0}
+                  </p>
+                  {hayFiltrosActivos && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      de {metadatos?.total_sin_filtros || 0} total
+                    </p>
+                  )}
+                  {/* ✅ DEBUG: Mostrar fuente del dato */}
+                </div>
+                <FaGasPump className="text-blue-600 text-xl" />
+              </div>
+            </div>
+
+            {/* ✅ Por Rendir - CORREGIDA */}
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Por Rendir</p>
+                  <p className="text-2xl font-bold text-yellow-600">
+                    {estadisticas?.porRendir || 0}
+                  </p>
+                  {(estadisticas?.total > 0) && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {Math.round(((estadisticas?.porRendir || 0) / estadisticas.total) * 100)}% del total
+                    </p>
+                  )}
+                </div>
+                <FaClock className="text-yellow-600 text-xl" />
+              </div>
+            </div>
+
+            {/* ✅ Rendidas - CORREGIDA */}
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Rendidas</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {estadisticas?.rendidos || 0}
+                  </p>
+                  {(estadisticas?.total > 0) && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {Math.round(((estadisticas?.rendidos || 0) / estadisticas.total) * 100)}% del total
+                    </p>
+                  )}
+                </div>
+                <FaCheck className="text-green-600 text-xl" />
+              </div>
+            </div>
+
+
+
+            {/* ✅ NUEVA: Total Litros */}
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Litros</p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {formatNumber(estadisticas?.totalLitros || 0)}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">litros</p>
+                </div>
+                <FaGasPump className="text-blue-600 text-xl" />
+              </div>
+            </div>
+
+            {/* ✅ NUEVA: Costo Total */}
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Costo Total</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {formatCurrency(estadisticas?.totalCosto || 0)}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">CLP</p>
+                </div>
+                <FaDollarSign className="text-green-600 text-xl" />
+              </div>
+            </div>
+
+            {/* Filtros Activos - Opcional */}
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Filtros Activos</p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {metadatos?.filtros_activos || 0}
+                  </p>
+                </div>
+                <FaFilter className="text-blue-600 text-xl" />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tabla de cargas */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -429,7 +584,7 @@ const AdminCargasView = () => {
                   No se encontraron cargas
                 </h3>
                 <p className="text-gray-600">
-                  {hayFiltrosActivos 
+                  {hayFiltrosActivos
                     ? 'Intenta ajustar los filtros de búsqueda'
                     : 'No hay cargas registradas en el sistema'
                   }
@@ -443,30 +598,36 @@ const AdminCargasView = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
+                      {/* Columna 1: Boleta/Operador */}
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Nº Boleta
+                        Boleta / Operador
                       </th>
+
+                      {/* Columna 2: Máquina-Patente-Ubicación */}
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Operador
+                        Máquina / Ubicación
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Máquina
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Faena
-                      </th>
+
+                      {/* Columna 3: Litros/Precio */}
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Litros
+                        Consumo
                       </th>
+                      {/* Columna 3: Litros/Precio */}
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Costo
                       </th>
+
+                      {/* Columna 4: Estado */}
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Estado
                       </th>
+
+                      {/* Columna 5: Fecha */}
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Fecha
                       </th>
+
+                      {/* Columna 6: Acciones */}
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Acciones
                       </th>
@@ -475,67 +636,91 @@ const AdminCargasView = () => {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {cargas.map((carga) => (
                       <tr key={carga.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {carga.numero_boleta}
-                        </td>
+                        {/* Columna 1: Boleta / Operador */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
                             <div className="text-sm font-medium text-gray-900">
-                              {carga.operador?.nombre_completo}
+                              {carga.numero_boleta}
                             </div>
                             <div className="text-sm text-gray-500">
-                              RUT: {carga.operador?.rut}
+                              {carga.operador?.nombre_completo}
                             </div>
+                            {carga.operador?.rut && (
+                              <div className="text-xs text-gray-400">
+                                RUT: {carga.operador?.rut}
+                              </div>
+                            )}
                           </div>
                         </td>
+                        {/* Columna 2: Máquina-Patente-Ubicación */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
                             <div className="text-sm font-medium text-gray-900">
                               {carga.maquina?.nombre}
                             </div>
                             <div className="text-sm text-gray-500">
-                              {carga.maquina?.patente}
+                              {carga.maquina?.patente} • {carga.ubicacion}
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {carga.faena?.nombre}
+
+                        {/* Columna 3: Litros/Precio */}
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {carga.litros_formateados}
+                            </div>
+                          </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                          {carga.litros_formateados}
+
+                        {/* Columna 3: Litros/Precio */}
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {carga.costo_formateado}
+                            </div>
+                          </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                          {carga.costo_formateado}
-                        </td>
+
                         <td className="px-6 py-4 whitespace-nowrap text-center">
                           <EstadoBadge estado={carga.estado} estadoBadge={carga.estado_badge} />
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
                           {carga.fecha_creacion}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                          <div className="flex items-center justify-center gap-2">
+                        {/* Acciones */}
+                        <td className="px-4 py-4">
+                          <div className="flex items-center space-x-2">
                             <button
-                              onClick={() => verDetalles(carga)}
-                              className="text-blue-600 hover:text-blue-900 transition-colors"
-                              title="Ver detalles"
+                              onClick={() => handleVerDetalle(carga.id)}
+                              className="inline-flex items-center px-3 py-1 border border-orange-300 text-sm font-medium rounded-md text-orange-700 bg-orange-50 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors cursor-pointer"
+                              title="Ver historial y detalles completos"
                             >
-                              <FaEye className="w-4 h-4" />
+                              <FaEye className="w-3 h-3 mr-1" />
+                              Ver
                             </button>
-                            
-                            {carga.estado === 'Por Rendir' && (
-                              <button
-                                onClick={() => cambiarEstadoCarga(carga.id, 'Rendido')}
-                                disabled={procesandoCambioEstado === carga.id}
-                                className="text-green-600 hover:text-green-900 transition-colors disabled:opacity-50"
-                                title="Marcar como rendido"
-                              >
-                                {procesandoCambioEstado === carga.id ? (
-                                  <FaSync className="w-4 h-4 animate-spin" />
-                                ) : (
-                                  <FaCheck className="w-4 h-4" />
-                                )}
-                              </button>
+
+                            {carga.estado === "Por Rendir" && (
+                              <>
+                                <button
+                                  onClick={() => handleRendir(carga.id)} // ✅ AGREGAR: Conectar handl eRendir con el ID de la carga
+                                  className="inline-flex items-center px-3 py-1 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors cursor-pointer"
+                                  title="Marcar carga como rendida" // ✅ OPCIONAL: Agregar tooltip descriptivo
+                                  disabled={loading} // ✅ OPCIONAL: Deshabilitar si está cargando
+                                >
+                                  {loading ? (
+                                    <>
+                                      <div className="animate-spin w-3 h-3 border-2 border-green-700 border-t-transparent rounded-full mr-1"></div>
+                                      Procesando...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <FaCheckCircle className="w-3 h-3 mr-1" />
+                                      Rendir
+                                    </>
+                                  )}
+                                </button>
+                              </>
                             )}
                           </div>
                         </td>
@@ -561,7 +746,7 @@ const AdminCargasView = () => {
                         </div>
                         <EstadoBadge estado={carga.estado} estadoBadge={carga.estado_badge} />
                       </div>
-                      
+
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         <div>
                           <span className="font-medium text-gray-700">Operador:</span>
@@ -580,7 +765,7 @@ const AdminCargasView = () => {
                           <p className="text-gray-900">{carga.costo_formateado}</p>
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-gray-200">
                         <button
                           onClick={() => verDetalles(carga)}
@@ -589,10 +774,10 @@ const AdminCargasView = () => {
                           <FaEye className="w-4 h-4" />
                           Ver
                         </button>
-                        
+
                         {carga.estado === 'Por Rendir' && (
                           <button
-                            onClick={() => cambiarEstadoCarga(carga.id, 'Rendido')}
+                            onClick={() => handleRendir(carga.id, 'Rendido')}
                             disabled={procesandoCambioEstado === carga.id}
                             className="text-green-600 hover:text-green-900 transition-colors disabled:opacity-50 flex items-center gap-1"
                           >
@@ -612,115 +797,33 @@ const AdminCargasView = () => {
 
               {/* Paginación */}
               <div className="px-6 py-4 border-t border-gray-200">
-                <Pagination
-                  paginaActual={paginaActual}
-                  infoPaginacion={infoPaginacion}
-                  irAPagina={irAPagina}
+                <PageControl
+                  currentPage={paginaActual}
+                  totalPages={infoPaginacion.totalPaginas}
+                  onPageChange={irAPagina}
+                  colorScheme="orange"
                 />
               </div>
             </>
           )}
         </div>
       </div>
-
-      {/* Modal de detalles (opcional) */}
-      {cargaSeleccionada && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-gray-900">
-                  Detalles de Carga #{cargaSeleccionada.numero_boleta}
-                </h3>
-                <button
-                  onClick={() => setCargaSeleccionada(null)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <FaTimes className="w-6 h-6" />
-                </button>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Operador</label>
-                    <p className="mt-1 text-sm text-gray-900">{cargaSeleccionada.operador?.nombre_completo}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">RUT Operador</label>
-                    <p className="mt-1 text-sm text-gray-900">{cargaSeleccionada.operador?.rut}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Máquina</label>
-                    <p className="mt-1 text-sm text-gray-900">{cargaSeleccionada.maquina?.display}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Faena</label>
-                    <p className="mt-1 text-sm text-gray-900">{cargaSeleccionada.faena?.nombre}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Tipo Combustible</label>
-                    <p className="mt-1 text-sm text-gray-900">{cargaSeleccionada.tipo_combustible}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Litros</label>
-                    <p className="mt-1 text-sm text-gray-900">{cargaSeleccionada.litros_formateados}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Precio por Litro</label>
-                    <p className="mt-1 text-sm text-gray-900">{cargaSeleccionada.precio_formateado}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Costo Total</label>
-                    <p className="mt-1 text-sm text-gray-900">{cargaSeleccionada.costo_formateado}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Medición</label>
-                    <p className="mt-1 text-sm text-gray-900">{cargaSeleccionada.medicion}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Estado</label>
-                    <div className="mt-1">
-                      <EstadoBadge estado={cargaSeleccionada.estado} estadoBadge={cargaSeleccionada.estado_badge} />
-                    </div>
-                  </div>
-                </div>
-                
-                {cargaSeleccionada.observaciones && cargaSeleccionada.observaciones !== '-' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Observaciones</label>
-                    <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-3 rounded-lg">
-                      {cargaSeleccionada.observaciones}
-                    </p>
-                  </div>
-                )}
-              </div>
-              
-              <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
-                {cargaSeleccionada.estado === 'Por Rendir' && (
-                  <button
-                    onClick={() => {
-                      cambiarEstadoCarga(cargaSeleccionada.id, 'Rendido');
-                      setCargaSeleccionada(null);
-                    }}
-                    disabled={procesandoCambioEstado === cargaSeleccionada.id}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-                  >
-                    <FaCheck className="w-4 h-4" />
-                    Marcar como Rendido
-                  </button>
-                )}
-                <button
-                  onClick={() => setCargaSeleccionada(null)}
-                  className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition-colors"
-                >
-                  Cerrar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Modal de detalle */}
+      {isModalOpen && (
+        <DetalleCargaModal
+          cargaId={selectedCargaId}
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          onActionComplete={handleActionComplete}
+        />
       )}
+      {/* Componente de notificación de éxito (igual que en MainAdminOperador) */}
+      <SuccessNotificationRendir
+        isVisible={notification.visible}
+        title={notification.title}
+        message={notification.message}
+        onClose={closeNotification}
+      />
     </div>
   );
 };

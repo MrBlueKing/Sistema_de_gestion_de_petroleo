@@ -20,7 +20,6 @@ const DetalleCargaModal = ({ cargaId, isOpen, onClose, onActionComplete }) => {
   const [carga, setCarga] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [motivoRechazo, setMotivoRechazo] = useState("");
   const [mostrarRechazo, setMostrarRechazo] = useState(false);
   const [success, setSuccess] = useState(null);
   const successRef = useRef(null);
@@ -311,7 +310,8 @@ const DetalleCargaModal = ({ cargaId, isOpen, onClose, onActionComplete }) => {
                     <div className="flex justify-between">
                       <span className="text-gray-600">Categoría:</span>
                       <span className="font-medium">
-                        {carga.maquina?.categoria?.nombre_categoria ||
+                        {console.log("Datos de carga:", carga)}
+                        {carga.maquina?.categoria?.nombre ||
                           "No disponible"}
                       </span>
                     </div>
