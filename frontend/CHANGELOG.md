@@ -27,7 +27,7 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - [TESTING:SEBASTIAN] Global --> Centralizar un controlador de colores por faena reutilizable.
 
-- [Queued] Rol Jefe Mina --> Visualización similar a gerente, pero con el filtro fijo a su user.id_faena.
+- [Idea] Rol Jefe Mina --> Visualización similar a gerente, pero con el filtro fijo a su user.id_faena.
 
 - [Testing:Sebastian] Gerente --> Gestión Ingresos --> Añadir Información de la faena y paginación de la lista.
 
@@ -51,13 +51,15 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - [Testing:Nico] Administrador Operador Vehiculos --> Eliminar Asignación Usuario Maquina y Guardar Drag & Drop.
 
-- [WIP:Nico] Recepciones Movil --> Eliminar Información repetida (detalles de recepción).
+- [Ready] Recepciones Movil --> Eliminar Información repetida (detalles de recepción).
 
 - [Ready] Historial Maqiuna Bombero --> Eliminar Acumulado por registro, Mejorar Bloqueo de boton.
 
 ### Fixed
 
-- [WIP] Administrador Operador Vehiculos --> Crear Users --> Agregar Todas las validaciones correspondientes y ver que hacer con guion.
+- [Ready] Dashboard Comparativo --> Corrección de descripción de periodo anterior.
+
+- [Testing:Nico] Administrador Operador Vehiculos --> Crear Users --> Agregar Todas las validaciones correspondientes y ver que hacer con guion.
 
 - [Testing:Nico] Operador Vehiculos --> Historial --> Reemplazar historial antiguo por uno nuevo centrado en el user que traiga las estadisticas de las maquinas que el cargo.
 

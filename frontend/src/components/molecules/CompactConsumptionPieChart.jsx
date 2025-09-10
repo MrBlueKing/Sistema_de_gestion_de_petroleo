@@ -227,13 +227,11 @@ const CompactConsumptionPieChart = ({
         total: categoriasFinales.length,
         conActuales: categoriasFinales.filter((c) => c.actual > 0).length,
         conAnteriores: categoriasFinales.filter((c) => c.anterior > 0).length,
-        muestra: categoriasFinales
-          .slice(0, 3)
-          .map((c) => ({
-            name: c.name,
-            actual: c.actual,
-            anterior: c.anterior,
-          })),
+        muestra: categoriasFinales.slice(0, 3).map((c) => ({
+          name: c.name,
+          actual: c.actual,
+          anterior: c.anterior,
+        })),
       }
     );
 
@@ -257,7 +255,6 @@ const CompactConsumptionPieChart = ({
       tieneDatosCompletos: !!(datosCompletoActuales && datosCompletoAnteriores),
     });
   }, [
-    
     periodoActual,
     periodoAnterior,
     modoVisualizacion,
@@ -465,17 +462,24 @@ const CompactConsumptionPieChart = ({
       .toString()
       .padStart(2, "0")}-${dayAnteriorHasta.toString().padStart(2, "0")}`;
 
+    // 🎨 NUEVA PARTE VISUAL: Sumar 1 día SOLO para mostrar al usuario
+    const fechaVisualInicio = new Date(fechaInicioAnterior);
+    fechaVisualInicio.setDate(fechaVisualInicio.getDate() + 1);
+
+    const fechaVisualFin = new Date(fechaFinAnterior);
+    fechaVisualFin.setDate(fechaVisualFin.getDate() + 1);
+
+    // 🎨 FORMATO VISUAL: dd/mm/yyyy como requested
+    const formatearFechaVisual = (fecha) => {
+      const dia = fecha.getDate().toString().padStart(2, "0");
+      const mes = (fecha.getMonth() + 1).toString().padStart(2, "0");
+      const año = fecha.getFullYear();
+      return `${dia}/${mes}/${año}`;
+    };
+
     // Generar descripción
-    const descripcion = `${new Date(fechaInicioAnterior).toLocaleDateString(
-      "es-ES",
-      {
-        month: "short",
-        day: "numeric",
-      }
-    )} - ${new Date(fechaFinAnterior).toLocaleDateString("es-ES", {
-      month: "short",
-      day: "numeric",
-    })}`;
+  const descripcion = `${formatearFechaVisual(fechaVisualInicio)} al ${formatearFechaVisual(fechaVisualFin)}`;
+
 
     // Logging para debugging
     console.log("🔍 Cálculo período anterior:", {
@@ -961,8 +965,8 @@ const CompactConsumptionPieChart = ({
 
       // 🔄 ACTUALIZADO: Ahora guardamos las categorías según el modo actual
       // ✅ CORRECTO: Guardar los datos completos procesados
-setDatosCompletoActuales(datosActuales); // datosActuales ya tiene { categoriasIniciales: [...], categoriasFinales: [...] }
-setDatosCompletoAnteriores(datosAnteriores); // datosAnteriores también
+      setDatosCompletoActuales(datosActuales); // datosActuales ya tiene { categoriasIniciales: [...], categoriasFinales: [...] }
+      setDatosCompletoAnteriores(datosAnteriores); // datosAnteriores también
       setCategorias(categoriasUnificadas);
       initialLoadDone.current = true;
 
@@ -1192,59 +1196,56 @@ setDatosCompletoAnteriores(datosAnteriores); // datosAnteriores también
             </div>
           </div>
 
-      <div className="flex items-center space-x-4">
-  <div className="text-right">
-    <p className="text-xs text-gray-500">
-      {esIniciales
-        ? "Mostrando todas las categorías"
-        : "Mostrando categorías operacionales"}
-    </p>
-    <p className="text-xs font-medium text-gray-700">
-      Datos: {categoriasActuales} categorías
-    </p>
-  </div>
+          <div className="flex items-center space-x-4">
+            <div className="text-right">
+              <p className="text-xs text-gray-500">
+                {esIniciales
+                  ? "Mostrando todas las categorías"
+                  : "Mostrando categorías operacionales"}
+              </p>
+              <p className="text-xs font-medium text-gray-700">
+                Datos: {categoriasActuales} categorías
+              </p>
+            </div>
 
-<button
-  onClick={alternarModoVisualizacion}
-  disabled={loading}
-  className={`
+            <button
+              onClick={alternarModoVisualizacion}
+              disabled={loading}
+              className={`
     relative grid grid-cols-2 h-9 w-44 rounded-full border border-black
     transition-colors duration-300 text-xs font-medium overflow-hidden
     ${loading ? "opacity-50 cursor-not-allowed" : ""}
   `}
->
-  {/* Fondo deslizante */}
-  <span
-    className={`
+            >
+              {/* Fondo deslizante */}
+              <span
+                className={`
       absolute inset-y-0 w-1/2 rounded-full bg-gray-100 shadow-md transition-transform duration-300
       ${esIniciales ? "translate-x-0" : "translate-x-full"}
     `}
-  />
+              />
 
-  {/* Texto Todas */}
-  <span
-    className={`
+              {/* Texto Todas */}
+              <span
+                className={`
       flex items-center justify-center z-10 transition-colors duration-300
       ${esIniciales ? "text-blue-600 font-semibold" : "text-white"}
     `}
-  >
-    Todas
-  </span>
+              >
+                Todas
+              </span>
 
-  {/* Texto Operacional */}
-  <span
-    className={`
+              {/* Texto Operacional */}
+              <span
+                className={`
       flex items-center justify-center z-10 transition-colors duration-300
       ${!esIniciales ? "text-orange-600 font-semibold" : "text-white"}
     `}
-  >
-    Operacional
-  </span>
-</button>
-
-
-</div>
-
+              >
+                Operacional
+              </span>
+            </button>
+          </div>
         </div>
 
         {/* 🔄 INFORMACIÓN ADICIONAL DEL MODO */}

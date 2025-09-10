@@ -10,7 +10,7 @@ import {
   Legend,
   LabelList,
   ReferenceArea,
-  ReferenceLine ,
+  ReferenceLine,
   Rectangle,
 } from "recharts";
 import {
@@ -42,6 +42,8 @@ const DashboardComparativo = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [periodoAnteriorDescripcion, setPeriodoAnteriorDescripcion] =
+    useState("");
+  const [periodoAnteriorDescripcionActual, setPeriodoAnteriorDescripcionActual] =
     useState("");
 
   // NUEVO: Estado para filtrar equipos
@@ -134,17 +136,33 @@ const DashboardComparativo = ({
       .toString()
       .padStart(2, "0")}-${dayAnteriorHasta.toString().padStart(2, "0")}`;
 
+    // 🎨 ====== NUEVA SECCIÓN VISUAL ======
+    // Sumar 1 día SOLO para mostrar al usuario
+    const fechaVisualInicio = new Date(fechaInicioAnterior);
+    fechaVisualInicio.setDate(fechaVisualInicio.getDate() + 1);
+
+    const fechaVisualFin = new Date(fechaFinAnterior);
+    fechaVisualFin.setDate(fechaVisualFin.getDate() + 1);
+
+    // 🎨 FORMATO VISUAL: dd/mm/yyyy como requested
+    const formatearFechaVisual = (fecha) => {
+      const dia = fecha.getDate().toString().padStart(2, "0");
+      const mes = (fecha.getMonth() + 1).toString().padStart(2, "0");
+      const año = fecha.getFullYear();
+      return `${dia}/${mes}/${año}`;
+    };
+
+    function formatearFecha(fecha) {
+  if (!fecha) return "";
+  const [anio, mes, dia] = fecha.split("-");
+  return `${dia}-${mes}-${anio}`;
+}
+
     // Generar descripción
-    const descripcion = `${new Date(fechaInicioAnterior).toLocaleDateString(
-      "es-ES",
-      {
-        month: "short",
-        day: "numeric",
-      }
-    )} - ${new Date(fechaFinAnterior).toLocaleDateString("es-ES", {
-      month: "short",
-      day: "numeric",
-    })}`;
+    
+    const descripcion = `${formatearFechaVisual(fechaVisualInicio)} al ${formatearFechaVisual(fechaVisualFin)}`;
+    const descripcionActual = `${formatearFecha(fechaDesde)} al ${formatearFecha(fechaHasta)}`;
+
 
     // Logging para debugging
     console.log("🔍 Cálculo período anterior:", {
@@ -165,12 +183,14 @@ const DashboardComparativo = ({
         },
       },
       descripcion,
+      descripcionActual,
     });
 
     return {
       fechaDesde: fechaInicioAnterior,
       fechaHasta: fechaFinAnterior,
       descripcion,
+      descripcionActual,
       // 🆕 METADATOS ADICIONALES para debugging
       metadatos: {
         ajusteDiaInicio: dayDesde !== dayAnteriorDesde,
@@ -341,6 +361,7 @@ const DashboardComparativo = ({
         if (!periodoAnterior) return;
 
         setPeriodoAnteriorDescripcion(periodoAnterior.descripcion);
+        setPeriodoAnteriorDescripcionActual(periodoAnterior.descripcionActual);
 
         console.log("📊 DashboardComparativo: Períodos calculados:", {
           actual: `${fechaDesde} al ${fechaHasta}`,
@@ -733,9 +754,14 @@ const DashboardComparativo = ({
             <FiPieChart className="text-orange-600 mr-2" />
             <span>Consumo Total y por Faenas</span>
           </h4>
-          <p className="text-xs text-gray-500">
-            vs {periodoAnteriorDescripcion}
-          </p>
+          
+
+<p className="text-xs text-gray-900">
+  ➤ Anterior: {periodoAnteriorDescripcion}  
+  <br />
+  ➤ Actual: {periodoAnteriorDescripcionActual} 
+</p>
+
         </div>
 
         <div className="h-[25rem]">
@@ -826,9 +852,12 @@ const DashboardComparativo = ({
             <GiFactory className="text-green-600 mr-2" />
             <span>Por Categorías de Equipos</span>
           </h4>
-          <p className="text-xs text-gray-500">
-            vs {periodoAnteriorDescripcion}
-          </p>
+          
+<p className="text-xs text-gray-900">
+  ➤ Anterior: {periodoAnteriorDescripcion}  
+  <br />
+  ➤ Actual: {periodoAnteriorDescripcionActual} 
+</p>
         </div>
 
         <div className="h-[25rem]">
@@ -951,9 +980,12 @@ const DashboardComparativo = ({
               </span>
             </label>
 
-            <p className="text-xs text-gray-500">
-              vs {periodoAnteriorDescripcion}
-            </p>
+            
+<p className="text-xs text-gray-900">
+  ➤ Anterior: {periodoAnteriorDescripcion}  
+  <br />
+  ➤ Actual: {periodoAnteriorDescripcionActual} 
+</p>
           </div>
         </div>
 
