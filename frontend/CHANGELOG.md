@@ -57,7 +57,7 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 ### Fixed
 
-- [Queued] Administrador Operador Vehiculos --> Crear Users --> Agregar Todas las validaciones correspondientes y ver que hacer con guion.
+- [WIP] Administrador Operador Vehiculos --> Crear Users --> Agregar Todas las validaciones correspondientes y ver que hacer con guion.
 
 - [Testing:Nico] Operador Vehiculos --> Historial --> Reemplazar historial antiguo por uno nuevo centrado en el user que traiga las estadisticas de las maquinas que el cargo.
 

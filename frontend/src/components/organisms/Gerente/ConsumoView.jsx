@@ -815,7 +815,7 @@ const HistorialMaquinasView = () => {
           const paramsTodasMaquinas = new URLSearchParams({
             faenas: faenaIds,
             page: "1",
-            per_page: "99999",
+            per_page: "10",
           });
 
           if (filterParams.dateFrom?.trim()) {
@@ -955,7 +955,7 @@ const HistorialMaquinasView = () => {
         const params = new URLSearchParams({
           faenas: faenaIds,
           page: "1",
-          per_page: "10000", // Límite para gráficos
+          per_page: "10", // Límite para gráficos
         });
 
         // Agregar filtros

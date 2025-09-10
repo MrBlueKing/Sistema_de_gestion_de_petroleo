@@ -26,6 +26,7 @@ import {
 } from 'react-icons/fa';
 import axios from '../../../lib/axios';
 import ToggleEstadoModalAdminOperador from '../../molecules/ToggleEstadoModalAdminOperador';
+import ModalFormularioAdminOperador from '../../molecules/ModalFormularioAdminOperador';
 
 // Importar el layout base y sus componentes
 import AdminLayoutBase, {
@@ -91,6 +92,9 @@ const GestionarUsuariosOperador = () => {
         activo: true
     });
 
+    // 2. CAMBIAR el estado de mostrarFormulario a mostrarModal
+    const [mostrarModal, setMostrarModal] = useState(false);
+    
     // Estados para validación
     const [erroresValidacion, setErroresValidacion] = useState({});
 
@@ -99,6 +103,9 @@ const GestionarUsuariosOperador = () => {
     const [usuarioToggle, setUsuarioToggle] = useState(null);
     const [accionToggle, setAccionToggle] = useState('');
     const [toggleModalError, setToggleModalError] = useState(null);
+
+    // 🔧 Normalizar RUT: elimina puntos y guiones
+    const limpiarRut = (rut) => rut.replace(/[^0-9kK]/g, '').toUpperCase();
 
     // ⚡ Cargar datos iniciales
     useEffect(() => {
@@ -115,6 +122,36 @@ const GestionarUsuariosOperador = () => {
         }
     }, [message]);
 
+    // 🔧 Validar RUT con módulo 11
+    // Valida un RUT sin guion (ej: "123456789" donde el último dígito es verificador)
+    const validarRut = (rut) => {
+        // Elimina espacios y normaliza a mayúscula
+        rut = rut.trim().toUpperCase();
+
+        // Debe ser al menos 8 dígitos (ej: 11111111K)
+        if (!/^[0-9]+[0-9K]$/.test(rut)) return false;
+
+        const cuerpo = rut.slice(0, -1); // todos menos el último
+        const dv = rut.slice(-1);        // último carácter (dígito verificador)
+
+        let suma = 0;
+        let multiplicador = 2;
+
+        // Recorre el cuerpo de derecha a izquierda
+        for (let i = cuerpo.length - 1; i >= 0; i--) {
+            suma += parseInt(cuerpo[i]) * multiplicador;
+            multiplicador = multiplicador === 7 ? 2 : multiplicador + 1;
+        }
+
+        const resto = suma % 11;
+        let dvEsperado = 11 - resto;
+
+        if (dvEsperado === 11) dvEsperado = "0";
+        else if (dvEsperado === 10) dvEsperado = "K";
+        else dvEsperado = String(dvEsperado);
+
+        return dv === dvEsperado;
+    };
 
 
     // 📊 Cargar datos iniciales desde backend
@@ -239,16 +276,22 @@ const GestionarUsuariosOperador = () => {
     // 🎯 Función CORREGIDA para limpiar errores cuando el usuario escribe
     const handleInputChange = (e) => {
         const { name, value, type, checked } = e.target;
-        const newValue = type === 'checkbox' ? checked : value;
+        let newValue = type === "checkbox" ? checked : value;
 
-        setFormData(prev => ({
+        // 🚫 Si es el campo RUT, limpiar caracteres no válidos
+        if (name === "rut") {
+            newValue = newValue.replace(/[^0-9kK]/g, ""); // solo números y k/K
+            if (newValue.length > 9) newValue = newValue.slice(0, 9); // limita a 9 caracteres
+        }
+
+        setFormData((prev) => ({
             ...prev,
-            [name]: newValue
+            [name]: newValue,
         }));
 
         // 🔥 LIMPIAR ERROR ESPECÍFICO cuando el usuario empiece a escribir
         if (erroresValidacion[name]) {
-            setErroresValidacion(prev => {
+            setErroresValidacion((prev) => {
                 const nuevosErrores = { ...prev };
                 delete nuevosErrores[name];
                 return nuevosErrores;
@@ -256,68 +299,73 @@ const GestionarUsuariosOperador = () => {
         }
 
         // También limpiar mensaje general si había error
-        if (message?.tipo === 'error') {
+        if (message?.tipo === "error") {
             setMessage(null);
         }
     };
+
 
     // ✅ Validar formulario
     const validarFormulario = () => {
         const errores = {};
 
-        // Validar nombre
+        // Nombre
         if (!formData.nombre.trim()) {
-            errores.nombre = 'El nombre es requerido';
+            errores.nombre = "El nombre es requerido";
         }
 
-        // Validar apellido
+        // Apellido
         if (!formData.apellido.trim()) {
-            errores.apellido = 'El apellido es requerido';
+            errores.apellido = "El apellido es requerido";
         }
 
-        // Validar RUT
+        // RUT
         if (!formData.rut.trim()) {
-            errores.rut = 'El RUT es requerido';
-        } else if (!/^[0-9]+-[0-9kK]{1}$/.test(formData.rut.trim())) {
-            errores.rut = 'Formato de RUT inválido (ej: 12345678-9)';
+            errores.rut = "El RUT es requerido";
+        } else if (!validarRut(formData.rut)) {
+            errores.rut = "El RUT ingresado no es válido";
         }
 
-        // Validar email (opcional)
-        if (formData.email && formData.email.trim() && !/\S+@\S+\.\S+/.test(formData.email)) {
-            errores.email = 'Email inválido';
+        // Email
+        if (
+            formData.email &&
+            formData.email.trim() &&
+            !/\S+@\S+\.\S+/.test(formData.email)
+        ) {
+            errores.email = "Email inválido";
         }
 
-        // Validar faena
+        // Faena
         if (!formData.id_faena) {
-            errores.id_faena = 'Seleccione una faena';
+            errores.id_faena = "Seleccione una faena";
         }
 
-        // Validar contraseña (solo para usuarios nuevos)
+        // Contraseña
         if (!modoEdicion) {
             if (!formData.password) {
-                errores.password = 'La contraseña es requerida';
+                errores.password = "La contraseña es requerida";
             } else if (formData.password.length < 6) {
-                errores.password = 'La contraseña debe tener al menos 6 caracteres';
+                errores.password = "La contraseña debe tener al menos 6 caracteres";
             }
 
             if (!formData.confirmPassword) {
-                errores.confirmPassword = 'Confirme la contraseña';
+                errores.confirmPassword = "Confirme la contraseña";
             } else if (formData.password !== formData.confirmPassword) {
-                errores.confirmPassword = 'Las contraseñas no coinciden';
+                errores.confirmPassword = "Las contraseñas no coinciden";
             }
         } else if (formData.password) {
-            // Si es edición y se proporcionó contraseña, validarla
             if (formData.password.length < 6) {
-                errores.password = 'La contraseña debe tener al menos 6 caracteres';
+                errores.password = "La contraseña debe tener al menos 6 caracteres";
             }
             if (formData.password !== formData.confirmPassword) {
-                errores.confirmPassword = 'Las contraseñas no coinciden';
+                errores.confirmPassword = "Las contraseñas no coinciden";
             }
         }
 
         setErroresValidacion(errores);
         return Object.keys(errores).length === 0;
     };
+
 
     // 💾 Función para guardar usuario - MEJORADA para manejar RUT duplicado
     const handleGuardarUsuario = async () => {
@@ -854,13 +902,20 @@ const GestionarUsuariosOperador = () => {
                                     value={formData.rut}
                                     onChange={handleInputChange}
                                     autoComplete="username"
+                                    onKeyDown={(e) => {
+                                        if (e.key === "-") e.preventDefault();
+                                    }}
                                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors ${erroresValidacion.rut
-                                        ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-300'
-                                        : 'border-gray-300'
+                                        ? "border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-300"
+                                        : "border-gray-300"
                                         }`}
-                                    placeholder="Ej: 12345678-9"
+                                    placeholder="Ej: 12345678K"
                                 />
+
                                 {mostrarErrorCampo('rut')}
+                                <small className="text-gray-500 text-sm">
+                                    Ingrese el RUT sin puntos ni guion. Ej: 12345678K
+                                </small>
                             </div>
 
                             {/* Email */}
