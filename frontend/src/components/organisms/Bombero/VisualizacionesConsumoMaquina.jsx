@@ -1,36 +1,58 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
-  FaTruck, FaCalendarAlt, FaGasPump, FaChartLine,
-  FaClock, FaExchangeAlt, FaChevronDown, FaChevronUp,
-  FaInfoCircle, FaSpinner, FaFilter, FaEye,
-  FaChevronLeft, FaChevronRight
-} from 'react-icons/fa';
+  FaTruck,
+  FaCalendarAlt,
+  FaGasPump,
+  FaChartLine,
+  FaClock,
+  FaExchangeAlt,
+  FaChevronDown,
+  FaChevronUp,
+  FaInfoCircle,
+  FaSpinner,
+  FaFilter,
+  FaEye,
+  FaChevronLeft,
+  FaChevronRight,
+} from "react-icons/fa";
 import {
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  Area, AreaChart
-} from 'recharts';
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  Area,
+  AreaChart,
+} from "recharts";
 
 // 🎨 CONFIGURACIÓN DE COLORES POR FAENA
 const FAENA_COLORS = {
-  'Cabildo': {
-    primary: '#16a34a', // verde
-    light: '#dcfce7',
-    border: '#bbf7d0',
-    icon: '🌿'
+  Cabildo: {
+    primary: "#16a34a", // verde
+    light: "#dcfce7",
+    border: "#bbf7d0",
+    icon: "🌿",
   },
-  'Tiltil': {
-    primary: '#dc2626', // rojo
-    light: '#fee2e2',
-    border: '#fecaca',
-    icon: '🏔️'
+  Tiltil: {
+    primary: "#dc2626", // rojo
+    light: "#fee2e2",
+    border: "#fecaca",
+    icon: "🏔️",
   },
-  'Estacion de Servicio': {
-    primary: '#1D4ED8', // degradado azul
-    light: '#EFF6FF',  // azul muy claro
-    border: '#BFDBFE', // azul suave
-    icon: '⛽'
-  }
+  "Estacion de Servicio": {
+    primary: "#1D4ED8", // degradado azul
+    light: "#EFF6FF", // azul muy claro
+    border: "#BFDBFE", // azul suave
+    icon: "⛽",
+  },
 };
 
 // 🛠️ Función helper para obtener estilos inline por faena
@@ -38,112 +60,126 @@ const getFaenaStyles = (faena) => {
   const faenaData = FAENA_COLORS[faena];
   if (!faenaData) {
     return {
-      backgroundColor: '#f9fafb', // gray-50
-      borderLeftColor: '#6b7280'  // gray-400
+      backgroundColor: "#f9fafb", // gray-50
+      borderLeftColor: "#6b7280", // gray-400
     };
   }
   return {
     backgroundColor: faenaData.light,
-    borderLeftColor: faenaData.primary
+    borderLeftColor: faenaData.primary,
   };
 };
 // 🎨 COLORES PARA GRÁFICOS
-const CHART_COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#8dd1e1', '#d084d0'];
+const CHART_COLORS = [
+  "#8884d8",
+  "#82ca9d",
+  "#ffc658",
+  "#ff7300",
+  "#8dd1e1",
+  "#d084d0",
+];
 
 // 🔧 CONFIGURACIÓN DE PAGINACIÓN
 const ITEMS_PER_PAGE = 10;
 
 // 📄 COMPONENTE DE PAGINACIÓN
-const Pagination = React.memo(({
-  currentPage,
-  totalPages,
-  totalItems,
-  onPageChange,
-  itemsPerPage = ITEMS_PER_PAGE
-}) => {
-  const startItem = (currentPage - 1) * itemsPerPage + 1;
-  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+const Pagination = React.memo(
+  ({
+    currentPage,
+    totalPages,
+    totalItems,
+    onPageChange,
+    itemsPerPage = ITEMS_PER_PAGE,
+  }) => {
+    const startItem = (currentPage - 1) * itemsPerPage + 1;
+    const endItem = Math.min(currentPage * itemsPerPage, totalItems);
 
-  const getPageNumbers = useMemo(() => {
-    const delta = 2;
-    const range = [];
-    const rangeWithDots = [];
+    const getPageNumbers = useMemo(() => {
+      const delta = 2;
+      const range = [];
+      const rangeWithDots = [];
 
-    for (let i = Math.max(2, currentPage - delta);
-      i <= Math.min(totalPages - 1, currentPage + delta);
-      i++) {
-      range.push(i);
-    }
+      for (
+        let i = Math.max(2, currentPage - delta);
+        i <= Math.min(totalPages - 1, currentPage + delta);
+        i++
+      ) {
+        range.push(i);
+      }
 
-    if (currentPage - delta > 2) {
-      rangeWithDots.push(1, '...');
-    } else {
-      rangeWithDots.push(1);
-    }
+      if (currentPage - delta > 2) {
+        rangeWithDots.push(1, "...");
+      } else {
+        rangeWithDots.push(1);
+      }
 
-    rangeWithDots.push(...range);
+      rangeWithDots.push(...range);
 
-    if (currentPage + delta < totalPages - 1) {
-      rangeWithDots.push('...', totalPages);
-    } else {
-      rangeWithDots.push(totalPages);
-    }
+      if (currentPage + delta < totalPages - 1) {
+        rangeWithDots.push("...", totalPages);
+      } else {
+        rangeWithDots.push(totalPages);
+      }
 
-    return rangeWithDots;
-  }, [currentPage, totalPages]);
+      return rangeWithDots;
+    }, [currentPage, totalPages]);
 
-  if (totalPages <= 1) return null;
+    if (totalPages <= 1) return null;
 
-  return (
-    <div className="flex items-center justify-between flex-col sm:flex-row gap-4 mt-6 pt-4 border-t border-gray-200">
-      <div className="text-sm text-gray-600">
-        Mostrando <span className="font-medium">{startItem}</span> a{" "}
-        <span className="font-medium">{endItem}</span> de{" "}
-        <span className="font-medium">{totalItems}</span> resultados
-      </div>
+    return (
+      <div className="flex items-center justify-between flex-col sm:flex-row gap-4 mt-6 pt-4 border-t border-gray-200">
+        <div className="text-sm text-gray-600">
+          Mostrando <span className="font-medium">{startItem}</span> a{" "}
+          <span className="font-medium">{endItem}</span> de{" "}
+          <span className="font-medium">{totalItems}</span> resultados
+        </div>
 
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === 1
-            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-            : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
-            }`}
-        >
-          <FaChevronLeft className="w-3 h-3" />
-        </button>
-
-        {getPageNumbers.map((page, index) => (
+        <div className="flex items-center gap-1">
           <button
-            key={index}
-            onClick={() => typeof page === 'number' && onPageChange(page)}
-            disabled={page === '...'}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${page === currentPage
-              ? "bg-blue-600 text-white"
-              : page === '...'
-                ? "text-gray-400 cursor-default"
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              currentPage === 1
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                 : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
-              }`}
-          >
-            {page}
-          </button>
-        ))}
-
-        <button
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === totalPages
-            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-            : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
             }`}
-        >
-          <FaChevronRight className="w-3 h-3" />
-        </button>
+          >
+            <FaChevronLeft className="w-3 h-3" />
+          </button>
+
+          {getPageNumbers.map((page, index) => (
+            <button
+              key={typeof page === "number" ? `page-${page}` : page}
+              onClick={() => typeof page === "number" && onPageChange(page)}
+              disabled={page === "..."}
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                page === currentPage
+                  ? "bg-blue-600 text-white"
+                  : page === "..."
+                  ? "text-gray-400 cursor-default"
+                  : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
+              }`}
+            >
+              {page}
+            </button>
+          ))}
+
+          <button
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              currentPage === totalPages
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
+            }`}
+          >
+            <FaChevronRight className="w-3 h-3" />
+          </button>
+        </div>
       </div>
-    </div>
-  );
-});
+    );
+  }
+);
 
 // Componente principal de visualizaciones
 const VisualizacionesConsumoMaquina = ({
@@ -156,10 +192,10 @@ const VisualizacionesConsumoMaquina = ({
   formatearFecha,
   formatNumber,
   user = null,
-  maquinasDisponibles = []
+  maquinasDisponibles = [],
 }) => {
-  const [vistaActiva, setVistaActiva] = useState('timeline');
-  const [maquinaSeleccionada, setMaquinaSeleccionada] = useState('');
+  const [vistaActiva, setVistaActiva] = useState("timeline");
+  const [maquinaSeleccionada, setMaquinaSeleccionada] = useState("");
 
   // 🆕 ESTADOS PARA PAGINACIÓN
   const [currentPage, setCurrentPage] = useState(1);
@@ -169,7 +205,9 @@ const VisualizacionesConsumoMaquina = ({
     return (
       <div className="flex justify-center items-center py-12 bg-white rounded-xl shadow-lg">
         <FaSpinner className="animate-spin text-orange-600 text-3xl mr-3" />
-        <span className="text-gray-600 font-medium">Cargando visualizaciones...</span>
+        <span className="text-gray-600 font-medium">
+          Cargando visualizaciones...
+        </span>
       </div>
     );
   }
@@ -178,7 +216,9 @@ const VisualizacionesConsumoMaquina = ({
     return (
       <div className="bg-red-50 rounded-xl p-8 text-center shadow-lg border border-red-200">
         <div className="text-red-500 text-4xl mb-4">⚠️</div>
-        <h3 className="text-lg font-semibold text-red-800 mb-2">Error al cargar datos</h3>
+        <h3 className="text-lg font-semibold text-red-800 mb-2">
+          Error al cargar datos
+        </h3>
         <p className="text-red-600">{error}</p>
       </div>
     );
@@ -189,14 +229,15 @@ const VisualizacionesConsumoMaquina = ({
     return (
       <div className="bg-gray-50 rounded-xl p-8 text-center shadow-lg">
         <div className="text-gray-400 text-4xl mb-4">📊</div>
-        <h3 className="text-lg font-semibold text-gray-800 mb-2">Sin datos para visualizar</h3>
+        <h3 className="text-lg font-semibold text-gray-800 mb-2">
+          Sin datos para visualizar
+        </h3>
         <p className="text-gray-600">
           {selectedFaenas.length === 0
             ? "Selecciona al menos una faena para ver los gráficos"
-            : Object.keys(filters).some(key => filters[key])
-              ? "No hay consumos que coincidan con los filtros aplicados"
-              : "No hay consumos disponibles para crear gráficos"
-          }
+            : Object.keys(filters).some((key) => filters[key])
+            ? "No hay consumos que coincidan con los filtros aplicados"
+            : "No hay consumos disponibles para crear gráficos"}
         </p>
       </div>
     );
@@ -206,22 +247,22 @@ const VisualizacionesConsumoMaquina = ({
   const datosProcesados = useMemo(() => {
     if (!consumos || consumos.length === 0) return [];
 
-    const datos = consumos.map(item => ({
+    const datos = consumos.map((item) => ({
       ...item,
       fecha: new Date(item.fecha_consumo),
-      fechaFormateada: formatearFecha ?
-        formatearFecha(item.fecha_consumo).fecha :
-        new Date(item.fecha_consumo).toLocaleDateString('es-CL'),
-      horaFormateada: formatearFecha ?
-        formatearFecha(item.fecha_consumo).hora :
-        new Date(item.fecha_consumo).toLocaleTimeString('es-CL'),
+      fechaFormateada: formatearFecha
+        ? formatearFecha(item.fecha_consumo).fecha
+        : new Date(item.fecha_consumo).toLocaleDateString("es-CL"),
+      horaFormateada: formatearFecha
+        ? formatearFecha(item.fecha_consumo).hora
+        : new Date(item.fecha_consumo).toLocaleTimeString("es-CL"),
       litros: parseFloat(item.litros_consumidos || 0),
       faena: item.faena,
       medicion: parseFloat(item.medicion || 0),
-      maquina: item.nombre_maquina || 'Sin nombre',
-      patente: item.patente || 'Sin patente',
+      maquina: item.nombre_maquina || "Sin nombre",
+      patente: item.patente || "Sin patente",
       id: item.id_consumo || item.id || Math.random(),
-      solicitante: item.solicitante_nombre || 'N/A'
+      solicitante: item.solicitante_nombre || "N/A",
     }));
 
     console.log("DATOS PROCESADOS:", datos.slice(0, 3));
@@ -232,20 +273,20 @@ const VisualizacionesConsumoMaquina = ({
   const datosFiltrados = useMemo(() => {
     let datos = datosProcesados;
 
-    if (maquinaSeleccionada && maquinaSeleccionada.trim() !== '') {
-      datos = datosProcesados.filter(item =>
-        item.maquina === maquinaSeleccionada
+    if (maquinaSeleccionada && maquinaSeleccionada.trim() !== "") {
+      datos = datosProcesados.filter(
+        (item) => item.maquina === maquinaSeleccionada
       );
 
       console.log(`🔍 Filtrado por máquina "${maquinaSeleccionada}":`, {
         totalOriginal: datosProcesados.length,
-        filtradosPorMaquina: datos.length
+        filtradosPorMaquina: datos.length,
       });
     }
 
     console.log(`📊 Datos disponibles para visualización:`, {
       totalDisponible: datos.length,
-      conPaginacion: true
+      conPaginacion: true,
     });
 
     return datos;
@@ -276,10 +317,10 @@ const VisualizacionesConsumoMaquina = ({
   const datosLineaTiempo = useMemo(() => {
     const datos = datosPaginados.map((item, index) => ({
       ...item,
-      diaNumero: ((currentPage - 1) * ITEMS_PER_PAGE) + index + 1,
+      diaNumero: (currentPage - 1) * ITEMS_PER_PAGE + index + 1,
       consumoAcumulado: datosFiltrados
-        .slice(0, ((currentPage - 1) * ITEMS_PER_PAGE) + index + 1)
-        .reduce((sum, d) => sum + d.litros, 0)
+        .slice(0, (currentPage - 1) * ITEMS_PER_PAGE + index + 1)
+        .reduce((sum, d) => sum + d.litros, 0),
     }));
 
     return datos;
@@ -292,13 +333,16 @@ const VisualizacionesConsumoMaquina = ({
       return acc;
     }, {});
 
-    const totalLitros = Object.values(porFaena).reduce((sum, litros) => sum + litros, 0);
+    const totalLitros = Object.values(porFaena).reduce(
+      (sum, litros) => sum + litros,
+      0
+    );
 
     return Object.entries(porFaena).map(([faena, litros]) => ({
       name: faena,
       value: litros,
-      porcentaje: totalLitros > 0 ?
-        ((litros / totalLitros) * 100).toFixed(1) : "0"
+      porcentaje:
+        totalLitros > 0 ? ((litros / totalLitros) * 100).toFixed(1) : "0",
     }));
   }, [datosFiltrados]);
 
@@ -306,18 +350,20 @@ const VisualizacionesConsumoMaquina = ({
   const datosBarras = useMemo(() => {
     const porFecha = {};
 
-    datosFiltrados.forEach(item => {
+    datosFiltrados.forEach((item) => {
       const fecha = item.fechaFormateada;
       if (!porFecha[fecha]) {
         porFecha[fecha] = { fecha, Cabildo: 0, Tiltil: 0, total: 0 };
       }
-      porFecha[fecha][item.faena] = (porFecha[fecha][item.faena] || 0) + item.litros;
+      porFecha[fecha][item.faena] =
+        (porFecha[fecha][item.faena] || 0) + item.litros;
       porFecha[fecha].total += item.litros;
     });
 
-    return Object.values(porFecha).sort((a, b) =>
-      new Date(a.fecha.split('/').reverse().join('-')) -
-      new Date(b.fecha.split('/').reverse().join('-'))
+    return Object.values(porFecha).sort(
+      (a, b) =>
+        new Date(a.fecha.split("/").reverse().join("-")) -
+        new Date(b.fecha.split("/").reverse().join("-"))
     );
   }, [datosFiltrados]);
 
@@ -325,55 +371,60 @@ const VisualizacionesConsumoMaquina = ({
   const estadisticasCalculadas = useMemo(() => {
     if (!datosFiltrados || datosFiltrados.length === 0) {
       return {
-        totalLitros: '0',
+        totalLitros: "0",
         totalCargas: 0,
         visitasPorFaena: {},
         cambiosFaena: 0,
-        promedioConsumo: '0',
+        promedioConsumo: "0",
         diasActivo: 0,
         maquinasUnicas: 0,
-        maquinaMasUsada: 'N/A',
-        faenaMasVisitada: 'N/A',
+        maquinaMasUsada: "N/A",
+        faenaMasVisitada: "N/A",
         consumoPorFaena: {},
         maquinasPorFaena: {},
-        estadisticasGenerales: {}
+        estadisticasGenerales: {},
       };
     }
 
     // 🔢 Cálculos básicos
-    const totalLitros = datosFiltrados.reduce((sum, d) => sum + (d.litros || 0), 0);
+    const totalLitros = datosFiltrados.reduce(
+      (sum, d) => sum + (d.litros || 0),
+      0
+    );
     const totalCargas = datosFiltrados.length;
     const promedioConsumo = totalCargas > 0 ? totalLitros / totalCargas : 0;
 
     // 🏢 Estadísticas por faena (dinámico)
     const visitasPorFaena = datosFiltrados.reduce((acc, d) => {
-      const faena = d.faena || 'Sin Faena';
+      const faena = d.faena || "Sin Faena";
       acc[faena] = (acc[faena] || 0) + 1;
       return acc;
     }, {});
 
     const consumoPorFaena = datosFiltrados.reduce((acc, d) => {
-      const faena = d.faena || 'Sin Faena';
+      const faena = d.faena || "Sin Faena";
       acc[faena] = (acc[faena] || 0) + (d.litros || 0);
       return acc;
     }, {});
 
     // 🚗 Máquinas por faena
     const maquinasPorFaena = datosFiltrados.reduce((acc, d) => {
-      const faena = d.faena || 'Sin Faena';
+      const faena = d.faena || "Sin Faena";
       if (!acc[faena]) acc[faena] = new Set();
       if (d.maquina) acc[faena].add(d.maquina);
       return acc;
     }, {});
 
     // Convertir Sets a números
-    Object.keys(maquinasPorFaena).forEach(faena => {
+    Object.keys(maquinasPorFaena).forEach((faena) => {
       maquinasPorFaena[faena] = maquinasPorFaena[faena].size;
     });
 
     // 🔄 Detectar cambios de faena
     let cambiosFaena = 0;
-    const datosOrdenados = [...datosFiltrados].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+    const datosOrdenados = [...datosFiltrados].sort(
+      (a, b) => new Date(a.fecha) - new Date(b.fecha)
+    );
     for (let i = 1; i < datosOrdenados.length; i++) {
       if (datosOrdenados[i].faena !== datosOrdenados[i - 1].faena) {
         cambiosFaena++;
@@ -381,7 +432,9 @@ const VisualizacionesConsumoMaquina = ({
     }
 
     // 🚛 Estadísticas de máquinas
-    const maquinasUnicas = [...new Set(datosFiltrados.map(d => d.maquina).filter(Boolean))];
+    const maquinasUnicas = [
+      ...new Set(datosFiltrados.map((d) => d.maquina).filter(Boolean)),
+    ];
     const consumoPorMaquina = datosFiltrados.reduce((acc, d) => {
       if (d.maquina) {
         acc[d.maquina] = (acc[d.maquina] || 0) + (d.litros || 0);
@@ -389,35 +442,44 @@ const VisualizacionesConsumoMaquina = ({
       return acc;
     }, {});
 
-    const maquinaMasUsada = maquinasUnicas.length > 0
-      ? Object.entries(consumoPorMaquina).sort(([, a], [, b]) => b - a)[0]?.[0] || 'N/A'
-      : 'N/A';
+    const maquinaMasUsada =
+      maquinasUnicas.length > 0
+        ? Object.entries(consumoPorMaquina).sort(
+            ([, a], [, b]) => b - a
+          )[0]?.[0] || "N/A"
+        : "N/A";
 
     // 🏆 Faena más visitada
-    const faenaMasVisitada = Object.entries(visitasPorFaena).length > 0
-      ? Object.entries(visitasPorFaena).sort(([, a], [, b]) => b - a)[0]?.[0] || 'N/A'
-      : 'N/A';
+    const faenaMasVisitada =
+      Object.entries(visitasPorFaena).length > 0
+        ? Object.entries(visitasPorFaena).sort(
+            ([, a], [, b]) => b - a
+          )[0]?.[0] || "N/A"
+        : "N/A";
 
     // 📅 Días únicos de actividad
     const diasActivo = new Set(
-      datosFiltrados
-        .map(d => d.fechaFormateada || d.fecha)
-        .filter(Boolean)
+      datosFiltrados.map((d) => d.fechaFormateada || d.fecha).filter(Boolean)
     ).size;
 
     // 📈 Estadísticas generales adicionales
     const estadisticasGenerales = {
-      promedioLitrosPorDia: diasActivo > 0 ? (totalLitros / diasActivo).toFixed(1) : '0',
-      promedioCargasPorDia: diasActivo > 0 ? (totalCargas / diasActivo).toFixed(1) : '0',
-      faenaConMayorConsumo: Object.entries(consumoPorFaena).length > 0
-        ? Object.entries(consumoPorFaena).sort(([, a], [, b]) => b - a)[0]?.[0] || 'N/A'
-        : 'N/A',
+      promedioLitrosPorDia:
+        diasActivo > 0 ? (totalLitros / diasActivo).toFixed(1) : "0",
+      promedioCargasPorDia:
+        diasActivo > 0 ? (totalCargas / diasActivo).toFixed(1) : "0",
+      faenaConMayorConsumo:
+        Object.entries(consumoPorFaena).length > 0
+          ? Object.entries(consumoPorFaena).sort(
+              ([, a], [, b]) => b - a
+            )[0]?.[0] || "N/A"
+          : "N/A",
       porcentajePorFaena: Object.fromEntries(
         Object.entries(consumoPorFaena).map(([faena, litros]) => [
           faena,
-          totalLitros > 0 ? ((litros / totalLitros) * 100).toFixed(1) : '0'
+          totalLitros > 0 ? ((litros / totalLitros) * 100).toFixed(1) : "0",
         ])
-      )
+      ),
     };
 
     return {
@@ -443,8 +505,8 @@ const VisualizacionesConsumoMaquina = ({
       estadisticasGenerales,
 
       // 📊 Para compatibilidad con código existente (deprecated)
-      visitasCabildo: visitasPorFaena['Cabildo'] || 0,
-      visitasTiltil: visitasPorFaena['Tiltil'] || 0,
+      visitasCabildo: visitasPorFaena["Cabildo"] || 0,
+      visitasTiltil: visitasPorFaena["Tiltil"] || 0,
     };
   }, [datosFiltrados]);
 
@@ -464,18 +526,23 @@ const VisualizacionesConsumoMaquina = ({
   };
 
   const obtenerResumenPorFaena = () => {
-    return Object.keys(estadisticasCalculadas.visitasPorFaena).map(faena => ({
+    return Object.keys(estadisticasCalculadas.visitasPorFaena).map((faena) => ({
       name: faena,
       visitas: estadisticasCalculadas.visitasPorFaena[faena] || 0,
       litros: estadisticasCalculadas.consumoPorFaena[faena] || 0,
-      porcentaje: estadisticasCalculadas.estadisticasGenerales.porcentajePorFaena[faena] || '0',
-      maquinas: estadisticasCalculadas.maquinasPorFaena[faena] || 0
+      porcentaje:
+        estadisticasCalculadas.estadisticasGenerales.porcentajePorFaena[
+          faena
+        ] || "0",
+      maquinas: estadisticasCalculadas.maquinasPorFaena[faena] || 0,
     }));
   };
 
   // 🚛 OBTENER MÁQUINAS DISPONIBLES
   const maquinasDisponiblesGraficos = useMemo(() => {
-    return maquinasDisponibles.length > 0 ? maquinasDisponibles : [...new Set(datosProcesados.map(d => d.maquina))].sort();
+    return maquinasDisponibles.length > 0
+      ? maquinasDisponibles
+      : [...new Set(datosProcesados.map((d) => d.maquina))].sort();
   }, [datosProcesados, maquinasDisponibles]);
 
   // 🎨 COMPONENTE: LÍNEA DE TIEMPO MEJORADA CON PAGINACIÓN
@@ -486,11 +553,12 @@ const VisualizacionesConsumoMaquina = ({
           <FaClock className="text-blue-600" />
           {maquinaSeleccionada
             ? `Últimos Consumos - ${maquinaSeleccionada}`
-            : 'Recorrido Temporal entre Faenas'
-          }
+            : "Recorrido Temporal entre Faenas"}
         </h3>
         <div className="text-sm text-gray-500 space-y-1">
-          <div>Página {currentPage} de {totalPages}</div>
+          <div>
+            Página {currentPage} de {totalPages}
+          </div>
           <div>{totalItems} registros totales</div>
         </div>
       </div>
@@ -502,8 +570,7 @@ const VisualizacionesConsumoMaquina = ({
           <p className="text-sm mt-1">
             {maquinaSeleccionada
               ? `No se encontraron consumos para "${maquinaSeleccionada}"`
-              : "Ajusta los filtros para ver resultados"
-            }
+              : "Ajusta los filtros para ver resultados"}
           </p>
         </div>
       ) : (
@@ -514,23 +581,46 @@ const VisualizacionesConsumoMaquina = ({
 
             <div className="relative flex justify-start gap-3 overflow-x-auto pb-4 min-h-[120px] scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-blue-100">
               {datosLineaTiempo.map((item, index) => (
-                <div key={item.id} className="flex flex-col items-center min-w-[100px] mx-1">
+                <div
+                  key={
+                    item.id_consumo ||
+                    item.id ||
+                    `timeline-${index}-${item.fecha_consumo || Date.now()}`
+                  }
+                  className="flex flex-col items-center min-w-[100px] mx-1"
+                >
                   {/* Marcador de faena */}
-                  <div className={`
+                  <div
+                    className={`
                     w-12 h-12 rounded-full flex items-center justify-center text-white font-bold
                     shadow-lg transform hover:scale-110 transition-all cursor-pointer
                     relative z-10
-                  `} style={{ backgroundColor: FAENA_COLORS[item.faena]?.primary || '#6b7280' }}>
-                    <span className="text-lg">{FAENA_COLORS[item.faena]?.icon || '📍'}</span>
+                  `}
+                    style={{
+                      backgroundColor:
+                        FAENA_COLORS[item.faena]?.primary || "#6b7280",
+                    }}
+                  >
+                    <span className="text-lg">
+                      {FAENA_COLORS[item.faena]?.icon || "📍"}
+                    </span>
                   </div>
 
                   {/* Información del consumo */}
                   <div className="mt-2 text-center">
-                    <div className="text-xs text-gray-500">{item.fechaFormateada}</div>
-                    <div className="text-xs text-gray-400">{item.horaFormateada}</div>
-                    <div className="font-bold text-sm text-orange-600">{item.litros.toFixed(0)} L</div>
+                    <div className="text-xs text-gray-500">
+                      {item.fechaFormateada}
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      {item.horaFormateada}
+                    </div>
+                    <div className="font-bold text-sm text-orange-600">
+                      {item.litros.toFixed(0)} L
+                    </div>
                     {item.patente && (
-                      <div className="text-xs text-gray-600">{item.patente}</div>
+                      <div className="text-xs text-gray-600">
+                        {item.patente}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -542,28 +632,40 @@ const VisualizacionesConsumoMaquina = ({
           <div className="space-y-3">
             <h4 className="font-semibold text-gray-800 flex items-center gap-2">
               <FaEye className="text-green-600" />
-              Detalle de Consumos {maquinaSeleccionada && `(${maquinaSeleccionada})`}
+              Detalle de Consumos{" "}
+              {maquinaSeleccionada && `(${maquinaSeleccionada})`}
             </h4>
 
             {datosLineaTiempo.map((item, index) => (
               <div
+                key={
+                  item.id_consumo ||
+                  item.id ||
+                  `detalle-${index}-${item.fecha_consumo}`
+                }
                 className="p-3 rounded-lg border-l-4"
                 style={getFaenaStyles(item.faena)}
               >
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-lg">{FAENA_COLORS[item.faena]?.icon || '📍'}</span>
-                      <span className="font-semibold text-gray-800">{item.faena}</span>
+                      <span className="text-lg">
+                        {FAENA_COLORS[item.faena]?.icon || "📍"}
+                      </span>
+                      <span className="font-semibold text-gray-800">
+                        {item.faena}
+                      </span>
                       <span className="text-xs bg-gray-200 px-2 py-1 rounded">
-                        #{((currentPage - 1) * ITEMS_PER_PAGE) + index + 1}
+                        #{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}
                       </span>
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
                       <div>
                         <div className="text-gray-500">Fecha</div>
-                        <div className="font-medium">{item.fechaFormateada}</div>
+                        <div className="font-medium">
+                          {item.fechaFormateada}
+                        </div>
                       </div>
                       <div>
                         <div className="text-gray-500">Hora</div>
@@ -571,7 +673,10 @@ const VisualizacionesConsumoMaquina = ({
                       </div>
                       <div>
                         <div className="text-gray-500">Solicitante</div>
-                        <div className="font-medium truncate" title={item.solicitante}>
+                        <div
+                          className="font-medium truncate"
+                          title={item.solicitante}
+                        >
                           {item.solicitante}
                         </div>
                       </div>
@@ -635,8 +740,7 @@ const VisualizacionesConsumoMaquina = ({
           <p className="text-sm mt-1">
             {maquinaSeleccionada
               ? `La máquina "${maquinaSeleccionada}" no tiene consumos`
-              : "Ajusta los filtros para ver resultados"
-            }
+              : "Ajusta los filtros para ver resultados"}
           </p>
         </div>
       ) : (
@@ -656,14 +760,14 @@ const VisualizacionesConsumoMaquina = ({
                 {datosDona.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}
-                    fill={FAENA_COLORS[entry.name]?.primary || '#6b7280'}
+                    fill={FAENA_COLORS[entry.name]?.primary || "#6b7280"}
                   />
                 ))}
               </Pie>
               <Tooltip
                 formatter={(value, name) => [
                   `${parseFloat(value).toFixed(1)} L`,
-                  name
+                  name,
                 ]}
               />
             </PieChart>
@@ -672,20 +776,34 @@ const VisualizacionesConsumoMaquina = ({
           {/* Leyenda personalizada */}
           <div className="mt-4 lg:mt-0 lg:ml-6 space-y-3">
             {datosDona.map((item) => (
-              <div key={item.name} className="flex items-center justify-between min-w-[250px] p-3 bg-gray-50 rounded-lg">
+              <div
+                key={item.name}
+                className="flex items-center justify-between min-w-[250px] p-3 bg-gray-50 rounded-lg"
+              >
                 <div className="flex items-center gap-3">
                   <div
                     className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
-                    style={{ backgroundColor: FAENA_COLORS[item.name]?.primary || '#278ef5' }}
+                    style={{
+                      backgroundColor:
+                        FAENA_COLORS[item.name]?.primary || "#278ef5",
+                    }}
                   />
                   <div>
-                    <span className="font-semibold text-gray-800">{item.name}</span>
-                    <span className="text-xl ml-2">{FAENA_COLORS[item.name]?.icon || '📍'}</span>
+                    <span className="font-semibold text-gray-800">
+                      {item.name}
+                    </span>
+                    <span className="text-xl ml-2">
+                      {FAENA_COLORS[item.name]?.icon || "📍"}
+                    </span>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-bold text-lg">{parseFloat(item.value).toFixed(1)} L</div>
-                  <div className="text-sm text-gray-600">{item.porcentaje}% del total</div>
+                  <div className="font-bold text-lg">
+                    {parseFloat(item.value).toFixed(1)} L
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {item.porcentaje}% del total
+                  </div>
                 </div>
               </div>
             ))}
@@ -696,19 +814,27 @@ const VisualizacionesConsumoMaquina = ({
       {/* Indicadores adicionales */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-4 border-t">
         <div className="text-center bg-blue-50 rounded-lg p-3">
-          <div className="text-2xl font-bold text-blue-600">{estadisticasCalculadas.totalCargas}</div>
+          <div className="text-2xl font-bold text-blue-600">
+            {estadisticasCalculadas.totalCargas}
+          </div>
           <div className="text-xs text-gray-600">Cargas totales</div>
         </div>
         <div className="text-center bg-green-50 rounded-lg p-3">
-          <div className="text-2xl font-bold text-green-600">{estadisticasCalculadas.promedioConsumo} L</div>
+          <div className="text-2xl font-bold text-green-600">
+            {estadisticasCalculadas.promedioConsumo} L
+          </div>
           <div className="text-xs text-gray-600">Promedio/carga</div>
         </div>
         <div className="text-center bg-purple-50 rounded-lg p-3">
-          <div className="text-2xl font-bold text-purple-600">{estadisticasCalculadas.diasActivo}</div>
+          <div className="text-2xl font-bold text-purple-600">
+            {estadisticasCalculadas.diasActivo}
+          </div>
           <div className="text-xs text-gray-600">Días activo</div>
         </div>
         <div className="text-center bg-orange-50 rounded-lg p-3">
-          <div className="text-2xl font-bold text-orange-600">{estadisticasCalculadas.maquinasUnicas}</div>
+          <div className="text-2xl font-bold text-orange-600">
+            {estadisticasCalculadas.maquinasUnicas}
+          </div>
           <div className="text-xs text-gray-600">Máquinas únicas</div>
         </div>
       </div>
@@ -734,9 +860,9 @@ const VisualizacionesConsumoMaquina = ({
                     Mostrando {totalItems} registros
                     {maquinaSeleccionada && ` para ${maquinaSeleccionada}`}
                     {totalItems !== datosProcesados.length &&
-                      ` de un total de ${datosProcesados.length}`
-                    }
-                    {totalPages > 1 && ` - Página ${currentPage} de ${totalPages}`}
+                      ` de un total de ${datosProcesados.length}`}
+                    {totalPages > 1 &&
+                      ` - Página ${currentPage} de ${totalPages}`}
                   </>
                 ) : (
                   "No hay registros para mostrar"
@@ -749,16 +875,17 @@ const VisualizacionesConsumoMaquina = ({
         {/* Selector de vista */}
         <div className="flex flex-wrap gap-2 mb-4">
           {[
-            { id: 'timeline', label: 'Línea de Tiempo', icon: <FaClock /> },
-            { id: 'dona', label: 'Distribución', icon: <FaChartLine /> },
+            { id: "timeline", label: "Línea de Tiempo", icon: <FaClock /> },
+            { id: "dona", label: "Distribución", icon: <FaChartLine /> },
           ].map((vista) => (
             <button
               key={vista.id}
               onClick={() => setVistaActiva(vista.id)}
-              className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-sm ${vistaActiva === vista.id
-                ? 'bg-orange-600 text-white shadow-lg'
-                : 'bg-gray-100 text-gray-700 hover:bg-orange-100 hover:text-orange-600'
-                }`}
+              className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-sm ${
+                vistaActiva === vista.id
+                  ? "bg-orange-600 text-white shadow-lg"
+                  : "bg-gray-100 text-gray-700 hover:bg-orange-100 hover:text-orange-600"
+              }`}
             >
               {vista.icon}
               <span className="hidden sm:inline">{vista.label}</span>
@@ -768,24 +895,42 @@ const VisualizacionesConsumoMaquina = ({
 
         {/* 🎨 RESUMEN DINÁMICO MEJORADO */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6 pt-4 border-t">
-          {obtenerResumenPorFaena().map(faena => {
+          {obtenerResumenPorFaena().map((faena) => {
             const faenaData = FAENA_COLORS[faena.name];
             const styles = getFaenaStyles(faena.name);
 
             return (
-              <div key={faena.name} className="rounded-lg p-4 border-l-4" style={styles}>
+              <div
+                key={faena.name}
+                className="rounded-lg p-4 border-l-4"
+                style={styles}
+              >
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-2xl">{faenaData?.icon || '📍'}</span>
-                  <span className="font-semibold" style={{ color: faenaData?.primary || '#6b7280' }}>
+                  <span className="text-2xl">{faenaData?.icon || "📍"}</span>
+                  <span
+                    className="font-semibold"
+                    style={{ color: faenaData?.primary || "#6b7280" }}
+                  >
                     {faena.name}
                   </span>
                 </div>
                 <div className="space-y-1">
-                  <div className="text-sm text-gray-600">{faena.visitas} Cargas</div>
-                  <div className="font-bold text-lg" style={{ color: faenaData?.primary || '#6b7280' }}>
+                  <div className="text-sm text-gray-600">
+                    {faena.visitas} Cargas
+                  </div>
+                  <div
+                    className="font-bold text-lg"
+                    style={{ color: faenaData?.primary || "#6b7280" }}
+                  >
                     {faena.litros.toFixed(0)} L
                   </div>
-                  <div className="text-xs" style={{ color: faenaData?.primary || '#6b7280', opacity: 0.8 }}>
+                  <div
+                    className="text-xs"
+                    style={{
+                      color: faenaData?.primary || "#6b7280",
+                      opacity: 0.8,
+                    }}
+                  >
                     {faena.porcentaje}% del total • {faena.maquinas} máquinas
                   </div>
                 </div>
@@ -797,8 +942,8 @@ const VisualizacionesConsumoMaquina = ({
 
       {/* Visualización activa */}
       <div className="transition-all duration-300">
-        {vistaActiva === 'timeline' && <LineaTiempoComponent />}
-        {vistaActiva === 'dona' && <DonaDobleComponent />}
+        {vistaActiva === "timeline" && <LineaTiempoComponent />}
+        {vistaActiva === "dona" && <DonaDobleComponent />}
       </div>
     </div>
   );

@@ -135,7 +135,9 @@ const Pagination = React.memo(
 
           {getPageNumbers.map((page, index) => (
             <button
-              key={index}
+              key={
+                typeof page === "number" ? `page-${page}` : `ellipsis-${index}`
+              }
               onClick={() => typeof page === "number" && onPageChange(page)}
               disabled={page === "..."}
               className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -601,36 +603,35 @@ const ConsumoCard = React.memo(({ consumo, formatearFecha, formatNumber }) => {
           </div>
         </div>
 
-    {consumo.medicion && (
-  <div className="flex flex-col col-span-2">
-    {/* Medición principal */}
-    <div className="flex items-center gap-1">
-      <FaChartLine className="text-indigo-600 text-xs flex-shrink-0" />
-      <span className="font-medium text-gray-800 text-xs">
-        {formatNumber(consumo.medicion)}{" "}
-        {consumo.tipo_medicion === "Kilometraje" ? "km" : "hrs"}
-      </span>
-    </div>
+        {consumo.medicion && (
+          <div className="flex flex-col col-span-2">
+            {/* Medición principal */}
+            <div className="flex items-center gap-1">
+              <FaChartLine className="text-indigo-600 text-xs flex-shrink-0" />
+              <span className="font-medium text-gray-800 text-xs">
+                {formatNumber(consumo.medicion)}{" "}
+                {consumo.tipo_medicion === "Kilometraje" ? "km" : "hrs"}
+              </span>
+            </div>
 
-    {/* Diferencia debajo */}
-    <span
-      className={`text-xs mt-0.5 ${
-        consumo.anomalo ? "text-red-600 font-semibold" : "text-gray-900"
-      }`}
-    >
-      Δ {formatNumber(consumo.diferencia_medicion)}
-    </span>
+            {/* Diferencia debajo */}
+            <span
+              className={`text-xs mt-0.5 ${
+                consumo.anomalo ? "text-red-600 font-semibold" : "text-gray-900"
+              }`}
+            >
+              Δ {formatNumber(consumo.diferencia_medicion)}
+            </span>
 
-    {/* Badge de anomalía en mobile */}
-    {consumo.anomalo && (
-      <div className="flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md bg-red-50 border border-red-200 text-red-700 text-[10px] font-semibold shadow-sm w-fit">
-        <FaExclamationTriangle className="w-3 h-3 text-red-500" />
-        <span>Medición anómala</span>
-      </div>
-    )}
-  </div>
-)}
-
+            {/* Badge de anomalía en mobile */}
+            {consumo.anomalo && (
+              <div className="flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md bg-red-50 border border-red-200 text-red-700 text-[10px] font-semibold shadow-sm w-fit">
+                <FaExclamationTriangle className="w-3 h-3 text-red-500" />
+                <span>Medición anómala</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {consumo.costo_total && (
           <div className="flex items-center gap-1 col-span-2">
@@ -815,7 +816,7 @@ const HistorialMaquinasView = () => {
           const paramsTodasMaquinas = new URLSearchParams({
             faenas: faenaIds,
             page: "1",
-            per_page: "99999",
+            per_page: "10",
           });
 
           if (filterParams.dateFrom?.trim()) {
@@ -955,7 +956,7 @@ const HistorialMaquinasView = () => {
         const params = new URLSearchParams({
           faenas: faenaIds,
           page: "1",
-          per_page: "10000", // Límite para gráficos
+          per_page: "10", // Límite para gráficos
         });
 
         // Agregar filtros
@@ -1664,11 +1665,11 @@ const HistorialMaquinasView = () => {
           <div className="flex justify-center flex-wrap gap-2 mt-2">
             {Object.entries(FAENA_COLORS).map(([faena, colors]) => (
               <span
-                key={faena}
+                key={colors.name}
                 className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${colors.badge}`}
               >
                 <span>{colors.emoji}</span>
-                {faena}
+                {colors.name}
               </span>
             ))}
           </div>

@@ -352,9 +352,7 @@ const HistorialUsuarioOperadorVehiculo = ({ recargarKey = 0 }) => {
 
             {/* 🆕 COMPONENTE DE PAGINACIÓN - SIEMPRE VISIBLE PARA TEST */}
             <div className="mt-6 pt-4 border-t border-gray-200 bg-yellow-50 p-4 rounded-lg">
-              <div className="text-center mb-2 text-sm text-gray-600">
-                Debug: {cargas.length} cargas, {totalPaginas} páginas, página {paginaActual}
-              </div>
+            
               {cargas.length > ITEMS_POR_PAGINA ? (
                 <PageControl
                   currentPage={paginaActual}
