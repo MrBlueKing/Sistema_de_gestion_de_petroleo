@@ -18,8 +18,44 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 - [Ready] = Completado, probado y listo para entrar en la próxima versión estable
 
 ---
+## [unrelesed] -
 
-## [Unrelesed] -
+### Added
+
+- [Queued] Administrador Operador Vehiculos --> Panel principal --> Agregar Historial maquinas, para tener nociones de los consumos por faena y rendimientos calculables. // Agregar Recepciones de Petroleo (Generar pdf para recepción ) y Graficos.
+
+- [Queued] Operador Vehiculos --> Historial Consumos --> Añadir maquina en la tarjeta de consumos.
+
+- [Queued] Gerente / Administrador Operador Vehiculos --> Historial Consumos --> Añadir maquina en la tarjeta de consumos.
+
+- [Queued] Gerente / Admin / Amdin OV --> Funcionalidad para agregar distribución.
+                                          Anotar Camiones Semanales por faena.      
+
+### Changed
+
+- [Queued] Operador Vehiculos --> Formulario principal --> La carga que realiza el usuario, debe ser asignada a la faena a la cual pertenece el user.
+
+- [Queued] Operador Vehiculos --> Formulario principal --> La carga que realiza el usuario, debe ser asignada a la faena a la cual pertenece el user.
+
+- [Queued] Gerente --> Grafico Pie comparativo --> Operacional = Todo - Micro - Camiones Tolva - Camionetas 50% +                                                  50% Camionetas que tributen a la Faena
+                                                   Total = Todo + Camion (Asignado) + Camionetas 50% + 50% Camionetas que tributen a la Faena
+
+
+### Depecrated
+
+- Ninguno
+
+### Removed
+
+
+### Fixed
+
+
+### Security
+
+- Ninguno
+
+## [3.1.0] - 10-09-2025.
 
 ### Added
 
@@ -71,7 +107,7 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - Ninguno
 
-## [3.0] - 2025-09-02
+## [3.0.0] - 2025-09-02
 
 ### Added
 

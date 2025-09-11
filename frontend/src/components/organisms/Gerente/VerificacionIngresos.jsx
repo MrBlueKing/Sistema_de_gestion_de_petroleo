@@ -330,7 +330,7 @@ const VerificacionIngresos = () => {
                 </p>
               </div>
               <div className="bg-white p-4 rounded-lg border border-purple-200 text-center">
-                <p className="text-sm text-gray-600 mb-1">Precisión</p>
+                <p className="text-sm text-gray-600 mb-1">% Error Acumulado</p>
                 <p className="text-2xl font-bold text-purple-600">
                   {resumen.porcentaje_precision}%
                 </p>
