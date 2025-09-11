@@ -1165,8 +1165,8 @@ const ConsumptionPieChart = ({
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-bold text-gray-800">
               {viewMode === "categorias"
-                ? "Consumo por Categoría de Máquinas"
-                : `Consumo por Máquina - ${selectedCategoria?.nombre}`}
+                ? "Consumo por Categoría de Máquinas (Egreso de Estanques)"
+                : `Consumo por Máquina (Egreso de Estanques)- ${selectedCategoria?.nombre}`}
             </h2>
 
             {viewMode === "maquinas" && (

@@ -317,7 +317,7 @@ class VerificacionIngresosController extends Controller
             }
 
             $porcentajePrecision = $totalIngresos > 0 
-                ? round(($ingresosSinError / $totalIngresos) * 100, 2) 
+                ? round(($errorFinalTotal / $totalLitrosDocumentados) * 100, 2) 
                 : 100;
 
             $response = [

@@ -816,7 +816,7 @@ const HistorialMaquinasView = () => {
           const paramsTodasMaquinas = new URLSearchParams({
             faenas: faenaIds,
             page: "1",
-            per_page: "10",
+            per_page: "9999",
           });
 
           if (filterParams.dateFrom?.trim()) {
