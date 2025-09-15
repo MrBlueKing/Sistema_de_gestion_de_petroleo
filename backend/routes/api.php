@@ -66,6 +66,10 @@ Route::get('/estadisticas', [VerificacionIngresosController::class, 'estadistica
 // Obtener resumen de errores por período
 Route::get('/verificacion-ingresos/resumen', [VerificacionIngresosController::class, 'resumen']);
 
+// 🆕 NUEVAS RUTAS PARA CÁLCULO DE STOCK DETALLADO
+Route::get('/verificacion-ingresos/calculo-stock', [VerificacionIngresosController::class, 'calcularStockEnFecha']);
+Route::get('/verificacion-ingresos/resumen-detallado', [VerificacionIngresosController::class, 'resumenDetalladoPeriodo']);
+
 /*
 |--------------------------------------------------------------------------
 | 🔒 RUTAS PROTEGIDAS (REQUIEREN AUTENTICACIÓN)

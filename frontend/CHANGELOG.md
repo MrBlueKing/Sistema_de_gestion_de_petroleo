@@ -31,6 +31,8 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 - [Queued] Gerente / Admin / Amdin OV --> Funcionalidad para agregar distribución.
                                           Anotar Camiones Semanales por faena.      
 
+- [WIP:Nico] Gerente --> Verificación Ingresos poner Stock Final en cada Ingreso.   
+
 ### Changed
 
 - [Queued] Operador Vehiculos --> Formulario principal --> La carga que realiza el usuario, debe ser asignada a la faena a la cual pertenece el user.

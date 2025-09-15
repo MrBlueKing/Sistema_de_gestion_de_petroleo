@@ -110,7 +110,8 @@ class CargaExternaController extends Controller
             $now = Carbon::now();
 
             // Cargas del mes actual directamente desde DB
-            $cargasMes = CargaExterna::where('id_user', $user->id)
+            $cargasMes = CargaExterna::with('maquina')
+                ->where('id_user', $user->id)
                 ->whereMonth('created_at', $now->month)
                 ->whereYear('created_at', $now->year)
                 ->orderBy('created_at', 'desc')
@@ -129,17 +130,24 @@ class CargaExternaController extends Controller
             // 🚀 CAMBIO PRINCIPAL: Respetar el límite solicitado
             $cargasRecientes = $cargasMes->take($limite)->map(function ($carga) {
                 return [
-                    'id'              => $carga->id,
-                    'numero_boleta'   => $carga->numero_boleta,
-                    'fecha'           => $carga->created_at,
-                    'fecha_legible'   => Carbon::parse($carga->created_at)->format('d M Y'),
-                    'litros'          => $carga->litros,
-                    'costo'           => $carga->costo,
-                    'precio_por_litro' => $carga->precio_por_litro,
-                    'ubicacion'       => $carga->ubicacion,
-                    'estado'          => $carga->estado,
-                    'tipo_combustible' => $carga->tipo_combustible,
-                    'observaciones'   => $carga->observaciones,
+                    'id'                => $carga->id,
+                    'numero_boleta'     => $carga->numero_boleta,
+                    'fecha'             => $carga->created_at,
+                    'fecha_legible'     => Carbon::parse($carga->created_at)->format('d M Y'),
+                    'litros'            => $carga->litros,
+                    'costo'             => $carga->costo,
+                    'precio_por_litro'  => $carga->precio_por_litro,
+                    'ubicacion'         => $carga->ubicacion,
+                    'estado'            => $carga->estado,
+                    'tipo_combustible'  => $carga->tipo_combustible,
+                    'observaciones'     => $carga->observaciones,
+
+                    // 🆕 Info máquina
+                    'maquina' => $carga->maquina ? [
+                        'id_maquina'     => $carga->maquina->id_maquina,
+                        'nombre_maquina' => $carga->maquina->nombre_maquina,
+                        'patente'        => $carga->maquina->patente,
+                    ] : null,
                 ];
             });
 

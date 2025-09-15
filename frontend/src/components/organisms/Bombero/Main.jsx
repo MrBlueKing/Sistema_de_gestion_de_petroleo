@@ -19,48 +19,8 @@ import {
 import axios from "../../../lib/axios";
 import StockEstanquesFAB from "../../molecules/StockEstanquesFAB";
 import { UserContext } from "../../../context/userContext";
+import { getFaenaColors} from '../../../context/faenaColor';
 
-// 🎨 COLORES POR FAENA (igual que en las otras tablas)
-const FAENA_COLORS = {
-  1: { // Cabildo
-    name: "Cabildo",
-    bg: "bg-green-50/30",
-    border: "border-l-green-400",
-    badge: "bg-green-100 text-green-800",
-    icon: "text-green-600",
-    emoji: "🌿"
-  },
-  4: { // Tiltil
-    name: "Tiltil",
-    bg: "bg-red-50/30", 
-    border: "border-l-red-400",
-    badge: "bg-red-100 text-red-800",
-    icon: "text-red-600",
-    emoji: "🏔️"
-  }
-};
-
-// 🛠️ Función para obtener colores de faena por ID
-const getFaenaColorsById = (faenaId) => {
-  const faenaInfo = FAENA_COLORS[faenaId];
-  
-  if (faenaInfo) {
-    return faenaInfo;
-  }
-
-  // Color por defecto para faenas desconocidas
-  return {
-    name: "Faena Desconocida",
-    bg: "bg-blue-50/25",
-    border: "border-l-blue-400", 
-    badge: "bg-blue-100 text-blue-800",
-    icon: "text-blue-600",
-    emoji: "🏢"
-  };
-};
-
-// 🔧 ALIAS para compatibilidad (por si se usa en otro lugar)
-const getFaenaColors = getFaenaColorsById;
 
 // Componente Button - Más sobrio con paleta de colores
 const Button = ({
@@ -138,7 +98,7 @@ const LoadingSpinner = ({ message = "Cargando..." }) => (
 const ConsumoRecenteCard = ({ consumo, formatearFecha, userFaenaId }) => {
   const { fecha, hora } = formatearFecha(consumo.fecha_consumo);
   // 👈 Obtener colores según el ID de faena del usuario
-  const colores = getFaenaColorsById(userFaenaId);
+  const colores = getFaenaColors(userFaenaId);
 
   return (
     <div className={`${colores.bg} ${colores.border} border-l-4 border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-200`}>
@@ -489,7 +449,7 @@ const Main = () => {
                         {consumosRecientes.length > 0 ? (
                           consumosRecientes.map((consumo, index) => {
                             const { fecha, hora } = formatearFecha(consumo.fecha_consumo);
-                            const colores = getFaenaColorsById(user?.id_faena); // 👈 Obtener colores por ID de faena del usuario
+                            const colores = getFaenaColors(user?.id_faena); // 👈 Obtener colores por ID de faena del usuario
                             
                             return (
                               <tr

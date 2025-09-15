@@ -5,6 +5,7 @@ import {
   FiCheckCircle,
   FiTruck,
   FiDroplet,
+  FiTrendingUp,
   FiBarChart2,
   FiRefreshCw,
   FiFileText,
@@ -16,9 +17,8 @@ import axios from "../../../lib/axios";
 import UniversalHeader from "../Todos/UniversalHeader";
 import FiltrosComponent from "../../molecules/FiltrosComponent";
 import PageControl from "../../molecules/PageControl";
-import { getFaenaColors} from '../../../context/faenaColor';
-
-
+import { getFaenaColors } from "../../../context/faenaColor";
+import ResumenStockDetallado from "../../molecules/ResumenStockDetallado";
 
 const VerificacionIngresos = () => {
   const [ingresos, setIngresos] = useState([]);
@@ -41,8 +41,7 @@ const VerificacionIngresos = () => {
 
   // 🆕 Estado para controlar detalles expandidos
   const [detallesExpandidos, setDetallesExpandidos] = useState({});
-
- 
+  const [mostrarAnalisisStock, setMostrarAnalisisStock] = useState(false);
 
   // Cargar faenas disponibles
   useEffect(() => {
@@ -271,19 +270,60 @@ const VerificacionIngresos = () => {
           </div>
         </div>
 
-        {/* Botón resumen */}
+         {/* Filtros */}
+        <div className="mb-6">
+          <FiltrosComponent
+            fechaDesde={fechaDesde}
+            setFechaDesde={setFechaDesde}
+            fechaHasta={fechaHasta}
+            setFechaHasta={setFechaHasta}
+            faenaSeleccionada={faenaSeleccionada}
+            setFaenaSeleccionada={setFaenaSeleccionada}
+            faenas={faenas}
+            onChange={handleFiltrosChange}
+            mostrarEquipoFilter={true}
+            equipoFilter={numeroDocumento}
+            placeholderEquipo="Buscar por N° de guía/documento..."
+            labelEquipo="Filtrar por N° Documento"
+            cargando={loading}
+            compacto={false}
+            modo="faenas"
+            tituloPersonalizado="Filtros de Verificación"
+          />
+        </div>
+        
+        {/* Botones de resumen - REEMPLAZAR el botón existente */}
         {resumen && hayFiltrosActivos && (
-          <div className="mb-6">
+          <div className="mb-6 flex flex-wrap gap-3">
+            {/* Botón resumen tradicional */}
             <button
               onClick={() => setMostrarResumen(!mostrarResumen)}
               className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
             >
               <FiBarChart2 className="mr-2" />
-              {mostrarResumen ? "Ocultar" : "Mostrar"} Resumen del Período
+              {mostrarResumen ? "Ocultar" : "Mostrar"} Resumen Básico
+            </button>
+
+            {/* 🆕 Botón para análisis detallado de stock */}
+            <button
+              onClick={() => setMostrarAnalisisStock(!mostrarAnalisisStock)}
+              className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              <FiTrendingUp className="mr-2" />
+              {mostrarAnalisisStock ? "Ocultar" : "Mostrar"} Análisis de Stock
+              Detallado
             </button>
           </div>
         )}
-
+     
+        {/* 🆕 Panel de análisis detallado de stock */}
+        <ResumenStockDetallado
+          fechaDesde={fechaDesde}
+          fechaHasta={fechaHasta}
+          idFaena={faenaSeleccionada}
+          mostrarDetalle={mostrarAnalisisStock}
+          onToggleDetalle={() => setMostrarAnalisisStock(!mostrarAnalisisStock)}
+        />
         {/* Panel de resumen */}
         {mostrarResumen && resumen && (
           <div className="mb-6 bg-gradient-to-r from-orange-50 to-indigo-50 p-6 rounded-lg shadow-sm border border-orange-200">
@@ -338,29 +378,7 @@ const VerificacionIngresos = () => {
             </div>
           </div>
         )}
-
-        {/* Filtros */}
-        <div className="mb-6">
-          <FiltrosComponent
-            fechaDesde={fechaDesde}
-            setFechaDesde={setFechaDesde}
-            fechaHasta={fechaHasta}
-            setFechaHasta={setFechaHasta}
-            faenaSeleccionada={faenaSeleccionada}
-            setFaenaSeleccionada={setFaenaSeleccionada}
-            faenas={faenas}
-            onChange={handleFiltrosChange}
-            mostrarEquipoFilter={true}
-            equipoFilter={numeroDocumento}
-            placeholderEquipo="Buscar por N° de guía/documento..."
-            labelEquipo="Filtrar por N° Documento"
-            cargando={loading}
-            compacto={false}
-            modo="faenas"
-            tituloPersonalizado="Filtros de Verificación"
-          />
-        </div>
-
+       
         {/* Estado de carga */}
         {loading && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
@@ -370,7 +388,6 @@ const VerificacionIngresos = () => {
             </div>
           </div>
         )}
-
         {/* Mensaje sin filtros */}
         {!hayFiltrosActivos && !loading && (
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-8 text-center">
@@ -384,7 +401,6 @@ const VerificacionIngresos = () => {
             </p>
           </div>
         )}
-
         {/* Listado de ingresos con paginación */}
         {!loading && hayFiltrosActivos && (
           <div className="space-y-6">
@@ -437,15 +453,12 @@ const VerificacionIngresos = () => {
                     key={ingreso.id_ingreso}
                     className={`rounded-lg shadow-sm border border-gray-100 overflow-hidden ${
                       getFaenaColors(ingreso.id_faena).bg
-                    } ${
-                      getFaenaColors(ingreso.id_faena).border
-                    } border-l-4`}
+                    } ${getFaenaColors(ingreso.id_faena).border} border-l-4`}
                   >
                     {/* 📋 CABECERA DEL INGRESO */}
                     <div className="bg-gray-50 p-4 border-b border-gray-200">
                       <div className="flex flex-wrap justify-between items-center">
                         <div className="flex items-center space-x-4">
-                          
                           <div>
                             <h1 className="font-semibold text-gray-800 text-xl">
                               <span className="mr-2">
@@ -461,7 +474,7 @@ const VerificacionIngresos = () => {
                               </span>
                             </h1>
                             <p className="text-sm text-gray-600">
-                              {ingreso.fecha_ingreso} {ingreso.hora_ingreso} • {" "}
+                              {ingreso.fecha_ingreso} {ingreso.hora_ingreso} •{" "}
                               {ingreso.usuario}
                             </p>
                           </div>
@@ -503,7 +516,7 @@ const VerificacionIngresos = () => {
 
                     {/* 📊 RESUMEN DE ERRORES */}
                     <div className="p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                         <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
                           <h4 className="text-sm font-medium text-gray-700 mb-1">
                             Stock Inicial Total
@@ -513,9 +526,13 @@ const VerificacionIngresos = () => {
                           </p>
                         </div>
                         <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                          <h4 className="text-sm font-medium text-gray-700 mb-1">
+                          <h4 className="text-sm font-medium text-gray-800 mb-1">
                             Error Inicial Total
                           </h4>
+                          <p className="text-xs text-gray-500">
+                            (Medición Inicial − Stock Sistema)
+                          </p>
+
                           <p
                             className={`text-xl font-bold ${getErrorClass(
                               ingreso.error_inicial_total
@@ -530,6 +547,9 @@ const VerificacionIngresos = () => {
                           <h4 className="text-sm font-medium text-gray-700 mb-1">
                             Error Final
                           </h4>
+                          <p className="text-xs text-gray-500">
+                            (Litros Documentados − Litros Recibidos)
+                          </p>
                           <p
                             className={`text-xl font-bold ${getErrorClass(
                               ingreso.error_final
@@ -538,6 +558,15 @@ const VerificacionIngresos = () => {
                             {getErrorIcon(ingreso.error_final)}
                             {ingreso.error_final > 0 ? "+" : ""}
                             {formatNumber(ingreso.error_final)} L
+                          </p>
+                        </div>
+
+                        <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                          <h4 className="text-sm font-medium text-gray-700 mb-1">
+                            Stock Final Total
+                          </h4>
+                          <p className="text-xl font-bold text-orange-600">
+                            {formatNumber(ingreso.stock_final_total)} L
                           </p>
                         </div>
                       </div>
@@ -597,6 +626,9 @@ const VerificacionIngresos = () => {
                                       </th>
                                       <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Litros Agregados
+                                        <p className="text-shadow-2xs text-gray-400">
+                                          (Medición Final − Medición Inicial)
+                                        </p>
                                       </th>
                                       <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Altura (cm)

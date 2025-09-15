@@ -92,6 +92,37 @@ export const FAENA_COLORS = {
     emoji: "⛽",
     id: 5
   },
+  8: {
+    name: "Rungue",
+    // Colores para fondo y bordes
+    bg: "bg-purple-200/40",
+    border: "border-l-purple-500",
+    borderFull: "border-purple-200",
+
+    // Badges y etiquetas
+    badge: "bg-purple-100 text-purple-800",
+
+    // Iconos y textos
+    icon: "text-purple-600",
+    text: "text-purple-800",
+
+    // Gradientes
+    gradient: "bg-gradient-to-r from-purple-600 to-purple-700",
+    gradientLight: "bg-gradient-to-r from-purple-50 to-purple-100/50",
+
+    // Colores específicos (hex)
+    primary: "#7e22ce", // purple-700
+    light: "#f3e8ff",   // purple-100
+    dark: "#581c87",    // purple-900
+
+    // Estilo alternativo especial
+    specialGlow: "bg-gradient-to-r from-purple-400 via-fuchsia-500 to-pink-500",
+    specialText: "text-fuchsia-600",
+
+    // Elementos decorativos
+    emoji: "🌋", // Puede ser montaña / volcán / roca / galaxia según prefieras
+    id: 8
+  },
   
  
   

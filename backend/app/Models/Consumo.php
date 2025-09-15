@@ -17,7 +17,7 @@ class Consumo extends Model
 
     protected $table = 'consumos';
     protected $primaryKey = 'id_consumo';
-    
+
     protected $fillable = [
         'id_dotacion',
         'id_equipo',
@@ -56,6 +56,10 @@ class Consumo extends Model
         return $this->hasMany(ConsumoEstanque::class, 'id_consumo', 'id_consumo');
     }
 
+      public function solicitante(): BelongsTo
+    {
+        return $this->belongsTo(Solicitante::class, 'id_dotacion', 'id');
+    }
     /**
      * Relación con la faena
      */
@@ -77,7 +81,7 @@ class Consumo extends Model
      */
     public function equipo(): BelongsTo
     {
-        return $this->belongsTo(Maquina::class, 'id_equipo', 'id_maquina');
+        return $this->belongsTo(Maquinas::class, 'id_equipo', 'id_maquina');
     }
 
     /**
@@ -153,7 +157,7 @@ class ConsumoEstanque extends Model
 
     protected $table = 'consumo_estanques';
     protected $primaryKey = 'id_consumo_estanque';
-    
+
     protected $fillable = [
         'id_consumo',
         'id_estanque',
@@ -192,7 +196,7 @@ class ConsumoEstanque extends Model
         return $this->belongsTo(Estanque::class, 'id_estanque', 'id_estanque');
     }
 
-    // ===================================
+      // ===================================
     // MÉTODOS AUXILIARES
     // ===================================
 
@@ -222,6 +226,7 @@ namespace App\Http\Controllers;
 use App\Models\Consumo;
 use App\Models\ConsumoEstanque;
 use App\Models\Estanque;
+use App\Models\Solicitante;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -263,7 +268,6 @@ class ConsumoController extends Controller
                 'success' => true,
                 'data' => $consumos
             ]);
-
         } catch (\Exception $e) {
             Log::error('Error al listar consumos: ' . $e->getMessage());
             return response()->json([
@@ -292,13 +296,13 @@ class ConsumoController extends Controller
             'numeral_final' => 'required|numeric|gt:numeral_inicial',
             'precio_litro' => 'nullable|numeric|min:0',
             'observacion' => 'nullable|string|max:255',
-            
+
             // Para consumo simple
             'id_estanque' => 'nullable|exists:estanques,id_estanque',
             'medicion' => 'nullable|numeric|min:0',
             'horometro' => 'nullable|numeric|min:0',
             'kilometraje' => 'nullable|numeric|min:0',
-            
+
             // Para consumo múltiple
             'estanques_multiples' => 'nullable|array|min:1',
             'estanques_multiples.*.id_estanque' => 'required|exists:estanques,id_estanque',
@@ -314,7 +318,7 @@ class ConsumoController extends Controller
         }
 
         DB::beginTransaction();
-        
+
         try {
             // 🔍 DETECTAR AUTOMÁTICAMENTE EL TIPO DE CONSUMO
             $tipoConsumo = 'simple'; // Por defecto
@@ -374,11 +378,10 @@ class ConsumoController extends Controller
                 'message' => 'Consumo registrado exitosamente',
                 'data' => $consumo->load('consumoEstanques.estanque')
             ], 201);
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error al crear consumo: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error al registrar el consumo: ' . $e->getMessage()
@@ -509,7 +512,6 @@ class ConsumoController extends Controller
                 'success' => true,
                 'data' => $consumo
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -555,7 +557,6 @@ class ConsumoController extends Controller
                 'success' => true,
                 'data' => $estadisticas
             ]);
-
         } catch (\Exception $e) {
             Log::error('Error al obtener estadísticas: ' . $e->getMessage());
             return response()->json([
