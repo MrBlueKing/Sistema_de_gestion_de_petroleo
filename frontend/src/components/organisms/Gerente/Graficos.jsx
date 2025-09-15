@@ -384,8 +384,6 @@ const GraficosContent = ({ children }) => {
     [shouldRenderCompact, compactChartProps]
   );
 
- 
-
   const MemoizedDashboardComparativo = useMemo(
     () =>
       fechaDesde && fechaHasta ? (
