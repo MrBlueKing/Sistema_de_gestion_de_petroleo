@@ -43,7 +43,7 @@ const UniversalHeader = ({
   showUserProfile = true,
   showClock = false,
 }) => {
-  if (!type || type === "none" || type === "null") {
+    if (!type || type === "none" || type === "null") {
     return null;
   }
   const { user, setUser, loading } = useContext(UserContext);
@@ -193,7 +193,7 @@ const UniversalHeader = ({
       case "admin":
         return {
           title: "Administrador",
-          hasTopBar: true,
+           hasTopBar: true,
           hasSidebar: false,
           isFixed: true,
           showHomeButton: true,

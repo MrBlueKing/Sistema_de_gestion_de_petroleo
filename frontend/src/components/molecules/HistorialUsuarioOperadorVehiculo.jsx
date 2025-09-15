@@ -1,8 +1,22 @@
 // components/organisms/OperadorVehiculo/HistorialUsuario.jsx
-import React, { useState, useMemo } from 'react';
-import { FaHistory, FaGasPump, FaTruck, FaCalendarAlt, FaMapMarkerAlt, FaFileInvoiceDollar, FaDollarSign, FaCheckCircle, FaClock, FaTimes, FaChartLine, FaUser } from 'react-icons/fa';
-import { useHistorialUsuario } from '../../hook/OperadorVehiculo/useHistorialUsuario';
-import PageControl from '../molecules/PageControl'; // 🆕 Importar PageControl
+import React, { useState, useMemo } from "react";
+import {
+  FaHistory,
+  FaGasPump,
+  FaTruck,
+  FaCalendarAlt,
+FaStickyNote,
+  FaMapMarkerAlt,
+  FaFileInvoiceDollar,
+  FaDollarSign,
+  FaCheckCircle,
+  FaClock,
+  FaTimes,
+  FaChartLine,
+  FaUser,
+} from "react-icons/fa";
+import { useHistorialUsuario } from "../../hook/OperadorVehiculo/useHistorialUsuario";
+import PageControl from "../molecules/PageControl"; // 🆕 Importar PageControl
 
 const HistorialUsuarioOperadorVehiculo = ({ recargarKey = 0 }) => {
   const {
@@ -16,7 +30,7 @@ const HistorialUsuarioOperadorVehiculo = ({ recargarKey = 0 }) => {
     cargasPendientes,
     cargasAprobadas,
     cargasRendidas,
-    cargarMisCargas
+    cargarMisCargas,
   } = useHistorialUsuario();
 
   // 🆕 ESTADOS PARA PAGINACIÓN
@@ -41,7 +55,7 @@ const HistorialUsuarioOperadorVehiculo = ({ recargarKey = 0 }) => {
   const handleCambioPagina = (nuevaPagina) => {
     setPaginaActual(nuevaPagina);
     // Scroll hacia arriba para mejor UX
-    window.scrollTo({ top: -250, behavior: 'smooth' });
+    window.scrollTo({ top: -250, behavior: "smooth" });
   };
 
   // 🆕 RESETEAR PÁGINA CUANDO CAMBIEN LOS DATOS
@@ -58,41 +72,41 @@ const HistorialUsuarioOperadorVehiculo = ({ recargarKey = 0 }) => {
   // 🎨 FUNCIÓN PARA OBTENER ESTILO DE ESTADO
   const getEstadoStyle = (estado) => {
     switch (estado) {
-      case 'Aprobado':
+      case "Aprobado":
         return {
-          bg: 'bg-green-100',
-          text: 'text-green-800',
-          border: 'border-green-200',
-          icon: <FaCheckCircle className="text-green-600" />
+          bg: "bg-green-100",
+          text: "text-green-800",
+          border: "border-green-200",
+          icon: <FaCheckCircle className="text-green-600" />,
         };
-      case 'Por Rendir':
-      case 'Pendiente':
+      case "Por Rendir":
+      case "Pendiente":
         return {
-          bg: 'bg-yellow-100',
-          text: 'text-yellow-800',
-          border: 'border-yellow-200',
-          icon: <FaClock className="text-yellow-600" />
+          bg: "bg-yellow-100",
+          text: "text-yellow-800",
+          border: "border-yellow-200",
+          icon: <FaClock className="text-yellow-600" />,
         };
-      case 'Rendido':
+      case "Rendido":
         return {
-          bg: 'bg-blue-100',
-          text: 'text-blue-800',
-          border: 'border-blue-200',
-          icon: <FaCheckCircle className="text-blue-600" />
+          bg: "bg-green-100",
+          text: "text-green-800",
+          border: "border-green-200",
+          icon: <FaCheckCircle className="text-green-600" />,
         };
-      case 'Rechazado':
+      case "Rechazado":
         return {
-          bg: 'bg-red-100',
-          text: 'text-red-800',
-          border: 'border-red-200',
-          icon: <FaTimes className="text-red-600" />
+          bg: "bg-red-100",
+          text: "text-red-800",
+          border: "border-red-200",
+          icon: <FaTimes className="text-red-600" />,
         };
       default:
         return {
-          bg: 'bg-gray-100',
-          text: 'text-gray-800',
-          border: 'border-gray-200',
-          icon: <FaClock className="text-gray-600" />
+          bg: "bg-gray-100",
+          text: "text-gray-800",
+          border: "border-gray-200",
+          icon: <FaClock className="text-gray-600" />,
         };
     }
   };
@@ -100,7 +114,11 @@ const HistorialUsuarioOperadorVehiculo = ({ recargarKey = 0 }) => {
   // 💼 COMPONENTE PARA ESTADÍSTICAS DEL MES - CORREGIDO
   const EstadisticasMesuales = () => {
     // ✅ VALIDACIÓN: Verificar que estadisticasMes existe y tiene datos
-    if (!estadisticasMes || !estadisticasMes.total_mes || estadisticasMes.total_mes === 0) {
+    if (
+      !estadisticasMes ||
+      !estadisticasMes.total_mes ||
+      estadisticasMes.total_mes === 0
+    ) {
       return (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
           <div className="text-center">
@@ -114,13 +132,13 @@ const HistorialUsuarioOperadorVehiculo = ({ recargarKey = 0 }) => {
     }
 
     // ✅ USAR LA ESTRUCTURA REAL DEL BACKEND
-    const { 
-      total_mes = 0, 
-      litros_mes = 0, 
+    const {
+      total_mes = 0,
+      litros_mes = 0,
       costo_mes = 0,
       pendientes = 0,
       aprobadas = 0,
-      rechazadas = 0
+      rechazadas = 0,
     } = estadisticasMes;
 
     return (
@@ -129,7 +147,7 @@ const HistorialUsuarioOperadorVehiculo = ({ recargarKey = 0 }) => {
           <FaChartLine className="text-blue-500" />
           Mis Estadísticas del Mes
         </h4>
-        
+
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="bg-blue-50 rounded-lg p-3 text-center">
             <div className="text-lg font-bold text-blue-600">
@@ -137,21 +155,23 @@ const HistorialUsuarioOperadorVehiculo = ({ recargarKey = 0 }) => {
             </div>
             <div className="text-xs text-blue-500 font-medium">Cargas</div>
           </div>
-          
+
           <div className="bg-green-50 rounded-lg p-3 text-center">
             <div className="text-lg font-bold text-green-600">
               {litros_mes.toLocaleString()} L
             </div>
             <div className="text-xs text-green-500 font-medium">Litros</div>
           </div>
-          
+
           <div className="bg-purple-50 rounded-lg p-3 text-center">
             <div className="text-lg font-bold text-purple-600">
               ${costo_mes.toLocaleString()}
             </div>
-            <div className="text-xs text-purple-500 font-medium">Costo Total</div>
+            <div className="text-xs text-purple-500 font-medium">
+              Costo Total
+            </div>
           </div>
-          
+
           <div className="bg-orange-50 rounded-lg p-3 text-center">
             <div className="text-lg font-bold text-orange-600">
               {total_mes > 0 ? Math.round(litros_mes / total_mes) : 0} L
@@ -163,23 +183,21 @@ const HistorialUsuarioOperadorVehiculo = ({ recargarKey = 0 }) => {
         {/* Estadísticas por estado */}
         {(pendientes > 0 || aprobadas > 0 || rechazadas > 0) && (
           <div className="mt-4 pt-4 border-t border-gray-200">
-            <h5 className="text-xs font-semibold text-gray-600 mb-2">Por Estado:</h5>
+            <h5 className="text-xs font-semibold text-gray-600 mb-2">
+              Por Estado:
+            </h5>
             <div className="flex gap-4 text-sm">
               {aprobadas > 0 && (
                 <span className="text-green-600 font-medium">
-                  {aprobadas} Aprobadas
+                  {aprobadas} Rendidas
                 </span>
               )}
               {pendientes > 0 && (
                 <span className="text-yellow-600 font-medium">
-                  {pendientes} Pendientes
+                  {pendientes} Por Rendir
                 </span>
               )}
-              {rechazadas > 0 && (
-                <span className="text-red-600 font-medium">
-                  {rechazadas} Rechazadas
-                </span>
-              )}
+         
             </div>
           </div>
         )}
@@ -190,70 +208,119 @@ const HistorialUsuarioOperadorVehiculo = ({ recargarKey = 0 }) => {
   // 📋 COMPONENTE PARA TARJETA DE CARGA
   const TarjetaCarga = ({ carga, index }) => {
     const estiloEstado = getEstadoStyle(carga.estado);
-    
+
     return (
-      <div className="bg-white border border-gray-200 hover:border-gray-300 rounded-lg p-4 transition-all hover:shadow-md">
-        {/* Header de la carga */}
-        <div className="flex justify-between items-start mb-3">
-          <div className="flex items-center gap-2">
-            <FaFileInvoiceDollar className="text-blue-500" />
-            <div>
-              <h4 className="font-semibold text-gray-800">
-                Boleta: {carga.numero_boleta}
-              </h4>
-              <p className="text-xs text-gray-500">{carga.fecha_legible}</p>
-            </div>
-          </div>
-          
-          {/* Badge de estado */}
-          <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${estiloEstado.bg} ${estiloEstado.text} ${estiloEstado.border}`}>
-            {estiloEstado.icon}
-            {carga.estado}
-          </div>
-        </div>
-
-        {/* Información principal */}
-        <div className="grid grid-cols-2 gap-4 mb-3">
-          <div className="flex items-center gap-2">
-            <FaGasPump className="text-green-500 text-sm" />
-            <div>
-              <div className="font-semibold text-gray-800">
-                {parseFloat(carga.litros).toLocaleString()} L
-              </div>
-              <div className="text-xs text-gray-500">{carga.tipo_combustible}</div>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <FaDollarSign className="text-purple-500 text-sm" />
-            <div>
-              <div className="font-semibold text-gray-800">
-                ${parseFloat(carga.costo).toLocaleString()}
-              </div>
-              <div className="text-xs text-gray-500">
-                ${parseFloat(carga.precio_por_litro).toLocaleString()}/L
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Ubicación y observaciones */}
-        {(carga.ubicacion || carga.observaciones) && (
-          <div className="text-sm text-gray-600 border-t border-gray-100 pt-3">
-            {carga.ubicacion && (
-              <div className="flex items-start gap-2 mb-1">
-                <FaMapMarkerAlt className="text-gray-400 text-xs mt-1" />
-                <span>{carga.ubicacion}</span>
-              </div>
-            )}
-            {carga.observaciones && (
-              <div className="text-xs text-gray-500 italic mt-1">
-                "{carga.observaciones}"
-              </div>
-            )}
-          </div>
-        )}
+      <div className="bg-white border border-gray-200 hover:border-blue-300 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 p-4 group relative">
+  
+  {/* Estado - Badge flotante pequeñito en esquina */}
+  <div className="absolute -top-2 -right-2">
+    <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium shadow-md ${estiloEstado.bg} ${estiloEstado.text} ${estiloEstado.border} border`}>
+      {estiloEstado.icon}
+      <span className="text-xs">{carga.estado}</span>
+    </div>
+  </div>
+  
+  {/* Los 6 datos principales en grid */}
+  <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+    
+    {/* Boleta */}
+    <div className="flex items-center gap-2.5 bg-white rounded-lg p-2.5 border border-gray-100">
+      <div className="bg-blue-500 group-hover:bg-blue-600 transition-colors p-1.5 rounded-lg shadow-sm">
+        <FaFileInvoiceDollar className="text-white text-xs" />
       </div>
+      <div className="flex-1 min-w-0">
+        <h4 className="font-bold text-gray-900 text-sm truncate">
+          {carga.numero_boleta}
+        </h4>
+        <p className="text-xs text-gray-500">{carga.fecha_legible}</p>
+      </div>
+    </div>
+
+    {/* Máquina */}
+    {carga.maquina && (
+      <div className="flex items-center gap-2.5 bg-white rounded-lg p-2.5 border border-gray-100">
+        <div className="bg-gray-500 p-1.5 rounded-lg shadow-sm">
+          <FaTruck className="text-white text-xs" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-gray-900 truncate">
+            {carga.maquina.nombre_maquina}
+          </p>
+          {carga.maquina.patente && (
+            <p className="text-xs text-gray-600 font-mono">
+              {carga.maquina.patente}
+            </p>
+          )}
+        </div>
+      </div>
+    )}
+
+    {/* Combustible */}
+    <div className="flex items-center gap-2.5 bg-white rounded-lg p-2.5 border border-gray-100">
+      <div className="bg-green-500 p-1.5 rounded-lg shadow-sm">
+        <FaGasPump className="text-white text-xs" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="font-bold text-gray-900 text-sm">
+          {parseFloat(carga.litros).toLocaleString('es-CL', { 
+            minimumFractionDigits: 1, 
+            maximumFractionDigits: 1 
+          })} L
+        </div>
+        <div className="text-xs text-gray-500 font-medium">{carga.tipo_combustible}</div>
+      </div>
+    </div>
+
+    {/* Costo */}
+    <div className="flex items-center gap-2.5 bg-white rounded-lg p-2.5 border border-gray-100">
+      <div className="bg-purple-500 p-1.5 rounded-lg shadow-sm">
+        <FaDollarSign className="text-white text-xs" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="font-bold text-gray-900 text-sm">
+          ${parseFloat(carga.costo).toLocaleString('es-CL')}
+        </div>
+        <div className="text-xs text-gray-500 font-medium">
+          ${parseFloat(carga.precio_por_litro).toLocaleString('es-CL')}/L
+        </div>
+      </div>
+    </div>
+
+    {/* Ubicación */}
+    {carga.ubicacion && (
+      <div className="flex items-center gap-2.5 bg-white rounded-lg p-2.5 border border-gray-100">
+        <div className="bg-amber-500 p-1.5 rounded-lg shadow-sm flex-shrink-0">
+          <FaMapMarkerAlt className="text-white text-xs" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-gray-900 mb-0.5">Ubicación</p>
+          <p className="text-xs text-gray-500 leading-relaxed truncate">
+            {carga.ubicacion}
+          </p>
+        </div>
+      </div>
+    )}
+
+    {/* Observaciones */}
+    {carga.observaciones && (
+      <div className="flex items-start gap-2.5 bg-white rounded-lg p-2.5 border border-gray-100">
+        <div className="bg-slate-500 p-1.5 rounded-lg shadow-sm flex-shrink-0">
+          <FaStickyNote className="text-white text-xs" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-gray-900 mb-0.5">Observaciones</p>
+          <p className="text-xs text-gray-500 leading-relaxed overflow-hidden">
+            {carga.observaciones.length > 60 ? carga.observaciones.substring(0, 60) + '...' : carga.observaciones}
+          </p>
+        </div>
+      </div>
+    )}
+  </div>
+
+  {/* Barra decorativa */}
+  <div className="h-0.5 bg-gradient-to-r from-blue-500 via-purple-500 to-green-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full"></div>
+</div>
+
     );
   };
 
@@ -278,7 +345,9 @@ const HistorialUsuarioOperadorVehiculo = ({ recargarKey = 0 }) => {
         <div className="bg-white rounded-xl shadow-lg p-6">
           <div className="text-center">
             <div className="text-red-500 text-4xl mb-4">⚠️</div>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">Error al cargar historial</h3>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">
+              Error al cargar historial
+            </h3>
             <p className="text-gray-600 mb-4">{error}</p>
             <button
               onClick={() => refrescarHistorial(50)}
@@ -302,10 +371,9 @@ const HistorialUsuarioOperadorVehiculo = ({ recargarKey = 0 }) => {
             Mi Historial de Cargas
           </h3>
           <p className="text-sm text-gray-600 mt-1">
-            {hayCargas 
+            {hayCargas
               ? `${totalCargas} cargas registradas - Última: ${ultimaCarga?.fecha_legible}`
-              : 'No tienes cargas registradas aún'
-            }
+              : "No tienes cargas registradas aún"}
           </p>
         </div>
 
@@ -335,24 +403,25 @@ const HistorialUsuarioOperadorVehiculo = ({ recargarKey = 0 }) => {
             {/* 🆕 INFO DE PAGINACIÓN */}
             {totalPaginas > 1 && (
               <div className="text-center text-sm text-gray-500 bg-gray-50 rounded-lg p-2">
-                Mostrando {((paginaActual - 1) * ITEMS_POR_PAGINA) + 1} - {Math.min(paginaActual * ITEMS_POR_PAGINA, cargas.length)} de {cargas.length} cargas
+                Mostrando {(paginaActual - 1) * ITEMS_POR_PAGINA + 1} -{" "}
+                {Math.min(paginaActual * ITEMS_POR_PAGINA, cargas.length)} de{" "}
+                {cargas.length} cargas
               </div>
             )}
 
             {/* Grid de cargas PAGINADAS */}
             <div className="space-y-3">
               {datosPaginados.map((carga, index) => (
-                <TarjetaCarga 
-                  key={`${carga.id}-${index}`} 
-                  carga={carga} 
-                  index={index} 
+                <TarjetaCarga
+                  key={`${carga.id}-${index}`}
+                  carga={carga}
+                  index={index}
                 />
               ))}
             </div>
 
             {/* 🆕 COMPONENTE DE PAGINACIÓN - SIEMPRE VISIBLE PARA TEST */}
             <div className="mt-6 pt-4 border-t border-gray-200 bg-yellow-50 p-4 rounded-lg">
-            
               {cargas.length > ITEMS_POR_PAGINA ? (
                 <PageControl
                   currentPage={paginaActual}

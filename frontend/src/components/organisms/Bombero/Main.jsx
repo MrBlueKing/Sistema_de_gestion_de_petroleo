@@ -20,6 +20,8 @@ import axios from "../../../lib/axios";
 import StockEstanquesFAB from "../../molecules/StockEstanquesFAB";
 import { UserContext } from "../../../context/userContext";
 import { getFaenaColors } from "../../../context/faenaColor";
+
+
 // Componente Button - Más sobrio con paleta de colores
 const Button = ({
   to,

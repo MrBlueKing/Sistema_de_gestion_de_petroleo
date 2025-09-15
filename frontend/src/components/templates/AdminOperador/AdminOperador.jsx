@@ -9,6 +9,7 @@ import GestionarMaquinas from '../../organisms/AdminOperador/GestionarMaquinasOp
 import GestionarUsuariosOperador from '../../organisms/AdminOperador/GestionarUsuariosOperador';
 import GraficosPetroleo from '../../organisms/Gerente/Graficos'
 import HistorialMaquinas from '../../organisms/Todos/HistorialMaquinas';
+import Recepciones from '../../organisms/Gerente/VerificacionIngresos';
 
 const AdminOperador = () => {
     const [activeTab, setActiveTab] = useState('principal');
@@ -71,11 +72,7 @@ const AdminOperador = () => {
             case 'graficos':
                 return <GraficosPetroleo />;
             case 'recepciones':
-                return (
-                    <div className="p-6 text-xl font-semibold text-blue-600">
-                        Hola 👋
-                    </div>
-                );
+                return <Recepciones />;
             case 'maquinas':
                 return <GestionarMaquinas />;
             case 'usuarios':
