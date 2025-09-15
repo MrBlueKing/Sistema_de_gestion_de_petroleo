@@ -11,7 +11,7 @@ import MainMantenimiento from "../components/organisms/Gerente/MainMantenimiento
 import MainSimulacion from "../components/organisms/Gerente/MainSimulacion";
 import GestionProduccion from "../components/organisms/Gerente/GestionProduccion";
 import VerificacionIngresos from "../components/organisms/Gerente/VerificacionIngresos";
-import ConsumoView from "../components/organisms/Gerente/ConsumoView";
+// YA no existe import ConsumoView from "../components/organisms/Gerente/ConsumoView";
 
 // 🛠️ Importaciones Administrador
 import AdministradorPage from "../pages/Administrador/AdministradorPage";
@@ -30,7 +30,7 @@ import BomberoNavigation from "../pages/Bombero/BomberoNavigation";
 import BomberoIngresoExterno from "../pages/Bombero/BomberoIngresoExterno";
 import BomberoConsumoPage from "../components/organisms/Bombero/ConsumoView"
 import BomberoRecepciones from "../components/organisms/Bombero/RecepcionesView"
-import HistorialMaquinasView from "../components/organisms/Bombero/HistorialMaquinasView";
+// YA no existe import HistorialMaquinasView from "../components/organisms/Bombero/HistorialMaquinasView";
 
 // ⚖️ Importaciones Distpach (Toneladas)
 import Distpach from "../pages/Distpach/MenuPrincipalDistpach";
@@ -39,7 +39,6 @@ import Distpach from "../pages/Distpach/MenuPrincipalDistpach";
 import Mantenimiento from "../pages/Mantencion/MenuPrincipalMantencion";
 import MenuPrincipalDistpach from "../pages/Distpach/MenuPrincipalDistpach";
 
-
 // Importaciones OperadorVehiculo 
 import OperadorVehiculo from "../pages/OperadorVehiculo/MenuPrincipalOperadorVehiculo";
 import FormularioOperador from "../components/templates/OperadorVehiculo/FormularioAsignacionVehiculo";
@@ -47,6 +46,9 @@ import FormularioOperador from "../components/templates/OperadorVehiculo/Formula
 // Importaciones AdministradorOperadorVehiculo
 import MenuPrincipalAdminOperador from "../pages/AdminOperador/MenuPrincipalAdminOperador";
 import ConsumoViewAdminOperador from "../components/organisms/AdminOperador/AdminCargasView";
+
+// Importaciones que pueden ser utilizadas por varios roles.
+import HistorialMaquinas from "../components/organisms/Todos/HistorialMaquinas";
 
 const AppRoutes = () => {
   return (
@@ -122,7 +124,7 @@ const AppRoutes = () => {
         path="/gerente/consumo-historial"
         element={
           <PrivateRoute requiredRole="gerente">
-            <ConsumoView />
+            <HistorialMaquinas />
           </PrivateRoute>
         }
       />
@@ -361,7 +363,7 @@ const AppRoutes = () => {
         path="/bombero/historial-maquinas"
         element={
           <PrivateRoute requiredRoles={["bombero"]}>
-            <HistorialMaquinasView />
+            <HistorialMaquinas />
           </PrivateRoute>
         }
       />

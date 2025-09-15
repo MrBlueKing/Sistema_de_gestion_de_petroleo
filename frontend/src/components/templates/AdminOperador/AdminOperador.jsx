@@ -7,6 +7,8 @@ import MainAdminOperador from '../../organisms/AdminOperador/MainAdminOperador';
 import ConsumoViewAdminOperador from '../../organisms/AdminOperador/AdminCargasView';
 import GestionarMaquinas from '../../organisms/AdminOperador/GestionarMaquinasOperador';
 import GestionarUsuariosOperador from '../../organisms/AdminOperador/GestionarUsuariosOperador';
+import GraficosPetroleo from '../../organisms/Gerente/Graficos'
+import HistorialMaquinas from '../../organisms/Todos/HistorialMaquinas';
 
 const AdminOperador = () => {
     const [activeTab, setActiveTab] = useState('principal');
@@ -20,34 +22,63 @@ const AdminOperador = () => {
             icon: 'FaListAlt'
         },
         {
-            id: 'vista-consumo',
-            label: 'Consumo',
-            description: 'Vista de consumo de combustible',
+            id: 'consumos-externos',
+            label: 'Consumos Externos',
+            description: 'Vista de consumo de combustibles externos',
             icon: 'FaGasPump'
         },
         {
-            id: 'gestionar-maquinas',
+            id: 'consumos-internos',
+            label: 'Consumos Internos',
+            description: 'Vista de consumos internos',
+            icon: 'FaGasPump'
+        },
+        {
+            id: 'graficos',
+            label: 'Gráficos',
+            description: 'Visualización de métricas y estadísticas',
+            icon: 'VscGraph'
+        },
+        {
+            id: 'recepciones',
+            label: 'Recepciones',
+            description: 'Gestionar recepciones de combustible',
+            icon: 'MdOilBarrel'
+        },
+        {
+            id: 'maquinas',
             label: 'Máquinas',
             description: 'Gestionar máquinas del sistema',
             icon: 'FaCogs'
         },
         {
-            id: 'gestionar-usuarios',
+            id: 'usuarios',
             label: 'Usuarios',
             description: 'Gestionar usuarios operadores',
-            icon: 'FaUsers'
+            icon: 'FaUserCog'
         }
     ];
+
 
     const renderActiveContent = () => {
         switch (activeTab) {
             case 'principal':
                 return <MainAdminOperador />;
-            case 'vista-consumo':
+            case 'consumos-externos':
                 return <ConsumoViewAdminOperador />;
-            case 'gestionar-maquinas':
+            case 'consumos-internos':
+                return <HistorialMaquinas />;
+            case 'graficos':
+                return <GraficosPetroleo />;
+            case 'recepciones':
+                return (
+                    <div className="p-6 text-xl font-semibold text-blue-600">
+                        Hola 👋
+                    </div>
+                );
+            case 'maquinas':
                 return <GestionarMaquinas />;
-            case 'gestionar-usuarios':
+            case 'usuarios':
                 return <GestionarUsuariosOperador />;
             default:
                 return <MainAdminOperador />;
@@ -55,7 +86,7 @@ const AdminOperador = () => {
     };
 
     return (
-        <div className="flex flex-col min-h-screen bg-gray-100 pt-2">
+        <div className="flex flex-col min-h-screen bg-white pt-2">
             <UniversalHeader type="AdminOperador" />
             {/* Navegación por pestañas */}
             <TabNavigation
@@ -64,7 +95,7 @@ const AdminOperador = () => {
                 onTabChange={setActiveTab}
             />
             {/* Contenido dinámico */}
-            <main className="flex-1">
+            <main className="flex-1 bg-white">
                 {renderActiveContent()}
             </main>
         </div>

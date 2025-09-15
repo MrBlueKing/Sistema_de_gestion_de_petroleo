@@ -7,6 +7,8 @@ import {
     FaCogs,
     FaGasPump
 } from 'react-icons/fa';
+import { VscGraph } from "react-icons/vsc";
+import { MdOilBarrel } from "react-icons/md";
 
 // Mapeo de iconos
 const iconMap = {
@@ -15,7 +17,9 @@ const iconMap = {
     FaUsers: FaUsers,
     FaPlus: FaPlus,
     FaCogs: FaCogs,
-    FaGasPump: FaGasPump
+    FaGasPump: FaGasPump,
+    VscGraph: VscGraph,
+    MdOilBarrel: MdOilBarrel
 };
 
 const TabNavigation = ({ tabs, activeTab, onTabChange }) => {

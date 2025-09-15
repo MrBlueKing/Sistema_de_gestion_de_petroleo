@@ -651,6 +651,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Transferir máquina entre faenas (para drag & drop)
         Route::post('/transferir', [MaquinaPermisosController::class, 'transferirMaquina']);
+        
     });
 });
 

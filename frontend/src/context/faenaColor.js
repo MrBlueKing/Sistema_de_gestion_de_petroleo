@@ -8,93 +8,120 @@ export const FAENA_COLORS = {
     bg: "bg-green-50",
     border: "border-l-green-400",
     borderFull: "border-green-200",
-    
+
     // Badges y etiquetas
     badge: "bg-green-100 text-green-800",
-    
+
     // Iconos y textos
     icon: "text-green-600",
     text: "text-green-800",
-    
+
     // Gradientes
     gradient: "bg-gradient-to-r from-green-600 to-green-700",
     gradientLight: "bg-gradient-to-r from-green-50 to-green-100/50",
-    
+
     // Colores específicos (hex)
     primary: "#059669", // green-600
     light: "#d1fae5",   // green-100
     dark: "#047857",    // green-700
-    
+
     // Elementos decorativos
     emoji: "🌿",
     id: 1
   },
-  
+
   4: {
     name: "Tiltil",
     // Colores para fondo y bordes
     bg: "bg-red-50/30",
     border: "border-l-red-400",
     borderFull: "border-red-200",
-    
+
     // Badges y etiquetas
     badge: "bg-red-100 text-red-800",
-    
+
     // Iconos y textos
     icon: "text-red-600",
     text: "text-red-800",
-    
+
     // Gradientes
     gradient: "bg-gradient-to-r from-red-600 to-red-700",
     gradientLight: "bg-gradient-to-r from-red-50 to-red-100/50",
-    
+
     // Colores específicos (hex)
     primary: "#dc2626", // red-600
     light: "#fee2e2",   // red-100
     dark: "#b91c1c",    // red-700
-    
+
     // Elementos decorativos
     emoji: "🏔️",
     id: 4
   },
-  
   5: {
     name: "Estacion de Servicio",
     // Colores para fondo y bordes
     bg: "bg-blue-50/40",
     border: "border-l-blue-500",
     borderFull: "border-blue-200",
-    
+
     // Badges y etiquetas
     badge: "bg-blue-100 text-blue-800",
-    
+
     // Iconos y textos
     icon: "text-blue-600",
     text: "text-blue-800",
-    
+
     // Gradientes
     gradient: "bg-gradient-to-r from-blue-600 to-blue-700",
     gradientLight: "bg-gradient-to-r from-blue-50 to-blue-100/50",
-    
+
     // Colores específicos (hex)
     primary: "#2563eb", // blue-600
     light: "#dbeafe",   // blue-100
     dark: "#1d4ed8",    // blue-700
-    
+
     // Colores especiales estilo Copec
     copecBlue: "text-[#0066cc]",
     copecBg: "bg-gradient-to-r from-blue-50 to-blue-100/50",
     copecBorder: "border-l-[#0066cc]",
     copecBadge: "bg-[#0066cc]/10 text-[#0066cc]",
     copecPrimary: "#0066cc",
-    
+
     // Elementos decorativos
     emoji: "⛽",
     id: 5
   },
-  
- 
-  
+  8: {
+    name: "Rungue",
+    // Colores para fondo y bordes
+    bg: "bg-purple-200/40",
+    border: "border-l-purple-500",
+    borderFull: "border-purple-200",
+
+    // Badges y etiquetas
+    badge: "bg-purple-100 text-purple-800",
+
+    // Iconos y textos
+    icon: "text-purple-600",
+    text: "text-purple-800",
+
+    // Gradientes
+    gradient: "bg-gradient-to-r from-purple-600 to-purple-700",
+    gradientLight: "bg-gradient-to-r from-purple-50 to-purple-100/50",
+
+    // Colores específicos (hex)
+    primary: "#7e22ce", // purple-700
+    light: "#f3e8ff",   // purple-100
+    dark: "#581c87",    // purple-900
+
+    // Estilo alternativo especial
+    specialGlow: "bg-gradient-to-r from-purple-400 via-fuchsia-500 to-pink-500",
+    specialText: "text-fuchsia-600",
+
+    // Elementos decorativos
+    emoji: "🌋", // Puede ser montaña / volcán / roca / galaxia según prefieras
+    id: 8
+  },
 };
 
 // 🔧 COLORES POR DEFECTO para faenas desconocidas
@@ -123,8 +150,8 @@ export const getFaenaColors = (faenaIdOrName) => {
   }
 
   // Detectar si es un número (ID) o string (nombre)
-  const isNumber = typeof faenaIdOrName === 'number' || 
-                   (typeof faenaIdOrName === 'string' && !isNaN(parseInt(faenaIdOrName)));
+  const isNumber = typeof faenaIdOrName === 'number' ||
+    (typeof faenaIdOrName === 'string' && !isNaN(parseInt(faenaIdOrName)));
 
   if (isNumber) {
     // Es un ID de faena
@@ -137,7 +164,7 @@ export const getFaenaColors = (faenaIdOrName) => {
     // Es un nombre de faena
     if (typeof faenaIdOrName === 'string') {
       const normalizedName = faenaIdOrName.trim().toLowerCase();
-      
+
       for (const [key, colors] of Object.entries(FAENA_COLORS)) {
         if (colors.name.toLowerCase() === normalizedName) {
           return colors;
@@ -145,7 +172,7 @@ export const getFaenaColors = (faenaIdOrName) => {
       }
     }
   }
-  
+
   return DEFAULT_FAENA_COLORS;
 };
 

@@ -124,11 +124,10 @@ const Pagination = React.memo(
           <button
             onClick={() => onPageChange(currentPage - 1)}
             disabled={currentPage === 1}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              currentPage === 1
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
-            }`}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === 1
+              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+              : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
+              }`}
           >
             <FaChevronLeft className="w-3 h-3" />
           </button>
@@ -140,13 +139,12 @@ const Pagination = React.memo(
               }
               onClick={() => typeof page === "number" && onPageChange(page)}
               disabled={page === "..."}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                page === currentPage
-                  ? "bg-blue-600 text-white"
-                  : page === "..."
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${page === currentPage
+                ? "bg-blue-600 text-white"
+                : page === "..."
                   ? "text-gray-400 cursor-default"
                   : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
-              }`}
+                }`}
             >
               {page}
             </button>
@@ -155,11 +153,10 @@ const Pagination = React.memo(
           <button
             onClick={() => onPageChange(currentPage + 1)}
             disabled={currentPage === totalPages}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              currentPage === totalPages
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
-            }`}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === totalPages
+              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+              : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
+              }`}
           >
             <FaChevronRight className="w-3 h-3" />
           </button>
@@ -333,11 +330,10 @@ const DateFilter = React.memo(
 
           <div className="ml-auto">
             <span
-              className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
-                pestanaActiva === "historial"
-                  ? "bg-green-100 text-green-800"
-                  : "bg-purple-100 text-purple-800"
-              }`}
+              className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${pestanaActiva === "historial"
+                ? "bg-green-100 text-green-800"
+                : "bg-purple-100 text-purple-800"
+                }`}
             >
               {pestanaActiva === "historial" ? (
                 <FaHistory />
@@ -438,16 +434,14 @@ const DateFilter = React.memo(
                     <button
                       key={id}
                       onClick={() => onFaenaToggle?.(colors.name, !isSelected)}
-                      className={`relative overflow-hidden p-2 sm:p-3 rounded-lg border-2 transition-all duration-300 transform active:scale-95 ${
-                        isSelected
-                          ? `${colors.border} ${colors.badge} shadow-md scale-105`
-                          : "border-gray-200 bg-gray-50 hover:bg-gray-100"
-                      }`}
+                      className={`relative overflow-hidden p-2 sm:p-3 rounded-lg border-2 transition-all duration-300 transform active:scale-95 ${isSelected
+                        ? `${colors.border} ${colors.badge} shadow-md scale-105`
+                        : "border-gray-200 bg-gray-50 hover:bg-gray-100"
+                        }`}
                     >
                       <div
-                        className={`absolute top-1 right-1 w-2 h-2 rounded-full transition-all duration-300 ${
-                          isSelected ? "bg-green-500 shadow-lg" : "bg-gray-300"
-                        }`}
+                        className={`absolute top-1 right-1 w-2 h-2 rounded-full transition-all duration-300 ${isSelected ? "bg-green-500 shadow-lg" : "bg-gray-300"
+                          }`}
                       />
 
                       <div className="text-left">
@@ -456,9 +450,8 @@ const DateFilter = React.memo(
                             {colors.emoji}
                           </span>
                           <h5
-                            className={`font-bold text-xs sm:text-sm truncate ${
-                              isSelected ? colors.text : "text-gray-600"
-                            }`}
+                            className={`font-bold text-xs sm:text-sm truncate ${isSelected ? colors.text : "text-gray-600"
+                              }`}
                           >
                             {colors.name}
                           </h5>
@@ -616,9 +609,8 @@ const ConsumoCard = React.memo(({ consumo, formatearFecha, formatNumber }) => {
 
             {/* Diferencia debajo */}
             <span
-              className={`text-xs mt-0.5 ${
-                consumo.anomalo ? "text-red-600 font-semibold" : "text-gray-900"
-              }`}
+              className={`text-xs mt-0.5 ${consumo.anomalo ? "text-red-600 font-semibold" : "text-gray-900"
+                }`}
             >
               Δ {formatNumber(consumo.diferencia_medicion)}
             </span>
@@ -665,6 +657,30 @@ const HistorialMaquinasView = () => {
   const [loadingGraficos, setLoadingGraficos] = useState(false);
   const [consumosParaGraficos, setConsumosParaGraficos] = useState([]);
 
+  // 🎯 DETERMINAR EL TIPO DE HEADER BASADO EN EL ROL DEL USUARIO
+  const getHeaderType = useMemo(() => {
+    if (!user || !user.rol) return null; // fallback
+
+    const userRole = user.rol.rol; // Acceder al rol desde el objeto rol
+    console.log("User Role:", userRole);
+
+    switch (userRole) {
+      case "bombero":
+      case "asistente_bombero":
+        return "bombero";
+
+      case "gerente":
+        return "gerente";
+
+      case "admin_operador":
+        return null; // 🚫 no mostrar header
+
+      default:
+        return null;
+    }
+  }, [user]);
+
+
   // Estados de filtros
   const [filters, setFilters] = useState({
     dateFrom: "",
@@ -673,15 +689,12 @@ const HistorialMaquinasView = () => {
   });
 
   // Estado para faenas seleccionadas
-  const [selectedFaenas, setSelectedFaenas] = useState([
-    "Cabildo",
-    "Tiltil",
-    "Estacion de Servicio",
-  ]);
+  const [selectedFaenas, setSelectedFaenas] = useState([]);
 
   // Estados de paginación
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Estados para estadísticas
   const [stats, setStats] = useState({
@@ -739,13 +752,24 @@ const HistorialMaquinasView = () => {
     return "Error al procesar la solicitud";
   }, []);
 
-  // 🔧 FUNCIÓN PARA OBTENER TOKEN
+  // 🔧 FUNCIÓN AUXILIAR PARA OBTENER TOKEN (si no existe ya)
   const getAuthToken = useCallback(() => {
     try {
       const authData = JSON.parse(localStorage.getItem("authToken"));
-      return authData?.token;
-    } catch {
+      if (authData?.token) {
+        return authData.token;
+      }
+
+      // Fallback: buscar token directo
+      const directToken = localStorage.getItem('access_token');
+      if (directToken) {
+        return directToken;
+      }
+
       return null;
+    } catch (error) {
+      DEBUG && console.warn("Error obteniendo token:", error);
+      return localStorage.getItem('access_token');
     }
   }, []);
 
@@ -756,126 +780,105 @@ const HistorialMaquinasView = () => {
       return [];
     }
 
-    return data.filter((consumo) => {
+    return data.filter((consumo, index) => {
+      // Validación más permisiva
       const isValid =
         consumo &&
-        consumo.fecha_consumo &&
-        consumo.litros_consumidos !== undefined &&
-        consumo.faena;
+        typeof consumo === 'object' &&
+        (consumo.fecha_consumo || consumo.fecha) && // Más flexible con nombres de campo
+        (consumo.litros_consumidos !== undefined && consumo.litros_consumidos !== null) &&
+        (consumo.faena || consumo.nombre_faena); // Más flexible con nombres de campo
 
       if (!isValid) {
-        DEBUG && console.warn("⚠️ Consumo inválido filtrado:", consumo);
+        DEBUG && console.warn(`⚠️ Consumo ${index} inválido filtrado:`, {
+          consumo,
+          validaciones: {
+            tieneObjetoConsumo: !!consumo,
+            esObjeto: typeof consumo === 'object',
+            tieneFecha: !!(consumo.fecha_consumo || consumo.fecha),
+            tieneLitros: consumo.litros_consumidos !== undefined && consumo.litros_consumidos !== null,
+            tieneFaena: !!(consumo.faena || consumo.nombre_faena)
+          }
+        });
       }
 
       return isValid;
     });
   }, []);
 
-  // 🚀 FUNCIÓN PRINCIPAL PARA OBTENER CONSUMOS PAGINADOS
-  const fetchConsumos = useCallback(
-    async (
-      filterParams = filters,
-      page = 1,
-      faenasSeleccionadas = selectedFaenas
-    ) => {
+
+  // 🚀 FUNCIÓN PRINCIPAL OPTIMIZADA: fetchAllData
+  // ✅ REEMPLAZA las 3 llamadas anteriores por 1 sola llamada optimizada
+  const fetchAllData = useCallback(
+    async (filterParams = filters, page = currentPage, faenasSeleccionadas = selectedFaenas) => {
       if (faenasSeleccionadas.length === 0) {
+        DEBUG && console.warn("⚠️ No hay faenas seleccionadas");
         setConsumos([]);
         setMaquinasDisponibles([]);
-        setStats({
-          total_consumos: 0,
-          total_litros: 0,
-          promedio_consumo: 0,
-          costo_total: 0,
-          equipo_mas_usado: "N/A",
-          consumos_simples: 0,
-          consumos_multiples: 0,
-          porcentaje_multiples: 0,
-          faenas: {},
-        });
+        setConsumosParaGraficos([]);
         setTotalItems(0);
+        setTotalPages(1);
         return;
       }
 
-      setLoading(true);
-
       try {
+        setLoading(true);
+        setLoadingGraficos(true);
+        setError(null);
+
         const token = getAuthToken();
-        if (!token) throw new Error("No se encontró token de autenticación");
+        if (!token) {
+          throw new Error("Token de autenticación no disponible");
+        }
+
+        // 🗺️ MAPEAR FAENAS A IDS
+        const getFaenaId = (name) => {
+          const mapping = {
+            "Cabildo": "1",
+            "Catemu": "2",
+            "Chincolco": "3",
+            "Tiltil": "4",
+            "Estacion de Servicio": "2"
+          };
+          return mapping[name] || null;
+        };
 
         const faenaIds = faenasSeleccionadas
-          .map((name) => getFaenaColors(name).id)
+          .map(getFaenaId)
           .filter(Boolean)
           .join(",");
 
         if (!faenaIds) {
-          throw new Error("No se pudieron procesar las faenas seleccionadas");
+          throw new Error("No se pudieron mapear las faenas seleccionadas");
         }
 
-        // ✅ PRIMERA LLAMADA: Todas las máquinas (solo en página 1)
-        if (page === 1) {
-          const paramsTodasMaquinas = new URLSearchParams({
-            faenas: faenaIds,
-            page: "1",
-            per_page: "9999",
-          });
-
-          if (filterParams.dateFrom?.trim()) {
-            paramsTodasMaquinas.append(
-              "dateFrom",
-              filterParams.dateFrom.trim()
-            );
-          }
-          if (filterParams.dateTo?.trim()) {
-            paramsTodasMaquinas.append("dateTo", filterParams.dateTo.trim());
-          }
-
-          try {
-            const responseMaquinas = await axios.get(
-              `/api/consumosFecha?${paramsTodasMaquinas}`,
-              {
-                headers: { Authorization: `Bearer ${token}` },
-                timeout: 20000,
-              }
-            );
-
-            if (responseMaquinas.data.success) {
-              const todosConsumos = validateConsumosData(
-                responseMaquinas.data.data || []
-              );
-              const todasMaquinas = [
-                ...new Set(
-                  todosConsumos
-                    .map((c) => c.nombre_maquina)
-                    .filter(Boolean)
-                    .filter((m) => m.trim() !== "")
-                ),
-              ].sort();
-
-              setMaquinasDisponibles(todasMaquinas);
-              DEBUG &&
-                console.log(
-                  `✅ ${todasMaquinas.length} máquinas cargadas:`,
-                  todasMaquinas.slice(0, 5)
-                );
-            }
-          } catch (error) {
-            DEBUG && console.warn("⚠️ Error cargando máquinas:", error.message);
-          }
-        }
-
-        // ✅ SEGUNDA LLAMADA: Consumos paginados
+        // 🎯 PARÁMETROS PARA LA LLAMADA OPTIMIZADA
         const params = new URLSearchParams({
           faenas: faenaIds,
           page: page.toString(),
           per_page: ITEMS_PER_PAGE.toString(),
+          // 🔑 PARÁMETROS CLAVE PARA UNA SOLA LLAMADA
+          include_machines: 'true',
+          include_chart_data: pestanaActiva === 'graficos' ? 'true' : 'false',
+          include_stats: 'true',
+          chart_limit: '1000',
         });
 
+        // Agregar filtros adicionales
         Object.entries(filterParams).forEach(([key, value]) => {
-          if (value && value.trim()) {
-            params.append(key, value.trim());
+          if (value && value.toString().trim()) {
+            params.append(key, value.toString().trim());
           }
         });
 
+        DEBUG && console.log("🚀 Llamada única optimizada:", {
+          url: `/api/consumosFecha?${params.toString()}`,
+          pestanaActiva,
+          faenasSeleccionadas,
+          page
+        });
+
+        // 🎯 LLAMADA AL BACKEND OPTIMIZADO
         const response = await axios.get(`/api/consumosFecha?${params}`, {
           headers: { Authorization: `Bearer ${token}` },
           timeout: 30000,
@@ -887,15 +890,95 @@ const HistorialMaquinasView = () => {
           );
         }
 
-        const consumosData = validateConsumosData(response.data.data || []);
-        setConsumos(consumosData);
+        // 📦 EXTRAER TODOS LOS DATOS DE UNA SOLA RESPUESTA
+        const {
+          data: consumosData = [],
+          machines = [],
+          chart_data = [],
+          stats = null,
+          pagination = {},
+          performance = {},
+          anomalas_stats = null
+        } = response.data;
 
-        if (response.data.stats) {
-          const statsBase = response.data.stats;
-          const faenaStats = {};
+        DEBUG && console.log("📊 Datos recibidos del backend optimizado:", {
+          consumos: consumosData.length,
+          machines: machines.length,
+          chart_data: chart_data.length,
+          stats: !!stats,
+          pagination,
+          performance,
+          anomalas_stats
+        });
+
+        // 🔍 DEBUG: Mostrar estructura de un consumo de muestra
+        if (consumosData.length > 0) {
+          DEBUG && console.log("🔍 Estructura del primer consumo:", {
+            consumo: consumosData[0],
+            keys: Object.keys(consumosData[0] || {}),
+            fecha_consumo: consumosData[0]?.fecha_consumo,
+            fecha: consumosData[0]?.fecha,
+            litros_consumidos: consumosData[0]?.litros_consumidos,
+            faena: consumosData[0]?.faena,
+            nombre_faena: consumosData[0]?.nombre_faena
+          });
+        }
+
+        // ✅ PROCESAR Y VALIDAR CONSUMOS CON FUNCIÓN MEJORADA
+        const consumosValidados = validateConsumosData(consumosData);
+
+        DEBUG && console.log("✅ Resultado de validación:", {
+          total_recibidos: consumosData.length,
+          total_validados: consumosValidados.length,
+          porcentaje_validados: consumosData.length > 0 ? Math.round((consumosValidados.length / consumosData.length) * 100) : 0
+        });
+
+        setConsumos(consumosValidados);
+
+        // ✅ PROCESAR MÁQUINAS DISPONIBLES
+        if (machines && machines.length > 0) {
+          const maquinasFormateadas = machines
+            .map(maq => maq.display_name || maq.nombre || maq.nombre_maquina)
+            .filter(Boolean)
+            .filter((nombre, index, array) => array.indexOf(nombre) === index) // Eliminar duplicados
+            .sort();
+
+          setMaquinasDisponibles(maquinasFormateadas);
+          DEBUG && console.log(`✅ ${maquinasFormateadas.length} máquinas cargadas desde backend optimizado`);
+        }
+
+        // ✅ PROCESAR DATOS PARA GRÁFICOS
+        if (pestanaActiva === 'graficos') {
+          if (chart_data && chart_data.length > 0) {
+            setConsumosParaGraficos(chart_data);
+            DEBUG && console.log(`📊 ${chart_data.length} registros para gráficos cargados`);
+          } else {
+            // Si no hay chart_data pero hay consumos, usar consumos para gráficos
+            setConsumosParaGraficos(consumosValidados);
+            DEBUG && console.log(`📊 Usando ${consumosValidados.length} consumos para gráficos (fallback)`);
+          }
+        }
+
+        // ✅ PROCESAR ESTADÍSTICAS
+        if (stats) {
+          const statsFormateadas = {
+            total_consumos: stats.total_consumos || 0,
+            total_litros: stats.total_litros || 0,
+            promedio_consumo: stats.promedio_consumo || 0,
+            costo_total: stats.costo_total || 0,
+            equipo_mas_usado: stats.equipo_mas_usado || "N/A",
+            consumos_simples: stats.consumos_simples || 0,
+            consumos_multiples: stats.consumos_multiples || 0,
+            porcentaje_multiples: stats.porcentaje_multiples || 0,
+            faenas: {}
+          };
+
+          // Calcular estadísticas por faena con datos más flexibles
           faenasSeleccionadas.forEach((name) => {
-            const consumosFaena = consumosData.filter((c) => c.faena === name);
-            faenaStats[name] = {
+            const consumosFaena = consumosValidados.filter(
+              (c) => (c.nombre_faena === name || c.faena === name)
+            );
+            statsFormateadas.faenas[name] = {
               consumos: consumosFaena.length,
               litros: consumosFaena.reduce(
                 (sum, c) => sum + parseFloat(c.litros_consumidos || 0),
@@ -904,106 +987,47 @@ const HistorialMaquinasView = () => {
             };
           });
 
-          setStats({
-            ...statsBase,
-            faenas: faenaStats,
-          });
+          // Agregar estadísticas anómalas si existen
+          if (anomalas_stats) {
+            statsFormateadas.anomalas_stats = anomalas_stats;
+          }
+
+          setStats(statsFormateadas);
         }
 
-        const total =
-          response.data.pagination?.total ||
-          response.data.stats?.total_consumos ||
-          consumosData.length;
-        setTotalItems(total);
+        // ✅ PROCESAR PAGINACIÓN CORRECTAMENTE
+        const total = pagination?.total || stats?.total_consumos || consumosValidados.length;
+        const totalPgs = pagination?.total_pages || Math.ceil(total / ITEMS_PER_PAGE);
 
-        return consumosData;
+        setTotalItems(total);
+        setTotalPages(Math.max(1, totalPgs)); // ✅ Usar setTotalPages como estado
+
+        DEBUG && console.log("✅ fetchAllData completado exitosamente:", {
+          consumos: consumosValidados.length,
+          totalItems: total,
+          totalPages: totalPgs,
+          machines: machines.length,
+          performance: performance?.total_time || 'N/A',
+          anomalas: anomalas_stats
+        });
+
+        return consumosValidados;
+
       } catch (error) {
-        DEBUG && console.error("❌ Error en fetchConsumos:", error.message);
-        // Puedes setear algún estado de error si lo necesitas
+        const errorMessage = error.response?.data?.message || error.message || "Error desconocido";
+        setError(errorMessage);
+        DEBUG && console.error("❌ Error en fetchAllData:", {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status
+        });
+        throw error;
       } finally {
         setLoading(false);
-      }
-    },
-    [filters, selectedFaenas, getAuthToken, validateConsumosData]
-  );
-
-  // 🆕 FUNCIÓN MEJORADA PARA OBTENER DATOS COMPLETOS PARA GRÁFICOS
-  const fetchConsumosParaGraficos = useCallback(
-    async (filterParams = filters, faenasSeleccionadas = selectedFaenas) => {
-      if (faenasSeleccionadas.length === 0) {
-        setConsumosParaGraficos([]);
-        return [];
-      }
-
-      try {
-        setLoadingGraficos(true);
-        const token = getAuthToken();
-        if (!token) {
-          setConsumosParaGraficos([]);
-          return [];
-        }
-
-        const faenaIds = faenasSeleccionadas
-          .map((name) => getFaenaColors(name).id)
-          .filter(Boolean)
-          .join(",");
-
-        if (!faenaIds) {
-          setConsumosParaGraficos([]);
-          return [];
-        }
-
-        const params = new URLSearchParams({
-          faenas: faenaIds,
-          page: "1",
-          per_page: "10", // Límite para gráficos
-        });
-
-        // Agregar filtros
-        Object.entries(filterParams).forEach(([key, value]) => {
-          if (value && value.trim()) {
-            params.append(key, value.trim());
-          }
-        });
-
-        DEBUG &&
-          console.log("🔍 Fetching datos COMPLETOS para gráficos:", {
-            faenaIds,
-            filters: filterParams,
-          });
-
-        const response = await axios.get(`/api/consumosFecha?${params}`, {
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 45000,
-        });
-
-        if (response.data.success) {
-          const consumosData = validateConsumosData(response.data.data || []);
-
-          // Limitar si es muy grande
-          if (consumosData.length > 5000) {
-            DEBUG && console.warn("⚠️ Limitando registros para gráficos");
-            const limitedData = consumosData.slice(0, 5000);
-            setConsumosParaGraficos(limitedData);
-            return limitedData;
-          }
-
-          setConsumosParaGraficos(consumosData);
-          return consumosData;
-        }
-
-        setConsumosParaGraficos([]);
-        return [];
-      } catch (error) {
-        DEBUG &&
-          console.error("❌ Error obteniendo datos para gráficos:", error);
-        setConsumosParaGraficos([]);
-        return [];
-      } finally {
         setLoadingGraficos(false);
       }
     },
-    [filters, selectedFaenas, getAuthToken, validateConsumosData]
+    [filters, selectedFaenas, pestanaActiva, currentPage, getAuthToken, validateConsumosData]
   );
 
   // 🔄 MANEJAR selección/deselección de faenas
@@ -1028,17 +1052,31 @@ const HistorialMaquinasView = () => {
     });
   }, []);
 
-  // 🔧 MANEJAR CAMBIOS EN FILTROS
+  // 🔧 FUNCIÓN ACTUALIZADA PARA MANEJAR CAMBIOS EN FILTROS
   const handleFilterChange = useCallback((newFilters) => {
     DEBUG && console.log("🔧 Aplicando filtros:", newFilters);
     setFilters(newFilters);
     setCurrentPage(1);
+    // fetchAllData se ejecutará automáticamente por el useEffect
   }, []);
 
-  // 📄 Manejar cambio de página
+  // 📄 FUNCIÓN ACTUALIZADA PARA MANEJAR CAMBIO DE PÁGINA
   const handlePageChange = useCallback((page) => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: "smooth" });
+    // fetchAllData se ejecutará automáticamente por el useEffect
+  }, []);
+
+  // 🎯 FUNCIÓN OPCIONAL: Refrescar datos manualmente
+  const refreshData = useCallback(async () => {
+    DEBUG && console.log("🔄 Refrescando datos manualmente...");
+    await fetchAllData(filters, currentPage, selectedFaenas);
+  }, [fetchAllData, filters, currentPage, selectedFaenas]);
+
+  // 📊 FUNCIÓN OPCIONAL: Cambiar a pestaña gráficos y cargar datos
+  const switchToGraphicsAndLoad = useCallback(async () => {
+    setPestanaActiva("graficos");
+    // El useEffect se encargará de recargar con chart_data incluido
   }, []);
 
   // 🔄 EFECTOS
@@ -1047,36 +1085,31 @@ const HistorialMaquinasView = () => {
   useEffect(() => {
     if (!userLoading && user) {
       DEBUG && console.log("👤 Usuario disponible, cargando datos...", user);
-      fetchConsumos();
+      fetchAllData();
     }
-  }, [user, userLoading, fetchConsumos]);
+  }, [user, userLoading, fetchAllData]);
 
   // Efecto para recargar cuando cambien filtros o faenas
   useEffect(() => {
     if (user) {
-      fetchConsumos(filters, 1, selectedFaenas);
+      fetchAllData(filters, 1, selectedFaenas);
     }
-  }, [filters, selectedFaenas, user, fetchConsumos]);
+  }, [filters, selectedFaenas, user, fetchAllData]);
 
   // Efecto para cambio de página
   useEffect(() => {
     if (user && currentPage > 1) {
-      fetchConsumos(filters, currentPage, selectedFaenas);
+      fetchAllData(filters, currentPage, selectedFaenas);
     }
-  }, [currentPage, user, fetchConsumos, filters, selectedFaenas]);
+  }, [currentPage, user, fetchAllData]);
 
-  // 🆕 EFECTO PARA CARGAR DATOS DE GRÁFICOS CUANDO SE CAMBIA A ESA PESTAÑA
+  // 🆕 EFECTO PARA CAMBIO DE PESTAÑA (recargar datos si cambia a gráficos)
   useEffect(() => {
     if (pestanaActiva === "graficos" && user && selectedFaenas.length > 0) {
-      DEBUG && console.log("📊 Cargando datos para gráficos...");
-      fetchConsumosParaGraficos(filters, selectedFaenas);
+      DEBUG && console.log("📊 Cambio a pestaña gráficos, recargando datos...");
+      fetchAllData(filters, currentPage, selectedFaenas);
     }
-  }, [pestanaActiva, user, selectedFaenas, filters, fetchConsumosParaGraficos]);
-
-  // 📊 CÁLCULOS MEMOIZADOS
-  const totalPages = useMemo(() => {
-    return Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
-  }, [totalItems]);
+  }, [pestanaActiva, user, selectedFaenas, fetchAllData, filters, currentPage]);
 
   // 🎨 COMPONENTES DE LOADING Y ERROR
   const LoadingSpinner = useCallback(
@@ -1168,9 +1201,11 @@ const HistorialMaquinasView = () => {
   // 🎨 RENDER PRINCIPAL
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-100 py-4 sm:py-6 px-3 sm:px-4">
-      <div className=" mx-auto mt-12">
-        <UniversalHeader type="gerente" />
-
+      <div className=" mx-auto">
+        {console.log("Datos de getHeaderType:", getHeaderType)}
+        <UniversalHeader
+          type={getHeaderType}
+        />
         {/* FILTROS COMPARTIDOS */}
         <DateFilter
           onFilterChange={handleFilterChange}
@@ -1189,11 +1224,10 @@ const HistorialMaquinasView = () => {
           <div className="flex">
             <button
               onClick={() => setPestanaActiva("historial")}
-              className={`flex-1 flex items-center justify-center gap-3 py-5 px-4 text-base font-semibold transition-all duration-300 relative ${
-                pestanaActiva === "historial"
-                  ? "text-orange-600 bg-orange-50"
-                  : "text-gray-600 hover:text-orange-600 hover:bg-gray-50"
-              }`}
+              className={`flex-1 flex items-center justify-center gap-3 py-5 px-4 text-base font-semibold transition-all duration-300 relative ${pestanaActiva === "historial"
+                ? "text-orange-600 bg-orange-50"
+                : "text-gray-600 hover:text-orange-600 hover:bg-gray-50"
+                }`}
             >
               <FaHistory className="text-lg" />
               <span className="hidden sm:inline">Historial de Consumos</span>
@@ -1204,9 +1238,8 @@ const HistorialMaquinasView = () => {
               </span>
 
               <div
-                className={`absolute bottom-0 left-0 right-0 h-1 bg-orange-600 transition-all duration-300 ${
-                  pestanaActiva === "historial" ? "opacity-100" : "opacity-0"
-                }`}
+                className={`absolute bottom-0 left-0 right-0 h-1 bg-orange-600 transition-all duration-300 ${pestanaActiva === "historial" ? "opacity-100" : "opacity-0"
+                  }`}
               ></div>
             </button>
 
@@ -1214,11 +1247,10 @@ const HistorialMaquinasView = () => {
 
             <button
               onClick={() => setPestanaActiva("graficos")}
-              className={`flex-1 flex items-center justify-center gap-3 py-5 px-4 text-base font-semibold transition-all duration-300 relative ${
-                pestanaActiva === "graficos"
-                  ? "text-orange-600 bg-orange-50"
-                  : "text-gray-600 hover:text-orange-600 hover:bg-gray-50"
-              }`}
+              className={`flex-1 flex items-center justify-center gap-3 py-5 px-4 text-base font-semibold transition-all duration-300 relative ${pestanaActiva === "graficos"
+                ? "text-orange-600 bg-orange-50"
+                : "text-gray-600 hover:text-orange-600 hover:bg-gray-50"
+                }`}
             >
               <MdOutlineAnalytics className="text-lg" />
               <span className="hidden sm:inline">Análisis y Gráficos</span>
@@ -1229,9 +1261,8 @@ const HistorialMaquinasView = () => {
               </span>
 
               <div
-                className={`absolute bottom-0 left-0 right-0 h-1 bg-orange-600 transition-all duration-300 ${
-                  pestanaActiva === "graficos" ? "opacity-100" : "opacity-0"
-                }`}
+                className={`absolute bottom-0 left-0 right-0 h-1 bg-orange-600 transition-all duration-300 ${pestanaActiva === "graficos" ? "opacity-100" : "opacity-0"
+                  }`}
               ></div>
             </button>
           </div>
@@ -1362,7 +1393,7 @@ const HistorialMaquinasView = () => {
               <ErrorDisplay
                 error={error}
                 onRetry={() =>
-                  fetchConsumos(filters, currentPage, selectedFaenas)
+                  fetchAllData(filters, currentPage, selectedFaenas)
                 }
               />
             ) : selectedFaenas.length === 0 ? (
@@ -1389,8 +1420,8 @@ const HistorialMaquinasView = () => {
                         message="📭 No hay consumos para mostrar"
                         subMessage={
                           filters.dateFrom ||
-                          filters.dateTo ||
-                          filters.equipoFilter
+                            filters.dateTo ||
+                            filters.equipoFilter
                             ? "Intenta ajustar los filtros de búsqueda"
                             : "No se han registrado consumos aún"
                         }
@@ -1432,8 +1463,9 @@ const HistorialMaquinasView = () => {
                               const fechaFormateada = formatearFecha(
                                 consumo.fecha_consumo
                               );
-                              const faenaColors = getFaenaColors(consumo.faena);
-
+                              console.log("Datos consumo:", consumo);
+                              const faenaColors = getFaenaColors(consumo.nombre_faena);
+                              console.log("Datos color:", faenaColors);
                               return (
                                 <tr
                                   key={consumo.id_consumo || index}
@@ -1509,7 +1541,7 @@ const HistorialMaquinasView = () => {
                                         {formatNumber(consumo.medicion)}
                                         <span className="text-xs ml-1">
                                           {consumo.tipo_medicion ===
-                                          "Kilometraje"
+                                            "Kilometraje"
                                             ? "km"
                                             : "hrs"}
                                         </span>
@@ -1522,11 +1554,10 @@ const HistorialMaquinasView = () => {
                                     <div className="flex flex-col items-start mt-1 space-y-1">
                                       {/* Diferencia: siempre se muestra */}
                                       <span
-                                        className={`text-sm ${
-                                          consumo.anomalo
-                                            ? "text-red-600 font-semibold"
-                                            : "text-gray-500"
-                                        }`}
+                                        className={`text-sm ${consumo.anomalo
+                                          ? "text-red-600 font-semibold"
+                                          : "text-gray-500"
+                                          }`}
                                       >
                                         Δ{" "}
                                         {formatNumber(
@@ -1559,8 +1590,8 @@ const HistorialMaquinasView = () => {
                                   message="📭 No hay consumos para mostrar"
                                   subMessage={
                                     filters.dateFrom ||
-                                    filters.dateTo ||
-                                    filters.equipoFilter
+                                      filters.dateTo ||
+                                      filters.equipoFilter
                                       ? "Intenta ajustar los filtros de búsqueda"
                                       : "No se han registrado consumos aún"
                                   }
@@ -1601,7 +1632,7 @@ const HistorialMaquinasView = () => {
                   const cargarDatos = async () => {
                     setLoadingGraficos(true);
                     try {
-                      const datos = await fetchConsumosParaGraficos(
+                      const datos = await fetchAllData(
                         filters,
                         selectedFaenas
                       );

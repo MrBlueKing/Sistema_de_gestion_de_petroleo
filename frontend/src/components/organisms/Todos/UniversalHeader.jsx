@@ -43,6 +43,9 @@ const UniversalHeader = ({
   showUserProfile = true,
   showClock = false,
 }) => {
+  if (!type || type === "none" || type === "null") {
+    return null;
+  }
   const { user, setUser, loading } = useContext(UserContext);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -190,7 +193,7 @@ const UniversalHeader = ({
       case "admin":
         return {
           title: "Administrador",
-           hasTopBar: true,
+          hasTopBar: true,
           hasSidebar: false,
           isFixed: true,
           showHomeButton: true,
@@ -233,11 +236,11 @@ const UniversalHeader = ({
       case "AdminOperador":
         return {
           title: "Administrador Operadores de Vehículos",
-          mobileTitle: "Operador de\nVehículo",
+          mobileTitle: "Administrador Operador de\nVehículo",
           hasTopBar: true,
           hasSidebar: false,
           isFixed: true,
-          showHomeButton: true,
+          showHomeButton: false,
           homeRoute: "/AdministradorOPeradorVehiculo",
           showNotifications: false,
           headerHeight: "",
