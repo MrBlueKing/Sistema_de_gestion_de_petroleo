@@ -340,14 +340,11 @@ const ResumenStockDetallado = ({
                                   >
                                     {faena.nombre_faena}
                                   </h5>
-                               
                                 </div>
                               </div>
                               <span
                                 className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${faenaColors.badge}`}
-                              >
-                               
-                              </span>
+                              ></span>
                             </div>
 
                             {/* Grid de métricas estilo tarjetas principales */}
@@ -446,148 +443,155 @@ const ResumenStockDetallado = ({
           </div>
         )}
 
-{/* Movimientos cronológicos */}
-<div className="mb-8">
-  <div className="bg-gray-50 rounded-lg border border-gray-200">
-    <div
-      className="p-4 cursor-pointer flex items-center justify-between"
-      onClick={() => setMostrarMovimientos(!mostrarMovimientos)}
-    >
-      <div className="flex items-center space-x-2">
-        <FiClock className="text-gray-600" />
-        <h4 className="font-medium text-gray-900">
-          Movimientos Cronológicos (
-          {datosCalculados.resumen_movimientos?.length || 0})
-        </h4>
-      </div>
-      {mostrarMovimientos ? (
-        <FiChevronUp className="text-gray-500" />
-      ) : (
-        <FiChevronDown className="text-gray-500" />
-      )}
-    </div>
+        {/* Movimientos cronológicos */}
+        <div className="mb-8">
+          <div className="bg-gray-50 rounded-lg border border-gray-200">
+            <div
+              className="p-4 cursor-pointer flex items-center justify-between"
+              onClick={() => setMostrarMovimientos(!mostrarMovimientos)}
+            >
+              <div className="flex items-center space-x-2">
+                <FiClock className="text-gray-600" />
+                <h4 className="font-medium text-gray-900">
+                  Movimientos Cronológicos (
+                  {datosCalculados.resumen_movimientos?.length || 0})
+                </h4>
+              </div>
+              {mostrarMovimientos ? (
+                <FiChevronUp className="text-gray-500" />
+              ) : (
+                <FiChevronDown className="text-gray-500" />
+              )}
+            </div>
 
-    {mostrarMovimientos && datosCalculados.resumen_movimientos && (
-      <div className="border-t border-gray-200 p-2">
-        <div className="space-y-2 max-h-96 overflow-y-auto">
-          {datosCalculados.resumen_movimientos.map(
-            (movimiento, index) => {
-              // 🔧 MAPEO CORRECTO de campos del backend
-              const esRecepcion =
-                movimiento.tipo?.toLowerCase() === "recepcion" ||
-                movimiento.tipo?.toLowerCase() === "recepción";
-              const litros = parseFloat(
-                movimiento.litros_consumidos ||
-                  movimiento.litros_recibidos ||
-                  movimiento.litros ||
-                  0
-              );
-              const stockResultante = parseFloat(
-                movimiento.stock_posterior ||
-                  movimiento.stock_resultante ||
-                  0
-              );
-              const fechaMovimiento =
-                movimiento.fecha_hora || movimiento.fecha;
+            {mostrarMovimientos && datosCalculados.resumen_movimientos && (
+              <div className="border-t border-gray-200 p-2">
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {datosCalculados.resumen_movimientos.map(
+                    (movimiento, index) => {
+                      // 🔧 MAPEO CORRECTO de campos del backend
+                      const esRecepcion =
+                        movimiento.tipo?.toLowerCase() === "recepcion" ||
+                        movimiento.tipo?.toLowerCase() === "recepción";
+                      const litros = parseFloat(
+                        movimiento.litros_consumidos ||
+                          movimiento.litros_recibidos ||
+                          movimiento.litros ||
+                          0
+                      );
+                      const stockResultante = parseFloat(
+                        movimiento.stock_posterior ||
+                          movimiento.stock_resultante ||
+                          0
+                      );
+                      const fechaMovimiento =
+                        movimiento.fecha_hora || movimiento.fecha;
 
-              // 🎨 NUEVO: Extraer faena y obtener colores usando tu sistema existente
-              const nombreFaena = extractFaenaFromDescription(
-                movimiento.descripcion
-              );
-              const faenaColors = getFaenaColors(nombreFaena);
+                      // 🎨 NUEVO: Extraer faena y obtener colores usando tu sistema existente
+                      const nombreFaena = extractFaenaFromDescription(
+                        movimiento.descripcion
+                      );
+                      const faenaColors = getFaenaColors(nombreFaena);
 
-              return (
-                <div
-                  key={index}
-                  className={`flex items-center justify-between py-2 px-3 rounded-lg border-l-4 transition-all duration-200 ${faenaColors.bg} ${faenaColors.border} hover:${faenaColors.gradientLight}`}
-                >
-                  {/* Icono y contenido principal */}
-                  <div className="flex items-center space-x-3 flex-1 min-w-0">
-                    {/* Icono a la izquierda */}
-                    <div className="flex-shrink-0">
-                      {esRecepcion ? (
-                        <FiTruck className="text-green-800 text-xl" />
-                      ) : (
-                        <GiGasPump className="text-red-600 text-xl" />
-                      )}
-                    </div>
+                      return (
+                        <div
+                          key={index}
+                          className={`flex items-center justify-between py-2 px-3 rounded-lg border-l-4 transition-all duration-200 ${faenaColors.bg} ${faenaColors.border} hover:${faenaColors.gradientLight}`}
+                        >
+                          {/* Icono y contenido principal */}
+                          <div className="flex items-center space-x-3 flex-1 min-w-0">
+                            {/* Icono a la izquierda */}
+                            <div className="flex-shrink-0">
+                              {esRecepcion ? (
+                                <FiTruck className="text-green-800 text-xl" />
+                              ) : (
+                                <GiGasPump className="text-red-600 text-xl" />
+                              )}
+                            </div>
 
-                    {/* Contenido principal */}
-                    <div className="flex-1 min-w-0">
-                      {/* Primera línea: Tipo y Badge */}
-                      <div className="flex items-center space-x-2 mb-0.5">
-                        <span className="text-sm font-medium text-gray-900 flex-shrink-0">
-                          {esRecepcion ? "Recepción" : "Consumo"}
-                        </span>
-                        {/* 🆕 Badge de faena y emoji */}
-                        {nombreFaena && (
-                          <>
-                            <span className="text-sm flex-shrink-0" title={`Faena: ${nombreFaena}`}>
-                              {faenaColors.emoji}
-                            </span>
-                            <span
-                              className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${faenaColors.badge} flex-shrink-0`}
+                            {/* Contenido principal */}
+                            <div className="flex-1 min-w-0">
+                              {/* Primera línea: Tipo y Badge */}
+                              <div className="flex items-center space-x-2 mb-0.5">
+                                <span className="text-sm font-medium text-gray-900 flex-shrink-0">
+                                  {esRecepcion ? "Recepción" : "Consumo"}
+                                </span>
+                                {/* 🆕 Badge de faena y emoji */}
+                                {nombreFaena && (
+                                  <>
+                                    <span
+                                      className="text-sm flex-shrink-0"
+                                      title={`Faena: ${nombreFaena}`}
+                                    >
+                                      {faenaColors.emoji}
+                                    </span>
+                                    <span
+                                      className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${faenaColors.badge} flex-shrink-0`}
+                                    >
+                                      <span className="hidden sm:inline">
+                                        {nombreFaena}
+                                      </span>
+                                      <span className="sm:hidden">
+                                        {nombreFaena.substring(0, 3)}
+                                      </span>
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+
+                              {/* Segunda línea: Fecha */}
+                              <p className="text-xs text-gray-500 mb-1">
+                                {formatDate(fechaMovimiento)}
+                              </p>
+
+                              {/* Tercera línea: Descripción si existe */}
+                              {movimiento.descripcion && (
+                                <p className="text-xs text-gray-400 break-words leading-tight line-clamp-2">
+                                  {movimiento.descripcion}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Cantidades a la derecha */}
+                          <div className="text-right flex-shrink-0 ml-2">
+                            <p
+                              className={`text-sm font-semibold ${
+                                esRecepcion ? "text-green-600" : "text-red-600"
+                              }`}
                             >
-                              <span className="hidden sm:inline">{nombreFaena}</span>
-                              <span className="sm:hidden">{nombreFaena.substring(0, 3)}</span>
-                            </span>
-                          </>
-                        )}
-                      </div>
-
-                      {/* Segunda línea: Fecha */}
-                      <p className="text-xs text-gray-500 mb-1">
-                        {formatDate(fechaMovimiento)}
-                      </p>
-
-                      {/* Tercera línea: Descripción si existe */}
-                      {movimiento.descripcion && (
-                        <p className="text-xs text-gray-400 break-words leading-tight line-clamp-2">
-                          {movimiento.descripcion}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Cantidades a la derecha */}
-                  <div className="text-right flex-shrink-0 ml-2">
-                    <p
-                      className={`text-sm font-semibold ${
-                        esRecepcion ? "text-green-600" : "text-red-600"
-                      }`}
-                    >
-                      {esRecepcion ? "+" : "-"}
-                      {formatNumber(litros)} L
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Stock: {formatNumber(stockResultante)} L
-                    </p>
-                    {movimiento.diferencia && (
-                      <p className="text-xs text-gray-400">
-                        Δ: {movimiento.diferencia > 0 ? "+" : ""}
-                        {formatNumber(movimiento.diferencia)}
-                      </p>
-                    )}
-                  </div>
+                              {esRecepcion ? "+" : "-"}
+                              {formatNumber(litros)} L
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Stock: {formatNumber(stockResultante)} L
+                            </p>
+                            {movimiento.diferencia && (
+                              <p className="text-xs text-gray-400">
+                                Δ: {movimiento.diferencia > 0 ? "+" : ""}
+                                {formatNumber(movimiento.diferencia)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+                  )}
                 </div>
-              );
-            }
-          )}
-        </div>
 
-        {/* Mensaje si no hay movimientos */}
-        {datosCalculados.resumen_movimientos.length === 0 && (
-          <div className="text-center py-6">
-            <FiClock className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-            <p className="text-sm text-gray-500">No hay movimientos registrados</p>
+                {/* Mensaje si no hay movimientos */}
+                {datosCalculados.resumen_movimientos.length === 0 && (
+                  <div className="text-center py-6">
+                    <FiClock className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                    <p className="text-sm text-gray-500">
+                      No hay movimientos registrados
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        )}
-      </div>
-    )}
-  </div>
-</div>
-
-
+        </div>
 
         {/* Info adicional con cálculos detallados */}
         <div className="bg-blue-50 rounded-lg border border-blue-200 mb-4">
@@ -668,9 +672,11 @@ const ResumenStockDetallado = ({
                         {formatNumber(datosCalculados.stock_inicial_periodo)} +{" "}
                         {formatNumber(
                           datosCalculados.totales.total_recepciones
-                        )}{" "} +  {formatNumber(
+                        )}{" "}
+                        +{" "}
+                        {formatNumber(
                           datosCalculados.totales.total_errores_iniciales
-                        )} {" "}
+                        )}{" "}
                         - {formatNumber(datosCalculados.totales.total_consumos)}{" "}
                         = {formatNumber(datosCalculados.stock_final_calculado)}{" "}
                         L
@@ -686,15 +692,13 @@ const ResumenStockDetallado = ({
                   • Stock inicial calculado al inicio del período seleccionado
                 </li>
                 <li>• Recepciones y consumos procesados cronológicamente</li>
-                
+
                 {esModoBusquedaGlobal && (
                   <li>
                     • <strong>Consolidación:</strong> Suma de todas las faenas
                     usando la misma lógica individual
                   </li>
                 )}
-              
-              
               </ul>
             </div>
           )}

@@ -39,7 +39,7 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - [Queued] Operador Vehiculos --> Formulario principal --> La carga que realiza el usuario, debe ser asignada a la faena a la cual pertenece el user.
 
-- [WIP] Gerente --> Grafico Pie comparativo --> Operacional = Todo - Micro - Camiones Tolva - Camionetas 50% +                                                  50% Camionetas que tributen a la Faena
+- [WIP:NICO] Gerente --> Grafico Pie comparativo --> Operacional = Todo - Micro - Camiones Tolva - Camionetas 50% +                                                  50% Camionetas que tributen a la Faena
                                                    Total = Todo + Camion (Asignado) + Camionetas 50% + 50% Camionetas que tributen a la Faena
 
 
