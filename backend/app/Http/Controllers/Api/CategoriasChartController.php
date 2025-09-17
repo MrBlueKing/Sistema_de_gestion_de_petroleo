@@ -863,4 +863,201 @@ private function calcularPeriodoAnteriorFormatoDDMMYYYY($fechaDesde, $fechaHasta
             ], 500);
         }
     }
+
+    /**
+ * 🚛 NUEVO MÉTODO: Obtener viajes y distancias de camiones tolva
+ * Para calcular distribución de consumo por faena basado en km recorridos
+ */
+public function obtenerViajesDistanciasCamionesTolva(Request $request)
+{
+    try {
+        $fechaInicio = $request->input('fecha_inicio', $request->input('fecha_desde', Carbon::now()->startOfMonth()->format('Y-m-d')));
+        $fechaFin = $request->input('fecha_fin', $request->input('fecha_hasta', Carbon::now()->format('Y-m-d')));
+        $idFaena = $request->input('id_faena', $request->input('faena_id')); // Opcional
+        
+        // 🔑 Convertir fechas con Carbon
+        $fechaInicio = Carbon::parse($fechaInicio)->startOfDay();
+        $fechaFin = Carbon::parse($fechaFin)->endOfDay();
+
+        // 🚛 CONSULTA PRINCIPAL: Obtener viajes y distancias de camiones tolva
+       // 🚛 CONSULTA PRINCIPAL: Obtener viajes y distancias de camiones tolva
+$queryViajesDistancias = DB::table('tonelajes as t')
+    ->join('maquinas as m', 't.id_maquina', '=', 'm.id_maquina')
+    ->join('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria') 
+    ->join('padrones as p', 't.id_padron', '=', 'p.id_padron')
+    ->leftJoin('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
+    ->leftJoin('faenas as f', 'p.id_faena', '=', 'f.id_faena') // 👈 cambio clave
+    ->where('cm.id_categoria', 7) // Camion Tolva = 7
+    ->whereBetween('t.fecha_tonelaje', [$fechaInicio, $fechaFin])
+    ->when($idFaena && $idFaena !== 'todas', function($q) use ($idFaena) {
+        return $q->where('p.id_faena', $idFaena); // 👈 también aquí
+    })
+    ->select([
+        // Información de la máquina
+        'm.id_maquina',
+        'cm.nombre_categoria',
+        DB::raw('COALESCE(mi.nombre, m.nombre_maquina) as nombre_maquina'),
+        DB::raw('COALESCE(mi.patente, m.patente) as patente'),
+        DB::raw('CASE WHEN mi.id_maquina IS NOT NULL THEN "Interna" ELSE "Externa" END as tipo_maquina'),
+        
+        // Información de la faena
+        'p.id_faena', // 👈 aquí cambié t.id_faena → p.id_faena
+        'f.ubicacion as nombre_faena',
+        
+        // Información del padrón (distancia)
+        't.id_padron',
+        'p.distancia',
+        'p.descripcion as padron_descripcion',
+        
+        // 📊 DATOS CLAVE: Viajes y cálculos
+        DB::raw('SUM(t.viajes) as total_viajes'),
+        DB::raw('p.distancia as distancia_por_viaje'),
+        DB::raw('SUM(t.viajes) * p.distancia as total_kilometros'),
+        
+        // Información adicional
+        DB::raw('COUNT(t.id_tonelaje) as total_registros_tonelaje'),
+        DB::raw('MIN(t.fecha_tonelaje) as primera_fecha'),
+        DB::raw('MAX(t.fecha_tonelaje) as ultima_fecha')
+    ])
+    ->groupBy([
+        'm.id_maquina', 'cm.nombre_categoria', 'mi.nombre', 'm.nombre_maquina', 
+        'mi.patente', 'm.patente', 'mi.id_maquina',
+        'p.id_faena', 'f.ubicacion', // 👈 cambiados aquí
+        't.id_padron', 'p.distancia', 'p.descripcion'
+    ])
+    ->orderBy('total_kilometros', 'desc')
+    ->get();
+
+        // 🔄 PROCESAR Y FORMATEAR DATOS
+        $viajesDistanciasFormateados = $queryViajesDistancias->map(function($item) {
+            return [
+                // Información de máquina
+                'id_maquina' => $item->id_maquina,
+                'nombre_maquina' => $item->nombre_maquina ?? 'Sin nombre',
+                'patente' => $item->patente ?? 'S/P',
+                'tipo_maquina' => $item->tipo_maquina,
+                'categoria' => $item->nombre_categoria,
+                
+                // Información de faena/destino
+                'id_faena' => $item->id_faena,
+                'nombre_faena' => $item->nombre_faena ?? 'Sin faena',
+                'id_padron' => $item->id_padron,
+                'padron_descripcion' => $item->padron_descripcion ?? 'Sin descripción',
+                
+                // 📊 DATOS PRINCIPALES
+                'total_viajes' => (int) $item->total_viajes,
+                'distancia_por_viaje' => (float) $item->distancia_por_viaje,
+                'total_kilometros' => round((float) $item->total_kilometros, 2),
+                
+                // Metadatos
+                'total_registros_tonelaje' => (int) $item->total_registros_tonelaje,
+                'periodo_actividad' => [
+                    'desde' => $item->primera_fecha,
+                    'hasta' => $item->ultima_fecha
+                ]
+            ];
+        });
+
+        // 📈 CALCULAR RESUMEN POR MÁQUINA
+        $resumenPorMaquina = $viajesDistanciasFormateados
+            ->groupBy('id_maquina')
+            ->map(function($registrosMaquina, $idMaquina) {
+                $primerRegistro = $registrosMaquina->first();
+                
+                return [
+                    'id_maquina' => $idMaquina,
+                    'nombre_maquina' => $primerRegistro['nombre_maquina'],
+                    'patente' => $primerRegistro['patente'],
+                    'tipo_maquina' => $primerRegistro['tipo_maquina'],
+                    
+                    // Totales por máquina
+                    'total_viajes' => $registrosMaquina->sum('total_viajes'),
+                    'total_kilometros' => round($registrosMaquina->sum('total_kilometros'), 2),
+                    'faenas_visitadas' => $registrosMaquina->count(),
+                    'rutas_diferentes' => $registrosMaquina->pluck('padron_descripcion')->unique()->count(),
+                    
+                    // Desglose por faena
+                    'desglose_faenas' => $registrosMaquina->map(function($registro) {
+                        return [
+                            'faena' => $registro['nombre_faena'],
+                            'viajes' => $registro['total_viajes'],
+                            'kilometros' => $registro['total_kilometros'],
+                            'distancia_unitaria' => $registro['distancia_por_viaje']
+                        ];
+                    })->values()
+                ];
+            })->values();
+
+        // 📊 CALCULAR RESUMEN POR FAENA
+        $resumenPorFaena = $viajesDistanciasFormateados
+            ->groupBy('id_faena')
+            ->map(function($registrosFaena, $idFaena) {
+                $primerRegistro = $registrosFaena->first();
+                
+                return [
+                    'id_faena' => $idFaena,
+                    'nombre_faena' => $primerRegistro['nombre_faena'],
+                    
+                    // Totales por faena
+                    'total_viajes' => $registrosFaena->sum('total_viajes'),
+                    'total_kilometros' => round($registrosFaena->sum('total_kilometros'), 2),
+                    'maquinas_operando' => $registrosFaena->pluck('id_maquina')->unique()->count(),
+                    'rutas_utilizadas' => $registrosFaena->pluck('padron_descripcion')->unique()->count(),
+                    
+                    // Desglose por máquina
+                    'desglose_maquinas' => $registrosFaena->map(function($registro) {
+                        return [
+                            'maquina' => $registro['nombre_maquina'],
+                            'patente' => $registro['patente'],
+                            'viajes' => $registro['total_viajes'],
+                            'kilometros' => $registro['total_kilometros']
+                        ];
+                    })->values()
+                ];
+            })->values();
+
+        // 📊 RESUMEN GENERAL
+        $resumenGeneral = [
+            'periodo' => [
+                'fecha_inicio' => $fechaInicio->toDateString(),
+                'fecha_fin' => $fechaFin->toDateString(),
+                'dias_periodo' => $fechaInicio->diffInDays($fechaFin) + 1
+            ],
+            'totales' => [
+                'maquinas_activas' => $viajesDistanciasFormateados->pluck('id_maquina')->unique()->count(),
+                'faenas_con_actividad' => $viajesDistanciasFormateados->pluck('id_faena')->unique()->count(),
+                'total_viajes_sistema' => $viajesDistanciasFormateados->sum('total_viajes'),
+                'total_kilometros_sistema' => round($viajesDistanciasFormateados->sum('total_kilometros'), 2),
+                'promedio_km_por_viaje' => $viajesDistanciasFormateados->sum('total_viajes') > 0 
+                    ? round($viajesDistanciasFormateados->sum('total_kilometros') / $viajesDistanciasFormateados->sum('total_viajes'), 2)
+                    : 0
+            ],
+            'filtros_aplicados' => [
+                'categoria' => 'Camion Tolva (ID: 7)',
+                'faena_especifica' => $idFaena ? $this->obtenerNombreFaena($idFaena) : 'Todas las faenas'
+            ]
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'viajes_detallados' => $viajesDistanciasFormateados,
+                'resumen_por_maquina' => $resumenPorMaquina,
+                'resumen_por_faena' => $resumenPorFaena
+            ],
+            'resumen_general' => $resumenGeneral,
+            'method_used' => $request->method(),
+            'query_type' => 'viajes_distancias_camiones_tolva',
+            'total_registros' => $viajesDistanciasFormateados->count()
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Error al obtener viajes y distancias: ' . $e->getMessage(),
+            'query_type' => 'viajes_distancias_camiones_tolva'
+        ], 500);
+    }
+}
+
 }

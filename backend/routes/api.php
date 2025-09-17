@@ -606,6 +606,11 @@ Route::middleware('auth:sanctum')->group(function () {
         // Endpoint específico: máquinas de una categoría (drill-down)
         Route::post('/categorias/{idCategoria}/maquinas', [CategoriasChartController::class, 'obtenerMaquinasCategoria'])
             ->name('api.categorias-chart.maquinas');
+ 
+            // 🆕 NUEVO: Endpoint para viajes y distancias de camiones tolva
+    Route::get('/camiones-viajes-distancias', [CategoriasChartController::class, 'obtenerViajesDistanciasCamionesTolva'])
+        ->name('api.categorias-chart.camiones-viajes-distancias');
+
 
         // Endpoint auxiliar: lista de todas las categorías disponibles
         Route::get('/lista-categorias', [CategoriasChartController::class, 'obtenerListaCategorias'])
