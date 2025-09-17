@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext, useMemo } from "react";
 import { GiGasPump } from "react-icons/gi";
 import {
   FiAlertCircle,
@@ -13,6 +13,7 @@ import {
   FiChevronUp,
 } from "react-icons/fi";
 import axios from "../../../lib/axios";
+import { UserContext } from "../../../context/userContext";
 
 import UniversalHeader from "../Todos/UniversalHeader";
 import FiltrosComponent from "../../molecules/FiltrosComponent";
@@ -39,6 +40,8 @@ const VerificacionIngresos = () => {
   // Estado para filtro de número de documento
   const [numeroDocumento, setNumeroDocumento] = useState("");
 
+  const { user, loading: userLoading } = useContext(UserContext);
+
   // 🆕 Estado para controlar detalles expandidos
   const [detallesExpandidos, setDetallesExpandidos] = useState({});
   const [mostrarAnalisisStock, setMostrarAnalisisStock] = useState(false);
@@ -57,6 +60,30 @@ const VerificacionIngresos = () => {
       }
     }
   }, [fechaDesde, fechaHasta, faenaSeleccionada, numeroDocumento, currentPage]);
+
+  // 🎯 DETERMINAR EL TIPO DE HEADER BASADO EN EL ROL DEL USUARIO
+  const getHeaderType = useMemo(() => {
+    if (!user || !user.rol) return null; // fallback
+
+    const userRole = user.rol.rol; // Acceder al rol desde el objeto rol
+    console.log("User Role:", userRole);
+
+    switch (userRole) {
+      case "bombero":
+      case "asistente_bombero":
+        return "bombero";
+
+      case "gerente":
+        return "gerente";
+
+      case "admin_operador":
+        return null; // 🚫 no mostrar header
+
+      default:
+        return null;
+    }
+  }, [user]);
+
 
   const cargarFaenas = async () => {
     try {
@@ -219,7 +246,9 @@ const VerificacionIngresos = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 mt-12">
-      <UniversalHeader type="gerente" />
+      <UniversalHeader
+        type={getHeaderType}
+      />
 
       <div className="mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header principal */}
@@ -270,7 +299,7 @@ const VerificacionIngresos = () => {
           </div>
         </div>
 
-         {/* Filtros */}
+        {/* Filtros */}
         <div className="mb-6">
           <FiltrosComponent
             fechaDesde={fechaDesde}
@@ -291,7 +320,7 @@ const VerificacionIngresos = () => {
             tituloPersonalizado="Filtros de Verificación"
           />
         </div>
-        
+
         {/* Botones de resumen - REEMPLAZAR el botón existente */}
         {resumen && hayFiltrosActivos && (
           <div className="mb-6 flex flex-wrap gap-3">
@@ -315,7 +344,7 @@ const VerificacionIngresos = () => {
             </button>
           </div>
         )}
-     
+
         {/* 🆕 Panel de análisis detallado de stock */}
         <ResumenStockDetallado
           fechaDesde={fechaDesde}
@@ -378,7 +407,7 @@ const VerificacionIngresos = () => {
             </div>
           </div>
         )}
-       
+
         {/* Estado de carga */}
         {loading && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
@@ -451,9 +480,8 @@ const VerificacionIngresos = () => {
                 {ingresos.map((ingreso) => (
                   <div
                     key={ingreso.id_ingreso}
-                    className={`rounded-lg shadow-sm border border-gray-100 overflow-hidden ${
-                      getFaenaColors(ingreso.id_faena).bg
-                    } ${getFaenaColors(ingreso.id_faena).border} border-l-4`}
+                    className={`rounded-lg shadow-sm border border-gray-100 overflow-hidden ${getFaenaColors(ingreso.id_faena).bg
+                      } ${getFaenaColors(ingreso.id_faena).border} border-l-4`}
                   >
                     {/* 📋 CABECERA DEL INGRESO */}
                     <div className="bg-gray-50 p-4 border-b border-gray-200">
@@ -466,9 +494,8 @@ const VerificacionIngresos = () => {
                               </span>
                               N° Documento {ingreso.numero_guia}
                               <span
-                                className={`ml-2 px-2 py-1 text-2xl font-medium rounded-full ${
-                                  getFaenaColors(ingreso.id_faena).badge
-                                }`}
+                                className={`ml-2 px-2 py-1 text-2xl font-medium rounded-full ${getFaenaColors(ingreso.id_faena).badge
+                                  }`}
                               >
                                 {getFaenaName(ingreso.faena)}
                               </span>
@@ -499,11 +526,10 @@ const VerificacionIngresos = () => {
                           <div className="text-center">
                             <p className="text-sm text-gray-600">Estado</p>
                             <p
-                              className={`font-semibold ${
-                                ingreso.recibo_conforme
-                                  ? "text-green-600"
-                                  : "text-red-600"
-                              }`}
+                              className={`font-semibold ${ingreso.recibo_conforme
+                                ? "text-green-600"
+                                : "text-red-600"
+                                }`}
                             >
                               {ingreso.recibo_conforme
                                 ? "Conforme"

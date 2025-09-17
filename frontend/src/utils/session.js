@@ -27,6 +27,7 @@ export const storeSession = ({ token, user, expiresAt }) => {
       role: user.rol || "desconocido",
       userId: user.id,
       userName: user.nombre,
+      userLastName: user.apellido,  
       userRut: user.rut,
       faenaId: user.id_faena,
       storedAt: Date.now(), // Para debugging
@@ -103,6 +104,7 @@ export const getAuthUser = () => {
     return {
       id: sessionData.userId,
       nombre: sessionData.userName,
+      apellido: sessionData.userLastName, 
       rut: sessionData.userRut,
       rol: sessionData.role,
       id_faena: sessionData.faenaId,

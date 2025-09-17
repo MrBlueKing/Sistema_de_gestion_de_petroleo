@@ -32,32 +32,11 @@ import {
   Area,
   AreaChart,
 } from "recharts";
+import { getFaenaColors } from "../../../context/faenaColor";
 
-// 🎨 CONFIGURACIÓN DE COLORES POR FAENA
-const FAENA_COLORS = {
-  Cabildo: {
-    primary: "#16a34a", // verde
-    light: "#dcfce7",
-    border: "#bbf7d0",
-    icon: "🌿",
-  },
-  Tiltil: {
-    primary: "#dc2626", // rojo
-    light: "#fee2e2",
-    border: "#fecaca",
-    icon: "🏔️",
-  },
-  "Estacion de Servicio": {
-    primary: "#1D4ED8", // degradado azul
-    light: "#EFF6FF", // azul muy claro
-    border: "#BFDBFE", // azul suave
-    icon: "⛽",
-  },
-};
-
-// 🛠️ Función helper para obtener estilos inline por faena
+// 🛠️ Función helper para obtener estilos inline por faena - CORREGIDA
 const getFaenaStyles = (faena) => {
-  const faenaData = FAENA_COLORS[faena];
+  const faenaData = getFaenaColors(faena); // ✅ CORREGIDO - usar () no []
   if (!faenaData) {
     return {
       backgroundColor: "#f9fafb", // gray-50
@@ -69,6 +48,7 @@ const getFaenaStyles = (faena) => {
     borderLeftColor: faenaData.primary,
   };
 };
+
 // 🎨 COLORES PARA GRÁFICOS
 const CHART_COLORS = [
   "#8884d8",
@@ -138,11 +118,10 @@ const Pagination = React.memo(
           <button
             onClick={() => onPageChange(currentPage - 1)}
             disabled={currentPage === 1}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              currentPage === 1
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
-            }`}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === 1
+              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+              : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
+              }`}
           >
             <FaChevronLeft className="w-3 h-3" />
           </button>
@@ -152,13 +131,12 @@ const Pagination = React.memo(
               key={typeof page === "number" ? `page-${page}` : page}
               onClick={() => typeof page === "number" && onPageChange(page)}
               disabled={page === "..."}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                page === currentPage
-                  ? "bg-blue-600 text-white"
-                  : page === "..."
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${page === currentPage
+                ? "bg-blue-600 text-white"
+                : page === "..."
                   ? "text-gray-400 cursor-default"
                   : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
-              }`}
+                }`}
             >
               {page}
             </button>
@@ -167,11 +145,10 @@ const Pagination = React.memo(
           <button
             onClick={() => onPageChange(currentPage + 1)}
             disabled={currentPage === totalPages}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              currentPage === totalPages
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
-            }`}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === totalPages
+              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+              : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600 border border-gray-300"
+              }`}
           >
             <FaChevronRight className="w-3 h-3" />
           </button>
@@ -194,6 +171,7 @@ const VisualizacionesConsumoMaquina = ({
   user = null,
   maquinasDisponibles = [],
 }) => {
+
   const [vistaActiva, setVistaActiva] = useState("timeline");
   const [maquinaSeleccionada, setMaquinaSeleccionada] = useState("");
 
@@ -225,7 +203,6 @@ const VisualizacionesConsumoMaquina = ({
   }
 
   if (!consumos || consumos.length === 0) {
-    console.log("Datos de consumo:", consumos);
     return (
       <div className="bg-gray-50 rounded-xl p-8 text-center shadow-lg">
         <div className="text-gray-400 text-4xl mb-4">📊</div>
@@ -236,14 +213,14 @@ const VisualizacionesConsumoMaquina = ({
           {selectedFaenas.length === 0
             ? "Selecciona al menos una faena para ver los gráficos"
             : Object.keys(filters).some((key) => filters[key])
-            ? "No hay consumos que coincidan con los filtros aplicados"
-            : "No hay consumos disponibles para crear gráficos"}
+              ? "No hay consumos que coincidan con los filtros aplicados"
+              : "No hay consumos disponibles para crear gráficos"}
         </p>
       </div>
     );
   }
 
-  // 🔧 PROCESAMIENTO DE DATOS MEJORADO
+  // 🔧 PROCESAMIENTO DE DATOS MEJORADO - CORREGIDO
   const datosProcesados = useMemo(() => {
     if (!consumos || consumos.length === 0) return [];
 
@@ -257,15 +234,15 @@ const VisualizacionesConsumoMaquina = ({
         ? formatearFecha(item.fecha_consumo).hora
         : new Date(item.fecha_consumo).toLocaleTimeString("es-CL"),
       litros: parseFloat(item.litros_consumidos || 0),
-      faena: item.faena,
+      // ✅ CORREGIDO - usar nombre_faena del item original
+      faena: item.nombre_faena,
       medicion: parseFloat(item.medicion || 0),
-      maquina: item.nombre_maquina || "Sin nombre",
+      // ✅ CORREGIDO - usar nombre_equipo
+      maquina: item.nombre_equipo || "Sin nombre",
       patente: item.patente || "Sin patente",
       id: item.id_consumo || item.id || Math.random(),
-      solicitante: item.solicitante_nombre || "N/A",
+      solicitante: [item.interno_nombre, item.interno_apellido].filter(Boolean).join(" ") || "N/A",
     }));
-
-    console.log("DATOS PROCESADOS:", datos.slice(0, 3));
     return datos.sort((a, b) => b.fecha - a.fecha);
   }, [consumos, formatearFecha]);
 
@@ -445,16 +422,16 @@ const VisualizacionesConsumoMaquina = ({
     const maquinaMasUsada =
       maquinasUnicas.length > 0
         ? Object.entries(consumoPorMaquina).sort(
-            ([, a], [, b]) => b - a
-          )[0]?.[0] || "N/A"
+          ([, a], [, b]) => b - a
+        )[0]?.[0] || "N/A"
         : "N/A";
 
     // 🏆 Faena más visitada
     const faenaMasVisitada =
       Object.entries(visitasPorFaena).length > 0
         ? Object.entries(visitasPorFaena).sort(
-            ([, a], [, b]) => b - a
-          )[0]?.[0] || "N/A"
+          ([, a], [, b]) => b - a
+        )[0]?.[0] || "N/A"
         : "N/A";
 
     // 📅 Días únicos de actividad
@@ -471,8 +448,8 @@ const VisualizacionesConsumoMaquina = ({
       faenaConMayorConsumo:
         Object.entries(consumoPorFaena).length > 0
           ? Object.entries(consumoPorFaena).sort(
-              ([, a], [, b]) => b - a
-            )[0]?.[0] || "N/A"
+            ([, a], [, b]) => b - a
+          )[0]?.[0] || "N/A"
           : "N/A",
       porcentajePorFaena: Object.fromEntries(
         Object.entries(consumoPorFaena).map(([faena, litros]) => [
@@ -532,7 +509,7 @@ const VisualizacionesConsumoMaquina = ({
       litros: estadisticasCalculadas.consumoPorFaena[faena] || 0,
       porcentaje:
         estadisticasCalculadas.estadisticasGenerales.porcentajePorFaena[
-          faena
+        faena
         ] || "0",
       maquinas: estadisticasCalculadas.maquinasPorFaena[faena] || 0,
     }));
@@ -545,7 +522,7 @@ const VisualizacionesConsumoMaquina = ({
       : [...new Set(datosProcesados.map((d) => d.maquina))].sort();
   }, [datosProcesados, maquinasDisponibles]);
 
-  // 🎨 COMPONENTE: LÍNEA DE TIEMPO MEJORADA CON PAGINACIÓN
+  // 🎨 COMPONENTE: LÍNEA DE TIEMPO MEJORADA CON PAGINACIÓN - CORREGIDA
   const LineaTiempoComponent = () => (
     <div className="bg-white rounded-xl p-6 shadow-lg">
       <div className="flex items-center justify-between mb-4">
@@ -575,60 +552,66 @@ const VisualizacionesConsumoMaquina = ({
         </div>
       ) : (
         <>
-          {/* 🎨 LÍNEA DE TIEMPO VISUAL HERMOSA (de la segunda versión) */}
+          {/* 🎨 LÍNEA DE TIEMPO VISUAL HERMOSA - CORREGIDA */}
           <div className="relative mb-6">
             <div className="absolute top-8 left-0 right-0 h-1 bg-gray-200"></div>
 
             <div className="relative flex justify-start gap-3 overflow-x-auto pb-4 min-h-[120px] scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-blue-100">
-              {datosLineaTiempo.map((item, index) => (
-                <div
-                  key={
-                    item.id_consumo ||
-                    item.id ||
-                    `timeline-${index}-${item.fecha_consumo || Date.now()}`
-                  }
-                  className="flex flex-col items-center min-w-[100px] mx-1"
-                >
-                  {/* Marcador de faena */}
+              {datosLineaTiempo.map((item, index) => {
+                // ✅ CORREGIDO - obtener colores usando la función correctamente
+                const faenaColors = getFaenaColors(item.faena);
+                
+                return (
                   <div
-                    className={`
-                    w-12 h-12 rounded-full flex items-center justify-center text-white font-bold
-                    shadow-lg transform hover:scale-110 transition-all cursor-pointer
-                    relative z-10
-                  `}
-                    style={{
-                      backgroundColor:
-                        FAENA_COLORS[item.faena]?.primary || "#6b7280",
-                    }}
+                    key={
+                      item.id_consumo ||
+                      item.id ||
+                      `timeline-${index}-${item.fecha_consumo || Date.now()}`
+                    }
+                    className="flex flex-col items-center min-w-[100px] mx-1"
                   >
-                    <span className="text-lg">
-                      {FAENA_COLORS[item.faena]?.icon || "📍"}
-                    </span>
-                  </div>
+                    {/* Marcador de faena - CORREGIDO */}
+                    <div
+                      className={`
+                        w-12 h-12 rounded-full flex items-center justify-center text-white font-bold
+                        shadow-lg transform hover:scale-110 transition-all cursor-pointer
+                        relative z-10
+                      `}
+                      style={{
+                        // ✅ CORREGIDO - usar función con () y campo correcto
+                        backgroundColor: faenaColors?.primary || "#6b7280",
+                      }}
+                    >
+                      <span className="text-lg">
+                        {/* ✅ CORREGIDO - usar función con () y emoji */}
+                        {faenaColors?.emoji || "📍"}
+                      </span>
+                    </div>
 
-                  {/* Información del consumo */}
-                  <div className="mt-2 text-center">
-                    <div className="text-xs text-gray-500">
-                      {item.fechaFormateada}
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {item.horaFormateada}
-                    </div>
-                    <div className="font-bold text-sm text-orange-600">
-                      {item.litros.toFixed(0)} L
-                    </div>
-                    {item.patente && (
-                      <div className="text-xs text-gray-600">
-                        {item.patente}
+                    {/* Información del consumo */}
+                    <div className="mt-2 text-center">
+                      <div className="text-xs text-gray-500">
+                        {item.fechaFormateada}
                       </div>
-                    )}
+                      <div className="text-xs text-gray-400">
+                        {item.horaFormateada}
+                      </div>
+                      <div className="font-bold text-sm text-orange-600">
+                        {item.litros.toFixed(0)} L
+                      </div>
+                      {item.patente && (
+                        <div className="text-xs text-gray-600">
+                          {item.patente}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
-          {/* 🎨 DETALLES DE LOS CONSUMOS (tarjetas bonitas de la segunda versión) */}
+          {/* 🎨 DETALLES DE LOS CONSUMOS (tarjetas bonitas) - CORREGIDA */}
           <div className="space-y-3">
             <h4 className="font-semibold text-gray-800 flex items-center gap-2">
               <FaEye className="text-green-600" />
@@ -644,13 +627,15 @@ const VisualizacionesConsumoMaquina = ({
                   `detalle-${index}-${item.fecha_consumo}`
                 }
                 className="p-3 rounded-lg border-l-4"
+                // ✅ CORREGIDO - usar función getFaenaStyles con campo correcto
                 style={getFaenaStyles(item.faena)}
               >
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-lg">
-                        {FAENA_COLORS[item.faena]?.icon || "📍"}
+                        {/* ✅ CORREGIDO - usar función correctamente */}
+                        {getFaenaColors(item.faena)?.emoji || "📍"}
                       </span>
                       <span className="font-semibold text-gray-800">
                         {item.faena}
@@ -715,7 +700,7 @@ const VisualizacionesConsumoMaquina = ({
     </div>
   );
 
-  // 🥧 COMPONENTE: GRÁFICO DE DONA MEJORADO (de la segunda versión)
+  // 🥧 COMPONENTE: GRÁFICO DE DONA MEJORADO - CORREGIDO
   const DonaDobleComponent = () => (
     <div className="bg-white rounded-xl p-6 shadow-lg">
       <div className="flex items-center justify-between mb-4">
@@ -760,7 +745,8 @@ const VisualizacionesConsumoMaquina = ({
                 {datosDona.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}
-                    fill={FAENA_COLORS[entry.name]?.primary || "#6b7280"}
+                    // ✅ CORREGIDO - usar función correctamente
+                    fill={getFaenaColors(entry.name)?.primary || "#6b7280"}
                   />
                 ))}
               </Pie>
@@ -773,40 +759,46 @@ const VisualizacionesConsumoMaquina = ({
             </PieChart>
           </ResponsiveContainer>
 
-          {/* Leyenda personalizada */}
+          {/* Leyenda personalizada - CORREGIDA */}
           <div className="mt-4 lg:mt-0 lg:ml-6 space-y-3">
-            {datosDona.map((item) => (
-              <div
-                key={item.name}
-                className="flex items-center justify-between min-w-[250px] p-3 bg-gray-50 rounded-lg"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
-                    style={{
-                      backgroundColor:
-                        FAENA_COLORS[item.name]?.primary || "#278ef5",
-                    }}
-                  />
-                  <div>
-                    <span className="font-semibold text-gray-800">
-                      {item.name}
-                    </span>
-                    <span className="text-xl ml-2">
-                      {FAENA_COLORS[item.name]?.icon || "📍"}
-                    </span>
+            {datosDona.map((item) => {
+              // ✅ CORREGIDO - obtener colores usando función correctamente
+              const faenaColors = getFaenaColors(item.name);
+              
+              return (
+                <div
+                  key={item.name}
+                  className="flex items-center justify-between min-w-[250px] p-3 bg-gray-50 rounded-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
+                      style={{
+                        // ✅ CORREGIDO - usar función con () 
+                        backgroundColor: faenaColors?.primary || "#278ef5",
+                      }}
+                    />
+                    <div>
+                      <span className="font-semibold text-gray-800">
+                        {item.name}
+                      </span>
+                      <span className="text-xl ml-2">
+                        {/* ✅ CORREGIDO - usar función con () */}
+                        {faenaColors?.emoji || "📍"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-lg">
+                      {parseFloat(item.value).toFixed(1)} L
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {item.porcentaje}% del total
+                    </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="font-bold text-lg">
-                    {parseFloat(item.value).toFixed(1)} L
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {item.porcentaje}% del total
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -843,7 +835,7 @@ const VisualizacionesConsumoMaquina = ({
 
   return (
     <div className="space-y-6">
-      {/* Header (de la segunda versión) */}
+      {/* Header - CORREGIDO */}
       <div className="bg-white rounded-xl shadow-lg p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -881,11 +873,10 @@ const VisualizacionesConsumoMaquina = ({
             <button
               key={vista.id}
               onClick={() => setVistaActiva(vista.id)}
-              className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-sm ${
-                vistaActiva === vista.id
-                  ? "bg-orange-600 text-white shadow-lg"
-                  : "bg-gray-100 text-gray-700 hover:bg-orange-100 hover:text-orange-600"
-              }`}
+              className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-sm ${vistaActiva === vista.id
+                ? "bg-orange-600 text-white shadow-lg"
+                : "bg-gray-100 text-gray-700 hover:bg-orange-100 hover:text-orange-600"
+                }`}
             >
               {vista.icon}
               <span className="hidden sm:inline">{vista.label}</span>
@@ -893,11 +884,15 @@ const VisualizacionesConsumoMaquina = ({
           ))}
         </div>
 
-        {/* 🎨 RESUMEN DINÁMICO MEJORADO */}
+        {/* 🎨 RESUMEN DINÁMICO MEJORADO - CORREGIDO */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6 pt-4 border-t">
           {obtenerResumenPorFaena().map((faena) => {
-            const faenaData = FAENA_COLORS[faena.name];
-            const styles = getFaenaStyles(faena.name);
+            // ✅ CORREGIDO - obtener colores usando función correctamente
+            const faenaColors = getFaenaColors(faena.name);
+            const styles = {
+              backgroundColor: faenaColors.light,
+              borderLeftColor: faenaColors.primary,
+            };
 
             return (
               <div
@@ -906,10 +901,10 @@ const VisualizacionesConsumoMaquina = ({
                 style={styles}
               >
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-2xl">{faenaData?.icon || "📍"}</span>
+                  <span className="text-2xl">{faenaColors?.emoji || "📍"}</span>
                   <span
                     className="font-semibold"
-                    style={{ color: faenaData?.primary || "#6b7280" }}
+                    style={{ color: faenaColors.primary || "#6b7280" }}
                   >
                     {faena.name}
                   </span>
@@ -920,14 +915,14 @@ const VisualizacionesConsumoMaquina = ({
                   </div>
                   <div
                     className="font-bold text-lg"
-                    style={{ color: faenaData?.primary || "#6b7280" }}
+                    style={{ color: faenaColors?.primary || "#6b7280" }}
                   >
                     {faena.litros.toFixed(0)} L
                   </div>
                   <div
                     className="text-xs"
                     style={{
-                      color: faenaData?.primary || "#6b7280",
+                      color: faenaColors?.primary || "#6b7280",
                       opacity: 0.8,
                     }}
                   >

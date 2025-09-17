@@ -4,6 +4,7 @@ import React, {
   useContext,
   useMemo,
   useCallback,
+  useRef,
 } from "react";
 import {
   FaGasPump,
@@ -169,6 +170,7 @@ const Pagination = React.memo(
 // 🔧 COMPONENTE DE FILTROS OPTIMIZADO
 const DateFilter = React.memo(
   ({
+    isFiltering = false, // ← AGREGAR ESTO
     onFilterChange,
     initialDateFrom = "",
     initialDateTo = "",
@@ -321,6 +323,13 @@ const DateFilter = React.memo(
             <h3 className="text-lg sm:text-xl font-bold text-gray-800">
               Filtros Compartidos
             </h3>
+            {/* ← AGREGAR ESTO */}
+            {isFiltering && (
+              <div className="flex items-center gap-1 text-xs text-blue-600 mt-1">
+                <FaSpinner className="animate-spin" />
+                <span>Procesando filtros...</span>
+              </div>
+            )}
             <p className="text-gray-600 text-xs sm:text-sm">
               {pestanaActiva === "historial"
                 ? "Filtra la tabla de consumos"
@@ -644,7 +653,11 @@ const ConsumoCard = React.memo(({ consumo, formatearFecha, formatNumber }) => {
 
 // 🎯 COMPONENTE PRINCIPAL
 const HistorialMaquinasView = () => {
+  //Extracción del contexto del usaurio
   const { user, loading: userLoading } = useContext(UserContext);
+  //Cargando filtros de faena
+  const [isUpdatingFaenas, setIsUpdatingFaenas] = useState(false);
+  const [isFilteringFaenas, setIsFilteringFaenas] = useState(false);
 
   // Estados unificados
   const [pestanaActiva, setPestanaActiva] = useState("historial");
@@ -689,7 +702,10 @@ const HistorialMaquinasView = () => {
   });
 
   // Estado para faenas seleccionadas
-  const [selectedFaenas, setSelectedFaenas] = useState([]);
+  const [selectedFaenas, setSelectedFaenas] = useState(() => {
+    // Inicializar con todas las faenas disponibles
+    return Object.values(FAENA_COLORS).map(faena => faena.name);
+  });
 
   // Estados de paginación
   const [currentPage, setCurrentPage] = useState(1);
@@ -806,7 +822,6 @@ const HistorialMaquinasView = () => {
     });
   }, []);
 
-
   // 🚀 FUNCIÓN PRINCIPAL OPTIMIZADA: fetchAllData
   // ✅ REEMPLAZA las 3 llamadas anteriores por 1 sola llamada optimizada
   const fetchAllData = useCallback(
@@ -833,14 +848,12 @@ const HistorialMaquinasView = () => {
 
         // 🗺️ MAPEAR FAENAS A IDS
         const getFaenaId = (name) => {
-          const mapping = {
-            "Cabildo": "1",
-            "Catemu": "2",
-            "Chincolco": "3",
-            "Tiltil": "4",
-            "Estacion de Servicio": "2"
-          };
-          return mapping[name] || null;
+          for (const [id, faenaConfig] of Object.entries(FAENA_COLORS)) {
+            if (faenaConfig.name === name) {
+              return id;
+            }
+          }
+          return null;
         };
 
         const faenaIds = faenasSeleccionadas
@@ -1025,13 +1038,24 @@ const HistorialMaquinasView = () => {
       } finally {
         setLoading(false);
         setLoadingGraficos(false);
+        setIsFilteringFaenas(false);
+        // 🔍 DEBUG: Agregar esto temporalmente
+        console.log("🔄 Finally ejecutado - Loading desactivado");
       }
     },
     [filters, selectedFaenas, pestanaActiva, currentPage, getAuthToken, validateConsumosData]
   );
 
+  const faenaTimeoutRef = useRef(null);
   // 🔄 MANEJAR selección/deselección de faenas
   const handleFaenaToggle = useCallback((name, isSelected) => {
+
+    setIsUpdatingFaenas(true); // Activar flag
+
+    if (!isFilteringFaenas) {
+      setIsFilteringFaenas(true);
+    }
+
     setSelectedFaenas((prev) => {
       const newSelected = isSelected
         ? [...prev, name]
@@ -1048,9 +1072,20 @@ const HistorialMaquinasView = () => {
       // Reset página cuando cambian las faenas
       setCurrentPage(1);
 
+      // Limpiar timeout anterior si existe
+      if (faenaTimeoutRef.current) {
+        clearTimeout(faenaTimeoutRef.current);
+      }
+
+      // Crear nuevo timeout
+      faenaTimeoutRef.current = setTimeout(() => {
+        setIsUpdatingFaenas(false); // Esto disparará el useEffect
+      }, 500); // Esperar 500ms después del último cambio
+
+
       return newSelected;
     });
-  }, []);
+  }, [isFilteringFaenas]);
 
   // 🔧 FUNCIÓN ACTUALIZADA PARA MANEJAR CAMBIOS EN FILTROS
   const handleFilterChange = useCallback((newFilters) => {
@@ -1090,11 +1125,20 @@ const HistorialMaquinasView = () => {
   }, [user, userLoading, fetchAllData]);
 
   // Efecto para recargar cuando cambien filtros o faenas
+  //useEffect(() => {
+  //  if (user && selectedFaenas.length > 0 && !isUpdatingFaenas) {
+  //    fetchAllData(filters, 1, selectedFaenas);
+  //  }
+  //}, [filters, selectedFaenas, user, fetchAllData, isUpdatingFaenas]);
+
+  //. CLEANUP DEL TIMEOUT
   useEffect(() => {
-    if (user) {
-      fetchAllData(filters, 1, selectedFaenas);
-    }
-  }, [filters, selectedFaenas, user, fetchAllData]);
+    return () => {
+      if (faenaTimeoutRef.current) {
+        clearTimeout(faenaTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Efecto para cambio de página
   useEffect(() => {
@@ -1202,12 +1246,12 @@ const HistorialMaquinasView = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-100 py-4 sm:py-6 px-3 sm:px-4">
       <div className=" mx-auto">
-        {console.log("Datos de getHeaderType:", getHeaderType)}
         <UniversalHeader
           type={getHeaderType}
         />
         {/* FILTROS COMPARTIDOS */}
         <DateFilter
+          isFiltering={isFilteringFaenas}
           onFilterChange={handleFilterChange}
           initialDateFrom={filters.dateFrom}
           initialDateTo={filters.dateTo}
@@ -1387,8 +1431,10 @@ const HistorialMaquinasView = () => {
             </div>
 
             {/* CONTENIDO PRINCIPAL */}
-            {loading ? (
-              <LoadingSpinner message="Cargando consumos..." />
+            {(loading || isFilteringFaenas) ? (
+              <LoadingSpinner message={
+                isFilteringFaenas ? "Aplicando filtros de faenas..." : "Cargando consumos..."
+              } />
             ) : error ? (
               <ErrorDisplay
                 error={error}
@@ -1431,7 +1477,7 @@ const HistorialMaquinasView = () => {
                 </div>
 
                 {/* Vista escritorio - Tabla */}
-                <div className="hidden lg:block">
+                <div className="hidden lg:block relative">
                   <div className="overflow-hidden rounded-2xl shadow-inner">
                     <div className="overflow-x-auto">
                       <table className="w-full min-w-full">
@@ -1603,6 +1649,16 @@ const HistorialMaquinasView = () => {
                       </table>
                     </div>
                   </div>
+                  {(loading || isFilteringFaenas) && (
+                    <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-20">
+                      <div className="text-center">
+                        <FaSpinner className="animate-spin text-blue-600 text-3xl mx-auto mb-2" />
+                        <p className="text-gray-600">
+                          {isFilteringFaenas ? "Aplicando cambios..." : "Cargando..."}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Paginación */}

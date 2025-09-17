@@ -22,11 +22,11 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 ### Added
 
-- [Wip] Administrador Operador Vehiculos --> Panel principal --> Agregar Historial maquinas, para tener nociones de los consumos por faena y rendimientos calculables. // Agregar Recepciones de Petroleo (Generar pdf para recepción ) y Graficos.
+- [Testing:Nico] Administrador Operador Vehiculos --> Panel principal --> Agregar Historial maquinas, para tener nociones de los consumos por faena y rendimientos calculables. // Agregar Recepciones de Petroleo (Generar pdf para recepción) y Graficos.
 
-- [Queued] Operador Vehiculos --> Historial Consumos --> Añadir maquina en la tarjeta de consumos.
+- [Testing:Seba] Operador Vehiculos --> Historial Consumos --> Añadir maquina en la tarjeta de consumos.
 
-- [Queued] Gerente / Administrador Operador Vehiculos --> Historial Consumos --> Añadir maquina en la tarjeta de consumos.
+- [Testing:Seba] Gerente / Administrador Operador Vehiculos --> Historial Consumos --> Añadir maquina en la tarjeta de consumos.
 
 - [Queued] Gerente / Admin / Amdin OV --> Funcionalidad para agregar distribución.
                                           Anotar Camiones Semanales por faena.      
@@ -35,13 +35,10 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 ### Changed
 
-- [Queued] Operador Vehiculos --> Formulario principal --> La carga que realiza el usuario, debe ser asignada a la faena a la cual pertenece el user.
+- [Testing:Nico] Operador Vehiculos --> Formulario principal --> La carga que realiza el usuario, debe ser asignada a la faena a la cual pertenece el user.
 
-- [Queued] Operador Vehiculos --> Formulario principal --> La carga que realiza el usuario, debe ser asignada a la faena a la cual pertenece el user.
-
-- [WIP] Gerente --> Grafico Pie comparativo --> Operacional = Todo - Micro - Camiones Tolva - Camionetas 50% +                                                  50% Camionetas que tributen a la Faena
+- [Testing:Nico] Gerente --> Grafico Pie comparativo --> Operacional = Todo - Micro - Camiones Tolva - Camionetas 50% +                                                  50% Camionetas que tributen a la Faena
                                                    Total = Todo + Camion (Asignado) + Camionetas 50% + 50% Camionetas que tributen a la Faena
-
 
 ### Depecrated
 

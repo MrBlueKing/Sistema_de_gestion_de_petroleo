@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useContext } from "react";
 import axios from "../../../lib/axios";
 import UniversalHeader from "../Todos/UniversalHeader";
+import { UserContext } from "../../../context/userContext";
 
 import {
   FiDroplet,
@@ -72,6 +73,31 @@ const GraficosContent = ({ children }) => {
   // Estado para controlar la vista activa
   const [vistaActiva, setVistaActiva] = useState("graficos");
   const [bloqueado, setBloqueado] = useState(false);
+
+  const { user, loading: userLoading } = useContext(UserContext);
+
+  // 🎯 DETERMINAR EL TIPO DE HEADER BASADO EN EL ROL DEL USUARIO
+  const getHeaderType = useMemo(() => {
+    if (!user || !user.rol) return null; // fallback
+
+    const userRole = user.rol.rol; // Acceder al rol desde el objeto rol
+    console.log("User Role:", userRole);
+
+    switch (userRole) {
+      case "bombero":
+      case "asistente_bombero":
+        return "bombero";
+
+      case "gerente":
+        return "gerente";
+
+      case "admin_operador":
+        return null; // 🚫 no mostrar header
+
+      default:
+        return null;
+    }
+  }, [user]);
 
   // OPTIMIZACION 1: MEMOIZAR defaultDates para evitar recálculos constantes
   const defaultDates = useMemo(() => {
@@ -324,7 +350,7 @@ const GraficosContent = ({ children }) => {
           <div className="font-semibold text-gray-800">
             Comparación de Consumo por Categoría de Operación
           </div>
-         
+
         </div>
       ),
     }),
@@ -377,7 +403,7 @@ const GraficosContent = ({ children }) => {
       shouldRenderCompact ? (
         <CompactConsumptionPieChart
           {...compactChartProps}
-          // Removido key dinámico para evitar re-mount
+        // Removido key dinámico para evitar re-mount
         />
       ) : null,
     [shouldRenderCompact, compactChartProps]
@@ -415,7 +441,9 @@ const GraficosContent = ({ children }) => {
   // JSX PRINCIPAL OPTIMIZADO
   return (
     <div className="flex-1 overflow-auto bg-gray-50 mt-12">
-      <UniversalHeader type="gerente" />
+      <UniversalHeader
+        type={getHeaderType}
+      />
 
       <div className="py-6">
         {/* MENSAJES DE ESTADO */}
@@ -492,11 +520,10 @@ const GraficosContent = ({ children }) => {
                       setTimeout(() => setBloqueado(false), 5000); // Reducido de 8000 a 5000
                     }}
                     disabled={bloqueado}
-                    className={`px-3 py-1 rounded-md flex items-center justify-center transition-colors ${
-                      vistaActiva === key
-                        ? "text-white"
-                        : "text-gray-600 hover:bg-gray-200"
-                    } ${bloqueado ? "opacity-50 cursor-not-allowed" : ""}`}
+                    className={`px-3 py-1 rounded-md flex items-center justify-center transition-colors ${vistaActiva === key
+                      ? "text-white"
+                      : "text-gray-600 hover:bg-gray-200"
+                      } ${bloqueado ? "opacity-50 cursor-not-allowed" : ""}`}
                     style={
                       vistaActiva === key ? { backgroundColor: "#F67029" } : {}
                     }

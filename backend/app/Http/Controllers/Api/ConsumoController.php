@@ -1190,7 +1190,7 @@ class ConsumoController extends Controller
                 ->orderBy('total', 'desc')
                 ->first();
 
-            return $resultado ? $resultado->nombre : 'N/A';
+            return $resultado ? $resultado->nombre_maquina : 'N/A';
         } catch (\Exception $e) {
             Log::error('Error obteniendo equipo más usado: ' . $e->getMessage());
             return 'N/A';
@@ -1469,7 +1469,7 @@ class ConsumoController extends Controller
                     // Información de la máquina
                     'cm.nombre_maquina_categoria',
                     'cm.tipo_medicion',
-                    DB::raw('COALESCE(mi.nombre, m.nombre_maquina_maquina) as nombre_maquina'),
+                    DB::raw('COALESCE(mi.nombre, m.nombre_maquina) as nombre_maquina'),
                     DB::raw('COALESCE(mi.patente, m.patente) as patente'),
                     // Información del estanque
                     'e.nombre as estanque_simple',
@@ -1540,7 +1540,7 @@ class ConsumoController extends Controller
                 'cm.nombre_maquina_categoria',
                 'cm.tipo_medicion',
                 'mi.nombre',
-                'm.nombre_maquina_maquina',
+                'm.nombre_maquina',
                 'mi.patente',
                 'm.patente',
                 'e.nombre',
@@ -1672,8 +1672,8 @@ class ConsumoController extends Controller
 
             // Obtener equipo más usado en esta categoría
             $equipoMasUsadoCategoria = $statsQuery
-                ->selectRaw('COALESCE(mi.nombre, m.nombre_maquina_maquina) as nombre_maquina, COUNT(*) as total_usos')
-                ->groupBy('mi.nombre', 'm.nombre_maquina_maquina')
+                ->selectRaw('COALESCE(mi.nombre, m.nombre_maquina) as nombre_maquina, COUNT(*) as total_usos')
+                ->groupBy('mi.nombre', 'm.nombre_maquina')
                 ->orderBy('total_usos', 'desc')
                 ->first();
 
@@ -1756,7 +1756,7 @@ class ConsumoController extends Controller
             $maquinaInfo = DB::table('maquinas as m')
                 ->join('categorias_maquinas as c', 'm.id_categoria', '=', 'c.id_categoria')
                 ->where('m.id_maquina', $idMaquina)
-                ->select('c.tipo_medicion', 'm.patente', 'm.nombre_maquina_maquina')
+                ->select('c.tipo_medicion', 'm.patente', 'm.nombre_maquina')
                 ->first();
 
             if (!$maquinaInfo) {
@@ -1903,7 +1903,7 @@ class ConsumoController extends Controller
                     // Datos de la máquina
                     'm.id_maquina',
                     'm.id_categoria',
-                    'm.nombre_maquina_maquina',
+                    'm.nombre_maquina',
                     'm.tipo_maquina',
                     'm.estado',
                     'm.chc_maquina',

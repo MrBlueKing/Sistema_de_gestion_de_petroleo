@@ -444,7 +444,7 @@ class AsignacionUserMaquinaController extends Controller
                     'c.tipo_medicion'
                 ])
                 ->where('m.estado', 1) // Solo máquinas activas
-                ->whereIn('m.id_categoria', [11, 2]) // Solo camionetas y camionetas arrendadas
+                ->whereIn('m.id_categoria', [11, 2, 7 , 12]) // Solo camionetas y camionetas arrendadas
                 ->orderBy('c.nombre_categoria') // Primero por categoría
                 ->orderBy('m.nombre_maquina') // Luego por nombre
                 ->get()

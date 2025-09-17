@@ -13,13 +13,15 @@ import { getAuthUser } from "../../utils/session"; // Para obtener datos básico
 
 const MenuPrincipalOperadorVehiculo = () => {
   const navigate = useNavigate();
-  
+
   // 🆕 Estados simples sin dependencias obsoletas
   const [vistaActiva, setVistaActiva] = useState("ingreso"); // 'ingreso' o 'historial'
   const [recargarHistorialUsuario, setRecargarHistorialUsuario] = useState(0);
 
   // 🆕 Obtener datos básicos del usuario desde la sesión
   const usuario = getAuthUser();
+
+  console.log("Usuario:", usuario);
 
   // 🆕 Función para manejar ingreso exitoso
   const handleIngresoExitoso = useCallback(() => {
@@ -30,16 +32,16 @@ const MenuPrincipalOperadorVehiculo = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* HEADER UNIVERSAL */}
-       <UniversalHeader type="operador" />
+      <UniversalHeader type="operador" />
 
       {/* HERO SECTION */}
       <div className="relative bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 text-white overflow-hidden">
         {/* Patrón de fondo */}
         <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0 bg-repeat opacity-30" 
-               style={{
-                 backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
-               }}>
+          <div className="absolute inset-0 bg-repeat opacity-30"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+            }}>
           </div>
         </div>
 
@@ -48,7 +50,7 @@ const MenuPrincipalOperadorVehiculo = () => {
           <div className="max-w-4xl mx-auto">
             <FaGasPump className="text-4xl sm:text-6xl text-white mx-auto mb-4 opacity-90" />
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2">
-              ¡Hola {usuario?.nombre || 'Operador'}! 👋
+              ¡Hola {(usuario?.nombre ? `${usuario.nombre} ${usuario.apellido ?? ''}` : 'Operador')}! 👋
             </h1>
             <p className="text-orange-100 text-sm sm:text-base lg:text-lg max-w-md mx-auto mb-4">
               Sistema de Gestión de Combustible
@@ -121,9 +123,8 @@ const MenuPrincipalOperadorVehiculo = () => {
           {/* INDICADOR VISUAL DEL TAB ACTIVO */}
           <div className="h-1 bg-gray-100 relative">
             <div
-              className={`absolute h-full bg-orange-500 transition-all duration-300 ease-in-out ${
-                vistaActiva === "ingreso" ? "w-1/2 left-0" : "w-1/2 left-1/2"
-              }`}
+              className={`absolute h-full bg-orange-500 transition-all duration-300 ease-in-out ${vistaActiva === "ingreso" ? "w-1/2 left-0" : "w-1/2 left-1/2"
+                }`}
             />
           </div>
         </div>
@@ -137,11 +138,11 @@ const MenuPrincipalOperadorVehiculo = () => {
               />
             </div>
           )}
-          
+
           {vistaActiva === "historial" && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-              <HistorialUsuarioOperadorVehiculo 
-                recargarKey={recargarHistorialUsuario} 
+              <HistorialUsuarioOperadorVehiculo
+                recargarKey={recargarHistorialUsuario}
               />
             </div>
           )}

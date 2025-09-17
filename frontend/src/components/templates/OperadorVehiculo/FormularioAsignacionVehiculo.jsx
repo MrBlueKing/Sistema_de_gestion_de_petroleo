@@ -501,7 +501,7 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                 medicion: parseFloat(formData.medicion),
                 id_user: usuario.id,
                 id_maquina: maquinaSeleccionada.id_maquina,
-                id_faena: 5
+                id_faena: usuario.id_faena,
             };
 
             console.log('📝 Payload preparado:', payload);
@@ -946,7 +946,6 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                     <div className="flex flex-col gap-3 pt-4">
                         <button
                             onClick={() => {
-                                console.log('🔄 Botón clickeado, iniciando proceso...');
                                 handleSubmit();
                             }}
                             disabled={isLoading || !maquinaSeleccionada}
