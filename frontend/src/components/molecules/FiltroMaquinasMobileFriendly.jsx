@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { 
     FaTruck, 
     FaTimes, 
@@ -11,7 +11,7 @@ import {
 } from 'react-icons/fa';
 
 const FiltroMaquinasMobileFriendly = ({
-    equipoFilter = [], // Ahora es un array
+    equipoFilter = [], // ✅ AHORA ES ARRAY
     handleEquipoFilterChange,
     maquinasDisponibles = [],
     loading = false,
@@ -21,13 +21,56 @@ const FiltroMaquinasMobileFriendly = ({
     const [searchTerm, setSearchTerm] = useState('');
     const [isFocused, setIsFocused] = useState(false);
     const [selectedMaquinas, setSelectedMaquinas] = useState(equipoFilter || []);
+    const [tempSelectedMaquinas, setTempSelectedMaquinas] = useState(equipoFilter || []);
+    
+    // 🆕 Flag para controlar la sincronización automática
+    const [isUpdatingFromParent, setIsUpdatingFromParent] = useState(false);
+    
     const containerRef = useRef(null);
     const inputRef = useRef(null);
+    const debounceRef = useRef(null);
 
-    // Sincronizar con prop externa
+    // 🔄 Sincronizar con prop externa - SOLO si viene de afuera
     useEffect(() => {
-        setSelectedMaquinas(equipoFilter || []);
-    }, [equipoFilter]);
+        const newSelected = Array.isArray(equipoFilter) ? equipoFilter : (equipoFilter ? [equipoFilter] : []);
+        
+        // 🛡️ Solo sincronizar si la prop realmente cambió desde el exterior
+        // y no como resultado de nuestros propios cambios
+        const currentTempString = JSON.stringify([...tempSelectedMaquinas].sort());
+        const newSelectedString = JSON.stringify([...newSelected].sort());
+        
+        if (currentTempString !== newSelectedString && !isUpdatingFromParent) {
+            setSelectedMaquinas(newSelected);
+            setTempSelectedMaquinas(newSelected);
+        }
+    }, [equipoFilter]); // ❌ NO incluir tempSelectedMaquinas en dependencias
+
+    // 🚀 DEBOUNCE MEJORADO: Notificar cambios sin afectar estado local
+    const debouncedNotifyChange = useCallback((newSelection) => {
+        if (debounceRef.current) {
+            clearTimeout(debounceRef.current);
+        }
+        
+        // 🛡️ Marcar que estamos actualizando desde el componente
+        setIsUpdatingFromParent(true);
+        
+        debounceRef.current = setTimeout(() => {
+            handleEquipoFilterChange(newSelection);
+            // 🕒 Dar tiempo para que la prop se actualice antes de permitir sincronización
+            setTimeout(() => {
+                setIsUpdatingFromParent(false);
+            }, 100);
+        }, 300); // 🚀 Reducido a 300ms para mejor UX
+    }, [handleEquipoFilterChange]);
+
+    // 🧹 Limpiar timeout al desmontar
+    useEffect(() => {
+        return () => {
+            if (debounceRef.current) {
+                clearTimeout(debounceRef.current);
+            }
+        };
+    }, []);
 
     // 🔍 Filtrar máquinas en tiempo real
     const maquinasFiltradas = useMemo(() => {
@@ -41,14 +84,14 @@ const FiltroMaquinasMobileFriendly = ({
         });
     }, [maquinasDisponibles, searchTerm]);
 
-    // 📊 Estadísticas
+    // 📊 Estadísticas de selección
     const stats = useMemo(() => ({
         total: maquinasDisponibles.length,
         filtered: maquinasFiltradas.length,
-        selected: selectedMaquinas.length,
-        allSelected: selectedMaquinas.length === maquinasDisponibles.length && maquinasDisponibles.length > 0,
-        someSelected: selectedMaquinas.length > 0 && selectedMaquinas.length < maquinasDisponibles.length
-    }), [maquinasDisponibles.length, maquinasFiltradas.length, selectedMaquinas.length]);
+        selected: tempSelectedMaquinas.length,
+        allSelected: tempSelectedMaquinas.length === maquinasDisponibles.length && maquinasDisponibles.length > 0,
+        someSelected: tempSelectedMaquinas.length > 0 && tempSelectedMaquinas.length < maquinasDisponibles.length
+    }), [maquinasDisponibles.length, maquinasFiltradas.length, tempSelectedMaquinas.length]);
 
     // 🔒 Cerrar al hacer clic fuera
     useEffect(() => {
@@ -89,24 +132,46 @@ const FiltroMaquinasMobileFriendly = ({
         setSearchTerm('');
     };
 
+    // ✅ FUNCIÓN CLAVE MEJORADA: Toggle de máquina (agregar/quitar)
     const handleToggleMaquina = (maquina) => {
-        const newSelected = selectedMaquinas.includes(maquina)
-            ? selectedMaquinas.filter(m => m !== maquina)
-            : [...selectedMaquinas, maquina];
+        const newSelected = tempSelectedMaquinas.includes(maquina)
+            ? tempSelectedMaquinas.filter(m => m !== maquina)  // ❌ Quitar
+            : [...tempSelectedMaquinas, maquina];              // ➕ Agregar
         
-        setSelectedMaquinas(newSelected);
-        handleEquipoFilterChange(newSelected);
+        // 🎯 Actualizar estado local inmediatamente (sin esperar debounce)
+        setTempSelectedMaquinas(newSelected);
+        setSelectedMaquinas(newSelected); // 🆕 También actualizar selectedMaquinas
+        
+        // 🚀 Notificar cambio con debounce (no afecta estado local)
+        debouncedNotifyChange(newSelected);
     };
 
+    // 🔄 Seleccionar todas las máquinas - SIN DEBOUNCE
     const handleSelectAll = () => {
         const newSelected = stats.allSelected ? [] : [...maquinasDisponibles];
+        
+        setTempSelectedMaquinas(newSelected);
         setSelectedMaquinas(newSelected);
+        
+        // 🆕 Aplicar inmediatamente para acciones masivas
+        setIsUpdatingFromParent(true);
         handleEquipoFilterChange(newSelected);
+        setTimeout(() => {
+            setIsUpdatingFromParent(false);
+        }, 100);
     };
 
+    // 🧹 Limpiar todas las selecciones - SIN DEBOUNCE
     const handleClearAll = () => {
+        setTempSelectedMaquinas([]);
         setSelectedMaquinas([]);
+        
+        // 🆕 Aplicar inmediatamente para acciones masivas
+        setIsUpdatingFromParent(true);
         handleEquipoFilterChange([]);
+        setTimeout(() => {
+            setIsUpdatingFromParent(false);
+        }, 100);
     };
 
     const handleInputChange = (e) => {
@@ -134,27 +199,25 @@ const FiltroMaquinasMobileFriendly = ({
             return 'Buscar máquinas...';
         }
         
-        if (selectedMaquinas.length === 0) {
+        if (tempSelectedMaquinas.length === 0) {
             return 'Todas las máquinas';
-        } else if (selectedMaquinas.length === 1) {
-            return selectedMaquinas[0];
+        } else if (tempSelectedMaquinas.length === 1) {
+            return tempSelectedMaquinas[0];
         } else {
-            return `${selectedMaquinas.length} máquinas seleccionadas`;
+            return `${tempSelectedMaquinas.length} máquinas seleccionadas`;
         }
     };
 
-    // 🎨 Componente Checkbox
-    const CustomCheckbox = ({ checked, indeterminate = false, onChange, className = "" }) => (
-        <button
-            type="button"
-            onClick={onChange}
+    // 🎨 Componente Checkbox personalizado - ✅ SOLO VISUAL
+    const CustomCheckbox = ({ checked, indeterminate = false, className = "" }) => (
+        <div
             className={`
                 w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200
                 ${checked 
                     ? 'bg-blue-500 border-blue-500 text-white' 
                     : indeterminate
                         ? 'bg-blue-100 border-blue-300 text-blue-600'
-                        : 'bg-white border-gray-300 hover:border-blue-300'
+                        : 'bg-white border-gray-300'
                 }
                 ${className}
             `}
@@ -164,9 +227,10 @@ const FiltroMaquinasMobileFriendly = ({
             ) : indeterminate ? (
                 <div className="w-2 h-0.5 bg-blue-600 rounded"></div>
             ) : null}
-        </button>
+        </div>
     );
 
+    // 🔄 Loading state
     if (loading) {
         return (
             <div className={`mb-4 bg-gray-50 rounded-lg p-4 ${className}`}>
@@ -188,8 +252,8 @@ const FiltroMaquinasMobileFriendly = ({
                 <FaTruck className="text-blue-600" />
                 Filtrar Máquinas
                 <span className="text-xs text-gray-500 ml-auto">
-                    {selectedMaquinas.length > 0 
-                        ? `${selectedMaquinas.length}/${maquinasDisponibles.length} seleccionadas`
+                    {tempSelectedMaquinas.length > 0 
+                        ? `${tempSelectedMaquinas.length}/${maquinasDisponibles.length} seleccionadas`
                         : `${maquinasDisponibles.length} disponibles`
                     }
                 </span>
@@ -201,7 +265,7 @@ const FiltroMaquinasMobileFriendly = ({
                     relative overflow-hidden rounded-lg border-2 bg-white transition-all duration-200
                     ${isOpen 
                         ? 'border-blue-400 shadow-lg ring-2 ring-blue-100' 
-                        : selectedMaquinas.length > 0 
+                        : tempSelectedMaquinas.length > 0 
                             ? 'border-green-300 bg-green-50/50' 
                             : 'border-gray-300 hover:border-blue-300'
                     }
@@ -211,7 +275,7 @@ const FiltroMaquinasMobileFriendly = ({
                         {isOpen ? (
                             <FaSearch className="text-blue-500 text-sm" />
                         ) : (
-                            <FaTruck className={`text-sm ${selectedMaquinas.length > 0 ? 'text-green-600' : 'text-gray-400'}`} />
+                            <FaTruck className={`text-sm ${tempSelectedMaquinas.length > 0 ? 'text-green-600' : 'text-gray-400'}`} />
                         )}
                     </div>
 
@@ -226,7 +290,7 @@ const FiltroMaquinasMobileFriendly = ({
                         className={`
                             w-full pl-10 pr-12 py-3 bg-transparent border-none outline-none
                             text-sm sm:text-base transition-all duration-200
-                            ${selectedMaquinas.length > 0 && !isOpen ? 'text-green-800 font-medium' : 'text-gray-900'}
+                            ${tempSelectedMaquinas.length > 0 && !isOpen ? 'text-green-800 font-medium' : 'text-gray-900'}
                             ${(isFocused || isOpen) ? 'placeholder-gray-500' : 'placeholder-gray-600'}
                         `}
                         autoComplete="off"
@@ -234,7 +298,7 @@ const FiltroMaquinasMobileFriendly = ({
 
                     {/* Iconos derecha */}
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
-                        {selectedMaquinas.length > 0 && !isOpen && (
+                        {tempSelectedMaquinas.length > 0 && !isOpen && (
                             <button
                                 type="button"
                                 onClick={(e) => {
@@ -261,9 +325,9 @@ const FiltroMaquinasMobileFriendly = ({
                 </div>
             </div>
 
-            {/* 🎯 Dropdown Expandible */}
+            {/* 🎯 Dropdown Expandible - NO SE CIERRA AL SELECCIONAR */}
             <div className={`
-                overflow-hidden bg-white rounded-lg shadow-xl border border-gray-200
+                overflow-hidden bg-white rounded-lg shadow-xl border border-gray-200 z-50
                 transform transition-all duration-200 origin-top
                 ${isOpen 
                     ? 'opacity-100 scale-y-100 max-h-96 mt-1' 
@@ -271,25 +335,28 @@ const FiltroMaquinasMobileFriendly = ({
                 }
             `}>
                 <div className="max-h-72 overflow-y-auto py-2">
-                    {/* Header con controles */}
+                    {/* 🎮 Header con controles */}
                     <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={handleSelectAll}
+                            className="flex items-center gap-2 hover:bg-gray-100 p-1 rounded transition-colors"
+                        >
                             <CustomCheckbox
                                 checked={stats.allSelected}
                                 indeterminate={stats.someSelected}
-                                onChange={handleSelectAll}
                             />
                             <span className="text-sm font-medium text-gray-700">
                                 {stats.allSelected ? 'Deseleccionar todas' : 'Seleccionar todas'}
                             </span>
-                        </div>
+                        </button>
                         
                         <div className="flex items-center gap-2 text-xs text-gray-500">
-                            <span>{selectedMaquinas.length} seleccionadas</span>
+                            <span>{tempSelectedMaquinas.length} seleccionadas</span>
                         </div>
                     </div>
 
-                    {/* Lista de máquinas */}
+                    {/* 📋 Lista de máquinas */}
                     {maquinasFiltradas.length === 0 && searchTerm ? (
                         <div className="px-4 py-6 text-center text-gray-500">
                             <div className="text-2xl mb-2">🔍</div>
@@ -300,7 +367,7 @@ const FiltroMaquinasMobileFriendly = ({
                         </div>
                     ) : (
                         maquinasFiltradas.map((maquina, index) => {
-                            const isSelected = selectedMaquinas.includes(maquina);
+                            const isSelected = tempSelectedMaquinas.includes(maquina);
                             return (
                                 <button
                                     key={index}
@@ -317,7 +384,6 @@ const FiltroMaquinasMobileFriendly = ({
                                 >
                                     <CustomCheckbox
                                         checked={isSelected}
-                                        onChange={() => {}} // Manejado por el onClick del botón padre
                                     />
                                     
                                     <div className={`
@@ -334,7 +400,7 @@ const FiltroMaquinasMobileFriendly = ({
                     )}
                 </div>
 
-                {/* Footer */}
+                {/* 🔽 Footer con información */}
                 <div className="border-t border-gray-100 px-4 py-2 bg-gray-50 text-xs text-gray-600">
                     <div className="flex items-center justify-between">
                         <span>
@@ -344,7 +410,7 @@ const FiltroMaquinasMobileFriendly = ({
                             }
                         </span>
                         <div className="flex items-center gap-3">
-                            {selectedMaquinas.length > 0 && (
+                            {tempSelectedMaquinas.length > 0 && (
                                 <button
                                     type="button"
                                     onClick={handleClearAll}
@@ -359,11 +425,11 @@ const FiltroMaquinasMobileFriendly = ({
                 </div>
             </div>
 
-            {/* Resumen de selecciones */}
-            {selectedMaquinas.length > 0 && !isOpen && (
+            {/* 🏷️ Resumen de selecciones (cuando está cerrado) */}
+            {tempSelectedMaquinas.length > 0 && !isOpen && (
                 <div className="mt-2">
                     <div className="flex flex-wrap gap-1">
-                        {selectedMaquinas.slice(0, 2).map((maquina, index) => (
+                        {tempSelectedMaquinas.slice(0, 2).map((maquina, index) => (
                             <span 
                                 key={index}
                                 className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium"
@@ -378,9 +444,9 @@ const FiltroMaquinasMobileFriendly = ({
                                 </button>
                             </span>
                         ))}
-                        {selectedMaquinas.length > 2 && (
+                        {tempSelectedMaquinas.length > 2 && (
                             <span className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                                +{selectedMaquinas.length - 2} más
+                                +{tempSelectedMaquinas.length - 2} más
                             </span>
                         )}
                     </div>
