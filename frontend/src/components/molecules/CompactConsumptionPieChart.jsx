@@ -276,25 +276,6 @@ const CompactConsumptionPieChart = ({
     refreshKey,
   });
 
-  const formatearPeriodo = (fechaInicio, fechaFin) => {
-    if (!fechaInicio || !fechaFin) return "";
-
-    // 🔧 PARSEAR MANUALMENTE para evitar problemas de zona horaria
-    const [añoInicio, mesInicio, diaInicio] = fechaInicio
-      .split("-")
-      .map(Number);
-    const [añoFin, mesFin, diaFin] = fechaFin.split("-").map(Number);
-
-    const fechaInicioFormateada = `${diaInicio
-      .toString()
-      .padStart(2, "0")}/${mesInicio.toString().padStart(2, "0")}/${añoInicio}`;
-    const fechaFinFormateada = `${diaFin.toString().padStart(2, "0")}/${mesFin
-      .toString()
-      .padStart(2, "0")}/${añoFin}`;
-
-    return `${fechaInicioFormateada} al ${fechaFinFormateada}`;
-  };
-
   useEffect(() => {
     console.log(
       "🔍 CompactConsumptionPieChart: useEffect de montaje ejecutado"
@@ -387,133 +368,6 @@ const CompactConsumptionPieChart = ({
       `🎨 CompactChart: Color fallback para "${categoryName}": ${fallbackColor}`
     );
     return fallbackColor;
-  };
-
-  // 🔧 SOLUCIÓN COMPLETA: Función calcularPeriodoAnterior que maneja correctamente los días por mes
-
-  const calcularPeriodoAnterior = () => {
-    if (!fechaDesde || !fechaHasta) {
-      return {
-        fechaDesde: "",
-        fechaHasta: "",
-        descripcion: "Fechas inválidas",
-      };
-    }
-
-    // 📅 FUNCIÓN AUXILIAR: Obtener días en un mes específico
-    const getDiasEnMes = (year, month) => {
-      // month es 1-12 (enero = 1, diciembre = 12)
-      return new Date(year, month, 0).getDate();
-    };
-
-    // Parsear fechas de entrada
-    const [yearDesde, monthDesde, dayDesde] = fechaDesde.split("-").map(Number);
-    const [yearHasta, monthHasta, dayHasta] = fechaHasta.split("-").map(Number);
-
-    // Calcular mes anterior para fecha inicio
-    let yearAnteriorDesde = yearDesde;
-    let monthAnteriorDesde = monthDesde - 1;
-    if (monthAnteriorDesde < 1) {
-      monthAnteriorDesde = 12;
-      yearAnteriorDesde -= 1;
-    }
-
-    // Calcular mes anterior para fecha fin
-    let yearAnteriorHasta = yearHasta;
-    let monthAnteriorHasta = monthHasta - 1;
-    if (monthAnteriorHasta < 1) {
-      monthAnteriorHasta = 12;
-      yearAnteriorHasta -= 1;
-    }
-
-    // 🔧 CORRECCIÓN CRÍTICA: Ajustar días si el mes anterior tiene menos días
-    let dayAnteriorDesde = dayDesde;
-    let dayAnteriorHasta = dayHasta;
-
-    // Verificar días máximos para el mes anterior de la fecha inicio
-    const maxDiasAnteriorDesde = getDiasEnMes(
-      yearAnteriorDesde,
-      monthAnteriorDesde
-    );
-    if (dayAnteriorDesde > maxDiasAnteriorDesde) {
-      dayAnteriorDesde = maxDiasAnteriorDesde;
-      console.log(
-        `🔧 Ajuste fecha inicio: Día ${dayDesde} → ${dayAnteriorDesde} (mes ${monthAnteriorDesde} solo tiene ${maxDiasAnteriorDesde} días)`
-      );
-    }
-
-    // Verificar días máximos para el mes anterior de la fecha fin
-    const maxDiasAnteriorHasta = getDiasEnMes(
-      yearAnteriorHasta,
-      monthAnteriorHasta
-    );
-    if (dayAnteriorHasta > maxDiasAnteriorHasta) {
-      dayAnteriorHasta = maxDiasAnteriorHasta;
-      console.log(
-        `🔧 Ajuste fecha fin: Día ${dayHasta} → ${dayAnteriorHasta} (mes ${monthAnteriorHasta} solo tiene ${maxDiasAnteriorHasta} días)`
-      );
-    }
-
-    // Formatear fechas como YYYY-MM-DD
-    const fechaInicioAnterior = `${yearAnteriorDesde}-${monthAnteriorDesde
-      .toString()
-      .padStart(2, "0")}-${dayAnteriorDesde.toString().padStart(2, "0")}`;
-    const fechaFinAnterior = `${yearAnteriorHasta}-${monthAnteriorHasta
-      .toString()
-      .padStart(2, "0")}-${dayAnteriorHasta.toString().padStart(2, "0")}`;
-
-    // 🎨 NUEVA PARTE VISUAL: Sumar 1 día SOLO para mostrar al usuario
-    const fechaVisualInicio = new Date(fechaInicioAnterior);
-    fechaVisualInicio.setDate(fechaVisualInicio.getDate() + 1);
-
-    const fechaVisualFin = new Date(fechaFinAnterior);
-    fechaVisualFin.setDate(fechaVisualFin.getDate() + 1);
-
-    // 🎨 FORMATO VISUAL: dd/mm/yyyy como requested
-    const formatearFechaVisual = (fecha) => {
-      const dia = fecha.getDate().toString().padStart(2, "0");
-      const mes = (fecha.getMonth() + 1).toString().padStart(2, "0");
-      const año = fecha.getFullYear();
-      return `${dia}/${mes}/${año}`;
-    };
-
-    // Generar descripción
-  const descripcion = `${formatearFechaVisual(fechaVisualInicio)} al ${formatearFechaVisual(fechaVisualFin)}`;
-
-
-    // Logging para debugging
-    console.log("🔍 Cálculo período anterior:", {
-      entrada: {
-        desde: fechaDesde,
-        hasta: fechaHasta,
-      },
-      calculado: {
-        desde: fechaInicioAnterior,
-        hasta: fechaFinAnterior,
-      },
-      ajustes: {
-        diaDesdeAjustado: dayDesde !== dayAnteriorDesde,
-        diaHastaAjustado: dayHasta !== dayAnteriorHasta,
-        diasMaximosEnMesAnterior: {
-          inicio: maxDiasAnteriorDesde,
-          fin: maxDiasAnteriorHasta,
-        },
-      },
-      descripcion,
-    });
-
-    return {
-      fechaDesde: fechaInicioAnterior,
-      fechaHasta: fechaFinAnterior,
-      descripcion,
-      // 🆕 METADATOS ADICIONALES para debugging
-      metadatos: {
-        ajusteDiaInicio: dayDesde !== dayAnteriorDesde,
-        ajusteDiaFin: dayHasta !== dayAnteriorHasta,
-        diasOriginales: { inicio: dayDesde, fin: dayHasta },
-        diasAjustados: { inicio: dayAnteriorDesde, fin: dayAnteriorHasta },
-      },
-    };
   };
 
   const CustomTooltip = ({ active, payload, label }) => {
@@ -644,11 +498,11 @@ const CompactConsumptionPieChart = ({
     };
   };
 
-  // Función para obtener datos del backend
-  const obtenerDatosPeriodo = async (fechaInicio, fechaFin) => {
+  // 🎯 FUNCIÓN ULTRA SIMPLIFICADA - Solo una llamada al backend
+  const obtenerDatosCompletos = async () => {
     const requestBody = {
-      fecha_inicio: fechaInicio,
-      fecha_fin: fechaFin,
+      fecha_inicio: fechaDesde,
+      fecha_fin: fechaHasta,
       modo: "categorias",
     };
 
@@ -656,55 +510,126 @@ const CompactConsumptionPieChart = ({
       requestBody.id_faena = faenaSeleccionada;
     }
 
-    console.log("📊 [CompactChart] Request body para período:", requestBody);
+    console.log("📊 [CompactChart] Request body:", requestBody);
 
     const response = await axios.post(
       "/api/categorias-chart/categorias",
       requestBody
     );
-    const data = response.data;
 
-    return procesarDatosBackend(data);
+    console.log("📊 [CompactChart] Response completa:", response.data);
+
+    // ✅ SIMPLIFICADO: El backend ya retorna TODO procesado
+    if (response.data && response.data.success && response.data.data) {
+      return {
+        // Período actual
+        categoriasIniciales: response.data.data.categoriasIniciales,
+        categoriasFinales: response.data.data.categoriasFinales,
+
+        // Período anterior (ya calculado por el backend)
+        periodoAnterior: response.data.data.periodoAnterior,
+
+        // Descripción del período anterior
+        descripcionPeriodoAnterior:
+          response.data.data.periodoAnterior.descripcion,
+      };
+    }
+
+    throw new Error("Datos no válidos recibidos del servidor");
   };
 
-  // Función mejorada de validación de fechas
-  const validarPeriodoAnterior = (fechaInicioAnterior, fechaFinAnterior) => {
-    const inicio = new Date(fechaInicioAnterior);
-    const fin = new Date(fechaFinAnterior);
-    const ahora = new Date();
+  // 🔄 FUNCIÓN DE CARGA ULTRA SIMPLIFICADA
+  const cargarDatos = async () => {
+    if (!isMounted.current) return;
 
-    // Verificar que las fechas sean válidas
-    if (isNaN(inicio.getTime()) || isNaN(fin.getTime())) {
-      console.error("❌ Fechas del período anterior inválidas");
-      return false;
-    }
+    try {
+      setLoading(true);
+      setError(null);
 
-    // Verificar que el inicio sea anterior al fin
-    if (inicio > fin) {
-      console.error(
-        "❌ Fecha de inicio del período anterior es posterior a la fecha de fin"
+      console.log("🔄 CompactConsumptionPieChart: Cargando datos completos...");
+
+      // 🚀 UNA SOLA LLAMADA para obtener TODO
+      const datosCompletos = await obtenerDatosCompletos();
+
+      if (!isMounted.current) return;
+
+      // ✅ EXTRAER datos según el modo actual
+      const categoriasParaUsar =
+        modoVisualizacion === "finales"
+          ? datosCompletos.categoriasFinales
+          : datosCompletos.categoriasIniciales;
+
+      const categoriasAnterioresParaUsar =
+        modoVisualizacion === "finales"
+          ? datosCompletos.periodoAnterior.categoriasFinales
+          : datosCompletos.periodoAnterior.categoriasIniciales;
+
+      console.log("🔍 CompactConsumptionPieChart: Datos extraídos:", {
+        actuales: categoriasParaUsar.length,
+        anteriores: categoriasAnterioresParaUsar.length,
+        modo: modoVisualizacion === "finales" ? "Operacionales" : "Todo",
+        descripcionPeriodoAnterior: datosCompletos.descripcionPeriodoAnterior,
+      });
+
+      // Crear lista unificada con colores (igual que antes)
+      const todasCategorias = new Map();
+
+      categoriasParaUsar.forEach((cat, index) => {
+        const color = obtenerColor(cat, index);
+        todasCategorias.set(cat.name, {
+          name: cat.name,
+          actual: cat.value,
+          anterior: 0,
+          color: color,
+        });
+      });
+
+      categoriasAnterioresParaUsar.forEach((cat, index) => {
+        if (todasCategorias.has(cat.name)) {
+          todasCategorias.get(cat.name).anterior = cat.value;
+        } else {
+          const color = obtenerColorInteligente(cat, index);
+          todasCategorias.set(cat.name, {
+            name: cat.name,
+            actual: 0,
+            anterior: cat.value,
+            color: color,
+          });
+        }
+      });
+
+      const categoriasUnificadas = Array.from(todasCategorias.values()).sort(
+        (a, b) => b.actual + b.anterior - (a.actual + a.anterior)
       );
-      return false;
+
+      // ✅ GUARDAR TODO procesado desde backend
+      setDatosCompletoActuales({
+        categoriasIniciales: datosCompletos.categoriasIniciales,
+        categoriasFinales: datosCompletos.categoriasFinales,
+      });
+
+      setDatosCompletoAnteriores({
+        categoriasIniciales: datosCompletos.periodoAnterior.categoriasIniciales,
+        categoriasFinales: datosCompletos.periodoAnterior.categoriasFinales,
+      });
+
+      setCategorias(categoriasUnificadas);
+      setPeriodoAnteriorDescripcion(datosCompletos.descripcionPeriodoAnterior);
+
+      handleCompactChartLoad();
+
+      console.log("✅ CompactConsumptionPieChart: TODO cargado desde backend!");
+    } catch (error) {
+      console.error("❌ Error al cargar datos:", error);
+      if (isMounted.current) {
+        setError("Error al cargar datos: " + error.message);
+        setCategorias([]);
+      }
+    } finally {
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
-
-    // Advertir si las fechas son muy antigas (más de 2 años)
-    const dosAñosAtras = new Date();
-    dosAñosAtras.setFullYear(dosAñosAtras.getFullYear() - 2);
-
-    if (inicio < dosAñosAtras) {
-      console.warn(
-        "⚠️ El período anterior es de hace más de 2 años, es posible que no haya datos"
-      );
-    }
-
-    // Advertir si las fechas son futuras
-    if (inicio > ahora) {
-      console.warn(
-        "⚠️ El período anterior es en el futuro, es posible que no haya datos"
-      );
-    }
-
-    return true;
   };
 
   // 🔧 MEJORAR la función obtenerColorInteligente existente:
@@ -765,246 +690,6 @@ const CompactConsumptionPieChart = ({
       chartColors,
     ]
   );
-
-  // 🔄 FUNCIÓN CARGAR DATOS ACTUALIZADA
-  const cargarDatos = async () => {
-    console.log("🔍 CompactConsumptionPieChart: cargarDatos() iniciando...");
-
-    // 🆕 NUEVO: Verificar si puede cargar
-    if (waitForColors && !compactChartCanLoad) {
-      console.log(
-        "⏳ CompactChart: Esperando que termine el gráfico principal..."
-      );
-      return; // No cargar aún
-    }
-
-    if (!isMounted.current) {
-      console.log(
-        "🔍 CompactConsumptionPieChart: Componente no montado, abortando carga"
-      );
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    console.log(
-      "🔍 CompactConsumptionPieChart: Estado loading=true establecido"
-    );
-
-    try {
-      if (!fechaDesde || !fechaHasta) {
-        console.error("🔍 CompactConsumptionPieChart: Fechas faltantes:", {
-          fechaDesde,
-          fechaHasta,
-        });
-        throw new Error("Las fechas son requeridas");
-      }
-
-      console.log(
-        "🔍 CompactConsumptionPieChart: Fechas válidas, calculando período anterior..."
-      );
-
-      // Calcular período anterior (un mes atrás)
-      const periodoAnteriorFechas = calcularPeriodoAnterior();
-
-      // Validar el período anterior
-      if (
-        !validarPeriodoAnterior(
-          periodoAnteriorFechas.fechaDesde,
-          periodoAnteriorFechas.fechaHasta
-        )
-      ) {
-        console.error(
-          "🔍 CompactConsumptionPieChart: Período anterior inválido"
-        );
-        throw new Error("El período anterior calculado no es válido");
-      }
-
-      console.log(
-        "🔍 CompactConsumptionPieChart: Períodos calculados correctamente, iniciando carga de datos..."
-      );
-
-      console.log("📊 Períodos a consultar:", {
-        actual: `${fechaDesde} al ${fechaHasta}`,
-        anterior: `${periodoAnteriorFechas.fechaDesde} al ${periodoAnteriorFechas.fechaHasta}`,
-        descripcion: periodoAnteriorFechas.descripcion,
-      });
-
-      // Cargar ambos períodos en paralelo
-      console.log(
-        "🔍 CompactConsumptionPieChart: Iniciando carga paralela de datos..."
-      );
-
-      const [datosActuales, datosAnteriores] = await Promise.all([
-        obtenerDatosPeriodo(fechaDesde, fechaHasta),
-        obtenerDatosPeriodo(
-          periodoAnteriorFechas.fechaDesde,
-          periodoAnteriorFechas.fechaHasta
-        ),
-      ]);
-
-      // 🔄 NUEVO: Determinar qué categorías usar según el modo actual
-      // Por defecto mostraremos las categorías iniciales (TODO)
-      const categoriasParaUsar =
-        modoVisualizacion === "finales"
-          ? datosActuales.categoriasFinales
-          : datosActuales.categoriasIniciales;
-
-      const categoriasAnterioresParaUsar =
-        modoVisualizacion === "finales"
-          ? datosAnteriores.categoriasFinales
-          : datosAnteriores.categoriasIniciales;
-
-      console.log("🔍 CompactConsumptionPieChart: Datos cargados exitosamente");
-      console.log(`🔄 Modo actual: ${modoVisualizacion}`);
-      console.log("📊 Categorías seleccionadas:", {
-        actuales: categoriasParaUsar.length,
-        anteriores: categoriasAnterioresParaUsar.length,
-        tipoActuales:
-          modoVisualizacion === "finales" ? "Operacionales" : "Todo",
-      });
-
-      if (!isMounted.current) {
-        console.log(
-          "🔍 CompactConsumptionPieChart: Componente desmontado durante la carga, abortando"
-        );
-        return;
-      }
-
-      // Logging de resultados actualizados
-      console.log("📈 Datos cargados:", {
-        actual: {
-          categorias: categoriasParaUsar.length,
-          total: categoriasParaUsar.reduce((sum, cat) => sum + cat.value, 0),
-          datos: categoriasParaUsar,
-        },
-        anterior: {
-          categorias: categoriasAnterioresParaUsar.length,
-          total: categoriasAnterioresParaUsar.reduce(
-            (sum, cat) => sum + cat.value,
-            0
-          ),
-          datos: categoriasAnterioresParaUsar,
-        },
-        // 🆕 NUEVO: Información adicional sobre ambos tipos
-        datosCompletos: {
-          actuales: {
-            iniciales: datosActuales.categoriasIniciales.length,
-            finales: datosActuales.categoriasFinales.length,
-          },
-          anteriores: {
-            iniciales: datosAnteriores.categoriasIniciales.length,
-            finales: datosAnteriores.categoriasFinales.length,
-          },
-        },
-      });
-
-      console.log("Periodo antes del set", periodoAnteriorFechas.descripcion);
-      // Guardar la descripción del período para mostrar en la UI
-      setPeriodoAnteriorDescripcion(periodoAnteriorFechas.descripcion);
-      handleCompactChartLoad();
-      console.log("Periodo despues del set", periodoAnteriorFechas.descripcion);
-
-      // 🔄 NUEVO: Almacenar TODOS los datos para poder cambiar entre modos
-      // Guardamos tanto las categorías iniciales como las finales
-      setDatosCompletoActuales(datosActuales); // { categoriasIniciales: [...], categoriasFinales: [...] }
-      setDatosCompletoAnteriores(datosAnteriores); // { categoriasIniciales: [...], categoriasFinales: [...] }
-
-      // Crear lista unificada de todas las categorías SEGÚN EL MODO ACTUAL
-      const todasCategorias = new Map();
-
-      console.log(
-        "🔍 CompactConsumptionPieChart: Procesando datos actuales..."
-      );
-
-      categoriasParaUsar.forEach((cat, index) => {
-        const color = obtenerColor(cat, index);
-        console.log(
-          `🎨 CompactConsumptionPieChart: Color para ${cat.name}: ${color}`
-        );
-
-        todasCategorias.set(cat.name, {
-          name: cat.name,
-          actual: cat.value,
-          anterior: 0,
-          color: color, // 🎨 USAR FUNCIÓN CONSISTENTE
-        });
-      });
-
-      console.log(
-        "🔍 CompactConsumptionPieChart: Procesando datos anteriores..."
-      );
-
-      categoriasAnterioresParaUsar.forEach((cat, index) => {
-        if (todasCategorias.has(cat.name)) {
-          todasCategorias.get(cat.name).anterior = cat.value;
-        } else {
-          const color = obtenerColorInteligente(cat, index);
-
-          console.log(
-            `🎨 CompactConsumptionPieChart: Color para ${cat.name} (solo anterior): ${color}`
-          );
-
-          todasCategorias.set(cat.name, {
-            name: cat.name,
-            actual: 0,
-            anterior: cat.value,
-            color: color, // 🎨 USAR FUNCIÓN CONSISTENTE
-          });
-        }
-      });
-
-      const categoriasUnificadas = Array.from(todasCategorias.values()).sort(
-        (a, b) => b.actual + b.anterior - (a.actual + a.anterior)
-      );
-
-      console.log(
-        "🔍 CompactConsumptionPieChart: Categorías unificadas:",
-        categoriasUnificadas
-      );
-
-      // 🔄 ACTUALIZADO: Ahora guardamos las categorías según el modo actual
-      // ✅ CORRECTO: Guardar los datos completos procesados
-      setDatosCompletoActuales(datosActuales); // datosActuales ya tiene { categoriasIniciales: [...], categoriasFinales: [...] }
-      setDatosCompletoAnteriores(datosAnteriores); // datosAnteriores también
-      setCategorias(categoriasUnificadas);
-      initialLoadDone.current = true;
-
-      console.log(
-        "✅ CompactConsumptionPieChart: Comparación cargada exitosamente"
-      );
-    } catch (error) {
-      console.error(
-        "❌ CompactConsumptionPieChart: Error al cargar datos de comparación:",
-        error
-      );
-      if (isMounted.current) {
-        setError(
-          error.message || "Error al cargar datos del gráfico de comparación"
-        );
-        setDatosCompletoActuales([]);
-        setDatosCompletoAnteriores([]);
-        setCategorias([]);
-
-        // 🔄 NUEVO: Limpiar también los datos completos en caso de error
-        setDatosCompletoActuales({
-          categoriasIniciales: [],
-          categoriasFinales: [],
-        });
-        setDatosCompletoAnteriores({
-          categoriasIniciales: [],
-          categoriasFinales: [],
-        });
-      }
-    } finally {
-      if (isMounted.current) {
-        console.log(
-          "🔍 CompactConsumptionPieChart: Estableciendo loading=false"
-        );
-        setLoading(false);
-      }
-    }
-  };
 
   // 🔧 MODIFICAR el useEffect principal:
   useEffect(() => {
@@ -1076,6 +761,11 @@ const CompactConsumptionPieChart = ({
     obtenerColorInteligente,
     categorias,
   ]);
+
+  const formatearFecha = (fecha) => {
+    const [year, month, day] = fecha.split("T")[0].split("-");
+    return `${day}-${month}-${year}`;
+  };
 
   // 🔧 SOLUCIÓN: Corrigiendo el useEffect que maneja el cambio de modo
 
@@ -1712,9 +1402,8 @@ const CompactConsumptionPieChart = ({
               </h4>
 
               <p className="text-xs text-gray-500">
-                {formatearPeriodo(fechaDesde, fechaHasta)}
+                {formatearFecha(fechaDesde)} al {formatearFecha(fechaHasta)}
               </p>
-
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart margin={{ top: 20, right: 40, bottom: 20, left: 40 }}>
                   <Pie
