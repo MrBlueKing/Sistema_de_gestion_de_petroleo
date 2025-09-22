@@ -13,7 +13,8 @@ import {
 const FiltroMaquinasMobileFriendly = ({
     equipoFilter = [], // ✅ AHORA ES ARRAY
     handleEquipoFilterChange,
-    maquinasDisponibles = [],
+    maquinasDisponibles = [], // ← Esta puede cambiar
+    todasLasMaquinas, // 🆕 Lista completa (opcional)
     loading = false,
     className = ""
 }) => {
@@ -23,6 +24,9 @@ const FiltroMaquinasMobileFriendly = ({
     const [selectedMaquinas, setSelectedMaquinas] = useState(equipoFilter || []);
     const [tempSelectedMaquinas, setTempSelectedMaquinas] = useState(equipoFilter || []);
     
+    // 🆕 Lista completa de máquinas para el selector
+    const [listaMaquinasCompleta, setListaMaquinasCompleta] = useState([]);
+    
     // 🆕 Refs para control de estado interno
     const isInternalUpdate = useRef(false);
     const lastExternalFilter = useRef(equipoFilter);
@@ -30,6 +34,15 @@ const FiltroMaquinasMobileFriendly = ({
     const containerRef = useRef(null);
     const inputRef = useRef(null);
     const debounceRef = useRef(null);
+
+    // 🆕 GUARDAR LISTA INICIAL Y NO TOCARLA NUNCA MÁS
+    useEffect(() => {
+        // Solo al montar el componente, guardar la primera lista que llega
+        if (maquinasDisponibles.length > 0 && listaMaquinasCompleta.length === 0) {
+            console.log('💾 Guardando lista completa inicial:', maquinasDisponibles);
+            setListaMaquinasCompleta([...maquinasDisponibles]);
+        }
+    }, [maquinasDisponibles]); // Solo cuando cambie maquinasDisponibles
 
     // 🔄 SOLO sincronizar en el montaje inicial o cambios REALMENTE externos
     useEffect(() => {
@@ -76,26 +89,26 @@ const FiltroMaquinasMobileFriendly = ({
         };
     }, []);
 
-    // 🔍 Filtrar máquinas en tiempo real
+    // 🔍 Filtrar máquinas en tiempo real - USAR LISTA COMPLETA
     const maquinasFiltradas = useMemo(() => {
-        if (!searchTerm.trim()) return maquinasDisponibles;
+        if (!searchTerm.trim()) return listaMaquinasCompleta;
         
         const term = searchTerm.toLowerCase();
-        return maquinasDisponibles.filter(maquina => {
+        return listaMaquinasCompleta.filter(maquina => {
             const maquinaLower = maquina.toLowerCase();
             return maquinaLower.includes(term) || 
                    maquinaLower.split(' ').some(word => word.startsWith(term));
         });
-    }, [maquinasDisponibles, searchTerm]);
+    }, [listaMaquinasCompleta, searchTerm]);
 
-    // 📊 Estadísticas de selección
+    // 📊 Estadísticas de selección - USAR LISTA COMPLETA
     const stats = useMemo(() => ({
-        total: maquinasDisponibles.length,
+        total: listaMaquinasCompleta.length,
         filtered: maquinasFiltradas.length,
         selected: tempSelectedMaquinas.length,
-        allSelected: tempSelectedMaquinas.length === maquinasDisponibles.length && maquinasDisponibles.length > 0,
-        someSelected: tempSelectedMaquinas.length > 0 && tempSelectedMaquinas.length < maquinasDisponibles.length
-    }), [maquinasDisponibles.length, maquinasFiltradas.length, tempSelectedMaquinas.length]);
+        allSelected: tempSelectedMaquinas.length === listaMaquinasCompleta.length && listaMaquinasCompleta.length > 0,
+        someSelected: tempSelectedMaquinas.length > 0 && tempSelectedMaquinas.length < listaMaquinasCompleta.length
+    }), [listaMaquinasCompleta.length, maquinasFiltradas.length, tempSelectedMaquinas.length]);
 
     // 🔒 Cerrar al hacer clic fuera
     useEffect(() => {
@@ -152,7 +165,7 @@ const FiltroMaquinasMobileFriendly = ({
 
     // 🔄 Seleccionar todas las máquinas - INMEDIATO
     const handleSelectAll = () => {
-        const newSelected = stats.allSelected ? [] : [...maquinasDisponibles];
+        const newSelected = stats.allSelected ? [] : [...listaMaquinasCompleta];
         
         setTempSelectedMaquinas(newSelected);
         setSelectedMaquinas(newSelected);
@@ -248,13 +261,13 @@ const FiltroMaquinasMobileFriendly = ({
     return (
         <div className={`mb-4 relative ${className}`} ref={containerRef}>
             {/* 🏷️ Label con estadísticas */}
-            <label className="text-xs sm:text-sm font-medium text-gray-700 mb-2 block flex items-center gap-2">
+            <label className="text-xs sm:text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                 <FaTruck className="text-blue-600" />
                 Filtrar Máquinas
                 <span className="text-xs text-gray-500 ml-auto">
                     {tempSelectedMaquinas.length > 0 
-                        ? `${tempSelectedMaquinas.length}/${maquinasDisponibles.length} seleccionadas`
-                        : `${maquinasDisponibles.length} disponibles`
+                        ? `${tempSelectedMaquinas.length}/${listaMaquinasCompleta.length} seleccionadas`
+                        : `${listaMaquinasCompleta.length} disponibles`
                     }
                 </span>
             </label>
@@ -406,7 +419,7 @@ const FiltroMaquinasMobileFriendly = ({
                         <span>
                             {searchTerm 
                                 ? `${maquinasFiltradas.length} encontradas` 
-                                : `${maquinasDisponibles.length} máquinas total`
+                                : `${listaMaquinasCompleta.length} máquinas total`
                             }
                         </span>
                         <div className="flex items-center gap-3">
@@ -429,7 +442,7 @@ const FiltroMaquinasMobileFriendly = ({
             {tempSelectedMaquinas.length > 0 && !isOpen && (
                 <div className="mt-2">
                     <div className="flex flex-wrap gap-1">
-                        {tempSelectedMaquinas.slice(0, 2).map((maquina, index) => (
+                        {tempSelectedMaquinas.slice(0, 10).map((maquina, index) => (
                             <span 
                                 key={index}
                                 className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium"
@@ -444,7 +457,7 @@ const FiltroMaquinasMobileFriendly = ({
                                 </button>
                             </span>
                         ))}
-                        {tempSelectedMaquinas.length > 2 && (
+                        {tempSelectedMaquinas.length > 10 && (
                             <span className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
                                 +{tempSelectedMaquinas.length - 2} más
                             </span>
@@ -457,3 +470,18 @@ const FiltroMaquinasMobileFriendly = ({
 };
 
 export default FiltroMaquinasMobileFriendly;
+
+/*
+PROPS:
+- equipoFilter: Array de máquinas seleccionadas
+- handleEquipoFilterChange: Función callback para cambios
+- maquinasDisponibles: Array que puede cambiar según filtros (se usa para construir historial)
+- todasLasMaquinas: [OPCIONAL] Array completo de todas las máquinas (RECOMENDADO)
+- loading: Boolean para estado de carga
+- className: String para clases CSS adicionales
+
+SOLUCIÓN IMPLEMENTADA:
+- Si tienes acceso a todasLasMaquinas, pásala como prop
+- Si no, el componente mantiene un historial interno de todas las máquinas vistas
+- Esto evita que las máquinas desaparezcan del selector cuando se aplican filtros
+*/

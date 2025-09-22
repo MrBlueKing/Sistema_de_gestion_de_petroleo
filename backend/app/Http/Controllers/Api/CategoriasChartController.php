@@ -323,7 +323,7 @@ class CategoriasChartController extends Controller
     {
         $configuracion = [
             1 => ['nombre' => 'Cabildo', 'porcentaje' => 30],
-            2 => ['nombre' => 'La Cruz', 'porcentaje' => 15],
+            6 => ['nombre' => 'La Cruz', 'porcentaje' => 15],
             3 => ['nombre' => 'Catemu', 'porcentaje' => 15],
             4 => ['nombre' => 'Til Til', 'porcentaje' => 20],
             8 => ['nombre' => 'Rungue', 'porcentaje' => 20]
