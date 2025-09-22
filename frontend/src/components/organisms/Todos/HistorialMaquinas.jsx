@@ -877,10 +877,23 @@ const HistorialMaquinasView = () => {
           chart_limit: '1000',
         });
 
-        // Agregar filtros adicionales
+        // Agregar filtros adicionales con soporte para arrays
         Object.entries(filterParams).forEach(([key, value]) => {
-          if (value && value.toString().trim()) {
-            params.append(key, value.toString().trim());
+          if (value) {
+            if (key === 'equipoFilter' && Array.isArray(value) && value.length > 0) {
+              // 🎯 ARRAY DE MÁQUINAS: Enviar como múltiples parámetros
+              value.forEach(maquina => {
+                if (maquina && maquina.trim()) {
+                  params.append('equipoFilter[]', maquina.trim());
+                }
+              });
+            } else if (key === 'equipoFilter' && Array.isArray(value) && value.length === 0) {
+              // 🔄 ARRAY VACÍO: No enviar nada (todas las máquinas)
+              // No hacer nada, equivale a sin filtro
+            } else if (value.toString().trim()) {
+              // 🔄 OTROS FILTROS: Como antes
+              params.append(key, value.toString().trim());
+            }
           }
         });
 

@@ -758,7 +758,7 @@ class ConsumoController extends Controller
         }
     }
 
-/**
+    /**
      * Obtener consumos recientes
      */
     public function getConsumosRecientes(Request $request)
@@ -871,7 +871,7 @@ class ConsumoController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
-    } 
+    }
 
     /**
      * Obtener consumos con filtros de fecha - VERSIÓN MEJORADA CON VALIDACIONES ANÓMALAS
@@ -887,7 +887,9 @@ class ConsumoController extends Controller
             $faenas = $request->input('faenas');
             $dateFrom = $request->input('dateFrom');
             $dateTo = $request->input('dateTo');
-            $equipoFilter = $request->input('equipoFilter');
+            // 🎯 MANEJO INTELIGENTE del filtro de equipos
+            $equipoFilterRaw = $request->input('equipoFilter');
+            $equipoFilter = null;
             $page = (int) $request->input('page', 1);
             $perPage = min((int) $request->input('per_page', 10), 100);
 
@@ -898,6 +900,23 @@ class ConsumoController extends Controller
             $chartLimit = (int) $request->input('chart_limit', 1000);
             $chartMachineId = $request->input('chart_machine_id');
 
+            if ($equipoFilterRaw) {
+                if (is_array($equipoFilterRaw)) {
+                    // Caso 1: Array enviado como equipoFilter[]
+                    $equipoFilter = array_filter(array_map('trim', $equipoFilterRaw));
+                } elseif (is_string($equipoFilterRaw)) {
+                    // Caso 2: String único
+                    $equipoFilter = trim($equipoFilterRaw);
+                }
+            }
+
+            // 🔍 DEBUG LOG (opcional)
+            Log::info("Filtro de equipos recibido:", [
+                'raw' => $equipoFilterRaw,
+                'processed' => $equipoFilter,
+                'is_array' => is_array($equipoFilter),
+                'count' => is_array($equipoFilter) ? count($equipoFilter) : 1
+            ]);
             // Validación
             if (!$faena && !$faenas) {
                 return response()->json([
@@ -939,9 +958,34 @@ class ConsumoController extends Controller
                 $query->where('cu.fecha_consumo', '<=', $dateTo);
             }
 
-            // Filtro por equipo específico
+            // 🎯 Filtro por equipo específico - MEJORADO PARA ARRAYS
             if ($equipoFilter) {
-                $query->where('m.nombre_maquina', 'LIKE', "%{$equipoFilter}%");
+                $query->where(function ($q) use ($equipoFilter) {
+                    // 🔍 DETECTAR SI ES ARRAY O STRING
+                    if (is_array($equipoFilter)) {
+                        // 🎯 FILTRO MÚLTIPLE: Usar whereIn para mayor rendimiento
+                        $maquinas = array_filter($equipoFilter); // Remover valores vacíos
+
+                        if (!empty($maquinas)) {
+                            // Búsqueda exacta (más rápida)
+                            $q->whereIn('m.nombre_maquina', $maquinas);
+
+                            // 🔄 Si quieres búsqueda parcial, descomenta esto:
+                            /*
+                foreach ($maquinas as $index => $maquina) {
+                    if ($index === 0) {
+                        $q->where('m.nombre_maquina', 'LIKE', "%{$maquina}%");
+                    } else {
+                        $q->orWhere('m.nombre_maquina', 'LIKE', "%{$maquina}%");
+                    }
+                }
+                */
+                        }
+                    } else {
+                        // 🔄 COMPATIBILIDAD: Filtro simple (string) como antes
+                        $q->where('m.nombre_maquina', 'LIKE', "%{$equipoFilter}%");
+                    }
+                });
             }
 
             // Seleccionar campos necesarios - CORREGIDOS
