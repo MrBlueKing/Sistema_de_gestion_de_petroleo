@@ -23,44 +23,48 @@ const FiltroMaquinasMobileFriendly = ({
     const [selectedMaquinas, setSelectedMaquinas] = useState(equipoFilter || []);
     const [tempSelectedMaquinas, setTempSelectedMaquinas] = useState(equipoFilter || []);
     
-    // 🆕 Flag para controlar la sincronización automática
-    const [isUpdatingFromParent, setIsUpdatingFromParent] = useState(false);
+    // 🆕 Refs para control de estado interno
+    const isInternalUpdate = useRef(false);
+    const lastExternalFilter = useRef(equipoFilter);
     
     const containerRef = useRef(null);
     const inputRef = useRef(null);
     const debounceRef = useRef(null);
 
-    // 🔄 Sincronizar con prop externa - SOLO si viene de afuera
+    // 🔄 SOLO sincronizar en el montaje inicial o cambios REALMENTE externos
     useEffect(() => {
         const newSelected = Array.isArray(equipoFilter) ? equipoFilter : (equipoFilter ? [equipoFilter] : []);
         
-        // 🛡️ Solo sincronizar si la prop realmente cambió desde el exterior
-        // y no como resultado de nuestros propios cambios
-        const currentTempString = JSON.stringify([...tempSelectedMaquinas].sort());
-        const newSelectedString = JSON.stringify([...newSelected].sort());
-        
-        if (currentTempString !== newSelectedString && !isUpdatingFromParent) {
-            setSelectedMaquinas(newSelected);
-            setTempSelectedMaquinas(newSelected);
+        // 🛡️ Solo sincronizar si NO estamos en una actualización interna
+        // Y si realmente cambió desde una fuente externa
+        if (!isInternalUpdate.current) {
+            const lastExternal = lastExternalFilter.current;
+            const lastExternalString = JSON.stringify([...(Array.isArray(lastExternal) ? lastExternal : [])].sort());
+            const newSelectedString = JSON.stringify([...newSelected].sort());
+            
+            if (lastExternalString !== newSelectedString) {
+                setSelectedMaquinas(newSelected);
+                setTempSelectedMaquinas(newSelected);
+                lastExternalFilter.current = equipoFilter;
+            }
         }
-    }, [equipoFilter]); // ❌ NO incluir tempSelectedMaquinas en dependencias
+        
+        // Reset flag después de procesar
+        isInternalUpdate.current = false;
+    }, [equipoFilter]);
 
-    // 🚀 DEBOUNCE MEJORADO: Notificar cambios sin afectar estado local
+    // 🚀 DEBOUNCE MEJORADO: Sin conflictos de sincronización
     const debouncedNotifyChange = useCallback((newSelection) => {
         if (debounceRef.current) {
             clearTimeout(debounceRef.current);
         }
         
-        // 🛡️ Marcar que estamos actualizando desde el componente
-        setIsUpdatingFromParent(true);
-        
         debounceRef.current = setTimeout(() => {
+            // 🛡️ Marcar como actualización interna antes de notificar
+            isInternalUpdate.current = true;
+            lastExternalFilter.current = newSelection; // Actualizar referencia
             handleEquipoFilterChange(newSelection);
-            // 🕒 Dar tiempo para que la prop se actualice antes de permitir sincronización
-            setTimeout(() => {
-                setIsUpdatingFromParent(false);
-            }, 100);
-        }, 300); // 🚀 Reducido a 300ms para mejor UX
+        }, 200); // 🚀 Solo 200ms para mejor respuesta
     }, [handleEquipoFilterChange]);
 
     // 🧹 Limpiar timeout al desmontar
@@ -146,32 +150,28 @@ const FiltroMaquinasMobileFriendly = ({
         debouncedNotifyChange(newSelected);
     };
 
-    // 🔄 Seleccionar todas las máquinas - SIN DEBOUNCE
+    // 🔄 Seleccionar todas las máquinas - INMEDIATO
     const handleSelectAll = () => {
         const newSelected = stats.allSelected ? [] : [...maquinasDisponibles];
         
         setTempSelectedMaquinas(newSelected);
         setSelectedMaquinas(newSelected);
         
-        // 🆕 Aplicar inmediatamente para acciones masivas
-        setIsUpdatingFromParent(true);
+        // 🆕 Notificar inmediatamente para acciones masivas
+        isInternalUpdate.current = true;
+        lastExternalFilter.current = newSelected;
         handleEquipoFilterChange(newSelected);
-        setTimeout(() => {
-            setIsUpdatingFromParent(false);
-        }, 100);
     };
 
-    // 🧹 Limpiar todas las selecciones - SIN DEBOUNCE
+    // 🧹 Limpiar todas las selecciones - INMEDIATO
     const handleClearAll = () => {
         setTempSelectedMaquinas([]);
         setSelectedMaquinas([]);
         
-        // 🆕 Aplicar inmediatamente para acciones masivas
-        setIsUpdatingFromParent(true);
+        // 🆕 Notificar inmediatamente para acciones masivas
+        isInternalUpdate.current = true;
+        lastExternalFilter.current = [];
         handleEquipoFilterChange([]);
-        setTimeout(() => {
-            setIsUpdatingFromParent(false);
-        }, 100);
     };
 
     const handleInputChange = (e) => {
