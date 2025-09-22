@@ -810,6 +810,9 @@ const ConsumptionPieChart = ({
         fecha_inicio: fechaDesde,
         fecha_fin: fechaHasta,
         modo: "categorias",
+        // 🆕 PARÁMETRO CLAVE: Indicar que NO queremos redistribuciones
+        incluir_redistribucion: false,
+        tipo_chart: "principal", // Para debugging y logs
       };
 
       if (faenaSeleccionada && faenaSeleccionada !== "todas") {
@@ -824,8 +827,15 @@ const ConsumptionPieChart = ({
       if (!isMounted.current) return;
 
       if (response.data && response.data.success && response.data.categorias) {
+        // 🔧 ARREGLO: Determinar qué categorías usar según el contexto
+        const categoriasParaUsar =
+          response.data.categorias.categoriasFinales ||
+          response.data.categorias.categoriasIniciales ||
+          response.data.categorias ||
+          [];
+
         // Ordenar por valor descendente ANTES de asignar colores
-        const datosOrdenados = response.data.categorias
+        const datosOrdenados = categoriasParaUsar
           .filter((item) => (item.value || 0) > 0)
           .sort((a, b) => (b.value || 0) - (a.value || 0));
 

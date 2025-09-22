@@ -424,79 +424,6 @@ const CompactConsumptionPieChart = ({
     return null;
   };
 
-  // 🔄 FUNCIÓN DE PROCESAMIENTO (copiada del código anterior)
-  const procesarDatosBackend = (data) => {
-    console.log("🔧 Procesando datos del backend...", data);
-
-    // Paso 1: Procesar datos iniciales (TODO - sin filtros ni agrupaciones)
-    let categoriasIniciales = data.categorias
-      .map((item, index) => ({
-        id: item.id || index,
-        name: item.name || item.nombre || "Sin categoría",
-        nombre: item.name || item.nombre || "Sin categoría",
-        value: Math.round((item.value || 0) * 100) / 100,
-        maquinas_count: item.maquinas_count || 0,
-        originalData: item,
-      }))
-      .filter((item) => item.value > 0)
-      .sort((a, b) => b.value - a.value);
-
-    console.log("📊 Categorías iniciales (TODO):", categoriasIniciales);
-
-    // Paso 2: Procesar categorías finales (OPERACIONALES)
-    const categoriasExcluidas = ["Microbus", "Microbús", "MICROBUS"];
-    const categoriasFiltradas = categoriasIniciales.filter((categoria) => {
-      const nombreLimpio = categoria.name.trim();
-      const esExcluida = categoriasExcluidas.some((excluida) =>
-        nombreLimpio.toLowerCase().includes(excluida.toLowerCase())
-      );
-      return !esExcluida;
-    });
-
-    // Agrupar camionetas
-    const categoriasAgrupadas = [];
-    let camionetasAgrupadas = {
-      name: "Camionetas",
-      nombre: "Camionetas",
-      value: 0,
-      maquinas_count: 0,
-      categorias_originales: [],
-    };
-
-    categoriasFiltradas.forEach((categoria) => {
-      const nombreLimpio = categoria.name.trim().toLowerCase();
-      const esCamioneta =
-        nombreLimpio.includes("camioneta") ||
-        nombreLimpio.includes("camionetas") ||
-        nombreLimpio === "camioneta";
-
-      if (esCamioneta) {
-        camionetasAgrupadas.value += categoria.value;
-        camionetasAgrupadas.maquinas_count += categoria.maquinas_count;
-        camionetasAgrupadas.categorias_originales.push(categoria.name);
-      } else {
-        categoriasAgrupadas.push(categoria);
-      }
-    });
-
-    // Aplicar factor de 0.3% a camionetas si existen
-    if (camionetasAgrupadas.value > 0) {
-      const valorOriginal = camionetasAgrupadas.value;
-      camionetasAgrupadas.value = camionetasAgrupadas.value * 0.3;
-      camionetasAgrupadas.value =
-        Math.round(camionetasAgrupadas.value * 100) / 100;
-      categoriasAgrupadas.push(camionetasAgrupadas);
-    }
-
-    const categoriasFinales = categoriasAgrupadas
-      .filter((item) => item.value > 0)
-      .sort((a, b) => b.value - a.value);
-
-    return {
-      categoriasIniciales: categoriasIniciales,
-      categoriasFinales: categoriasFinales,
-    };
-  };
 
   // 🎯 FUNCIÓN ULTRA SIMPLIFICADA - Solo una llamada al backend
   const obtenerDatosCompletos = async () => {
@@ -504,6 +431,9 @@ const CompactConsumptionPieChart = ({
       fecha_inicio: fechaDesde,
       fecha_fin: fechaHasta,
       modo: "categorias",
+      // 🆕 PARÁMETRO CLAVE: Indicar que queremos redistribuciones
+      incluir_redistribucion: true,
+      tipo_chart: "compact", // Para debugging y logs
     };
 
     if (faenaSeleccionada && faenaSeleccionada !== "todas") {
