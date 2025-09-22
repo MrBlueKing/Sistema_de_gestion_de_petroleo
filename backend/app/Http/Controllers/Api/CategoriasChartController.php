@@ -619,243 +619,121 @@ class CategoriasChartController extends Controller
         }
     }
 
-    // 🚛 PROPIEDADES PARA ALMACENAR INFO DE REDISTRIBUCIÓN DE AMBOS PERÍODOS
-    private $redistribucionAnteriorInfo = null; // Período anterior
+
+
 
     /**
-     * 🚛 MÉTODO CORREGIDO: Obtener distribución respetando filtro por faena
+     * 🔧 MÉTODO AUXILIAR: Crear distribución cuando no hay viajes
      */
-    private function obtenerDistribucionViajesCamionTolva($fechaInicio, $fechaFin, $idFaena, $request)
+    private function crearDistribucionSinViajes($consumosPorCamion)
     {
-        try {
-            // 1. Obtener consumo total de Camion Tolva (SIN FILTRO para tener el total real)
-            $consumoOriginal = $this->obtenerConsumoTotalCamionTolva($fechaInicio, $fechaFin, null); // null = sin filtro
+        $distribucionPorFaena = [];
+        $consumoTotalOriginal = 0;
+        $faenaDefecto = 1;
 
-            if ($consumoOriginal['total_litros'] <= 0) {
-                return [
-                    'tiene_distribucion' => false,
-                    'info' => [
-                        'tiene_redistribucion' => false,
-                        'motivo' => 'No hay consumo de Camion Tolva en el período'
-                    ]
+        foreach ($consumosPorCamion as $consumoCamion) {
+            $consumoTotalOriginal += $consumoCamion['consumo_litros'];
+
+            if (!isset($distribucionPorFaena[$faenaDefecto])) {
+                $distribucionPorFaena[$faenaDefecto] = [
+                    'faena_id' => $faenaDefecto,
+                    'faena_nombre' => "Sin datos de viajes",
+                    'consumo_asignado' => 0,
+                    'total_viajes' => 0,
+                    'total_kilometros' => 0,
+                    'maquinas_operando' => [],
+                    'camiones_detalle' => []
                 ];
             }
 
-            // 2. Obtener datos de viajes (SIN FILTRO para calcular distribución completa)
-            $requestViajes = new Request([
-                'fecha_inicio' => $fechaInicio->format('Y-m-d'),
-                'fecha_fin' => $fechaFin->format('Y-m-d'),
-                'id_faena' => null // Sin filtro para obtener toda la distribución
-            ]);
+            $distribucionPorFaena[$faenaDefecto]['consumo_asignado'] += $consumoCamion['consumo_litros'];
+            $distribucionPorFaena[$faenaDefecto]['camiones_detalle'][] = [
+                'id_camion' => $consumoCamion['id_maquina'],
+                'nombre_camion' => $consumoCamion['nombre_maquina'],
+                'patente' => $consumoCamion['patente'],
+                'consumo_asignado' => $consumoCamion['consumo_litros'],
+                'viajes' => 0,
+                'kilometros' => 0,
+                'porcentaje' => 100,
+                'motivo' => 'Sin datos de viajes - asignación completa'
+            ];
 
-            $responseViajes = $this->obtenerViajesDistanciasCamionesTolva($requestViajes);
-            $datosViajes = json_decode($responseViajes->getContent(), true);
+            $distribucionPorFaena[$faenaDefecto]['maquinas_operando'][] = $consumoCamion['id_maquina'];
+        }
 
-            if (!$datosViajes['success'] || empty($datosViajes['data']['resumen_por_faena'])) {
-                return [
-                    'tiene_distribucion' => false,
-                    'info' => [
-                        'tiene_redistribucion' => false,
-                        'motivo' => 'No hay datos de viajes para redistribución'
-                    ]
-                ];
-            }
+        $distribucionPorFaena[$faenaDefecto]['maquinas_operando'] = count($distribucionPorFaena[$faenaDefecto]['maquinas_operando']);
+        // 🔹 Calcular consumo total redistribuido (suma de consumo_asignado en todas las faenas)
+        $consumoTotalRedistribuido = array_sum(array_column($distribucionPorFaena, 'consumo_asignado'));
 
-            // 3. Calcular distribución proporcional COMPLETA
-            $resumenPorFaena = $datosViajes['data']['resumen_por_faena'];
-            $totalKilometros = collect($resumenPorFaena)->sum('total_kilometros');
-
-            if ($totalKilometros <= 0) {
-                return [
-                    'tiene_distribucion' => false,
-                    'info' => [
-                        'tiene_redistribucion' => false,
-                        'motivo' => 'Total de kilómetros es cero'
-                    ]
-                ];
-            }
-
-            // 4. 🔧 NUEVA LÓGICA: Calcular distribución completa primero
-            $distribucionCompleta = [];
-            $faenaFiltrada = null;
-
-            foreach ($resumenPorFaena as $faena) {
-                $porcentajeActividad = $faena['total_kilometros'] / $totalKilometros;
-                $consumoAsignado = $consumoOriginal['total_litros'] * $porcentajeActividad;
-
-                $distribucionFaena = [
-                    'faena_id' => $faena['id_faena'],
-                    'faena_nombre' => $faena['nombre_faena'],
-                    'total_viajes' => $faena['total_viajes'],
-                    'total_kilometros' => $faena['total_kilometros'],
-                    'porcentaje_actividad' => round($porcentajeActividad * 100, 2),
-                    'consumo_asignado' => round($consumoAsignado, 2),
-                    'maquinas_operando' => $faena['maquinas_operando'],
-                    'plantas_destino' => $faena['plantas_destino'] ?? 0
-                ];
-
-                $distribucionCompleta[] = $distribucionFaena;
-
-                // 🎯 IDENTIFICAR SI ES LA FAENA FILTRADA
-                if ($idFaena && $idFaena !== 'todas' && $faena['id_faena'] == $idFaena) {
-                    $faenaFiltrada = $distribucionFaena;
-                }
-            }
-
-            // 5. 🔧 APLICAR FILTRO: Si hay filtro de faena, mostrar solo esa parte
-            if ($idFaena && $idFaena !== 'todas') {
-                if (!$faenaFiltrada) {
-                    // No hay actividad en la faena filtrada
-                    return [
-                        'tiene_distribucion' => false,
-                        'info' => [
-                            'tiene_redistribucion' => false,
-                            'motivo' => "No hay actividad de Camion Tolva en la faena filtrada (ID: {$idFaena})"
-                        ]
-                    ];
-                }
-
-                // 🎯 MOSTRAR SOLO LA FAENA FILTRADA
-                $categoriaRedistribuida = [
-                    'id' => 7,
-                    'name' => 'Camion Tolva',
-                    'nombre' => 'Camion Tolva',
-                    'value' => $faenaFiltrada['consumo_asignado'], // ✅ SOLO EL CONSUMO DE ESTA FAENA
-                    'maquinas_count' => $faenaFiltrada['maquinas_operando'],
-                    'maquinas_internas' => $consumoOriginal['maquinas_internas'],
-                    'maquinas_externas' => $consumoOriginal['maquinas_externas'],
-                    'tipo_medicion' => 'Kilometraje',
-                    'promedio_consumo' => round($faenaFiltrada['consumo_asignado'] / max($faenaFiltrada['maquinas_operando'], 1), 2),
-                    'total_registros' => $consumoOriginal['total_registros'],
-
-                    // 🆕 INFORMACIÓN DE REDISTRIBUCIÓN FILTRADA
-                    'redistribucion_camion_tolva' => [
-                        'tiene_redistribucion' => true,
-                        'filtro_aplicado' => true,
-                        'faena_filtrada' => [
-                            'id' => $faenaFiltrada['faena_id'],
-                            'nombre' => $faenaFiltrada['faena_nombre']
-                        ],
-                        'consumo_total_original' => $consumoOriginal['total_litros'],
-                        'consumo_faena_filtrada' => $faenaFiltrada['consumo_asignado'],
-                        'actividad_faena_filtrada' => [
-                            'total_viajes' => $faenaFiltrada['total_viajes'],
-                            'total_kilometros' => $faenaFiltrada['total_kilometros'],
-                            'porcentaje_del_total' => $faenaFiltrada['porcentaje_actividad']
-                        ],
-                        // Mantener distribución completa para referencia
-                        'distribucion_completa_referencia' => $distribucionCompleta
-                    ],
-
-                    'originalData' => [
-                        'id' => 7,
-                        'name' => 'Camion Tolva',
-                        'value' => $faenaFiltrada['consumo_asignado'],
-                        'maquinas_count' => $faenaFiltrada['maquinas_operando'],
-                        'maquinas_internas' => $consumoOriginal['maquinas_internas'],
-                        'maquinas_externas' => $consumoOriginal['maquinas_externas'],
-                        'tipo_medicion' => 'Kilometraje',
-                        'promedio_consumo' => round($faenaFiltrada['consumo_asignado'] / max($faenaFiltrada['maquinas_operando'], 1), 2),
-                        'total_registros' => $consumoOriginal['total_registros']
-                    ]
-                ];
-
-                return [
-                    'tiene_distribucion' => true,
-                    'categorias_redistribuidas' => [$categoriaRedistribuida],
-                    'info' => [
-                        'tiene_redistribucion' => true,
-                        'filtro_aplicado' => true,
-                        'faena_filtrada' => $faenaFiltrada['faena_nombre'],
-                        'consumo_faena_filtrada' => $faenaFiltrada['consumo_asignado'],
-                        'consumo_total_original' => $consumoOriginal['total_litros'],
-                        'distribucion_detalle' => [$faenaFiltrada]
-                    ]
-                ];
-            }
-
-            // 6. 🔧 SIN FILTRO: Mostrar distribución completa (como antes)
-            $categoriaRedistribuida = [
+        return [
+            'tiene_distribucion' => true,
+            'categorias_redistribuidas' => [[
                 'id' => 7,
                 'name' => 'Camion Tolva',
                 'nombre' => 'Camion Tolva',
-                'value' => round($consumoOriginal['total_litros'], 2), // ✅ TOTAL COMPLETO
-                'maquinas_count' => $consumoOriginal['total_maquinas'],
-                'maquinas_internas' => $consumoOriginal['maquinas_internas'],
-                'maquinas_externas' => $consumoOriginal['maquinas_externas'],
-                'tipo_medicion' => 'Kilometraje',
-                'promedio_consumo' => round($consumoOriginal['total_litros'] / max($consumoOriginal['total_maquinas'], 1), 2),
-                'total_registros' => $consumoOriginal['total_registros'],
-
-                // 🆕 INFORMACIÓN DE REDISTRIBUCIÓN COMPLETA
+                'value' => round($consumoTotalRedistribuido, 2),
                 'redistribucion_camion_tolva' => [
-                    'tiene_redistribucion' => true,
-                    'filtro_aplicado' => false,
-                    'consumo_total_original' => $consumoOriginal['total_litros'],
-                    'total_kilometros_viajes' => $totalKilometros,
-                    'faenas_redistribuidas' => count($resumenPorFaena),
-                    'distribucion_por_faena' => $distribucionCompleta,
-                    'resumen_distribucion' => collect($distribucionCompleta)->map(function ($faena) {
-                        return [
-                            'faena_id' => $faena['faena_id'],
-                            'faena_nombre' => $faena['faena_nombre'],
-                            'kilometros' => $faena['total_kilometros'],
-                            'porcentaje' => $faena['porcentaje_actividad'],
-                            'consumo_asignado' => $faena['consumo_asignado'],
-                            'viajes' => $faena['total_viajes']
-                        ];
-                    })->toArray()
-                ],
-
-                'originalData' => [
-                    'id' => 7,
-                    'name' => 'Camion Tolva',
-                    'value' => round($consumoOriginal['total_litros'], 2),
-                    'maquinas_count' => $consumoOriginal['total_maquinas'],
-                    'maquinas_internas' => $consumoOriginal['maquinas_internas'],
-                    'maquinas_externas' => $consumoOriginal['maquinas_externas'],
-                    'tipo_medicion' => 'Kilometraje',
-                    'promedio_consumo' => round($consumoOriginal['total_litros'] / max($consumoOriginal['total_maquinas'], 1), 2),
-                    'total_registros' => $consumoOriginal['total_registros']
-                ]
-            ];
-
-            return [
-                'tiene_distribucion' => true,
-                'categorias_redistribuidas' => [$categoriaRedistribuida],
-                'info' => [
-                    'tiene_redistribucion' => true,
-                    'filtro_aplicado' => false,
-                    'consumo_total_original' => $consumoOriginal['total_litros'],
-                    'total_kilometros_viajes' => $totalKilometros,
-                    'faenas_redistribuidas' => count($resumenPorFaena),
-                    'distribucion_detalle' => collect($distribucionCompleta)->map(function ($faena) {
-                        return [
-                            'faena_id' => $faena['faena_id'],
-                            'faena_nombre' => $faena['faena_nombre'],
-                            'kilometros' => $faena['total_kilometros'],
-                            'porcentaje' => $faena['porcentaje_actividad'],
-                            'consumo_asignado' => $faena['consumo_asignado'],
-                            'viajes' => $faena['total_viajes']
-                        ];
-                    })->toArray()
-                ]
-            ];
-        } catch (\Exception $e) {
-            return [
-                'tiene_distribucion' => false,
-                'info' => [
                     'tiene_redistribucion' => false,
-                    'motivo' => 'Error obteniendo distribución: ' . $e->getMessage()
+                    'motivo_redistribucion' => 'No hay datos de viajes en el período',
+                    'distribucion_por_faena' => array_values($distribucionPorFaena)
                 ]
-            ];
-        }
+            ]],
+            'info' => [
+                'tiene_redistribucion' => false,
+                'motivo' => 'No hay datos de viajes para redistribución'
+            ]
+        ];
     }
 
     /**
-     * 🔧 MÉTODO AUXILIAR: Obtener consumo total de Camion Tolva
+     * 🎨 MÉTODO AUXILIAR: Crear tabla estilo camiones (como tu ejemplo)
      */
-    private function obtenerConsumoTotalCamionTolva($fechaInicio, $fechaFin, $idFaena)
+    private function crearTablaEstiloCamiones($detallesCamiones, $distribucionPorFaena)
+    {
+        $tablaCamiones = [];
+
+        foreach ($detallesCamiones as $camion) {
+            if ($camion['total_km_camion'] <= 0) continue; // Saltar camiones sin viajes
+
+            $idCamion = $camion['id_camion'];
+            $rutasDelCamion = [];
+
+            // Buscar todas las rutas de este camión
+            foreach ($distribucionPorFaena as $faena) {
+                foreach ($faena['camiones_detalle'] as $detalle) {
+                    if ($detalle['id_camion'] == $idCamion) {
+                        $rutasDelCamion[] = [
+                            'ruta' => $detalle['ruta'],
+                            'viajes' => $detalle['viajes'],
+                            'kilometros' => $detalle['kilometros'],
+                            'porcentaje' => $detalle['porcentaje'],
+                            'litros' => $detalle['consumo_asignado']
+                        ];
+                    }
+                }
+            }
+
+            $tablaCamiones[] = [
+                'nombre_camion' => $camion['nombre_camion'],
+                'patente' => $camion['patente'],
+                'consumo_total' => $camion['consumo_original'] . ' ltrs',
+                'total_km' => $camion['total_km_camion'],
+                'rutas' => $rutasDelCamion
+            ];
+        }
+
+        return $tablaCamiones;
+    }
+
+
+
+
+
+
+    /**
+     * 🔧 MÉTODO CORREGIDO COMPLETO: obtenerConsumosCamionesTolvaIndividuales
+     */
+    private function obtenerConsumosCamionesTolvaIndividuales($fechaInicio, $fechaFin)
     {
         $queryConsumos = DB::table('consumos as c')
             ->join('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
@@ -865,220 +743,38 @@ class CategoriasChartController extends Controller
             ->whereBetween('c.fecha_consumo', [$fechaInicio, $fechaFin])
             ->whereNotNull('c.litros_consumidos')
             ->where('c.litros_consumidos', '>', 0)
-            ->when($idFaena && $idFaena !== 'todas', function ($q) use ($idFaena) {
-                return $q->where('c.id_faena', $idFaena);
-            })
             ->select([
-                DB::raw('SUM(c.litros_consumidos) as total_litros'),
-                DB::raw('COUNT(DISTINCT m.id_maquina) as total_maquinas'),
-                DB::raw('COUNT(c.id_consumo) as total_registros'),
-                DB::raw('COUNT(CASE WHEN mi.id_maquina IS NOT NULL THEN 1 END) as maquinas_internas'),
-                DB::raw('COUNT(CASE WHEN mi.id_maquina IS NULL THEN 1 END) as maquinas_externas')
+                'm.id_maquina',
+                DB::raw('COALESCE(mi.nombre, m.nombre_maquina) as nombre_maquina'),
+                DB::raw('COALESCE(mi.patente, m.patente) as patente'),
+                DB::raw('CASE WHEN mi.id_maquina IS NOT NULL THEN "Interna" ELSE "Externa" END as tipo_maquina'),
+                DB::raw('SUM(c.litros_consumidos) as consumo_litros'),
+                DB::raw('COUNT(c.id_consumo) as total_registros')
             ])
-            ->first();
+            ->groupBy([
+                'm.id_maquina',
+                'mi.nombre',
+                'm.nombre_maquina',
+                'mi.patente',
+                'm.patente',
+                'mi.id_maquina'
+            ])
+            ->get()
+            ->toArray();
 
-        return [
-            'total_litros' => (float) ($queryConsumos->total_litros ?? 0),
-            'total_maquinas' => (int) ($queryConsumos->total_maquinas ?? 0),
-            'total_registros' => (int) ($queryConsumos->total_registros ?? 0),
-            'maquinas_internas' => (int) ($queryConsumos->maquinas_internas ?? 0),
-            'maquinas_externas' => (int) ($queryConsumos->maquinas_externas ?? 0)
-        ];
-    }
-
-    // 🚛 PROPIEDAD PARA ALMACENAR INFO DE REDISTRIBUCIÓN
-    private $ultimaRedistribucionInfo = null;
-
-    /**
-     * 🚛 NUEVO MÉTODO: Procesar Camion Tolva con distribución basada en viajes
-     */
-    private function procesarCamionTolvaConDistribucion($fechaInicio, $fechaFin, $idFaena, $request)
-    {
-        try {
-            // 1️⃣ OBTENER CONSUMO TOTAL DE CAMIONES TOLVA (método actual)
-            $consumoTotalCamiones = $this->obtenerConsumoTotalCamionTolva($fechaInicio, $fechaFin, $idFaena);
-
-            if ($consumoTotalCamiones['total_litros'] <= 0) {
-                return [
-                    'categorias_distribuidas' => [],
-                    'informacion_redistribucion' => [
-                        'tiene_redistribucion' => false,
-                        'motivo' => 'No hay consumo de camiones tolva en el período'
-                    ]
-                ];
-            }
-
-            // 2️⃣ OBTENER DISTRIBUCIÓN DE VIAJES
-            $requestViajes = new Request([
-                'fecha_inicio' => $fechaInicio->format('Y-m-d'),
-                'fecha_fin' => $fechaFin->format('Y-m-d'),
-                'id_faena' => $idFaena
-            ]);
-
-            $datosViajes = $this->obtenerViajesDistanciasCamionesTolva($requestViajes);
-            $datosViajesContent = json_decode($datosViajes->getContent(), true);
-
-            if (!$datosViajesContent['success'] || empty($datosViajesContent['data']['resumen_por_faena'])) {
-                return [
-                    'categorias_distribuidas' => [$this->crearCategoriaCamionTolvaSinDistribucion($consumoTotalCamiones)],
-                    'informacion_redistribucion' => [
-                        'tiene_redistribucion' => false,
-                        'motivo' => 'No hay datos de viajes para redistribución'
-                    ]
-                ];
-            }
-
-            // 3️⃣ CALCULAR DISTRIBUCIÓN PROPORCIONAL
-            $resumenPorFaena = $datosViajesContent['data']['resumen_por_faena'];
-            $totalKilometros = collect($resumenPorFaena)->sum('total_kilometros');
-
-            if ($totalKilometros <= 0) {
-                return [
-                    'categorias_distribuidas' => [$this->crearCategoriaCamionTolvaSinDistribucion($consumoTotalCamiones)],
-                    'informacion_redistribucion' => [
-                        'tiene_redistribucion' => false,
-                        'motivo' => 'Total de kilómetros es cero'
-                    ]
-                ];
-            }
-
-            // 4️⃣ DISTRIBUIR CONSUMO PROPORCIONALMENTE
-            $categoriasDistribuidas = [];
-            $informacionDistribucion = [
-                'tiene_redistribucion' => true,
-                'consumo_total_original' => $consumoTotalCamiones['total_litros'],
-                'total_kilometros_viajes' => $totalKilometros,
-                'distribucion_por_faena' => []
-            ];
-
-            foreach ($resumenPorFaena as $faena) {
-                $porcentajeActividad = $faena['total_kilometros'] / $totalKilometros;
-                $consumoAsignado = $consumoTotalCamiones['total_litros'] * $porcentajeActividad;
-
-                // Crear categoría distribuida por faena
-                $categoriasDistribuidas[] = [
-                    'id' => 7, // Mantener ID de Camion Tolva
-                    'name' => "Camion Tolva ({$faena['nombre_faena']})",
-                    'nombre' => "Camion Tolva ({$faena['nombre_faena']})",
-                    'value' => round($consumoAsignado, 2),
-                    'maquinas_count' => $faena['maquinas_operando'],
-                    'maquinas_internas' => $consumoTotalCamiones['maquinas_internas'],
-                    'maquinas_externas' => $consumoTotalCamiones['maquinas_externas'],
-                    'tipo_medicion' => 'Kilometraje',
-                    'promedio_consumo' => round($consumoAsignado / $faena['maquinas_operando'], 2),
-                    'total_registros' => $consumoTotalCamiones['total_registros'],
-                    'originalData' => [
-                        'id' => 7,
-                        'name' => "Camion Tolva ({$faena['nombre_faena']})",
-                        'value' => round($consumoAsignado, 2),
-                        'maquinas_count' => $faena['maquinas_operando'],
-                        'maquinas_internas' => $consumoTotalCamiones['maquinas_internas'],
-                        'maquinas_externas' => $consumoTotalCamiones['maquinas_externas'],
-                        'tipo_medicion' => 'Kilometraje',
-                        'promedio_consumo' => round($consumoAsignado / $faena['maquinas_operando'], 2),
-                        'total_registros' => $consumoTotalCamiones['total_registros']
-                    ],
-                    // 🆕 DATOS ESPECÍFICOS DE LA REDISTRIBUCIÓN
-                    'redistribucion_info' => [
-                        'faena_id' => $faena['id_faena'],
-                        'faena_nombre' => $faena['nombre_faena'],
-                        'total_viajes' => $faena['total_viajes'],
-                        'total_kilometros' => $faena['total_kilometros'],
-                        'porcentaje_actividad' => round($porcentajeActividad * 100, 2),
-                        'plantas_destino' => $faena['plantas_destino'] ?? 0,
-                        'maquinas_operando' => $faena['maquinas_operando']
-                    ]
-                ];
-
-                // Agregar a información de distribución
-                $informacionDistribucion['distribucion_por_faena'][] = [
-                    'faena_id' => $faena['id_faena'],
-                    'faena_nombre' => $faena['nombre_faena'],
-                    'kilometros' => $faena['total_kilometros'],
-                    'porcentaje' => round($porcentajeActividad * 100, 2),
-                    'consumo_asignado' => round($consumoAsignado, 2),
-                    'viajes' => $faena['total_viajes']
-                ];
-            }
-
+        return array_map(function ($item) {
             return [
-                'categorias_distribuidas' => $categoriasDistribuidas,
-                'informacion_redistribucion' => $informacionDistribucion
+                'id_maquina' => $item->id_maquina,
+                'nombre_maquina' => $item->nombre_maquina,
+                'patente' => $item->patente,
+                'tipo_maquina' => $item->tipo_maquina,
+                'consumo_litros' => (float) $item->consumo_litros,
+                'total_registros' => (int) $item->total_registros
             ];
-        } catch (\Exception $e) {
-            // En caso de error, devolver categoría normal sin redistribución
-            $consumoTotalCamiones = $this->obtenerConsumoTotalCamionTolva($fechaInicio, $fechaFin, $idFaena);
-            return [
-                'categorias_distribuidas' => [$this->crearCategoriaCamionTolvaSinDistribucion($consumoTotalCamiones)],
-                'informacion_redistribucion' => [
-                    'tiene_redistribucion' => false,
-                    'motivo' => 'Error en redistribución: ' . $e->getMessage()
-                ]
-            ];
-        }
+        }, $queryConsumos);
     }
 
 
-
-    /**
-     * 🔧 MÉTODO AUXILIAR: Crear categoría camion tolva sin distribución
-     */
-    private function crearCategoriaCamionTolvaSinDistribucion($consumoTotalCamiones)
-    {
-        return [
-            'id' => 7,
-            'name' => 'Camion Tolva',
-            'nombre' => 'Camion Tolva',
-            'value' => $consumoTotalCamiones['total_litros'],
-            'maquinas_count' => $consumoTotalCamiones['total_maquinas'],
-            'maquinas_internas' => $consumoTotalCamiones['maquinas_internas'],
-            'maquinas_externas' => $consumoTotalCamiones['maquinas_externas'],
-            'tipo_medicion' => 'Kilometraje',
-            'promedio_consumo' => $consumoTotalCamiones['total_maquinas'] > 0
-                ? round($consumoTotalCamiones['total_litros'] / $consumoTotalCamiones['total_maquinas'], 2)
-                : 0,
-            'total_registros' => $consumoTotalCamiones['total_registros'],
-            'originalData' => [
-                'id' => 7,
-                'name' => 'Camion Tolva',
-                'value' => $consumoTotalCamiones['total_litros'],
-                'maquinas_count' => $consumoTotalCamiones['total_maquinas'],
-                'maquinas_internas' => $consumoTotalCamiones['maquinas_internas'],
-                'maquinas_externas' => $consumoTotalCamiones['maquinas_externas'],
-                'tipo_medicion' => 'Kilometraje',
-                'promedio_consumo' => $consumoTotalCamiones['total_maquinas'] > 0
-                    ? round($consumoTotalCamiones['total_litros'] / $consumoTotalCamiones['total_maquinas'], 2)
-                    : 0,
-                'total_registros' => $consumoTotalCamiones['total_registros']
-            ]
-        ];
-    }
-
-
-    /**
-     * 🔧 MÉTODO AUXILIAR: Calcular metadata combinada (categorías normales + redistribución)
-     */
-    private function calcularMetadataCombinada($metadataNormal, $datosCamionTolva, $fechaInicio, $fechaFin, $idFaena)
-    {
-        $metadataCombinada = $metadataNormal;
-
-        // Agregar información de redistribución si existe
-        if (isset($datosCamionTolva['informacion_redistribucion'])) {
-            $metadataCombinada['redistribucion_camion_tolva'] = $datosCamionTolva['informacion_redistribucion'];
-
-            // Si hubo redistribución, actualizar totales
-            if ($datosCamionTolva['informacion_redistribucion']['tiene_redistribucion']) {
-                $metadataCombinada['resumen']['tiene_redistribucion_activa'] = true;
-                $metadataCombinada['resumen']['categorias_redistribuidas'] = 1;
-                $metadataCombinada['resumen']['consumo_redistribuido'] = $datosCamionTolva['informacion_redistribucion']['consumo_total_original'];
-            } else {
-                $metadataCombinada['resumen']['tiene_redistribucion_activa'] = false;
-                $metadataCombinada['resumen']['motivo_sin_redistribucion'] = $datosCamionTolva['informacion_redistribucion']['motivo'];
-            }
-        }
-
-        return $metadataCombinada;
-    }
 
     /**
      * 🆕 CORREGIDO: Obtener datos de máquinas para una categoría específica
@@ -1282,130 +978,6 @@ class CategoriasChartController extends Controller
     }
 
 
-    /**
-     * 🔧 MÉTODO MODIFICADO: Asegurar que siempre se muestre camionetas con redistribución
-     */
-    private function procesarCategoriasConLogicaFrontend($categoriasOriginales, $fechaInicio = null, $fechaFin = null, $idFaenaFiltro = null)
-    {
-        // ===============================================
-        // 📊 PASO 1: CATEGORÍAS INICIALES (TODO - sin filtros)
-        // ===============================================
-        $categoriasIniciales = collect($categoriasOriginales)->map(function ($item, $index) {
-            return [
-                'id' => $item['id'] ?? $index,
-                'name' => $item['name'] ?? 'Sin categoría',
-                'nombre' => $item['name'] ?? 'Sin categoría',
-                'value' => round(($item['value'] ?? 0), 2),
-                'maquinas_count' => $item['maquinas_count'] ?? 0,
-                'maquinas_internas' => $item['maquinas_internas'] ?? 0,
-                'maquinas_externas' => $item['maquinas_externas'] ?? 0,
-                'tipo_medicion' => $item['tipo_medicion'] ?? null,
-                'promedio_consumo' => $item['promedio_consumo'] ?? 0,
-                'total_registros' => $item['total_registros'] ?? 0,
-                'originalData' => $item
-            ];
-        })
-            ->filter(function ($item) {
-                return $item['value'] > 0;
-            })
-            ->sortByDesc('value')
-            ->values();
-
-        // ===============================================
-        // 🎯 PASO 2: CATEGORÍAS FINALES CON REDISTRIBUCIÓN DE CAMIONETAS
-        // ===============================================
-
-        // 2.1 - Aplicar exclusiones
-        $categoriasExcluidas = ['Microbus', 'Microbús', 'MICROBUS', 'Camion Tolva'];
-
-        $categoriasFiltradas = $categoriasIniciales->filter(function ($categoria) use ($categoriasExcluidas) {
-            $nombreLimpio = trim($categoria['name']);
-            foreach ($categoriasExcluidas as $excluida) {
-                if (stripos($nombreLimpio, $excluida) !== false) {
-                    return false;
-                }
-            }
-            return true;
-        });
-
-        // 2.2 - 🆕 SIEMPRE obtener redistribución de camionetas (independiente de si hay camionetas en las categorías)
-        $consumoCamionetasPorFaena = $this->obtenerConsumoCamionetasTodasFaenas($fechaInicio, $fechaFin);
-        $camionetasRedistribuidas = $this->calcularRedistribucionCamionetasConConfiguracion($consumoCamionetasPorFaena, $idFaenaFiltro);
-
-        // 2.3 - Agrupar camionetas encontradas en las categorías
-        $categoriasAgrupadas = [];
-        $camionetasEncontradas = [];
-
-        foreach ($categoriasFiltradas as $categoria) {
-            $nombreLimpio = strtolower(trim($categoria['name']));
-            $esCamioneta = strpos($nombreLimpio, 'camioneta') !== false ||
-                strpos($nombreLimpio, 'camionetas') !== false ||
-                $nombreLimpio === 'camioneta';
-
-            if ($esCamioneta) {
-                $camionetasEncontradas[] = $categoria;
-            } else {
-                $categoriasAgrupadas[] = $categoria;
-            }
-        }
-
-        // 2.4 - 🆕 SIEMPRE crear categoría camionetas con redistribución (aunque no haya camionetas en categorías)
-        $valorFinalCamionetas = $camionetasRedistribuidas['valor_final'];
-        $infoRedistribucion = $camionetasRedistribuidas['info_redistribucion'];
-
-        // Si hay camionetas en las categorías, usar esos datos. Si no, crear datos base
-        if (!empty($camionetasEncontradas)) {
-            $totalCamionetas = collect($camionetasEncontradas)->sum('value');
-            $totalMaquinas = collect($camionetasEncontradas)->sum('maquinas_count');
-            $totalInternas = collect($camionetasEncontradas)->sum('maquinas_internas');
-            $totalExternas = collect($camionetasEncontradas)->sum('maquinas_externas');
-            $totalRegistros = collect($camionetasEncontradas)->sum('total_registros');
-            $categoriasOriginales = collect($camionetasEncontradas)->pluck('name')->toArray();
-        } else {
-            // 🆕 NO HAY CAMIONETAS EN LAS CATEGORÍAS, pero igual mostrar redistribución
-            $totalCamionetas = 0;
-            $totalMaquinas = 0;
-            $totalInternas = 0;
-            $totalExternas = 0;
-            $totalRegistros = 0;
-            $categoriasOriginales = [];
-        }
-
-        // 🆕 SOLO MOSTRAR CAMIONETAS SI HAY REDISTRIBUCIÓN (valor > 0)
-        if ($valorFinalCamionetas > 0 || $infoRedistribucion['tiene_redistribucion']) {
-            $camionetasAgrupadas = [
-                'id' => 999,
-                'name' => 'Camionetas',
-                'nombre' => 'Camionetas',
-                'value' => round($valorFinalCamionetas, 2),
-                'maquinas_count' => $totalMaquinas,
-                'maquinas_internas' => $totalInternas,
-                'maquinas_externas' => $totalExternas,
-                'tipo_medicion' => 'Kilometraje',
-                'promedio_consumo' => $totalMaquinas > 0 ? round($valorFinalCamionetas / $totalMaquinas, 2) : 0,
-                'total_registros' => $totalRegistros,
-                'categorias_originales' => $categoriasOriginales,
-                'redistribucion_camionetas' => $infoRedistribucion,
-                'factor_aplicado' => 0.5,
-                'valor_original' => $totalCamionetas
-            ];
-
-            $categoriasAgrupadas[] = $camionetasAgrupadas;
-        }
-
-        // 2.5 - Filtrar y ordenar finales
-        $categoriasFinales = collect($categoriasAgrupadas)
-            ->filter(function ($item) {
-                return $item['value'] > 0;
-            })
-            ->sortByDesc('value')
-            ->values();
-
-        return [
-            'categoriasIniciales' => $categoriasIniciales,
-            'categoriasFinales' => $categoriasFinales
-        ];
-    }
 
     /**
      * 🚛 MÉTODO AUXILIAR: Obtener consumo de camionetas de todas las faenas
@@ -1993,6 +1565,341 @@ class CategoriasChartController extends Controller
                 'message' => 'Error al obtener viajes y distancias: ' . $e->getMessage(),
                 'query_type' => 'viajes_distancias_camiones_tolva'
             ], 500);
+        }
+    }
+
+
+    /**
+     * 🚛 MÉTODO NUEVO: Obtener kilómetros totales de un camión EN EL PERÍODO FILTRADO
+     * Suma TODOS los kilómetros del camión en todas sus rutas durante el período especificado
+     */
+    private function obtenerKilometrosTotalesCamionPeriodo($idCamion, $fechaInicio, $fechaFin)
+    {
+        try {
+            // 📊 Query para obtener TODOS los kilómetros del camión EN EL PERÍODO
+            $kilometrosTotales = DB::table('tonelajes as t')
+                ->join('padrones as p', 't.id_padron', '=', 'p.id_padron')
+                ->where('t.id_maquina', $idCamion)
+                ->whereBetween('t.fecha_produccion', [$fechaInicio, $fechaFin])
+                ->select([
+                    't.id_maquina',
+                    't.id_padron',
+                    't.viajes',
+                    'p.distancia',
+                    DB::raw('t.viajes * p.distancia as kilometros_registro'),
+                    't.fecha_produccion'
+                ])
+                ->get();
+
+            // 🧮 Calcular el total de kilómetros del período
+            $totalKilometros = $kilometrosTotales->sum('kilometros_registro');
+
+            // 📈 Información adicional útil
+            $estadisticas = [
+                'id_maquina' => $idCamion,
+                'km_totales_periodo' => round($totalKilometros, 2),
+                'total_registros' => $kilometrosTotales->count(),
+                'total_viajes' => $kilometrosTotales->sum('viajes'),
+                'padrones_utilizados' => $kilometrosTotales->pluck('id_padron')->unique()->count(),
+                'primer_registro' => $kilometrosTotales->min('fecha_produccion'),
+                'ultimo_registro' => $kilometrosTotales->max('fecha_produccion'),
+                'promedio_km_por_viaje' => $kilometrosTotales->sum('viajes') > 0
+                    ? round($totalKilometros / $kilometrosTotales->sum('viajes'), 2)
+                    : 0
+            ];
+
+            Log::info("🚛 KM Totales Período Camión {$idCamion}", $estadisticas);
+
+            return $estadisticas;
+        } catch (\Exception $e) {
+            Log::error("❌ Error obteniendo KM período camión {$idCamion}", [
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'id_maquina' => $idCamion,
+                'km_totales_periodo' => 0,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * 🚛 MÉTODO OPTIMIZADO: Obtener KM totales del período de múltiples camiones de una vez
+     * Para casos donde necesitas varios camiones, evita múltiples queries
+     */
+    private function obtenerKilometrosTotalesMultiplesCamiones($idsCamiones, $fechaInicio, $fechaFin)
+    {
+        try {
+            // 📊 Query optimizada para múltiples camiones EN EL PERÍODO
+            $kilometrosPorCamion = DB::table('tonelajes as t')
+                ->join('padrones as p', 't.id_padron', '=', 'p.id_padron')
+                ->whereIn('t.id_maquina', $idsCamiones)
+                ->whereBetween('t.fecha_produccion', [$fechaInicio, $fechaFin])
+                ->select([
+                    't.id_maquina',
+                    DB::raw('SUM(t.viajes * p.distancia) as km_totales_periodo'),
+                    DB::raw('COUNT(*) as total_registros'),
+                    DB::raw('SUM(t.viajes) as total_viajes'),
+                    DB::raw('COUNT(DISTINCT t.id_padron) as padrones_utilizados'),
+                    DB::raw('MIN(t.fecha_produccion) as primer_registro'),
+                    DB::raw('MAX(t.fecha_produccion) as ultimo_registro')
+                ])
+                ->groupBy('t.id_maquina')
+                ->get()
+                ->keyBy('id_maquina');
+
+            // 🔄 Formatear resultados
+            $resultados = [];
+            foreach ($idsCamiones as $idCamion) {
+                if (isset($kilometrosPorCamion[$idCamion])) {
+                    $data = $kilometrosPorCamion[$idCamion];
+                    $resultados[$idCamion] = [
+                        'id_maquina' => $idCamion,
+                        'km_totales_periodo' => round((float)$data->km_totales_periodo, 2),
+                        'total_registros' => (int)$data->total_registros,
+                        'total_viajes' => (int)$data->total_viajes,
+                        'padrones_utilizados' => (int)$data->padrones_utilizados,
+                        'primer_registro' => $data->primer_registro,
+                        'ultimo_registro' => $data->ultimo_registro,
+                        'promedio_km_por_viaje' => $data->total_viajes > 0
+                            ? round($data->km_totales_periodo / $data->total_viajes, 2)
+                            : 0
+                    ];
+                } else {
+                    // Camión sin registros en el período
+                    $resultados[$idCamion] = [
+                        'id_maquina' => $idCamion,
+                        'km_totales_periodo' => 0,
+                        'total_registros' => 0,
+                        'total_viajes' => 0,
+                        'padrones_utilizados' => 0,
+                        'primer_registro' => null,
+                        'ultimo_registro' => null,
+                        'promedio_km_por_viaje' => 0
+                    ];
+                }
+            }
+
+            return $resultados;
+        } catch (\Exception $e) {
+            Log::error("❌ Error obteniendo KM período múltiples camiones", [
+                'camiones' => $idsCamiones,
+                'error' => $e->getMessage()
+            ]);
+
+            return [];
+        }
+    }
+
+    /**
+     * 🔧 MÉTODO ACTUALIZADO: obtenerDistribucionViajesCamionTolva
+     * Ahora usa kilómetros totales del período filtrado (no históricos)
+     */
+    private function obtenerDistribucionViajesCamionTolva($fechaInicio, $fechaFin, $idFaena, $request)
+    {
+        try {
+            // 1️⃣ Obtener consumos por camión
+            $consumosPorCamion = $this->obtenerConsumosCamionesTolvaIndividuales($fechaInicio, $fechaFin);
+
+            if (empty($consumosPorCamion)) {
+                return [
+                    'tiene_distribucion' => false,
+                    'info' => [
+                        'tiene_redistribucion' => false,
+                        'motivo' => 'No hay consumo de Camion Tolva en el período'
+                    ]
+                ];
+            }
+
+            // 2️⃣ Obtener KM TOTALES DEL PERÍODO de todos los camiones DE UNA VEZ
+            $idsCamiones = collect($consumosPorCamion)->pluck('id_maquina')->toArray();
+            $kmPeriodoPorCamion = $this->obtenerKilometrosTotalesMultiplesCamiones($idsCamiones, $fechaInicio, $fechaFin);
+
+            // 3️⃣ Obtener datos de viajes del período (para el desglose por ruta)
+            $requestViajes = new Request([
+                'fecha_inicio' => $fechaInicio->format('Y-m-d'),
+                'fecha_fin' => $fechaFin->format('Y-m-d'),
+                'id_faena' => $idFaena
+            ]);
+
+            $responseViajes = $this->obtenerViajesDistanciasCamionesTolva($requestViajes);
+            $datosViajes = json_decode($responseViajes->getContent(), true);
+
+            if (!$datosViajes['success'] || empty($datosViajes['data']['resumen_por_maquina'])) {
+                return $this->crearDistribucionSinViajes($consumosPorCamion);
+            }
+
+            // 4️⃣ Procesar datos con KM TOTALES DEL PERÍODO CORRECTOS
+            $resumenPorMaquina = $datosViajes['data']['resumen_por_maquina'];
+
+            $distribucionPorFaena = [];
+            $consumoTotalOriginal = 0;
+            $detalleRedistribucionPorCamion = [];
+
+            foreach ($consumosPorCamion as $consumoCamion) {
+                $idCamion = $consumoCamion['id_maquina'];
+                $consumoCamionLitros = $consumoCamion['consumo_litros'];
+                $consumoTotalOriginal += $consumoCamionLitros;
+
+                // 🎯 OBTENER KM TOTALES DEL PERÍODO (desde nuestra nueva query)
+                $kmTotalesPeriodo = $kmPeriodoPorCamion[$idCamion]['km_totales_periodo'] ?? 0;
+
+                // Buscar datos de viajes del período (para desglose por rutas)
+                $datosViajeCamion = collect($resumenPorMaquina)->firstWhere('id_maquina', $idCamion);
+
+                if (!$datosViajeCamion || $datosViajeCamion['total_kilometros'] <= 0) {
+                    // Sin viajes en el período
+                    $this->asignarCamionSinViajes($idCamion, $consumoCamion, $distribucionPorFaena);
+                } else {
+                    $desgloseFaenas = $datosViajeCamion['desglose_faenas'];
+
+                    // ✅ Verificar que coincidan los KM totales
+                    $totalKmDesglose = collect($desgloseFaenas)->sum('kilometros');
+
+                    Log::info("🚛 DEBUG KM Totales vs Desglose - Camión {$idCamion}", [
+                        'km_totales_query_directa' => $kmTotalesPeriodo,
+                        'km_totales_desglose_rutas' => $totalKmDesglose,
+                        'coinciden' => $kmTotalesPeriodo == $totalKmDesglose,
+                        'consumo_litros' => $consumoCamionLitros,
+                        'rutas_periodo' => collect($desgloseFaenas)->map(function ($f) {
+                            return [
+                                'faena' => $f['faena'],
+                                'planta' => $f['planta'],
+                                'viajes' => $f['viajes'],
+                                'km' => $f['kilometros']
+                            ];
+                        })
+                    ]);
+
+                    foreach ($desgloseFaenas as $faenaData) {
+                        $faenaId = $faenaData['id_planta'];
+                        $faenaNombre = $faenaData['faena'] . ' → ' . $faenaData['planta'];
+
+                        // 🧮 CALCULAR PORCENTAJE basado en KM totales del período
+                        $kilometrosPadron = $faenaData['kilometros'];
+                        $porcentajePadron = $kmTotalesPeriodo > 0
+                            ? round(($kilometrosPadron / $kmTotalesPeriodo) * 100, 2)
+                            : 0;
+
+                        // 💰 CALCULAR CONSUMO ASIGNADO
+                        $consumoAsignado = $kmTotalesPeriodo > 0
+                            ? round(($kilometrosPadron / $kmTotalesPeriodo) * $consumoCamionLitros, 2)
+                            : round($consumoCamionLitros / count($desgloseFaenas), 2);
+
+                        Log::info("📊 Cálculo padrón CORREGIDO", [
+                            'camion' => $idCamion,
+                            'ruta' => $faenaNombre,
+                            'km_padron' => $kilometrosPadron,
+                            'km_totales_periodo' => $kmTotalesPeriodo,
+                            'porcentaje' => $porcentajePadron,
+                            'consumo_camion' => $consumoCamionLitros,
+                            'consumo_asignado' => $consumoAsignado
+                        ]);
+
+                        // Inicializar faena si no existe
+                        if (!isset($distribucionPorFaena[$faenaId])) {
+                            $distribucionPorFaena[$faenaId] = [
+                                'faena_id' => $faenaId,
+                                'faena_nombre' => $faenaNombre,
+                                'consumo_asignado' => 0,
+                                'total_viajes' => 0,
+                                'total_kilometros' => 0,
+                                'maquinas_operando' => [],
+                                'camiones_detalle' => []
+                            ];
+                        }
+
+                        // Acumular totales
+                        $distribucionPorFaena[$faenaId]['consumo_asignado'] += $consumoAsignado;
+                        $distribucionPorFaena[$faenaId]['total_viajes'] += $faenaData['viajes'];
+                        $distribucionPorFaena[$faenaId]['total_kilometros'] += $faenaData['kilometros'];
+
+                        // ✅ DETALLE CON KM TOTALES CORRECTOS DEL PERÍODO
+                        $distribucionPorFaena[$faenaId]['camiones_detalle'][] = [
+                            'id_camion' => $idCamion,
+                            'nombre_camion' => $consumoCamion['nombre_maquina'],
+                            'patente' => $consumoCamion['patente'],
+                            'id_padron' => $faenaData['id_planta'],
+                            'consumo_asignado' => $consumoAsignado,
+                            'viajes' => $faenaData['viajes'],
+                            'kilometros' => $kilometrosPadron, // KM de esta ruta específica
+                            'porcentaje' => $porcentajePadron, // Porcentaje correcto basado en KM totales
+                            'ruta' => $faenaNombre,
+                            'consumo_total_camion' => $consumoCamionLitros,
+                            // 🎯 AQUÍ ESTÁ LA CORRECCIÓN: KM TOTALES DEL PERÍODO
+                            'km_totales_camion' => $kmTotalesPeriodo,
+                            'motivo' => 'Redistribución proporcional por kilómetros totales del período'
+                        ];
+
+                        if (!in_array($idCamion, $distribucionPorFaena[$faenaId]['maquinas_operando'])) {
+                            $distribucionPorFaena[$faenaId]['maquinas_operando'][] = $idCamion;
+                        }
+                    }
+                }
+
+                // Detalle del camión para resumen
+                $detalleRedistribucionPorCamion[] = [
+                    'id_camion' => $idCamion,
+                    'nombre_camion' => $consumoCamion['nombre_maquina'],
+                    'patente' => $consumoCamion['patente'],
+                    'consumo_original' => $consumoCamionLitros,
+                    'km_totales_periodo' => $kmTotalesPeriodo,
+                    'numero_rutas' => $datosViajeCamion ? count($datosViajeCamion['desglose_faenas']) : 0,
+                    'faenas_operacion' => $datosViajeCamion ?
+                        collect($datosViajeCamion['desglose_faenas'])->pluck('id_planta')->unique()->toArray() : []
+                ];
+            }
+
+            // Convertir maquinas_operando a count
+            foreach ($distribucionPorFaena as &$faena) {
+                $faena['maquinas_operando'] = count($faena['maquinas_operando']);
+            }
+            // 🔹 Calcular consumo total redistribuido (suma de consumo_asignado en todas las faenas)
+$consumoTotalRedistribuido = array_sum(array_column($distribucionPorFaena, 'consumo_asignado'));
+
+            return [
+                'tiene_distribucion' => true,
+                'categorias_redistribuidas' => [[
+                    'id' => 7,
+                    'name' => 'Camion Tolva',
+                    'nombre' => 'Camion Tolva',
+                    'value' => round($consumoTotalRedistribuido, 2),
+                    'maquinas_count' => count($consumosPorCamion),
+                    'tipo_medicion' => 'Kilometraje',
+                    'promedio_consumo' => count($consumosPorCamion) > 0
+                        ? round($consumoTotalOriginal / count($consumosPorCamion), 2)
+                        : 0,
+                    'total_registros' => array_sum(array_column($consumosPorCamion, 'total_registros')),
+                    'redistribucion_camion_tolva' => [
+                        'tiene_redistribucion' => true,
+                        'metodo_redistribucion' => 'km_totales_periodo_filtrado',
+                        'consumo_total_original' => $consumoTotalOriginal,
+                        'total_camiones_unicos' => count($consumosPorCamion),
+                        'distribucion_por_faena' => array_values($distribucionPorFaena),
+                        'detalle_por_camion' => $detalleRedistribucionPorCamion
+                    ]
+                ]],
+                'info' => [
+                    'tiene_redistribucion' => true,
+                    'metodo_redistribucion' => 'km_totales_periodo_filtrado',
+                    'consumo_total_original' => $consumoTotalOriginal,
+                    'total_camiones' => count($consumosPorCamion)
+                ]
+            ];
+        } catch (\Exception $e) {
+            Log::error('Error en obtenerDistribucionViajesCamionTolva con KM período', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return [
+                'tiene_distribucion' => false,
+                'info' => [
+                    'tiene_redistribucion' => false,
+                    'motivo' => 'Error obteniendo distribución: ' . $e->getMessage()
+                ]
+            ];
         }
     }
 }
