@@ -43,9 +43,13 @@ const GraficosContent = ({ children }) => {
   const {
     categoryColorMapping,
     mainChartLoaded,
+    mainChartCompleted,       // 🆕 NUEVO
+  mainChartHasData,         // 🆕 NUEVO
+  allowTributedDataLoad,    // 🆕 NUEVO
     isInitialized,
     getColorForCategory,
     handleMainChartLoad,
+      handleMainChartNoData,    // 🆕 NUEVO
     resetColorMapping,
     hasValidColorMapping,
     categoryCount,
@@ -55,6 +59,7 @@ const GraficosContent = ({ children }) => {
     allChartsLoaded,
     setMainChartLoading,
     handleCompactChartLoad,
+
   } = useChartColors();
 
   // Estados básicos necesarios
@@ -357,24 +362,37 @@ const GraficosContent = ({ children }) => {
     [chartCommonProps]
   );
 
-  // OPTIMIZACION 10: Condición optimizada para renderizar compacto
-  const shouldRenderCompact = useMemo(() => {
-    const result =
-      mainChartLoaded &&
-      hasValidColorMapping &&
-      categoryCount > 0 &&
-      isInitialized;
+  // MODIFICAR la condición shouldRenderCompact
+const shouldRenderCompact = useMemo(() => {
+  // 🆕 NUEVA LÓGICA: Renderizar si el principal completó (con o sin datos)
+  const result = mainChartCompleted && isInitialized;
 
-    console.log("🔍 Graficos: Evaluando renderizado de CompactChart:", {
-      mainChartLoaded,
-      hasValidColorMapping,
-      categoryCount,
-      shouldRenderCompact: result,
-      isInitialized,
-    });
+  console.log("🔍 Graficos: Evaluando renderizado de CompactChart:", {
+    mainChartLoaded,
+    mainChartCompleted,       // 🆕 NUEVO
+    mainChartHasData,         // 🆕 NUEVO
+    allowTributedDataLoad,    // 🆕 NUEVO
+    hasValidColorMapping,
+    categoryCount,
+    shouldRenderCompact: result,
+    isInitialized,
+    motivo: result ? 
+      (mainChartHasData ? "Datos principales disponibles" : "Buscando datos tributados") : 
+      "Principal aún no completado"
+  });
 
-    return result;
-  }, [mainChartLoaded, hasValidColorMapping, categoryCount, isInitialized]);
+  return result;
+}, [
+  mainChartLoaded, 
+  mainChartCompleted,     // 🆕 NUEVO
+  mainChartHasData,       // 🆕 NUEVO
+  allowTributedDataLoad,  // 🆕 NUEVO
+  hasValidColorMapping, 
+  categoryCount, 
+  isInitialized
+]);
+
+
 
   // OPTIMIZACION 11: Memoizar componentes pesados para evitar re-renders
   const MemoizedTopEquipos = useMemo(

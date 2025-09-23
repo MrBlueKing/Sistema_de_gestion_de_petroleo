@@ -30,7 +30,7 @@ const CompactConsumptionPieChart = ({
   fechaDesde,
   fechaHasta,
   refreshKey = 0,
-  allowParallelLoad = false,
+  allowParallelLoad = true,
   waitForColors = true,
   getColorForCategory = null,
   chartColors = [
@@ -53,13 +53,13 @@ const CompactConsumptionPieChart = ({
   const chartColorsContext = useChartColors();
 
   const {
-    compactChartCanLoad = false,
+    compactChartCanLoad = true,
     handleCompactChartLoad = () => {},
     getColorForCategory: contextGetColor = null,
     hasValidColorMapping = false,
     isInitialized = false, // ✅ INCLUIDO Y CON VALOR POR DEFECTO
     categoryColorMapping = {},
-    mainChartLoaded = false,
+    
   } = chartColorsContext || {};
 
   const [modoVisualizacion, setModoVisualizacion] = useState("iniciales");
@@ -425,142 +425,236 @@ const CompactConsumptionPieChart = ({
   };
 
 
-  // 🎯 FUNCIÓN ULTRA SIMPLIFICADA - Solo una llamada al backend
-  const obtenerDatosCompletos = async () => {
-    const requestBody = {
-      fecha_inicio: fechaDesde,
-      fecha_fin: fechaHasta,
-      modo: "categorias",
-      // 🆕 PARÁMETRO CLAVE: Indicar que queremos redistribuciones
-      incluir_redistribucion: true,
-      tipo_chart: "compact", // Para debugging y logs
+ 
+// 🚨 SOLUCIÓN INMEDIATA: Reemplaza la función obtenerDatosCompletos en tu CompactConsumptionPieChart.jsx
+
+const obtenerDatosCompletos = async () => {
+  const requestBody = {
+    fecha_inicio: fechaDesde,
+    fecha_fin: fechaHasta,
+    modo: "categorias",
+    incluir_redistribucion: true,
+    tipo_chart: "compact",
+  };
+
+  if (faenaSeleccionada && faenaSeleccionada !== "todas") {
+    requestBody.id_faena = faenaSeleccionada;
+  }
+
+  console.log("📊 [CRÍTICO] Request enviado:", requestBody);
+
+  const response = await axios.post(
+    "/api/categorias-chart/categorias",
+    requestBody
+  );
+
+  console.log("🔍 [CRÍTICO] Response COMPLETA:", response.data);
+
+  // 🚨 PUNTO CRÍTICO: Verificar estructura exacta de la respuesta
+  if (response.data && response.data.success) {
+    console.log("✅ [CRÍTICO] Response es success, analizando data...");
+    
+    const data = response.data.data;
+    console.log("🔍 [CRÍTICO] response.data.data:", data);
+
+    if (!data) {
+      console.error("❌ [CRÍTICO] response.data.data es undefined/null");
+      throw new Error("No hay data en la respuesta");
+    }
+
+    // 🔍 ANÁLISIS DETALLADO DE LO QUE RECIBIMOS
+    console.log("🔍 [CRÍTICO] Claves en data:", Object.keys(data));
+    console.log("🔍 [CRÍTICO] categoriasIniciales:", data.categoriasIniciales);
+    console.log("🔍 [CRÍTICO] categoriasFinales:", data.categoriasFinales);
+
+    // 🚨 VERIFICACIÓN CRÍTICA: ¿Son arrays?
+    const categoriasIniciales = Array.isArray(data.categoriasIniciales) ? data.categoriasIniciales : [];
+    const categoriasFinales = Array.isArray(data.categoriasFinales) ? data.categoriasFinales : [];
+    
+    console.log("✅ [CRÍTICO] Arrays verificados:", {
+      inicialesLength: categoriasIniciales.length,
+      finalesLength: categoriasFinales.length,
+      primeraInicial: categoriasIniciales[0],
+      primeraFinal: categoriasFinales[0]
+    });
+
+    // 🔍 SI NO HAY DATOS, MOSTRAR INFORMACIÓN DETALLADA
+    if (categoriasIniciales.length === 0 && categoriasFinales.length === 0) {
+      console.error("❌ [CRÍTICO] NO HAY CATEGORÍAS EN LA RESPUESTA");
+      console.error("🔍 Estructura completa de data:", data);
+      console.error("🔍 Tal vez las categorías están en otra ubicación?");
+      
+      // Buscar categorías en otros lugares de la respuesta
+      if (response.data.categorias) {
+        console.log("🔍 [ALTERNATIVO] Encontré data.categorias:", response.data.categorias);
+      }
+      if (data.categorias) {
+        console.log("🔍 [ALTERNATIVO] Encontré data.data.categorias:", data.categorias);
+      }
+    }
+
+    // 🔍 ANÁLISIS DEL PERÍODO ANTERIOR
+    let periodoAnterior = {
+      categoriasIniciales: [],
+      categoriasFinales: [],
+      descripcion: "Mes anterior"
     };
 
-    if (faenaSeleccionada && faenaSeleccionada !== "todas") {
-      requestBody.id_faena = faenaSeleccionada;
-    }
-
-    console.log("📊 [CompactChart] Request body:", requestBody);
-
-    const response = await axios.post(
-      "/api/categorias-chart/categorias",
-      requestBody
-    );
-
-    console.log("📊 [CompactChart] Response completa:", response.data);
-
-    // ✅ SIMPLIFICADO: El backend ya retorna TODO procesado
-    if (response.data && response.data.success && response.data.data) {
-      return {
-        // Período actual
-        categoriasIniciales: response.data.data.categoriasIniciales,
-        categoriasFinales: response.data.data.categoriasFinales,
-
-        // Período anterior (ya calculado por el backend)
-        periodoAnterior: response.data.data.periodoAnterior,
-
-        // Descripción del período anterior
-        descripcionPeriodoAnterior:
-          response.data.data.periodoAnterior.descripcion,
+    if (data.periodoAnterior) {
+      console.log("🔍 [CRÍTICO] Período anterior encontrado:", data.periodoAnterior);
+      periodoAnterior = {
+        categoriasIniciales: Array.isArray(data.periodoAnterior.categoriasIniciales) 
+          ? data.periodoAnterior.categoriasIniciales : [],
+        categoriasFinales: Array.isArray(data.periodoAnterior.categoriasFinales) 
+          ? data.periodoAnterior.categoriasFinales : [],
+        descripcion: data.periodoAnterior.descripcion || "Mes anterior"
       };
+    } else {
+      console.warn("⚠️ [CRÍTICO] No hay período anterior en la respuesta");
     }
 
-    throw new Error("Datos no válidos recibidos del servidor");
-  };
+    const resultado = {
+      categoriasIniciales: categoriasIniciales,
+      categoriasFinales: categoriasFinales,
+      periodoAnterior: periodoAnterior,
+      descripcionPeriodoAnterior: periodoAnterior.descripcion,
+    };
 
-  // 🔄 FUNCIÓN DE CARGA ULTRA SIMPLIFICADA
-  const cargarDatos = async () => {
+    console.log("🎯 [CRÍTICO] RESULTADO FINAL que se retorna:", {
+      categoriasInicialesCount: resultado.categoriasIniciales.length,
+      categoriasFinalesCount: resultado.categoriasFinales.length,
+      periodoAnteriorInicialesCount: resultado.periodoAnterior.categoriasIniciales.length,
+      periodoAnteriorFinalesCount: resultado.periodoAnterior.categoriasFinales.length,
+    });
+
+    return resultado;
+  }
+
+  console.error("❌ [CRÍTICO] Response no es success:", response.data);
+  throw new Error("Respuesta no exitosa del servidor");
+};
+
+// 🚨 TAMBIÉN REEMPLAZA la función cargarDatos con debugging mejorado:
+
+const cargarDatos = async () => {
+  if (!isMounted.current) return;
+
+  try {
+    setLoading(true);
+    setError(null);
+
+    console.log("🚀 [CRÍTICO] INICIANDO cargarDatos...");
+    console.log("🔍 [CRÍTICO] Parámetros:", {
+      fechaDesde,
+      fechaHasta,
+      faenaSeleccionada,
+      modoVisualizacion,
+    });
+
+    // 🚀 Obtener datos del backend
+    const datosCompletos = await obtenerDatosCompletos();
+
+    console.log("📊 [CRÍTICO] datosCompletos recibidos:", datosCompletos);
+
     if (!isMounted.current) return;
 
-    try {
-      setLoading(true);
-      setError(null);
+    // ✅ EXTRAER datos según el modo actual
+    const categoriasParaUsar = modoVisualizacion === "finales"
+        ? datosCompletos.categoriasFinales
+        : datosCompletos.categoriasIniciales;
 
-      console.log("🔄 CompactConsumptionPieChart: Cargando datos completos...");
+    const categoriasAnterioresParaUsar = modoVisualizacion === "finales"
+        ? datosCompletos.periodoAnterior.categoriasFinales
+        : datosCompletos.periodoAnterior.categoriasIniciales;
 
-      // 🚀 UNA SOLA LLAMADA para obtener TODO
-      const datosCompletos = await obtenerDatosCompletos();
+    console.log("🔍 [CRÍTICO] Categorías extraídas:", {
+      modo: modoVisualizacion,
+      actuales: categoriasParaUsar.length,
+      anteriores: categoriasAnterioresParaUsar.length,
+      primeraActual: categoriasParaUsar[0],
+      primeraAnterior: categoriasAnterioresParaUsar[0],
+    });
 
-      if (!isMounted.current) return;
+    // Crear lista unificada con colores
+    const todasCategorias = new Map();
 
-      // ✅ EXTRAER datos según el modo actual
-      const categoriasParaUsar =
-        modoVisualizacion === "finales"
-          ? datosCompletos.categoriasFinales
-          : datosCompletos.categoriasIniciales;
-
-      const categoriasAnterioresParaUsar =
-        modoVisualizacion === "finales"
-          ? datosCompletos.periodoAnterior.categoriasFinales
-          : datosCompletos.periodoAnterior.categoriasIniciales;
-
-      console.log("🔍 CompactConsumptionPieChart: Datos extraídos:", {
-        actuales: categoriasParaUsar.length,
-        anteriores: categoriasAnterioresParaUsar.length,
-        modo: modoVisualizacion === "finales" ? "Operacionales" : "Todo",
-        descripcionPeriodoAnterior: datosCompletos.descripcionPeriodoAnterior,
+    categoriasParaUsar.forEach((cat, index) => {
+      console.log(`🎨 [CRÍTICO] Procesando categoría actual ${index}:`, cat);
+      const color = obtenerColor(cat, index);
+      todasCategorias.set(cat.name, {
+        name: cat.name,
+        actual: cat.value,
+        anterior: 0,
+        color: color,
       });
+    });
 
-      // Crear lista unificada con colores (igual que antes)
-      const todasCategorias = new Map();
-
-      categoriasParaUsar.forEach((cat, index) => {
-        const color = obtenerColor(cat, index);
+    categoriasAnterioresParaUsar.forEach((cat, index) => {
+      console.log(`🎨 [CRÍTICO] Procesando categoría anterior ${index}:`, cat);
+      if (todasCategorias.has(cat.name)) {
+        todasCategorias.get(cat.name).anterior = cat.value;
+      } else {
+        const color = obtenerColorInteligente(cat, index);
         todasCategorias.set(cat.name, {
           name: cat.name,
-          actual: cat.value,
-          anterior: 0,
+          actual: 0,
+          anterior: cat.value,
           color: color,
         });
-      });
-
-      categoriasAnterioresParaUsar.forEach((cat, index) => {
-        if (todasCategorias.has(cat.name)) {
-          todasCategorias.get(cat.name).anterior = cat.value;
-        } else {
-          const color = obtenerColorInteligente(cat, index);
-          todasCategorias.set(cat.name, {
-            name: cat.name,
-            actual: 0,
-            anterior: cat.value,
-            color: color,
-          });
-        }
-      });
-
-      const categoriasUnificadas = Array.from(todasCategorias.values()).sort(
-        (a, b) => b.actual + b.anterior - (a.actual + a.anterior)
-      );
-
-      // ✅ GUARDAR TODO procesado desde backend
-      setDatosCompletoActuales({
-        categoriasIniciales: datosCompletos.categoriasIniciales,
-        categoriasFinales: datosCompletos.categoriasFinales,
-      });
-
-      setDatosCompletoAnteriores({
-        categoriasIniciales: datosCompletos.periodoAnterior.categoriasIniciales,
-        categoriasFinales: datosCompletos.periodoAnterior.categoriasFinales,
-      });
-
-      setCategorias(categoriasUnificadas);
-      setPeriodoAnteriorDescripcion(datosCompletos.descripcionPeriodoAnterior);
-
-      handleCompactChartLoad();
-
-      console.log("✅ CompactConsumptionPieChart: TODO cargado desde backend!");
-    } catch (error) {
-      console.error("❌ Error al cargar datos:", error);
-      if (isMounted.current) {
-        setError("Error al cargar datos: " + error.message);
-        setCategorias([]);
       }
-    } finally {
-      if (isMounted.current) {
-        setLoading(false);
-      }
+    });
+
+    const categoriasUnificadas = Array.from(todasCategorias.values()).sort(
+      (a, b) => b.actual + b.anterior - (a.actual + a.anterior)
+    );
+
+    console.log("🎯 [CRÍTICO] CATEGORÍAS UNIFICADAS FINALES:", categoriasUnificadas);
+
+    // ✅ GUARDAR TODO procesado
+    setDatosCompletoActuales({
+      categoriasIniciales: datosCompletos.categoriasIniciales,
+      categoriasFinales: datosCompletos.categoriasFinales,
+    });
+
+    setDatosCompletoAnteriores({
+      categoriasIniciales: datosCompletos.periodoAnterior.categoriasIniciales,
+      categoriasFinales: datosCompletos.periodoAnterior.categoriasFinales,
+    });
+
+    setCategorias(categoriasUnificadas);
+    setPeriodoAnteriorDescripcion(datosCompletos.descripcionPeriodoAnterior);
+
+    console.log("✅ [CRÍTICO] Estados actualizados. categoriasUnificadas.length:", categoriasUnificadas.length);
+
+    handleCompactChartLoad();
+
+  } catch (error) {
+    console.error("❌ [CRÍTICO] Error en cargarDatos:", error);
+    if (isMounted.current) {
+      setError("Error al cargar datos: " + error.message);
+      setCategorias([]);
     }
-  };
+  } finally {
+    if (isMounted.current) {
+      setLoading(false);
+    }
+  }
+};
+
+// 🚨 DEBUGGING ADICIONAL: Agrega este useEffect para monitorear cambios en categorias
+useEffect(() => {
+  console.log("🔍 [MONITOR] Estado 'categorias' cambió:", {
+    length: categorias.length,
+    items: categorias.map(c => ({ name: c.name, actual: c.actual, anterior: c.anterior }))
+  });
+}, [categorias]);
+
+// 📋 INSTRUCCIONES PARA EL USUARIO:
+// 1. Reemplaza las funciones obtenerDatosCompletos y cargarDatos en tu archivo
+// 2. Agrega el useEffect de monitoreo
+// 3. Ejecuta la aplicación y revisa la consola
+// 4. Busca los logs que empiezan con [CRÍTICO] 
+// 5. Compárteme esos logs para identificar exactamente dónde se pierden los datos
 
   // 🔧 MEJORAR la función obtenerColorInteligente existente:
   const obtenerColorInteligente = useCallback(
@@ -621,34 +715,31 @@ const CompactConsumptionPieChart = ({
     ]
   );
 
-  // 🔧 MODIFICAR el useEffect principal:
-  useEffect(() => {
-    const shouldLoad = filtersChanged();
+ 
 
-    if (shouldLoad) {
-      if (waitForColors) {
-        // 🔑 ESPERAR COORDINACIÓN: Solo cargar si el gráfico principal terminó
-        if (compactChartCanLoad) {
-          console.log(
-            "🚀 CompactChart: Gráfico principal listo, iniciando carga"
-          );
-          cargarDatos();
-        } else {
-          console.log("⏳ CompactChart: Esperando al gráfico principal...");
-        }
-      } else {
-        // Carga tradicional
+  useEffect(() => {
+  const shouldLoad = filtersChanged();
+  const shouldLoadForTributedData = compactChartCanLoad && !shouldLoad;
+
+  if (shouldLoad || shouldLoadForTributedData) {
+    if (waitForColors) {
+      if (compactChartCanLoad) {
+        console.log("🚀 CompactChart: Iniciando carga");
         cargarDatos();
       }
+    } else {
+      cargarDatos();
     }
-  }, [
-    faenaSeleccionada,
-    fechaDesde,
-    fechaHasta,
-    refreshKey,
-    compactChartCanLoad, // 🆕 NUEVA DEPENDENCIA
-    waitForColors,
-  ]);
+  }
+}, [
+  faenaSeleccionada,
+  fechaDesde,
+  fechaHasta,
+  refreshKey,
+  compactChartCanLoad, // Esta dependencia hace que se ejecute cuando cambia
+  waitForColors,
+]);
+
 
   // 🆕 NUEVO: useEffect adicional para reaccionar cuando se habilite la carga
   useEffect(() => {

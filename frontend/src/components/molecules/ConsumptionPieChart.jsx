@@ -440,7 +440,10 @@ const ConsumptionPieChart = ({
   // 🆕 NUEVA PROP para callback de coordinación
   onLoadComplete = null,
 }) => {
-  const { setMainChartLoading, handleMainChartLoad } = useChartColors();
+  const { 
+  handleMainChartLoad,
+  handleMainChartNoData,  // 🆕 AGREGAR ESTA LÍNEA
+} = useChartColors();
   const [categorias, setCategorias] = useState([]);
   const [maquinas, setMaquinas] = useState([]);
   const [selectedCategoria, setSelectedCategoria] = useState(null);
@@ -781,59 +784,67 @@ const ConsumptionPieChart = ({
     );
   };
 
-  // Cargar datos de categorías
-  const cargarDatosCategorias = async () => {
+// Cargar datos de categorías - VERSIÓN CORREGIDA
+const cargarDatosCategorias = async () => {
+  if (!isMounted.current) return;
+
+  try {
+    // ❌ REMOVIDO: setMainChartLoading(true);
+    setLoading(true);
+    setError(null);
+
+    if (!fechaDesde || !fechaHasta) {
+      setError("Por favor, seleccione un rango de fechas válido.");
+      setCategorias([]);
+      setLoading(false);
+      // 🆕 NUEVO: Notificar que completamos sin datos
+      if (handleMainChartNoData) handleMainChartNoData();
+      return;
+    }
+
+    if (new Date(fechaDesde) > new Date(fechaHasta)) {
+      setError("La fecha 'Hasta' no puede ser anterior a la fecha 'Desde'.");
+      setCategorias([]);
+      setLoading(false);
+      // 🆕 NUEVO: Notificar que completamos sin datos
+      if (handleMainChartNoData) handleMainChartNoData();
+      return;
+    }
+
+    const requestBody = {
+      fecha_inicio: fechaDesde,
+      fecha_fin: fechaHasta,
+      modo: "categorias",
+      incluir_redistribucion: false,
+      tipo_chart: "principal",
+    };
+
+    if (faenaSeleccionada && faenaSeleccionada !== "todas") {
+      requestBody.id_faena = faenaSeleccionada;
+    }
+
+    console.log("🎨 ConsumptionPieChart: Enviando request:", requestBody);
+
+    const response = await axios.post(
+      "/api/categorias-chart/categorias",
+      requestBody
+    );
+
+    console.log("📊 ConsumptionPieChart: Respuesta recibida:", response.data);
+
     if (!isMounted.current) return;
 
-    try {
-      setMainChartLoading(true);
-      setLoading(true);
-      setError(null);
+    if (response.data && response.data.success && response.data.categorias) {
+      // Determinar qué categorías usar
+      const categoriasParaUsar =
+        response.data.categorias.categoriasFinales ||
+        response.data.categorias.categoriasIniciales ||
+        response.data.categorias ||
+        [];
 
-      if (!fechaDesde || !fechaHasta) {
-        setError("Por favor, seleccione un rango de fechas válido.");
-        setCategorias([]);
-        setLoading(false);
-        setMainChartLoading(false); // 🆕 NUEVO
-        return;
-      }
+      console.log("🔍 ConsumptionPieChart: Categorías encontradas:", categoriasParaUsar.length);
 
-      if (new Date(fechaDesde) > new Date(fechaHasta)) {
-        setError("La fecha 'Hasta' no puede ser anterior a la fecha 'Desde'.");
-        setCategorias([]);
-        setLoading(false);
-        setMainChartLoading(false); // 🆕 NUEVO
-        return;
-      }
-
-      const requestBody = {
-        fecha_inicio: fechaDesde,
-        fecha_fin: fechaHasta,
-        modo: "categorias",
-        // 🆕 PARÁMETRO CLAVE: Indicar que NO queremos redistribuciones
-        incluir_redistribucion: false,
-        tipo_chart: "principal", // Para debugging y logs
-      };
-
-      if (faenaSeleccionada && faenaSeleccionada !== "todas") {
-        requestBody.id_faena = faenaSeleccionada;
-      }
-
-      const response = await axios.post(
-        "/api/categorias-chart/categorias",
-        requestBody
-      );
-
-      if (!isMounted.current) return;
-
-      if (response.data && response.data.success && response.data.categorias) {
-        // 🔧 ARREGLO: Determinar qué categorías usar según el contexto
-        const categoriasParaUsar =
-          response.data.categorias.categoriasFinales ||
-          response.data.categorias.categoriasIniciales ||
-          response.data.categorias ||
-          [];
-
+      if (categoriasParaUsar.length > 0) {
         // Ordenar por valor descendente ANTES de asignar colores
         const datosOrdenados = categoriasParaUsar
           .filter((item) => (item.value || 0) > 0)
@@ -843,8 +854,6 @@ const ConsumptionPieChart = ({
         const formattedData = datosOrdenados.map((item, index) => {
           const nombre = item.name || item.nombre || "Sin categoría";
           const valor = Math.round((item.value || 0) * 100) / 100;
-
-          // ASIGNAR COLOR POR ÍNDICE (ya que están ordenados por importancia)
           const color = chartColors[index % chartColors.length];
 
           return {
@@ -858,7 +867,6 @@ const ConsumptionPieChart = ({
             tipo_medicion: item.tipo_medicion,
             promedio_consumo: item.promedio_consumo || 0,
             total_registros: item.total_registros || 0,
-            // COLORES INCLUIDOS EN EL OBJETO
             color: color,
             assignedColor: color,
           };
@@ -873,15 +881,18 @@ const ConsumptionPieChart = ({
 
         setTotalConsumo(total);
 
-        // Callback existente (si existe)
+        // Callback existente
         if (onCategoriesLoad && typeof onCategoriesLoad === "function") {
           onCategoriesLoad(formattedData);
         }
 
-        // 🔑 CRÍTICO: Notificar al contexto que terminamos de cargar
-        handleMainChartLoad(formattedData);
+        // 🔑 CRÍTICO: Notificar al contexto que terminamos de cargar CON datos
+        if (handleMainChartLoad && typeof handleMainChartLoad === "function") {
+          console.log("✅ ConsumptionPieChart: Notificando contexto CON datos:", formattedData.length);
+          handleMainChartLoad(formattedData);
+        }
 
-        // 🆕 NUEVO: Callback de finalización
+        // Callback de finalización
         if (onLoadComplete && typeof onLoadComplete === "function") {
           onLoadComplete(formattedData);
         }
@@ -889,35 +900,74 @@ const ConsumptionPieChart = ({
         setFechaActualizacion(new Date());
         initialLoadDone.current = true;
 
-        // NOTIFICAR AL CONTEXTO INMEDIATAMENTE CON LOS DATOS QUE YA TIENEN COLORES
-        if (handleMainChartLoad && typeof handleMainChartLoad === "function") {
-          console.log(
-            "Notificando al contexto con",
-            formattedData.length,
-            "categorías con colores asignados"
-          );
-          handleMainChartLoad(formattedData);
-          console.log("Contexto notificado exitosamente");
-        } else {
-          console.warn("handleMainChartLoad no está disponible");
-        }
       } else {
+        // Sin datos válidos
+        console.log("⚠️ ConsumptionPieChart: No se encontraron categorías válidas");
         setCategorias([]);
         setTotalConsumo(0);
+        
+        // 🆕 NUEVO: Notificar que completamos sin datos
+        if (handleMainChartNoData && typeof handleMainChartNoData === "function") {
+          console.log("📢 ConsumptionPieChart: Llamando handleMainChartNoData - sin categorías válidas");
+          handleMainChartNoData();
+        }
+        
+        if (onLoadComplete && typeof onLoadComplete === "function") {
+          onLoadComplete([]);
+        }
+        
+        setFechaActualizacion(new Date());
+        initialLoadDone.current = true;
       }
-    } catch (err) {
-      console.error("Error al cargar datos de categorías:", err);
-      if (isMounted.current) {
-        setCategorias([]);
-        setTotalConsumo(0);
-        setError("No se pudieron cargar los datos de consumo por categoría.");
+
+    } else {
+      // Response no exitoso
+      console.log("⚠️ ConsumptionPieChart: Response no exitoso:", response.data);
+      setCategorias([]);
+      setTotalConsumo(0);
+      
+      // 🆕 NUEVO: Notificar que completamos sin datos
+      if (handleMainChartNoData && typeof handleMainChartNoData === "function") {
+        console.log("📢 ConsumptionPieChart: Llamando handleMainChartNoData - response no exitoso");
+        handleMainChartNoData();
       }
-    } finally {
-      if (isMounted.current) {
-        setLoading(false);
+      
+      if (onLoadComplete && typeof onLoadComplete === "function") {
+        onLoadComplete([]);
       }
+      
+      setFechaActualizacion(new Date());
+      initialLoadDone.current = true;
     }
-  };
+
+  } catch (err) {
+    console.error("❌ ConsumptionPieChart: Error al cargar datos de categorías:", err);
+    if (isMounted.current) {
+      setCategorias([]);
+      setTotalConsumo(0);
+      setError("No se pudieron cargar los datos de consumo por categoría: " + err.message);
+      
+      // 🆕 NUEVO: Notificar error pero permitir continuar
+      if (handleMainChartNoData && typeof handleMainChartNoData === "function") {
+        console.log("📢 ConsumptionPieChart: Llamando handleMainChartNoData - error en carga");
+        handleMainChartNoData();
+      }
+      
+      if (onLoadComplete && typeof onLoadComplete === "function") {
+        onLoadComplete([]);
+      }
+      
+      setFechaActualizacion(new Date());
+      initialLoadDone.current = true;
+    }
+  } finally {
+    if (isMounted.current) {
+      setLoading(false);
+    }
+  }
+};
+
+
 
   // Cargar máquinas por categoría
   const cargarMaquinasPorCategoria = async (categoria) => {
