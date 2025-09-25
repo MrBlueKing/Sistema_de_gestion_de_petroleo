@@ -22,6 +22,7 @@ import { getFaenaColors } from "../../../context/faenaColor";
 import ResumenStockDetallado from "../../molecules/ResumenStockDetallado";
 
 const VerificacionIngresos = () => {
+  const [refreshKey, setRefreshKey] = useState(0);
   const [ingresos, setIngresos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [fechaDesde, setFechaDesde] = useState("");
@@ -59,7 +60,14 @@ const VerificacionIngresos = () => {
         cargarResumen();
       }
     }
-  }, [fechaDesde, fechaHasta, faenaSeleccionada, numeroDocumento, currentPage]);
+  }, [
+    fechaDesde,
+    fechaHasta,
+    faenaSeleccionada,
+    numeroDocumento,
+    currentPage,
+    refreshKey,
+  ]);
 
   // 🎯 DETERMINAR EL TIPO DE HEADER BASADO EN EL ROL DEL USUARIO
   const getHeaderType = useMemo(() => {
@@ -83,7 +91,6 @@ const VerificacionIngresos = () => {
         return null;
     }
   }, [user]);
-
 
   const cargarFaenas = async () => {
     try {
@@ -246,9 +253,7 @@ const VerificacionIngresos = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 mt-12">
-      <UniversalHeader
-        type={getHeaderType}
-      />
+      <UniversalHeader type={getHeaderType} />
 
       <div className="mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header principal */}
@@ -277,7 +282,10 @@ const VerificacionIngresos = () => {
                   </div>
 
                   <button
-                    onClick={cargarIngresos}
+                    onClick={() => {
+                      cargarIngresos();
+                      setRefreshKey((prev) => prev + 1); // 👈 SOLO AQUÍ
+                    }}
                     disabled={loading}
                     className="flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors"
                   >
@@ -352,10 +360,11 @@ const VerificacionIngresos = () => {
           idFaena={faenaSeleccionada}
           mostrarDetalle={mostrarAnalisisStock}
           onToggleDetalle={() => setMostrarAnalisisStock(!mostrarAnalisisStock)}
+          refreshKey={refreshKey} // 👈 AGREGAR ESTA LÍNEA
         />
         {/* Panel de resumen */}
         {mostrarResumen && resumen && (
-          <div className="mb-6 bg-gradient-to-r from-orange-50 to-indigo-50 p-6 rounded-lg shadow-sm border border-orange-200">
+          <div className="mt-6 mb-6 bg-gradient-to-r from-orange-50 to-indigo-50 p-6 rounded-lg shadow-sm border border-orange-200">
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
               <FiBarChart2 className="mr-2 text-orange-600" />
               Resumen del Período
@@ -435,7 +444,7 @@ const VerificacionIngresos = () => {
           <div className="space-y-6">
             {/* Información de paginación superior */}
             {ingresos.length > 0 && (
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 mt-6">
                 <div className="flex items-center justify-between flex-wrap gap-4">
                   <div className="text-sm text-gray-600">
                     Mostrando página{" "}
@@ -480,8 +489,9 @@ const VerificacionIngresos = () => {
                 {ingresos.map((ingreso) => (
                   <div
                     key={ingreso.id_ingreso}
-                    className={`rounded-lg shadow-sm border border-gray-100 overflow-hidden ${getFaenaColors(ingreso.id_faena).bg
-                      } ${getFaenaColors(ingreso.id_faena).border} border-l-4`}
+                    className={`rounded-lg shadow-sm border border-gray-100 overflow-hidden ${
+                      getFaenaColors(ingreso.id_faena).bg
+                    } ${getFaenaColors(ingreso.id_faena).border} border-l-4`}
                   >
                     {/* 📋 CABECERA DEL INGRESO */}
                     <div className="bg-gray-50 p-4 border-b border-gray-200">
@@ -494,8 +504,9 @@ const VerificacionIngresos = () => {
                               </span>
                               N° Documento {ingreso.numero_guia}
                               <span
-                                className={`ml-2 px-2 py-1 text-2xl font-medium rounded-full ${getFaenaColors(ingreso.id_faena).badge
-                                  }`}
+                                className={`ml-2 px-2 py-1 text-2xl font-medium rounded-full ${
+                                  getFaenaColors(ingreso.id_faena).badge
+                                }`}
                               >
                                 {getFaenaName(ingreso.faena)}
                               </span>
@@ -526,10 +537,11 @@ const VerificacionIngresos = () => {
                           <div className="text-center">
                             <p className="text-sm text-gray-600">Estado</p>
                             <p
-                              className={`font-semibold ${ingreso.recibo_conforme
-                                ? "text-green-600"
-                                : "text-red-600"
-                                }`}
+                              className={`font-semibold ${
+                                ingreso.recibo_conforme
+                                  ? "text-green-600"
+                                  : "text-red-600"
+                              }`}
                             >
                               {ingreso.recibo_conforme
                                 ? "Conforme"

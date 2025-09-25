@@ -43,9 +43,13 @@ const GraficosContent = ({ children }) => {
   const {
     categoryColorMapping,
     mainChartLoaded,
+    mainChartCompleted,       // 🆕 NUEVO
+  mainChartHasData,         // 🆕 NUEVO
+  allowTributedDataLoad,    // 🆕 NUEVO
     isInitialized,
     getColorForCategory,
     handleMainChartLoad,
+      handleMainChartNoData,    // 🆕 NUEVO
     resetColorMapping,
     hasValidColorMapping,
     categoryCount,
@@ -55,6 +59,7 @@ const GraficosContent = ({ children }) => {
     allChartsLoaded,
     setMainChartLoading,
     handleCompactChartLoad,
+
   } = useChartColors();
 
   // Estados básicos necesarios
@@ -243,6 +248,30 @@ const GraficosContent = ({ children }) => {
     }
   }, [cargando, faenaSeleccionada]); // Solo depende de estados críticos
 
+
+  
+// 1. Crear un useMemo para obtener la faena completa seleccionada
+const faenaSeleccionadaCompleta = useMemo(() => {
+  if (faenaSeleccionada === "todas") {
+    return { 
+      id: "todas", 
+      nombre: "Todas las faenas" 
+    };
+  }
+  
+  const faena = faenas.find(f => f.value === faenaSeleccionada);
+  return faena ? {
+    id: faenaSeleccionada,
+    nombre: faena.label,
+    ubicacion: faena.ubicacion
+  } : { 
+    id: faenaSeleccionada, 
+    nombre: `Faena ${faenaSeleccionada}` 
+  };
+}, [faenaSeleccionada, faenas]);
+
+
+
   // OPTIMIZACION 4: Cargar faenas solo una vez al montar
   useEffect(() => {
     cargarFaenas();
@@ -317,6 +346,7 @@ const GraficosContent = ({ children }) => {
   const chartCommonProps = useMemo(
     () => ({
       faenaSeleccionada,
+      nombreFaena: faenaSeleccionadaCompleta.nombre, 
       fechaDesde,
       fechaHasta,
       horaDesde,
@@ -325,6 +355,7 @@ const GraficosContent = ({ children }) => {
     }),
     [
       faenaSeleccionada,
+      faenaSeleccionadaCompleta.nombre,
       fechaDesde,
       fechaHasta,
       horaDesde,
@@ -357,24 +388,37 @@ const GraficosContent = ({ children }) => {
     [chartCommonProps]
   );
 
-  // OPTIMIZACION 10: Condición optimizada para renderizar compacto
-  const shouldRenderCompact = useMemo(() => {
-    const result =
-      mainChartLoaded &&
-      hasValidColorMapping &&
-      categoryCount > 0 &&
-      isInitialized;
+  // MODIFICAR la condición shouldRenderCompact
+const shouldRenderCompact = useMemo(() => {
+  // 🆕 NUEVA LÓGICA: Renderizar si el principal completó (con o sin datos)
+  const result = mainChartCompleted && isInitialized;
 
-    console.log("🔍 Graficos: Evaluando renderizado de CompactChart:", {
-      mainChartLoaded,
-      hasValidColorMapping,
-      categoryCount,
-      shouldRenderCompact: result,
-      isInitialized,
-    });
+  console.log("🔍 Graficos: Evaluando renderizado de CompactChart:", {
+    mainChartLoaded,
+    mainChartCompleted,       // 🆕 NUEVO
+    mainChartHasData,         // 🆕 NUEVO
+    allowTributedDataLoad,    // 🆕 NUEVO
+    hasValidColorMapping,
+    categoryCount,
+    shouldRenderCompact: result,
+    isInitialized,
+    motivo: result ? 
+      (mainChartHasData ? "Datos principales disponibles" : "Buscando datos tributados") : 
+      "Principal aún no completado"
+  });
 
-    return result;
-  }, [mainChartLoaded, hasValidColorMapping, categoryCount, isInitialized]);
+  return result;
+}, [
+  mainChartLoaded, 
+  mainChartCompleted,     // 🆕 NUEVO
+  mainChartHasData,       // 🆕 NUEVO
+  allowTributedDataLoad,  // 🆕 NUEVO
+  hasValidColorMapping, 
+  categoryCount, 
+  isInitialized
+]);
+
+
 
   // OPTIMIZACION 11: Memoizar componentes pesados para evitar re-renders
   const MemoizedTopEquipos = useMemo(
@@ -705,7 +749,7 @@ const GraficosContent = ({ children }) => {
             reservados.
           </div>
           <div className="flex items-center">
-            <span className="mr-2">Versión 0.0.1</span>
+            <span className="mr-2">Versión 3.1.0</span>
             <span className="w-1 h-1 bg-gray-400 rounded-full mx-2"></span>
             <span>
               Última actualización: {ultimaActualizacion.toLocaleString()}

@@ -1,4 +1,33 @@
 import React, { useState, useEffect } from "react";
+
+const useFaenaName = (idFaena) => {
+  const [nombreFaena, setNombreFaena] = useState("Cargando...");
+
+  useEffect(() => {
+    const obtenerNombre = async () => {
+      if (idFaena === "todas" || !idFaena) {
+        setNombreFaena("Todas las faenas");
+        return;
+      }
+
+      try {
+        const response = await axios.get("/api/faenas");
+        const faenasData = response.data.data || response.data;
+
+        const faena = faenasData.find((f) => f.id_faena === parseInt(idFaena));
+
+        setNombreFaena(faena?.ubicacion || `Faena ${idFaena}`);
+      } catch (error) {
+        setNombreFaena(`Faena ${idFaena}`);
+      }
+    };
+
+    obtenerNombre();
+  }, [idFaena]);
+
+  return nombreFaena;
+};
+
 import {
   FiX,
   FiList,
@@ -28,6 +57,7 @@ const EnhancedConsumoDetailsModal = ({
   fechaHasta,
   faenaSeleccionada,
 }) => {
+  const nombreFaena = useFaenaName(faenaSeleccionada);
   // Estados para datos
   const [consumos, setConsumos] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -219,22 +249,23 @@ const EnhancedConsumoDetailsModal = ({
         const endIndex = startIndex + itemsPerPage;
         const paginatedData = allData.slice(startIndex, endIndex);
 
-     // 🔄 TRANSFORMAR DATOS para la tabla usando los campos reales
-const transformedData = paginatedData.map((item) => ({
-  id_consumo: item.id_consumo,
-  fecha_consumo: item.fecha_consumo,               // ← usar fecha real
-  litros_consumidos: item.litros_consumidos || 0,
-  nombre_maquina: item.nombre_maquina || "Sin nombre",
-  patente: item.patente || "S/P",
-  solicitante_nombre: item.solicitante_nombre || "Sin nombre",
-  id_dotacion: item.id_dotacion || "-",
-  observacion: item.observacion || "-",
-  tipo_maquina: item.tipo_maquina || "N/A",
-  estado: item.estado,
-  estanque: item.estanque || "-",                  // si existe
-  categoria_nombre: categoria.nombre,
-}));
-
+        // 🔄 TRANSFORMAR DATOS para la tabla usando los campos reales
+        const transformedData = paginatedData.map((item) => ({
+          id_consumo: item.id_consumo,
+          fecha_consumo: item.fecha_consumo, // ← usar fecha real
+          litros_consumidos: item.litros_consumidos || 0,
+          nombre_maquina: item.nombre_maquina || "Sin nombre",
+          patente: item.patente || "S/P",
+          solicitante_nombre: item.solicitante_nombre || "Sin nombre",
+          id_dotacion: item.id_dotacion || "-",
+          observacion: item.observacion || "-",
+          tipo_maquina: item.tipo_maquina || "N/A",
+          estado: item.estado,
+          estanque: item.estanque || "-", // si existe
+          categoria_nombre: categoria.nombre,
+          id_faena: item.id_faena,
+          faena_nombre: item.faena_nombre || "Sin faena",
+        }));
 
         // 📊 CALCULAR ESTADÍSTICAS
         const totalConsumo = allData.reduce(
@@ -349,9 +380,7 @@ const transformedData = paginatedData.map((item) => ({
               </h2>
               <p className="text-sm text-gray-600 mt-1">
                 Período: {fechaDesde} al {fechaHasta}
-                {faenaSeleccionada && faenaSeleccionada !== "todas" && (
-                  <span> • Faena: {faenaSeleccionada}</span>
-                )}
+                {faenaSeleccionada && <span> • {nombreFaena}</span>}
               </p>
             </div>
 
@@ -547,6 +576,11 @@ const transformedData = paginatedData.map((item) => ({
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                               Litros
                             </th>
+
+                            {/* 🆕 NUEVA COLUMNA FAENA */}
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Faena
+                            </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               Observaciones
                             </th>
@@ -589,6 +623,12 @@ const transformedData = paginatedData.map((item) => ({
                                     consumo.litros_consumidos || 0
                                   ).toLocaleString("es-CL")}{" "}
                                   L
+                                </td>
+                                {/* 🆕 NUEVA CELDA FAENA */}
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm font-medium text-gray-900">
+                                    {consumo.faena_nombre || "Sin faena"}
+                                  </div>
                                 </td>
                                 <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
                                   {consumo.observacion || "-"}
