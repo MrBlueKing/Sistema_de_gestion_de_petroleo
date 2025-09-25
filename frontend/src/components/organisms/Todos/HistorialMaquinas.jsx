@@ -1356,9 +1356,6 @@ const HistorialMaquinasView = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-gray-100 py-4 sm:py-6 px-3 sm:px-4">
       <div className=" mx-auto">
-        <UniversalHeader
-          type={getHeaderType}
-        />
         {/* FILTROS COMPARTIDOS */}
         <DateFilter
           isFiltering={isFilteringFaenas}

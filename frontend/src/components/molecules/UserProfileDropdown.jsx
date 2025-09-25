@@ -92,10 +92,11 @@ const UserProfileDropdown = ({
       2: "Gerente", 
       3: "Administrador",
       4: "Distpach",
-      5: "Planificador",
+      5: "Taller Mecánico",
       6: "Operador de Vehículo",
       7: "Encargado de Operaciones de Combustible", // Asistente bombero
-      8: "Administrador"
+      8: "Administrador",
+      9: "Operaciones",
     };
         
     // Si el ID existe en nuestro mapeo, devolvemos el nombre del rol

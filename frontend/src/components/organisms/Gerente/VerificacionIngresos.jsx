@@ -253,8 +253,6 @@ const VerificacionIngresos = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 mt-12">
-      <UniversalHeader type={getHeaderType} />
-
       <div className="mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header principal */}
         <div className="mb-8">

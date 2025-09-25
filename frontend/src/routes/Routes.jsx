@@ -67,10 +67,10 @@ const AppRoutes = () => {
       |--------------------------------------------------------------------------
       */}
       <Route
-        path="/gerente"
+        path="/Gerente"
         element={
-          <PrivateRoute requiredRole="gerente">
-            <GerentePage />
+          <PrivateRoute requiredRoles={["gerente", "admin_operador", "JefeMina", "planificador"]}>
+            <MenuPrincipalAdminOperador />
           </PrivateRoute>
         }
       />
@@ -408,20 +408,10 @@ const AppRoutes = () => {
       |--------------------------------------------------------------------------
       */}
       <Route
-        path="/mantenimiento"
+        path="/TallerMecanico"
         element={
-          <PrivateRoute requiredRole="planificador">
-            <Mantenimiento />
-          </PrivateRoute>
-        }
-      />
-
-      {/* Mantener ruta antigua */}
-      <Route
-        path="/Mantenimiento"
-        element={
-          <PrivateRoute requiredRole="planificador">
-            <Mantenimiento />
+          <PrivateRoute requiredRoles={["gerente", "admin_operador", "JefeMina", "planificador"]}>
+            <MenuPrincipalAdminOperador />
           </PrivateRoute>
         }
       />
@@ -448,17 +438,6 @@ const AppRoutes = () => {
         }
       />
 
-      {/* Mantener ruta antigua */}
-      <Route
-        path="/Mantenimiento"
-        element={
-          <PrivateRoute requiredRole="planificador">
-            <Mantenimiento />
-          </PrivateRoute>
-        }
-      />
-
-
       {/* 
       |--------------------------------------------------------------------------
       | 🔧 RUTAS DE ADMINISTRADOR DE OPERADOR DE VEHICULOS
@@ -467,7 +446,7 @@ const AppRoutes = () => {
       <Route
         path="/AdministradorOPeradorVehiculo"
         element={
-          <PrivateRoute requiredRole="admin_operador">
+          <PrivateRoute requiredRoles={["gerente", "admin_operador", "JefeMina", "planificador"]}>
             <MenuPrincipalAdminOperador />
           </PrivateRoute>
         }
@@ -477,6 +456,21 @@ const AppRoutes = () => {
         element={
           <PrivateRoute requiredRole="admin_operador">
             <ConsumoViewAdminOperador />
+          </PrivateRoute>
+        }
+      />
+
+
+      {/* 
+      |--------------------------------------------------------------------------
+      | 🔧 RUTAS Operaciones
+      |--------------------------------------------------------------------------
+      */}
+      <Route
+        path="/Operaciones"
+        element={
+          <PrivateRoute requiredRoles={["gerente", "admin_operador", "JefeMina", "planificador"]}>
+            <MenuPrincipalAdminOperador />
           </PrivateRoute>
         }
       />

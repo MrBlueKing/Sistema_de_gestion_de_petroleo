@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import TabNavigation from '../../molecules/TabNavigation';
 import UniversalHeader from '../../organisms/Todos/UniversalHeader';
+import { useAuth, RoleBasedComponent } from '../../../routes/PrivateRoutes';
 
-// Importar los componentes de vista (asumiendo que existen)
+// Importar los componentes de vista
 import MainAdminOperador from '../../organisms/AdminOperador/MainAdminOperador';
 import ConsumoViewAdminOperador from '../../organisms/AdminOperador/AdminCargasView';
 import GestionarMaquinas from '../../organisms/AdminOperador/GestionarMaquinasOperador';
@@ -13,8 +14,56 @@ import Recepciones from '../../organisms/Gerente/VerificacionIngresos';
 
 const AdminOperador = () => {
     const [activeTab, setActiveTab] = useState('principal');
+    const { user, hasRole } = useAuth();
 
-    // Configuración de pestañas optimizada para móviles
+    // 📋 Configuración de permisos por rol
+    const rolePermissions = {
+        // Gerente: Acceso completo a todo
+        gerente: ['consumos-externos', 'consumos-internos', 'graficos', 'recepciones'],
+
+        // Admin Operador: Acceso completo (rol original)
+        admin_operador: ['principal', 'consumos-externos', 'consumos-internos', 'graficos', 'recepciones', 'maquinas', 'usuarios'],
+
+        // Jefe de Mina: Acceso a vistas operacionales y gráficos
+        JefeMina: ['consumos-internos', 'graficos', 'recepciones'],
+
+        // Planificador: Acceso a consumos, gráficos y máquinas para planificación
+        planificador: ['consumos-internos']
+    };
+
+    // 🎯 Mapeo de roles a tipos de header
+    const getHeaderTypeForRole = () => {
+        const userRole = user?.rol;
+        switch (userRole) {
+            case 'gerente':
+                return 'gerente-operaciones';
+            case 'admin_operador':
+                return 'AdminOperador';
+            case 'JefeMina':
+                return 'JefeMina';
+            case 'planificador':
+                return 'planificador';
+            default:
+                return 'AdminOperador'; // Fallback
+        }
+    };
+
+    // Obtener las pestañas permitidas para el rol actual
+    const getAllowedTabs = () => {
+        const userRole = user?.rol;
+        const allowedTabIds = rolePermissions[userRole] || ['principal'];
+
+        return tabs.filter(tab => allowedTabIds.includes(tab.id));
+    };
+
+    // Verificar si el usuario puede ver una pestaña específica
+    const canViewTab = (tabId) => {
+        const userRole = user?.rol;
+        const allowedTabs = rolePermissions[userRole] || ['principal'];
+        return allowedTabs.includes(tabId);
+    };
+
+    // Configuración de pestañas completa
     const tabs = [
         {
             id: 'principal',
@@ -30,7 +79,7 @@ const AdminOperador = () => {
         },
         {
             id: 'consumos-internos',
-            label: 'Consumos Internos',
+            label: 'Consumos Generales',
             description: 'Vista de consumos internos',
             icon: 'FaGasPump'
         },
@@ -60,23 +109,95 @@ const AdminOperador = () => {
         }
     ];
 
+    // Asegurar que la pestaña activa esté permitida
+    const allowedTabs = getAllowedTabs();
+
+    // Si la pestaña activa no está permitida, cambiar a la primera permitida
+    React.useEffect(() => {
+        const isCurrentTabAllowed = allowedTabs.find(tab => tab.id === activeTab);
+        if (!isCurrentTabAllowed && allowedTabs.length > 0) {
+            setActiveTab(allowedTabs[0].id);
+        }
+    }, [activeTab, allowedTabs]);
 
     const renderActiveContent = () => {
+        // Verificar permisos antes de mostrar el contenido
+        if (!canViewTab(activeTab)) {
+            return (
+                <div className="flex items-center justify-center h-64">
+                    <div className="text-center">
+                        <div className="text-4xl mb-4">🚫</div>
+                        <h3 className="text-xl font-semibold text-gray-700 mb-2">Acceso Denegado</h3>
+                        <p className="text-gray-500">No tienes permisos para ver esta sección.</p>
+                    </div>
+                </div>
+            );
+        }
+
         switch (activeTab) {
             case 'principal':
                 return <MainAdminOperador />;
+
             case 'consumos-externos':
-                return <ConsumoViewAdminOperador />;
+                return (
+                    <RoleBasedComponent
+                        allowedRoles={['gerente', 'admin_operador', 'JefeMina', 'planificador']}
+                        showUnauthorized={true}
+                    >
+                        <ConsumoViewAdminOperador />
+                    </RoleBasedComponent>
+                );
+
             case 'consumos-internos':
-                return <HistorialMaquinas />;
+                return (
+                    <RoleBasedComponent
+                        allowedRoles={['gerente', 'admin_operador', 'JefeMina', 'planificador']}
+                        showUnauthorized={true}
+                    >
+                        <HistorialMaquinas />
+                    </RoleBasedComponent>
+                );
+
             case 'graficos':
-                return <GraficosPetroleo />;
+                return (
+                    <RoleBasedComponent
+                        allowedRoles={['gerente', 'admin_operador', 'JefeMina', 'planificador']}
+                        showUnauthorized={true}
+                    >
+                        <GraficosPetroleo />
+                    </RoleBasedComponent>
+                );
+
             case 'recepciones':
-                return <Recepciones />;
+                return (
+                    <RoleBasedComponent
+                        allowedRoles={['gerente', 'admin_operador', 'JefeMina']}
+                        showUnauthorized={true}
+                    >
+                        <Recepciones />
+                    </RoleBasedComponent>
+                );
+
             case 'maquinas':
-                return <GestionarMaquinas />;
+                return (
+                    <RoleBasedComponent
+                        allowedRoles={['gerente', 'admin_operador', 'planificador']}
+                        showUnauthorized={true}
+                    >
+                        <GestionarMaquinas />
+                    </RoleBasedComponent>
+                );
+
             case 'usuarios':
-                return <GestionarUsuariosOperador />;
+                return (
+                    <RoleBasedComponent
+                        allowedRoles={['gerente', 'admin_operador']}
+                        showUnauthorized={true}
+                    >
+                        <GestionarUsuariosOperador />
+                    </RoleBasedComponent>
+                );
+
             default:
                 return <MainAdminOperador />;
         }
@@ -84,13 +205,20 @@ const AdminOperador = () => {
 
     return (
         <div className="flex flex-col min-h-screen bg-white pt-2">
-            <UniversalHeader type="AdminOperador" />
-            {/* Navegación por pestañas */}
+            <UniversalHeader type={getHeaderTypeForRole()} />
+
+            {/* Navegación por pestañas - Solo mostrar las permitidas para el rol actual */}
             <TabNavigation
-                tabs={tabs}
+                tabs={allowedTabs}
                 activeTab={activeTab}
-                onTabChange={setActiveTab}
+                onTabChange={(tabId) => {
+                    // Verificar que la pestaña seleccionada esté permitida
+                    if (canViewTab(tabId)) {
+                        setActiveTab(tabId);
+                    }
+                }}
             />
+
             {/* Contenido dinámico */}
             <main className="flex-1 bg-white">
                 {renderActiveContent()}

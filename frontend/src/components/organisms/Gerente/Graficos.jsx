@@ -485,9 +485,6 @@ const shouldRenderCompact = useMemo(() => {
   // JSX PRINCIPAL OPTIMIZADO
   return (
     <div className="flex-1 overflow-auto bg-gray-50 mt-12">
-      <UniversalHeader
-        type={getHeaderType}
-      />
 
       <div className="py-6">
         {/* MENSAJES DE ESTADO */}

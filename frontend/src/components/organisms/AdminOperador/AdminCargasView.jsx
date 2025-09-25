@@ -10,6 +10,7 @@ import axios from '../../../lib/axios'; // Ajusta la ruta según tu estructura
 import DetalleCargaModal from '../../molecules/DetalleCargaModal';
 import SuccessNotificationRendir from '../../molecules/SuccessNotificationRendir';
 import PageControl from '../../molecules/PageControl';
+import { useAuth } from '../../../routes/PrivateRoutes';
 
 // Componente de Badge para estados
 const EstadoBadge = ({ estado, estadoBadge }) => {
@@ -46,6 +47,16 @@ const AdminCargasView = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   // ✅ AGREGAR: Estado específico para errores de rendición
   const [errorRendicion, setErrorRendicion] = useState(null);
+  // 🔐 AGREGAR: Hook para obtener información del usuario
+  const { user } = useAuth();
+
+  // 🔐 AGREGAR: Función para verificar si puede rendir
+  const canRender = () => {
+    const userRole = user?.rol;
+    console.log("Rol:", userRole);
+    // Solo admin_operador puede rendir, gerente NO puede
+    return userRole === 'admin_operador';
+  };
 
   // Hook personalizado para cargas
   const {
@@ -396,7 +407,7 @@ const AdminCargasView = () => {
                   </label>
                   <input
                     type="text"
-                    placeholder="Ej: Zed, Krilin, 203022451"
+                    placeholder="Ej: Juan Pérez, 12345678-9"
                     value={filtroOperador}
                     onChange={(e) => setFiltroOperador(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -700,7 +711,7 @@ const AdminCargasView = () => {
                               Ver
                             </button>
 
-                            {carga.estado === "Por Rendir" && (
+                            {carga.estado === "Por Rendir" && canRender() && (
                               <>
                                 <button
                                   onClick={() => handleRendir(carga.id)} // ✅ AGREGAR: Conectar handl eRendir con el ID de la carga
@@ -774,8 +785,7 @@ const AdminCargasView = () => {
                           <FaEye className="w-4 h-4" />
                           Ver
                         </button>
-
-                        {carga.estado === 'Por Rendir' && (
+                        {carga.estado === 'Por Rendir' && canRender() && (
                           <button
                             onClick={() => handleRendir(carga.id, 'Rendido')}
                             disabled={procesandoCambioEstado === carga.id}
@@ -815,6 +825,7 @@ const AdminCargasView = () => {
           isOpen={isModalOpen}
           onClose={handleCloseModal}
           onActionComplete={handleActionComplete}
+          canRender={canRender()} // 🔐 NUEVA PROP: Pasar permisos al modal
         />
       )}
       {/* Componente de notificación de éxito (igual que en MainAdminOperador) */}

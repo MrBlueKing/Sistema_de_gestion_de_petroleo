@@ -261,6 +261,50 @@ const UniversalHeader = ({
           spacerClass: "",
           layout: "home"
         };
+      case "JefeMina":
+        return {
+          title: "Panel Jefe de Mina - Operaciones",
+          mobileTitle: "Panel Jefe\nde Mina",
+          hasTopBar: true,
+          hasSidebar: false,
+          isFixed: true,
+          showHomeButton: true,
+          homeRoute: "/AdministradorOPeradorVehiculo",
+          showNotifications: false,
+          headerHeight: "",
+          spacerClass: "pt-14 md:pt-20",
+          layout: "bombero" // Usa el mismo layout que bombero
+        };
+
+      case "planificador":
+        return {
+          title: "Panel de Taller Mecánico",
+          mobileTitle: "Panel de\nPlanificación",
+          hasTopBar: true,
+          hasSidebar: false,
+          isFixed: true,
+          showHomeButton: true,
+          homeRoute: "/AdministradorOPeradorVehiculo",
+          showNotifications: false,
+          headerHeight: "",
+          spacerClass: "pt-14 md:pt-20",
+          layout: "bombero" // Usa el mismo layout que bombero
+        };
+
+      case "gerente-operaciones":
+        return {
+          title: "Panel Gerente de Operaciones",
+          mobileTitle: "Panel Gerencial\nOperaciones",
+          hasTopBar: true,
+          hasSidebar: false,
+          isFixed: true,
+          showHomeButton: true,
+          homeRoute: "/AdministradorOPeradorVehiculo",
+          showNotifications: false,
+          headerHeight: "",
+          spacerClass: "pt-14 md:pt-20",
+          layout: "bombero" // Usa el mismo layout que bombero
+        };
 
       default:
         return {

@@ -16,7 +16,7 @@ import SuccessNotification from '../molecules/SuccessNotificationRendir';
 import LoadingButton from '../molecules/LoadingButtonRendir';
 import axios from "../../lib/axios";
 
-const DetalleCargaModal = ({ cargaId, isOpen, onClose, onActionComplete }) => {
+const DetalleCargaModal = ({ cargaId, isOpen, onClose, onActionComplete, canRender = true }) => {
   const [carga, setCarga] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -448,7 +448,7 @@ const DetalleCargaModal = ({ cargaId, isOpen, onClose, onActionComplete }) => {
         </div>
 
         {/* Actions */}
-        {carga && carga.estado === "Por Rendir" && !mostrarRechazo && (
+        {carga && carga.estado === "Por Rendir" && !mostrarRechazo && canRender && (
           <div className="flex items-center justify-end space-x-4 p-6 border-t border-gray-200">
             <LoadingButton
               isLoading={rendirLoading}
