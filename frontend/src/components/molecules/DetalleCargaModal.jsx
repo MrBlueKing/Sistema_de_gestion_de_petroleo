@@ -236,12 +236,12 @@ const DetalleCargaModal = ({ cargaId, isOpen, onClose, onActionComplete, canRend
                   <div className="flex items-center mb-3">
                     <FaFileInvoiceDollar className="text-blue-600 mr-2" />
                     <h3 className="text-lg font-semibold">
-                      Información de la Boleta
+                      Información de la Factura
                     </h3>
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Número de Boleta:</span>
+                      <span className="text-gray-600">Número de Factura:</span>
                       <span className="font-medium">{carga.numero_boleta}</span>
                     </div>
                     <div className="flex justify-between">
@@ -382,7 +382,7 @@ const DetalleCargaModal = ({ cargaId, isOpen, onClose, onActionComplete, canRend
                       </div>
                     )}
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Lugar:</span>
+                      <span className="text-gray-600">Faena Asignada:</span>
                       <span className="font-medium">
                         {carga.faena?.ubicacion || "Cargas Externas"}
                       </span>
