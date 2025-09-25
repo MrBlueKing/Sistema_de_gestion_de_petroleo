@@ -4,6 +4,7 @@
 export const FAENA_COLORS = {
   1: {
     name: "Cabildo",
+    region: "Región de Valparaíso",
     // Colores para fondo y bordes
     bg: "bg-green-50",
     border: "border-l-green-400",
@@ -32,6 +33,7 @@ export const FAENA_COLORS = {
 
   4: {
     name: "Tiltil",
+    region: "Región Metropolitana",
     // Colores para fondo y bordes
     bg: "bg-red-50/30",
     border: "border-l-red-400",
@@ -57,42 +59,9 @@ export const FAENA_COLORS = {
     emoji: "🏔️",
     id: 4
   },
-  5: {
-    name: "Estacion de Servicio",
-    // Colores para fondo y bordes
-    bg: "bg-blue-50/40",
-    border: "border-l-blue-500",
-    borderFull: "border-blue-200",
-
-    // Badges y etiquetas
-    badge: "bg-blue-100 text-blue-800",
-
-    // Iconos y textos
-    icon: "text-blue-600",
-    text: "text-blue-800",
-
-    // Gradientes
-    gradient: "bg-gradient-to-r from-blue-600 to-blue-700",
-    gradientLight: "bg-gradient-to-r from-blue-50 to-blue-100/50",
-
-    // Colores específicos (hex)
-    primary: "#2563eb", // blue-600
-    light: "#dbeafe",   // blue-100
-    dark: "#1d4ed8",    // blue-700
-
-    // Colores especiales estilo Copec
-    copecBlue: "text-[#0066cc]",
-    copecBg: "bg-gradient-to-r from-blue-50 to-blue-100/50",
-    copecBorder: "border-l-[#0066cc]",
-    copecBadge: "bg-[#0066cc]/10 text-[#0066cc]",
-    copecPrimary: "#0066cc",
-
-    // Elementos decorativos
-    emoji: "⛽",
-    id: 5
-  },
   8: {
     name: "Rungue",
+    region: "Región Metropolitana",
     // Colores para fondo y bordes
     bg: "bg-purple-200/40",
     border: "border-l-purple-500",
@@ -121,6 +90,38 @@ export const FAENA_COLORS = {
     // Elementos decorativos
     emoji: "🌋", // Puede ser montaña / volcán / roca / galaxia según prefieras
     id: 8
+  },
+  6: {
+    name: "La Cruz (Oficina Central)",
+    region: "Región de Valparaíso",
+    // Colores para fondo y bordes
+    bg: "bg-yellow-50/40",
+    border: "border-l-yellow-500",
+    borderFull: "border-yellow-200",
+
+    // Badges y etiquetas
+    badge: "bg-yellow-100 text-yellow-800",
+
+    // Iconos y textos
+    icon: "text-yellow-600",
+    text: "text-yellow-800",
+
+    // Gradientes
+    gradient: "bg-gradient-to-r from-yellow-500 to-yellow-600",
+    gradientLight: "bg-gradient-to-r from-yellow-50 to-yellow-100/50",
+
+    // Colores específicos (hex)
+    primary: "#ca8a04", // yellow-600
+    light: "#fef9c3",   // yellow-100
+    dark: "#a16207",    // yellow-700
+
+    // Estilo alternativo especial
+    specialGlow: "bg-gradient-to-r from-amber-400 via-yellow-500 to-orange-500",
+    specialText: "text-amber-600",
+
+    // Elementos decorativos
+    emoji: "🏢", // Representa la oficina central
+    id: 6
   },
 };
 

@@ -513,6 +513,9 @@ const ConsumptionPieChart = ({
 
   // Datos actuales según el modo de vista
   const currentData = viewMode === "categorias" ? categorias : maquinas;
+  console.log("View Mode:", viewMode);
+  console.log("Categorias:", categorias);
+  console.log("Current Data:", currentData);
 
   // Calcular total dinámico
   const totalActual = currentData.reduce((sum, item) => sum + item.value, 0);

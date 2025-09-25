@@ -6,6 +6,7 @@ import IconButton from "../../atoms/Button/IconButton";
 import Sidebar from "../../molecules/SideBard";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../../context/userContext";
+import { getFaenaColors, getFaenaColorsById } from '../../../context/faenaColor';
 
 const UniversalHeader = ({
   // Configuración básica
@@ -43,7 +44,7 @@ const UniversalHeader = ({
   showUserProfile = true,
   showClock = false,
 }) => {
-    if (!type || type === "none" || type === "null") {
+  if (!type || type === "none" || type === "null") {
     return null;
   }
   const { user, setUser, loading } = useContext(UserContext);
@@ -53,61 +54,33 @@ const UniversalHeader = ({
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
 
-  // 🎨 CONFIGURACIÓN DE COLORES POR FAENA - ACTUALIZADA
-  const FAENAS = {
-    1: {
-      ubicacion: "Cabildo",
-      detalle: "Región de Valparaíso",
-      color: "text-green-700",         // Para iconos de ubicación
-      bgColor: "bg-green-700",         // Para fondos del perfil
-      lightBg: "bg-green-100",         // Para fondos claros
-      hex: "#708238"                   // Verde Oliva
-    },
-    2: {
-      ubicacion: "Catemu",
-      detalle: "Región de Valparaíso",
-      color: "text-yellow-600",        // Amarillo Mostaza
-      bgColor: "bg-yellow-600",
-      lightBg: "bg-yellow-100",
-      hex: "#D4A017"
-    },
-    3: {
-      ubicacion: "Chincolco",
-      detalle: "Región de Valparaíso",
-      color: "text-blue-700",          // Azul Piedra
-      bgColor: "bg-blue-700",
-      lightBg: "bg-blue-100",
-      hex: "#336699"
-    },
-    4: {
-      ubicacion: "Tiltil",
-      detalle: "Región Metropolitana",
-      color: "text-red-700",           // Rojo Arcilla
-      bgColor: "bg-red-700",
-      lightBg: "bg-red-100",
-      hex: "#A23E2A"
-    },
-  };
-
   // Obtener información de faena si existe
-  const faena = user?.id_faena ? FAENAS[user.id_faena] : null;
+  const faena = user?.id_faena ? getFaenaColorsById(user.id_faena) : null;
 
-  // 🎨 FUNCIÓN PARA OBTENER COLORES DINÁMICOS
+  // 🎨 FUNCIÓN PARA OBTENER COLORES DINÁMICOS - ACTUALIZADA
   const getFaenaColors = () => {
-    if (!faena) {
+    if (!user?.id_faena) {
       return {
         iconColor: "text-gray-600",
-        bgColor: "bg-blue-500",    // Color por defecto para perfil
+        bgColor: "bg-gray-500",
         lightBg: "bg-gray-100",
-        hex: "#6B7280"
+        hex: "#6B7280",
+        name: "Sin Faena",
+        emoji: "🏢"
       };
     }
 
+    // 🆕 Usar el sistema centralizado
+    const faenaData = getFaenaColorsById(user.id_faena);
+
     return {
-      iconColor: faena.color,
-      bgColor: faena.bgColor,
-      lightBg: faena.lightBg,
-      hex: faena.hex
+      iconColor: faenaData.icon,        // text-green-600, text-red-600, etc.
+      bgColor: faenaData.gradient,      // bg-gradient-to-r from-green-600...
+      lightBg: faenaData.bg,           // bg-green-50, bg-red-50, etc.
+      hex: faenaData.primary,          // #059669, #dc2626, etc.
+      name: faenaData.name,            // "Cabildo", "Tiltil", etc.
+      emoji: faenaData.emoji,          // 🌿, 🏔️, etc.
+      badge: faenaData.badge           // bg-green-100 text-green-800
     };
   };
 
@@ -193,7 +166,7 @@ const UniversalHeader = ({
       case "admin":
         return {
           title: "Administrador",
-           hasTopBar: true,
+          hasTopBar: true,
           hasSidebar: false,
           isFixed: true,
           showHomeButton: true,
@@ -358,12 +331,11 @@ const UniversalHeader = ({
             {/* 🎨 UBICACIÓN CON COLOR DINÁMICO - SOLO PARA BOMBERO Y OPERADOR */}
             {(type === "bombero" || type === "operador") && faena && (
               <div className="flex items-center text-xs md:text-sm mt-0.5 md:mt-0">
-                <FaMapMarkerAlt
-                  className={`${colors.iconColor} mr-1 flex-shrink-0`}
-                  size={10}
-                />
-                <span className="font-medium truncate">{faena.ubicacion}</span>
-                <span className="hidden md:inline text-gray-500 ml-1">• {faena.detalle}</span>
+                <span className={`px-2 py-1 rounded text-xs`}>
+                  {faena.emoji}
+                </span>
+                <span className="font-medium truncate">{faena.name}</span>
+                <span className="hidden md:inline text-gray-500 ml-1"> {faena.region}</span>
               </div>
             )}
           </div>

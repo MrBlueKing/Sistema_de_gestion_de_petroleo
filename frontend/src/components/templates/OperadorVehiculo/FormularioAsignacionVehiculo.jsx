@@ -692,6 +692,7 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                             1.- Seleccione la Máquina a Cargar.
                         </h3>
                         <div ref={el => errorRefs.current['maquina'] = el}>
+                            {console.log("Datos enviados:", { maquinaSeleccionada})}
                             <SelectorMaquinasOperadorVehiculo
                                 maquinaSeleccionada={maquinaSeleccionada?.id_maquina}
                                 onSeleccionarMaquina={handleSeleccionarMaquina}

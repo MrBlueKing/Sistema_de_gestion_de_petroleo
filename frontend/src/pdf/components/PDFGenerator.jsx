@@ -73,101 +73,112 @@ const PDFGenerator = ({
   };
 
   // 🆕 FUNCIÓN CORREGIDA - Buscar por colors.name en lugar de key
-const getAllConsumos = async () => {
+  const getAllConsumos = async () => {
     const token = JSON.parse(localStorage.getItem("authToken"))?.token;
     if (!token) throw new Error("Sin token");
 
     const params = new URLSearchParams({
-        page: 1,
-        per_page: 9999,
+      page: 1,
+      per_page: 9999,
     });
 
     // 🆕 LÓGICA CORREGIDA PARA HistorialMaquinasView
     if (filters?.selectedFaenas && Array.isArray(filters.selectedFaenas)) {
-        console.log("🎯 Procesando faenas de HistorialMaquinasView:", filters.selectedFaenas);
+      console.log("🎯 Procesando faenas de HistorialMaquinasView:", filters.selectedFaenas);
 
-        // ✅ CORREGIDO: Buscar por colors.name en lugar de key
-        const faenaIds = filters.selectedFaenas
-            .map((faenaNombre) => {
-                // Buscar en FAENA_COLORS por colors.name
-                const faenaEntry = Object.entries(FAENA_COLORS).find(
-                    ([id, colors]) => {
-                        // ✅ CAMBIO CLAVE: Comparar con colors.name en lugar de key
-                        return colors.name?.toLowerCase() === faenaNombre.toLowerCase();
-                    }
-                );
-                
-                if (faenaEntry) {
-                    console.log(`✅ Faena "${faenaNombre}" encontrada con ID: ${faenaEntry[1].id}`);
-                    return faenaEntry[1].id;
-                } else {
-                    console.warn(`⚠️ Faena "${faenaNombre}" NO encontrada en FAENA_COLORS`);
-                    return null;
-                }
-            })
-            .filter(Boolean);
+      // ✅ CORREGIDO: Buscar por colors.name en lugar de key
+      const faenaIds = filters.selectedFaenas
+        .map((faenaNombre) => {
+          // Buscar en FAENA_COLORS por colors.name
+          const faenaEntry = Object.entries(FAENA_COLORS).find(
+            ([id, colors]) => {
+              // ✅ CAMBIO CLAVE: Comparar con colors.name en lugar de key
+              return colors.name?.toLowerCase() === faenaNombre.toLowerCase();
+            }
+          );
 
-        console.log("🔍 IDs de faenas encontrados:", faenaIds);
+          if (faenaEntry) {
+            console.log(`✅ Faena "${faenaNombre}" encontrada con ID: ${faenaEntry[1].id}`);
+            return faenaEntry[1].id;
+          } else {
+            console.warn(`⚠️ Faena "${faenaNombre}" NO encontrada en FAENA_COLORS`);
+            return null;
+          }
+        })
+        .filter(Boolean);
 
-        if (faenaIds.length > 0) {
-            const faenaIdsString = faenaIds.join(",");
-            params.append("faenas", faenaIdsString);
-            console.log("✅ PDF: Usando faenas de HistorialMaquinasView:", faenaIdsString);
-        } else {
-            console.error("❌ No se encontraron IDs válidos para las faenas:", filters.selectedFaenas);
-            console.error("❌ Estructura de FAENA_COLORS:", Object.entries(FAENA_COLORS).map(([id, colors]) => ({
-                id,
-                name: colors.name,
-                hasName: !!colors.name
-            })));
-            throw new Error("No se pudieron determinar las faenas seleccionadas");
-        }
+      console.log("🔍 IDs de faenas encontrados:", faenaIds);
+
+      if (faenaIds.length > 0) {
+        const faenaIdsString = faenaIds.join(",");
+        params.append("faenas", faenaIdsString);
+        console.log("✅ PDF: Usando faenas de HistorialMaquinasView:", faenaIdsString);
+      } else {
+        console.error("❌ No se encontraron IDs válidos para las faenas:", filters.selectedFaenas);
+        console.error("❌ Estructura de FAENA_COLORS:", Object.entries(FAENA_COLORS).map(([id, colors]) => ({
+          id,
+          name: colors.name,
+          hasName: !!colors.name
+        })));
+        throw new Error("No se pudieron determinar las faenas seleccionadas");
+      }
     }
     // 🔧 LÓGICA PARA ConsumosViewGerente (sin cambios)
     else if (filters?.faenaSeleccionada === "todas") {
-        const todasLasFaenas = filters.faenas || [];
+      const todasLasFaenas = filters.faenas || [];
 
-        if (todasLasFaenas.length > 0) {
-            const idsTodasFaenas = todasLasFaenas.map((f) => f.value).join(",");
-            params.append("faenas", idsTodasFaenas);
-            console.log("✅ PDF: Buscando en todas las faenas:", idsTodasFaenas);
-        } else {
-            if (!user?.id_faena) {
-                throw new Error("Usuario sin faena asignada");
-            }
-            params.append("faena", user.id_faena);
-            console.log("✅ PDF: Fallback usando faena del usuario:", user.id_faena);
-        }
-    } else if (filters?.faenaSeleccionada && filters.faenaSeleccionada !== "todas") {
-        params.append("faena", filters.faenaSeleccionada);
-        console.log("✅ PDF: Buscando en faena específica:", filters.faenaSeleccionada);
-    } else {
+      if (todasLasFaenas.length > 0) {
+        const idsTodasFaenas = todasLasFaenas.map((f) => f.value).join(",");
+        params.append("faenas", idsTodasFaenas);
+        console.log("✅ PDF: Buscando en todas las faenas:", idsTodasFaenas);
+      } else {
         if (!user?.id_faena) {
-            throw new Error("Usuario sin faena asignada");
+          throw new Error("Usuario sin faena asignada");
         }
         params.append("faena", user.id_faena);
-        console.log("✅ PDF: Usando faena del usuario por defecto:", user.id_faena);
+        console.log("✅ PDF: Fallback usando faena del usuario:", user.id_faena);
+      }
+    } else if (filters?.faenaSeleccionada && filters.faenaSeleccionada !== "todas") {
+      params.append("faena", filters.faenaSeleccionada);
+      console.log("✅ PDF: Buscando en faena específica:", filters.faenaSeleccionada);
+    } else {
+      if (!user?.id_faena) {
+        throw new Error("Usuario sin faena asignada");
+      }
+      params.append("faena", user.id_faena);
+      console.log("✅ PDF: Usando faena del usuario por defecto:", user.id_faena);
     }
 
     // Agregar otros filtros
     if (filters.dateFrom) params.append("dateFrom", filters.dateFrom);
     if (filters.dateTo) params.append("dateTo", filters.dateTo);
-    if (filters.equipoFilter) params.append("equipoFilter", filters.equipoFilter);
+    // POR:
+    if (filters.equipoFilter) {
+      if (Array.isArray(filters.equipoFilter)) {
+        // Si es array, enviar cada máquina como parámetro separado
+        filters.equipoFilter.forEach(maquina => {
+          params.append('equipoFilter[]', maquina);
+        });
+      } else {
+        // Si es string (retrocompatibilidad)
+        params.append('equipoFilter', filters.equipoFilter);
+      }
+    }
 
     console.log("🚀 PDF: Haciendo petición con params:", params.toString());
 
     const response = await axios.get(`/api/consumosFecha?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}` },
     });
 
     if (!response.data.success) throw new Error("Error API");
 
     return {
-        consumos: response.data.data || [],
-        stats: response.data.stats || stats,
-        totalReal: response.data.pagination?.total || 0,
+      consumos: response.data.data || [],
+      stats: response.data.stats || stats,
+      totalReal: response.data.pagination?.total || 0,
     };
-};
+  };
   // Generar PDF
   const handleClick = async () => {
     if (totalItems === 0 || generating || disabled) return;
@@ -206,10 +217,9 @@ const getAllConsumos = async () => {
   const buttonClass = `
     relative overflow-hidden flex items-center justify-center gap-2 rounded-xl font-semibold 
     transition-all duration-300 transform group px-3 sm:px-4 py-2 text-xs sm:text-sm
-    ${
-      buttonDisabled
-        ? "bg-gray-500 text-white cursor-not-allowed opacity-50"
-        : "bg-gradient-to-r from-orange-500 via-orange-600 to-orange-700 hover:from-orange-600 hover:via-orange-700 hover:to-orange-800 text-white shadow-lg hover:shadow-xl hover:shadow-orange-200/50 hover:scale-105"
+    ${buttonDisabled
+      ? "bg-gray-500 text-white cursor-not-allowed opacity-50"
+      : "bg-gradient-to-r from-orange-500 via-orange-600 to-orange-700 hover:from-orange-600 hover:via-orange-700 hover:to-orange-800 text-white shadow-lg hover:shadow-xl hover:shadow-orange-200/50 hover:scale-105"
     }
   `;
 
@@ -228,18 +238,16 @@ const getAllConsumos = async () => {
 
         {/* Icono */}
         <span
-          className={`text-lg sm:text-xl transition-transform duration-300 z-10 ${
-            !buttonDisabled ? "group-hover:rotate-6" : ""
-          }`}
+          className={`text-lg sm:text-xl transition-transform duration-300 z-10 ${!buttonDisabled ? "group-hover:rotate-6" : ""
+            }`}
         >
           {generating ? <FaSpinner className="animate-spin" /> : <FaFilePdf />}
         </span>
 
         {/* Texto */}
         <span
-          className={`font-medium z-10 transition-all duration-300 ${
-            !buttonDisabled ? "group-hover:tracking-wide" : ""
-          }`}
+          className={`font-medium z-10 transition-all duration-300 ${!buttonDisabled ? "group-hover:tracking-wide" : ""
+            }`}
         >
           {generating ? "Generando..." : "Generar PDF"}
         </span>
@@ -264,11 +272,10 @@ const getAllConsumos = async () => {
               <div
                 className={`
               relative px-6 py-6 rounded-t-2xl
-              ${
-                modalType === "success"
-                  ? "bg-gradient-to-r from-green-50 to-emerald-50"
-                  : "bg-gradient-to-r from-red-50 to-pink-50"
-              }
+              ${modalType === "success"
+                    ? "bg-gradient-to-r from-green-50 to-emerald-50"
+                    : "bg-gradient-to-r from-red-50 to-pink-50"
+                  }
             `}
               >
                 {/* Botón cerrar */}
@@ -364,13 +371,12 @@ const getAllConsumos = async () => {
                     onClick={() => setShowModal(false)}
                     className={`
                     px-4 py-3 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105
-                    ${
-                      modalType === "success"
+                    ${modalType === "success"
                         ? "flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700"
                         : modalData.action
-                        ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                        : "flex-1 bg-gradient-to-r from-gray-500 to-gray-600 text-white hover:from-gray-600 hover:to-gray-700"
-                    }
+                          ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                          : "flex-1 bg-gradient-to-r from-gray-500 to-gray-600 text-white hover:from-gray-600 hover:to-gray-700"
+                      }
                   `}
                   >
                     {modalType === "success" ? "¡Perfecto!" : "Cerrar"}

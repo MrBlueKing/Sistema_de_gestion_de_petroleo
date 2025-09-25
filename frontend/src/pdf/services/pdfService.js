@@ -40,68 +40,68 @@ class PDFService {
     };
   }
 
- // 🆕 FUNCIÓN SIMPLIFICADA - SIN LLAMADAS API INNECESARIAS
-obtenerNombreFaena(user, filters) {
-  try {
-    // CASO 1: HistorialMaquinasView - Faenas seleccionadas
-    if (filters?.selectedFaenas && Array.isArray(filters.selectedFaenas)) {
-      if (filters.selectedFaenas.length === 1) {
-        return filters.selectedFaenas[0]; // Una sola faena
-      } else if (filters.selectedFaenas.length > 1) {
-        return `Múltiples faenas (${filters.selectedFaenas.length})`; // Varias faenas
-      }
-    }
-
-    // CASO 2: ConsumosViewGerente - "todas las faenas"
-    if (filters?.faenaSeleccionada === 'todas') {
-      if (filters?.faenas && filters.faenas.length > 1) {
-        return `Todas las faenas (${filters.faenas.length} faenas)`;
-      }
-      return 'Todas las faenas';
-    }
-
-    // CASO 3: ConsumosViewGerente - Faena específica
-    if (filters?.faenaSeleccionada && filters.faenaSeleccionada !== 'todas') {
-      // ✅ Buscar en las faenas disponibles del filtro (SIN API CALL)
-      if (filters?.faenas && filters.faenas.length > 0) {
-        const faenaEncontrada = filters.faenas.find(f => 
-          f.value == filters.faenaSeleccionada || f.id == filters.faenaSeleccionada
-        );
-        if (faenaEncontrada) {
-          return faenaEncontrada.label || faenaEncontrada.nombre || faenaEncontrada.ubicacion;
+  // 🆕 FUNCIÓN SIMPLIFICADA - SIN LLAMADAS API INNECESARIAS
+  obtenerNombreFaena(user, filters) {
+    try {
+      // CASO 1: HistorialMaquinasView - Faenas seleccionadas
+      if (filters?.selectedFaenas && Array.isArray(filters.selectedFaenas)) {
+        if (filters.selectedFaenas.length === 1) {
+          return filters.selectedFaenas[0]; // Una sola faena
+        } else if (filters.selectedFaenas.length > 1) {
+          return `Múltiples faenas (${filters.selectedFaenas.length})`; // Varias faenas
         }
       }
-      
-      // ✅ Fallback simple - sin API call
-      return `Faena ${filters.faenaSeleccionada}`;
-    }
 
-    // CASO 4: Bombero - Usar faena del usuario
-    if (user?.faena?.ubicacion) {
-      return user.faena.ubicacion;
-    }
-    
-    if (user?.nombre_faena) {
-      return user.nombre_faena;
-    }
+      // CASO 2: ConsumosViewGerente - "todas las faenas"
+      if (filters?.faenaSeleccionada === 'todas') {
+        if (filters?.faenas && filters.faenas.length > 1) {
+          return `Todas las faenas (${filters.faenas.length} faenas)`;
+        }
+        return 'Todas las faenas';
+      }
 
-    // CASO 5: Fallback con mapeo local (para casos edge)
-    if (user?.id_faena) {
-      const faenaMap = {
-        1: 'Cabildo',
-        4: 'Tiltil',
-        5: 'Estación de Servicio',
-      };
-      return faenaMap[user.id_faena] || `Faena ${user.id_faena}`;
-    }
+      // CASO 3: ConsumosViewGerente - Faena específica
+      if (filters?.faenaSeleccionada && filters.faenaSeleccionada !== 'todas') {
+        // ✅ Buscar en las faenas disponibles del filtro (SIN API CALL)
+        if (filters?.faenas && filters.faenas.length > 0) {
+          const faenaEncontrada = filters.faenas.find(f =>
+            f.value == filters.faenaSeleccionada || f.id == filters.faenaSeleccionada
+          );
+          if (faenaEncontrada) {
+            return faenaEncontrada.label || faenaEncontrada.nombre || faenaEncontrada.ubicacion;
+          }
+        }
 
-    return 'Sistema de Gestión de Petróleo';
-    
-  } catch (error) {
-    console.warn('Error obteniendo nombre de faena:', error);
-    return 'Sistema de Gestión de Petróleo';
+        // ✅ Fallback simple - sin API call
+        return `Faena ${filters.faenaSeleccionada}`;
+      }
+
+      // CASO 4: Bombero - Usar faena del usuario
+      if (user?.faena?.ubicacion) {
+        return user.faena.ubicacion;
+      }
+
+      if (user?.nombre_faena) {
+        return user.nombre_faena;
+      }
+
+      // CASO 5: Fallback con mapeo local (para casos edge)
+      if (user?.id_faena) {
+        const faenaMap = {
+          1: 'Cabildo',
+          4: 'Tiltil',
+          5: 'Estación de Servicio',
+        };
+        return faenaMap[user.id_faena] || `Faena ${user.id_faena}`;
+      }
+
+      return 'Sistema de Gestión de Petróleo';
+
+    } catch (error) {
+      console.warn('Error obteniendo nombre de faena:', error);
+      return 'Sistema de Gestión de Petróleo';
+    }
   }
-}
   // Función principal para generar PDF
   async generateConsumptionPDF(data) {
     try {
@@ -114,7 +114,7 @@ obtenerNombreFaena(user, filters) {
       this.initializePaginationTracker(totalItems, currentPage, consumos);
 
       // 🆕 OBTENER NOMBRE DE FAENA
-const nombreFaena = this.obtenerNombreFaena(user, filters);
+      const nombreFaena = this.obtenerNombreFaena(user, filters);
       // Header mejorado con nombre de faena
       yPosition = this.addProfessionalHeader(doc, yPosition, nombreFaena);
 
@@ -165,7 +165,7 @@ const nombreFaena = this.obtenerNombreFaena(user, filters);
 
     // 🆕 LÓGICA PARA LOGO SEGÚN FAENA
     const esFaenaTilTil = nombreFaena && (
-      nombreFaena.toLowerCase().includes('til til') || 
+      nombreFaena.toLowerCase().includes('til til') ||
       nombreFaena.toLowerCase().includes('tiltil') ||
       nombreFaena.toLowerCase().includes('til-til')
     );
@@ -212,31 +212,61 @@ const nombreFaena = this.obtenerNombreFaena(user, filters);
   }
 
   // Filtros con diseño mejorado
+  // 🔧 MODIFICAR en PDFService.js - Función addImprovedFiltersInfo
+  // Busca estas líneas y cámbialas:
+
   addImprovedFiltersInfo(doc, filters, yPosition) {
     const hasFilters = filters.dateFrom || filters.dateTo || filters.equipoFilter;
 
     if (hasFilters) {
-      // Caja con sombra y bordes redondeados (simulados)
+      // 🆕 CONFIGURACIÓN AJUSTABLE DE DIMENSIONES
+      const margenIzquierdo = 10;  // Cambia aquí: Menos margen = más ancho
+      const margenDerecho = 10;    // Cambia aquí: Menos margen = más ancho
+      const anchoPagina = 297;     // A4 landscape width
+      const anchoCaja = anchoPagina - margenIzquierdo - margenDerecho; // Ancho dinámico
+
+      console.log(`🔍 Dimensiones de filtros: margen=${margenIzquierdo}mm, ancho=${anchoCaja}mm`);
+
+      // 🆕 CALCULAR ALTURA DINÁMICA basada en cuántas líneas necesitarán los equipos
+      let boxHeight = 22; // Altura base
+
+      if (filters.equipoFilter) {
+        boxHeight += 12; // Línea adicional para equipos
+
+        if (Array.isArray(filters.equipoFilter)) {
+          const totalMaquinas = filters.equipoFilter.length;
+          if (totalMaquinas > 1) {
+            const lineasEstimadas = Math.ceil(totalMaquinas / 2.5);
+            if (lineasEstimadas > 1) {
+              boxHeight += (lineasEstimadas - 1) * 4;
+            }
+          }
+        }
+      }
+
+      // 🔧 CAJA CON ANCHO AJUSTABLE
       doc.setFillColor(...this.colors.primaryLight);
-      doc.rect(15, yPosition - 2, 267, 22, 'F');
+      doc.rect(margenIzquierdo, yPosition - 2, anchoCaja, boxHeight, 'F');
 
       // Borde elegante
       doc.setDrawColor(...this.colors.primary);
       doc.setLineWidth(0.5);
-      doc.rect(15, yPosition - 2, 267, 22);
+      doc.rect(margenIzquierdo, yPosition - 2, anchoCaja, boxHeight);
 
       // Título de filtros con icono
       doc.setTextColor(...this.colors.primaryDark);
       doc.setFontSize(11);
       doc.setFont(undefined, 'bold');
-      doc.text('  FILTROS APLICADOS', 20, yPosition + 4);
+      doc.text('  FILTROS APLICADOS', margenIzquierdo + 5, yPosition + 4);
 
       yPosition += 10;
 
-      // Layout en columnas para los filtros
-      let currentX = 25;
-      const colWidth = 80;
+      // 🆕 PRIMERA LÍNEA: Solo fechas
+      let currentX = margenIzquierdo + 10;  // Usar margen ajustable
+      const colWidth = 90;
+      let hayFechas = false;
 
+      // Fecha Desde
       if (filters.dateFrom) {
         doc.setTextColor(...this.colors.darkGray);
         doc.setFont(undefined, 'normal');
@@ -245,8 +275,10 @@ const nombreFaena = this.obtenerNombreFaena(user, filters);
         doc.setFont(undefined, 'bold');
         doc.text(this.formatDate(filters.dateFrom), currentX, yPosition + 4);
         currentX += colWidth;
+        hayFechas = true;
       }
 
+      // Fecha Hasta
       if (filters.dateTo) {
         doc.setTextColor(...this.colors.darkGray);
         doc.setFont(undefined, 'normal');
@@ -254,34 +286,111 @@ const nombreFaena = this.obtenerNombreFaena(user, filters);
         doc.text('Hasta:', currentX, yPosition);
         doc.setFont(undefined, 'bold');
         doc.text(this.formatDate(filters.dateTo), currentX, yPosition + 4);
-        currentX += colWidth;
+        hayFechas = true;
       }
 
+      // 🆕 LÍNEAS DEDICADAS: Solo equipos
       if (filters.equipoFilter) {
+        if (hayFechas) {
+          yPosition += 12;
+        }
+
+        currentX = margenIzquierdo + 10;  // Usar margen ajustable
+
         doc.setTextColor(...this.colors.darkGray);
         doc.setFont(undefined, 'normal');
         doc.setFontSize(9);
-        doc.text('Equipo:', currentX, yPosition);
-        doc.setFont(undefined, 'bold');
-        const equipoText = filters.equipoFilter.length > 20 ?
-          filters.equipoFilter.substring(0, 20) + '...' : filters.equipoFilter;
-        doc.text(equipoText, currentX, yPosition + 4);
+        doc.text('Equipos:', currentX, yPosition);
+
+        if (Array.isArray(filters.equipoFilter)) {
+          // 🔧 PASAR EL ANCHO DISPONIBLE PARA EQUIPOS
+          const anchoDisponibleEquipos = anchoCaja - 35; // Restar espacio del label "Equipos:"
+          this.renderMaquinasHorizontalmente(doc, filters.equipoFilter, currentX + 25, yPosition, anchoDisponibleEquipos);
+        } else {
+          doc.setFont(undefined, 'bold');
+          const maxChars = Math.floor(anchoCaja / 4); // Ajustar según ancho
+          const equipoText = filters.equipoFilter.length > maxChars
+            ? filters.equipoFilter.substring(0, maxChars) + '...'
+            : filters.equipoFilter;
+          doc.text(equipoText, currentX + 25, yPosition);
+        }
       }
 
-      yPosition += 15;
+      yPosition += boxHeight - (hayFechas && filters.equipoFilter ? 12 : 7);
     } else {
-      // Estilo para "sin filtros"
+      // 🔧 ESTILO PARA "SIN FILTROS" también ajustable
+      const margenIzquierdo = 10;
+      const anchoCaja = 297 - (margenIzquierdo * 2);
+
       doc.setFillColor(...this.colors.lightGray);
-      doc.rect(15, yPosition - 2, 267, 10, 'F');
+      doc.rect(margenIzquierdo, yPosition - 2, anchoCaja, 10, 'F');
 
       doc.setTextColor(...this.colors.gray);
       doc.setFontSize(10);
       doc.setFont(undefined, 'bold');
-      doc.text('REPORTE COMPLETO - Sin filtros aplicados', 20, yPosition + 3);
+      doc.text('REPORTE COMPLETO - Sin filtros aplicados', margenIzquierdo + 5, yPosition + 3);
       yPosition += 15;
     }
 
     return yPosition;
+  }
+
+  // 🆕 NUEVA FUNCIÓN HELPER para renderizar máquinas horizontalmente
+  renderMaquinasHorizontalmente(doc, maquinas, startX, startY, anchoDisponible = 240) {
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(8);
+
+    // Usar el ancho disponible pasado como parámetro
+    const maxCharsPerLine = Math.floor(anchoDisponible / 3.7); // ~3.7mm por carácter aprox
+    const lineHeight = 4;
+
+    console.log(`🔍 Espacio para equipos: ${anchoDisponible}mm, ~${maxCharsPerLine} caracteres por línea`);
+
+    if (maquinas.length === 1) {
+      const maquina = maquinas[0].length > maxCharsPerLine
+        ? maquinas[0].substring(0, maxCharsPerLine - 2) + '..'
+        : maquinas[0];
+      doc.text(maquina, startX, startY);
+
+    } else {
+      // Preparar nombres con menos truncamiento (ahora con más espacio)
+      const nombresPreparados = maquinas.map(m => {
+        const maxCharsNombre = Math.floor(maxCharsPerLine / 2.5); // Más caracteres por nombre
+        if (m.length > maxCharsNombre) {
+          return m.substring(0, maxCharsNombre) + '..';
+        }
+        return m;
+      });
+
+      // Construir líneas de texto
+      const lineas = [];
+      let lineaActual = '';
+
+      for (let i = 0; i < nombresPreparados.length; i++) {
+        const nombre = nombresPreparados[i];
+        const separador = i === 0 ? '' : ' • ';
+        const nuevoTexto = lineaActual + separador + nombre;
+
+        if (nuevoTexto.length <= maxCharsPerLine) {
+          lineaActual = nuevoTexto;
+        } else {
+          if (lineaActual) {
+            lineas.push(lineaActual);
+          }
+          lineaActual = nombre;
+        }
+      }
+
+      if (lineaActual) {
+        lineas.push(lineaActual);
+      }
+
+      // Renderizar todas las líneas
+      lineas.forEach((linea, index) => {
+        const yPos = startY + (index * lineHeight);
+        doc.text(linea, startX, yPos);
+      });
+    }
   }
 
   // Estadísticas con diseño profesional corregido
@@ -364,7 +473,7 @@ const nombreFaena = this.obtenerNombreFaena(user, filters);
       doc.setFontSize(10);
       doc.setFont(undefined, 'normal');
       doc.text('Intenta ajustar los filtros de búsqueda', 125, startY + 22);
-      
+
       // Paginación para estado vacío
       this.addPagePaginationInfo(doc, 0, 0, 180);
       return;
@@ -411,11 +520,11 @@ const nombreFaena = this.obtenerNombreFaena(user, filters);
 
         doc.addPage();
         this.paginationTracker.currentPageNumber++;
-        
+
         pageStartRecord = pageStartRecord + recordsOnCurrentPage;
         recordsOnCurrentPage = 0;
         yPosition = 25;
-        
+
         this.addCleanTableHeader(doc, cols, colWidths, yPosition);
         yPosition += 12;
 
@@ -462,10 +571,10 @@ const nombreFaena = this.obtenerNombreFaena(user, filters);
     doc.setLineWidth(0.3);
 
     const columnPositions = [
-      cols.equipo - 1, 
+      cols.equipo - 1,
       cols.litros - 1,
       cols.solicitante - 1,
-      cols.estanque - 1, 
+      cols.estanque - 1,
       cols.medicion - 1
     ];
 
@@ -513,11 +622,11 @@ const nombreFaena = this.obtenerNombreFaena(user, filters);
     doc.setFontSize(9); // Cambio: De 8 a 9 (letra más grande)
     doc.setFont(undefined, 'bold');
     doc.setTextColor(...this.colors.darkGray);
-    
+
     const fechaWidth = doc.getTextWidth(fechaCompacta);
     const fechaCenterX = cols.fechaHora + (colWidths.fechaHora - fechaWidth) / 2;
     doc.text(fechaCompacta, fechaCenterX, centerY - 1);
-    
+
     doc.setFont(undefined, 'normal');
     doc.setFontSize(8); // Cambio: De 7 a 8 (letra más grande)
     doc.setTextColor(...this.colors.gray);
@@ -570,27 +679,27 @@ const nombreFaena = this.obtenerNombreFaena(user, filters);
 
     if (cantidad > 1) {
       // === MÚLTIPLES ESTANQUES - CON MÁS ESPACIO ===
-      
+
       const estanques = this.getEstanquesList(consumo);
-      
+
       // Mostrar cada estanque con mejor espaciado vertical
       estanques.forEach((nombreEstanque, index) => {
         if (index < 4) { // Máximo 4 líneas
           const yLinePosition = yPosition + 3 + (index * 3.5);
-          
+
           doc.setTextColor(...this.colors.darkGray);
           doc.setFont(undefined, 'normal');
           doc.setFontSize(8); // Cambio: De 7 a 8 (letra más grande)
-          
+
           const nombreLimpio = this.cleanEstanqueName(nombreEstanque);
           const nombreTruncado = this.smartTruncate(nombreLimpio, 35); // Cambio: Ajustado para nuevo ancho de estanque
           const nombreWidth = doc.getTextWidth(nombreTruncado);
           const nombreCenterX = x + (colWidth - nombreWidth) / 2;
-          
+
           doc.text(nombreTruncado, nombreCenterX, yLinePosition);
         }
       });
-      
+
     } else {
       // === ESTANQUE ÚNICO CENTRADO ===
       const estanqueNombre = consumo.estanque || 'N/A';
@@ -609,14 +718,14 @@ const nombreFaena = this.obtenerNombreFaena(user, filters);
   getEstanquesList(consumo) {
     const estanqueNombre = consumo.estanque || 'N/A';
     const cantidad = consumo.cantidad_estanques || 1;
-    
+
     if (cantidad === 1) {
       return [this.cleanEstanqueName(estanqueNombre)];
     }
-    
+
     // Dividir estanques por separadores comunes
     let estanques = [];
-    
+
     // Buscar separadores comunes: " / ", " - ", " | ", " y ", " Y "
     if (estanqueNombre.includes(' / ')) {
       estanques = estanqueNombre.split(' / ');
@@ -635,14 +744,14 @@ const nombreFaena = this.obtenerNombreFaena(user, filters);
         estanques.push(`${nombreBase} ${i}`);
       }
     }
-    
+
     // Limpiar cada estanque individualmente
     estanques = estanques
       .map(est => est.trim()) // Quitar espacios
       .filter(est => est && est !== '') // Filtrar vacíos
       .map(est => this.cleanEstanqueName(est)) // Limpiar cada uno
       .slice(0, 4); // Máximo 4 estanques
-    
+
     return estanques;
   }
 
@@ -663,7 +772,7 @@ const nombreFaena = this.obtenerNombreFaena(user, filters);
     doc.setFont(undefined, 'normal');
 
     let paginationText = '';
-    
+
     if (startRecord === 0 && endRecord === 0) {
       paginationText = `Página ${this.paginationTracker.currentPageNumber} • Sin registros • Total general: ${this.paginationTracker.totalItems?.toLocaleString() || '0'}`;
     } else {
@@ -678,7 +787,7 @@ const nombreFaena = this.obtenerNombreFaena(user, filters);
     // Información adicional
     doc.setFontSize(7);
     doc.setTextColor(...this.colors.gray);
-    
+
     if (startRecord > 0) {
       const recordsOnPage = endRecord - startRecord + 1;
       doc.text(`${recordsOnPage} reg. en página`, 235, yPosition + 4);
@@ -804,7 +913,7 @@ const nombreFaena = this.obtenerNombreFaena(user, filters);
     });
   }
 
-  // 🆕 GENERAR NOMBRE DE ARCHIVO CON FAENA
+  // 🔧 FUNCIÓN CORREGIDA en PDFService.js
   generateFileName(filters, nombreFaena) {
     const timestamp = new Date().toISOString().slice(0, 10);
     let fileName = `3H-Copper-Consumos`;
@@ -821,9 +930,30 @@ const nombreFaena = this.obtenerNombreFaena(user, filters);
       fileName += '-Filtrado';
     }
 
+    // 🆕 ARREGLO PARA MANEJAR equipoFilter como ARRAY o STRING
     if (filters.equipoFilter) {
-      const equipoClean = filters.equipoFilter.replace(/[^a-zA-Z0-9]/g, '-').substring(0, 15);
-      fileName += `-${equipoClean}`;
+      let equipoText = '';
+
+      if (Array.isArray(filters.equipoFilter)) {
+        // Si es array, tomar las primeras máquinas para el nombre
+        if (filters.equipoFilter.length === 1) {
+          equipoText = filters.equipoFilter[0];
+        } else if (filters.equipoFilter.length > 1) {
+          equipoText = `${filters.equipoFilter.length}Maquinas`;
+        }
+      } else {
+        // Si es string (retrocompatibilidad)
+        equipoText = filters.equipoFilter;
+      }
+
+      // Limpiar el texto para el nombre del archivo
+      if (equipoText) {
+        const equipoClean = equipoText
+          .toString() // Por si acaso
+          .replace(/[^a-zA-Z0-9]/g, '-')
+          .substring(0, 15);
+        fileName += `-${equipoClean}`;
+      }
     }
 
     return `${fileName}.pdf`;

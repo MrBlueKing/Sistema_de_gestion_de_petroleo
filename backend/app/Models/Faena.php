@@ -18,7 +18,10 @@ class Faena extends Model
 
     // Campos que se pueden asignar masivamente
     protected $fillable = [
-        'ubicacion', // Según la estructura que compartiste, esto es lo que usas en lugar de 'nombre'
+        'ubicacion',
+        'detalle',
+        'porcentaje_tributacion', // <- agregado
+        'fecha_creacion',
     ];
 
     public $timestamps = false;

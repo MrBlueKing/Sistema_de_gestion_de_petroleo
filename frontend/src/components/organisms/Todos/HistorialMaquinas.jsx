@@ -197,7 +197,7 @@ const DateFilter = React.memo(
 
         const timeout = setTimeout(() => {
           onFilterChange?.(newFilters);
-        }, 300);
+        }, 200);
 
         setFilterTimeout(timeout);
       },
@@ -443,6 +443,7 @@ const DateFilter = React.memo(
                     <button
                       key={id}
                       onClick={() => onFaenaToggle?.(colors.name, !isSelected)}
+                      disabled={isFiltering}
                       className={`relative overflow-hidden p-2 sm:p-3 rounded-lg border-2 transition-all duration-300 transform active:scale-95 ${isSelected
                         ? `${colors.border} ${colors.badge} shadow-md scale-105`
                         : "border-gray-200 bg-gray-50 hover:bg-gray-100"
@@ -658,6 +659,7 @@ const HistorialMaquinasView = () => {
   //Cargando filtros de faena
   const [isUpdatingFaenas, setIsUpdatingFaenas] = useState(false);
   const [isFilteringFaenas, setIsFilteringFaenas] = useState(false);
+  const [globalLoading, setGlobalLoading] = useState(false);
 
   // Estados unificados
   const [pestanaActiva, setPestanaActiva] = useState("historial");
@@ -826,6 +828,12 @@ const HistorialMaquinasView = () => {
   // ✅ REEMPLAZA las 3 llamadas anteriores por 1 sola llamada optimizada
   const fetchAllData = useCallback(
     async (filterParams = filters, page = currentPage, faenasSeleccionadas = selectedFaenas) => {
+      console.log("🚀 fetchAllData iniciado", {
+        faenasSeleccionadas: faenasSeleccionadas.length,
+        page,
+        globalLoading
+      });
+
       if (faenasSeleccionadas.length === 0) {
         DEBUG && console.warn("⚠️ No hay faenas seleccionadas");
         setConsumos([]);
@@ -833,10 +841,15 @@ const HistorialMaquinasView = () => {
         setConsumosParaGraficos([]);
         setTotalItems(0);
         setTotalPages(1);
+        clearStatsAndData();
+        setGlobalLoading(false);
+        setIsFilteringFaenas(false);
         return;
       }
 
       try {
+        // 🆕 ACTIVAR TODOS LOS ESTADOS DE CARGA
+        if (!globalLoading) setGlobalLoading(true);
         setLoading(true);
         setLoadingGraficos(true);
         setError(null);
@@ -1036,7 +1049,7 @@ const HistorialMaquinasView = () => {
           performance: performance?.total_time || 'N/A',
           anomalas: anomalas_stats
         });
-
+        console.log("✅ fetchAllData completado exitosamente");
         return consumosValidados;
 
       } catch (error) {
@@ -1049,21 +1062,59 @@ const HistorialMaquinasView = () => {
         });
         throw error;
       } finally {
+        // 🆕 DESACTIVAR TODOS LOS ESTADOS DE CARGA
         setLoading(false);
         setLoadingGraficos(false);
         setIsFilteringFaenas(false);
-        // 🔍 DEBUG: Agregar esto temporalmente
-        console.log("🔄 Finally ejecutado - Loading desactivado");
+        setGlobalLoading(false);
+        console.log("🔄 Todos los loading states desactivados");
       }
     },
     [filters, selectedFaenas, pestanaActiva, currentPage, getAuthToken, validateConsumosData]
   );
 
-  const faenaTimeoutRef = useRef(null);
-  // 🔄 MANEJAR selección/deselección de faenas
-  const handleFaenaToggle = useCallback((name, isSelected) => {
+  // 🔧 SOLUCIÓN 2: Función de limpieza de estadísticas MEJORADA y más robusta
+  const clearStatsAndData = useCallback(() => {
+    console.log("🧹 LIMPIANDO estadísticas y datos - FORZADO");
 
-    setIsUpdatingFaenas(true); // Activar flag
+    // Limpiar estadísticas - VALORES FIJOS EN CERO
+    setStats({
+      total_consumos: 0,
+      total_litros: 0,
+      promedio_consumo: 0,
+      costo_total: 0,
+      equipo_mas_usado: "N/A",
+      consumos_simples: 0,
+      consumos_multiples: 0,
+      porcentaje_multiples: 0,
+      faenas: {}
+    });
+
+    // Limpiar todos los datos
+    setConsumos([]);
+    setConsumosParaGraficos([]);
+    setTotalItems(0);
+    setTotalPages(1);
+    setCurrentPage(1);
+    setMaquinasDisponibles([]);
+    setError(null);
+
+    // 🆕 FORZAR RE-RENDER inmediato
+    setTimeout(() => {
+      console.log("🔄 Re-render forzado para limpieza");
+    }, 0);
+
+    DEBUG && console.log("🧹 Estadísticas y datos completamente limpiados");
+  }, []);
+
+  const faenaTimeoutRef = useRef(null);
+  // 🔧 SOLUCIÓN 3: Función de manejo de faenas COMPLETAMENTE REESCRITA
+  const handleFaenaToggle = useCallback((name, isSelected) => {
+    console.log(`🏭 Toggle faena: ${name} -> ${isSelected ? 'SELECCIONAR' : 'QUITAR'}`);
+
+    // 🆕 ACTIVAR CARGA GLOBAL INMEDIATAMENTE
+    setGlobalLoading(true);
+    setIsUpdatingFaenas(true);
 
     if (!isFilteringFaenas) {
       setIsFilteringFaenas(true);
@@ -1074,31 +1125,45 @@ const HistorialMaquinasView = () => {
         ? [...prev, name]
         : prev.filter((f) => f !== name);
 
-      DEBUG &&
-        console.log("🏭 Cambiando faenas:", {
-          anterior: prev,
-          nueva: newSelected,
-          faena: name,
-          accion: isSelected ? "AGREGAR" : "QUITAR",
-        });
+      console.log("🏭 Faenas actualizadas:", {
+        anterior: prev,
+        nueva: newSelected,
+        cantidad: newSelected.length
+      });
 
       // Reset página cuando cambian las faenas
       setCurrentPage(1);
 
-      // Limpiar timeout anterior si existe
+      // 🆕 LIMPIAR TIMEOUT ANTERIOR
       if (faenaTimeoutRef.current) {
         clearTimeout(faenaTimeoutRef.current);
+        faenaTimeoutRef.current = null; // 👈 muy importante
+        console.log("⏰ Timeout anterior limpiado");
       }
 
-      // Crear nuevo timeout
-      faenaTimeoutRef.current = setTimeout(() => {
-        setIsUpdatingFaenas(false); // Esto disparará el useEffect
-      }, 500); // Esperar 500ms después del último cambio
+      // 🆕 MANEJO INMEDIATO SI NO HAY FAENAS
+      if (newSelected.length === 0) {
+        console.log("🚨 SIN FAENAS - Limpieza inmediata");
 
+        // Limpiar inmediatamente sin esperar timeout
+        clearStatsAndData();
+        setIsFilteringFaenas(false);
+        setIsUpdatingFaenas(false);
+        setGlobalLoading(false);
+
+        return newSelected;
+      }
+
+      // 🆕 TIMEOUT PARA CUANDO HAY FAENAS (evitar múltiples llamadas)
+      faenaTimeoutRef.current = setTimeout(() => {
+        console.log("⏰ Timeout ejecutado - hay faenas, proceder con fetch");
+        setIsUpdatingFaenas(false);
+        // isFilteringFaenas y globalLoading se desactivarán en fetchAllData
+      }, 300); // Reducido a 300ms para mejor UX
 
       return newSelected;
     });
-  }, [isFilteringFaenas]);
+  }, [isFilteringFaenas, clearStatsAndData]);
 
   // 🔧 FUNCIÓN ACTUALIZADA PARA MANEJAR CAMBIOS EN FILTROS
   const handleFilterChange = useCallback((newFilters) => {
@@ -1107,6 +1172,19 @@ const HistorialMaquinasView = () => {
     setCurrentPage(1);
     // fetchAllData se ejecutará automáticamente por el useEffect
   }, []);
+
+  // 🔧 SOLUCIÓN 6: Determinar el estado de carga a mostrar
+  const shouldShowLoading = useMemo(() => {
+    return loading || isFilteringFaenas || globalLoading || isUpdatingFaenas;
+  }, [loading, isFilteringFaenas, globalLoading, isUpdatingFaenas]);
+
+  const getLoadingMessage = useMemo(() => {
+    if (isUpdatingFaenas) return "Procesando selección de faenas...";
+    if (isFilteringFaenas) return "Aplicando filtros de faenas...";
+    if (globalLoading) return "Actualizando datos...";
+    if (loading) return "Cargando consumos...";
+    return "Cargando...";
+  }, [isUpdatingFaenas, isFilteringFaenas, globalLoading, loading]);
 
   // 📄 FUNCIÓN ACTUALIZADA PARA MANEJAR CAMBIO DE PÁGINA
   const handlePageChange = useCallback((page) => {
@@ -1137,12 +1215,31 @@ const HistorialMaquinasView = () => {
     }
   }, [user, userLoading, fetchAllData]);
 
-  // Efecto para recargar cuando cambien filtros o faenas
-  //useEffect(() => {
-  //  if (user && selectedFaenas.length > 0 && !isUpdatingFaenas) {
-  //    fetchAllData(filters, 1, selectedFaenas);
-  //  }
-  //}, [filters, selectedFaenas, user, fetchAllData, isUpdatingFaenas]);
+  // 🔧 SOLUCIÓN 5: useEffect mejorado para manejar cambios de faenas
+  useEffect(() => {
+    console.log("🔄 UseEffect faenas - evaluando:", {
+      user: !!user,
+      isUpdatingFaenas,
+      selectedFaenas: selectedFaenas.length,
+      globalLoading
+    });
+
+    if (!user) return;
+
+    if (selectedFaenas.length === 0) {
+      console.log("❌ Sin faenas, limpieza en useEffect");
+      clearStatsAndData();
+      setGlobalLoading(false);
+      setIsFilteringFaenas(false);
+      return; // 👈 evita cualquier fetch
+    }
+
+    if (!isUpdatingFaenas) {
+      console.log("✅ Hay faenas, ejecutando fetchAllData");
+      fetchAllData(filters, 1, selectedFaenas);
+    }
+  }, [filters, selectedFaenas, user, fetchAllData, isUpdatingFaenas, clearStatsAndData]);
+
 
   //. CLEANUP DEL TIMEOUT
   useEffect(() => {
@@ -1444,9 +1541,9 @@ const HistorialMaquinasView = () => {
             </div>
 
             {/* CONTENIDO PRINCIPAL */}
-            {(loading || isFilteringFaenas) ? (
+            {shouldShowLoading ? (
               <LoadingSpinner message={
-                isFilteringFaenas ? "Aplicando filtros de faenas..." : "Cargando consumos..."
+                getLoadingMessage ? "Aplicando filtros de faenas..." : "Cargando consumos..."
               } />
             ) : error ? (
               <ErrorDisplay
@@ -1581,6 +1678,7 @@ const HistorialMaquinasView = () => {
                                     {consumo.solicitante_tipo && (
                                       <div className="text-xs text-blue-700 font-medium">
                                         {consumo.solicitante_tipo}
+                                        {console.log("Datos de consumo:", consumo)}
                                       </div>
                                     )}
                                   </td>
@@ -1662,12 +1760,12 @@ const HistorialMaquinasView = () => {
                       </table>
                     </div>
                   </div>
-                  {(loading || isFilteringFaenas) && (
+                  {shouldShowLoading && (
                     <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-20">
                       <div className="text-center">
                         <FaSpinner className="animate-spin text-blue-600 text-3xl mx-auto mb-2" />
                         <p className="text-gray-600">
-                          {isFilteringFaenas ? "Aplicando cambios..." : "Cargando..."}
+                          {shouldShowLoading ? "Aplicando cambios..." : "Cargando..."}
                         </p>
                       </div>
                     </div>
