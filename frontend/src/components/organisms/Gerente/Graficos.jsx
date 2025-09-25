@@ -248,6 +248,30 @@ const GraficosContent = ({ children }) => {
     }
   }, [cargando, faenaSeleccionada]); // Solo depende de estados críticos
 
+
+  
+// 1. Crear un useMemo para obtener la faena completa seleccionada
+const faenaSeleccionadaCompleta = useMemo(() => {
+  if (faenaSeleccionada === "todas") {
+    return { 
+      id: "todas", 
+      nombre: "Todas las faenas" 
+    };
+  }
+  
+  const faena = faenas.find(f => f.value === faenaSeleccionada);
+  return faena ? {
+    id: faenaSeleccionada,
+    nombre: faena.label,
+    ubicacion: faena.ubicacion
+  } : { 
+    id: faenaSeleccionada, 
+    nombre: `Faena ${faenaSeleccionada}` 
+  };
+}, [faenaSeleccionada, faenas]);
+
+
+
   // OPTIMIZACION 4: Cargar faenas solo una vez al montar
   useEffect(() => {
     cargarFaenas();
@@ -322,6 +346,7 @@ const GraficosContent = ({ children }) => {
   const chartCommonProps = useMemo(
     () => ({
       faenaSeleccionada,
+      nombreFaena: faenaSeleccionadaCompleta.nombre, 
       fechaDesde,
       fechaHasta,
       horaDesde,
@@ -330,6 +355,7 @@ const GraficosContent = ({ children }) => {
     }),
     [
       faenaSeleccionada,
+      faenaSeleccionadaCompleta.nombre,
       fechaDesde,
       fechaHasta,
       horaDesde,
@@ -723,7 +749,7 @@ const shouldRenderCompact = useMemo(() => {
             reservados.
           </div>
           <div className="flex items-center">
-            <span className="mr-2">Versión 0.0.1</span>
+            <span className="mr-2">Versión 3.1.0</span>
             <span className="w-1 h-1 bg-gray-400 rounded-full mx-2"></span>
             <span>
               Última actualización: {ultimaActualizacion.toLocaleString()}

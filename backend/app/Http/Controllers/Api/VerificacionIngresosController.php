@@ -705,7 +705,7 @@ class VerificacionIngresosController extends Controller
             $recepcionesProcesadas[] = [
                 'id_ingreso' => $recepcion->id_ingreso,
                 'fecha_hora' => $recepcion->created_at,
-                'id_faena'=> $recepcion->Faena->ubicacion,
+                'id_faena' => $recepcion->Faena->ubicacion,
                 'numero_guia' => $recepcion->numero_guia,
                 'litros_documentados' => $datosRecepcion['litros_documentados'],
                 'litros_recibidos' => $datosRecepcion['litros_recibidos'],
@@ -1047,6 +1047,7 @@ class VerificacionIngresosController extends Controller
                         'stock_inicial' => $resultadoFaena['stock_inicial_periodo'],
                         'stock_final' => $resultadoFaena['stock_final_calculado'],
                         'total_recepciones' => $resultadoFaena['totales']['total_recepciones'],
+                        'total_errores_iniciales' => $resultadoFaena['totales']['total_errores_iniciales'], // 🆕 AGREGAR ESTA LÍNEA
                         'total_consumos' => $resultadoFaena['totales']['total_consumos'],
                         'diferencia_neta' => $resultadoFaena['totales']['diferencia_neta']
                     ];

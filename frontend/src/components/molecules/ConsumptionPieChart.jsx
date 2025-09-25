@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
+
+import { GiGasPump } from "react-icons/gi";
+
 import {
   PieChart,
   Pie,
@@ -42,6 +45,7 @@ import {
 import axios from "../../lib/axios";
 
 import EnhancedConsumoDetailsModal from "./EnhancedConsumoDetailsModal";
+import StockFinalCard from "../molecules/StockFinalCard"; // Ajusta la ruta según tu estructura
 
 // Componente Modal Original (mantenido sin cambios)
 const ConsumoDetailsModal = ({
@@ -51,6 +55,7 @@ const ConsumoDetailsModal = ({
   fechaDesde,
   fechaHasta,
   faenaSeleccionada,
+  nombreFaena = "Todas las faenas", // 🆕 Solo agregar esto
 }) => {
   const [consumos, setConsumos] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -175,7 +180,7 @@ const ConsumoDetailsModal = ({
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-800">
-                Detalles de Consumos - {categoria?.nombre}
+                Detalles de Consumos - {categoria?.nombre} - {nombreFaena}
               </h2>
               <p className="text-sm text-gray-600">
                 {fechaDesde && fechaHasta
@@ -417,10 +422,9 @@ const ConsumoDetailsModal = ({
 
 const ConsumptionPieChart = ({
   faenaSeleccionada = "todas",
+  nombreFaena = "Todas las faenas", // 🆕 Solo agregar esto
   fechaDesde,
   fechaHasta,
-  horaDesde,
-  horaHasta,
   refreshKey = 0,
   onCategoriesLoad = null, // ✅ SOLO ESTA CALLBACK
   chartColors = [
@@ -440,10 +444,11 @@ const ConsumptionPieChart = ({
   // 🆕 NUEVA PROP para callback de coordinación
   onLoadComplete = null,
 }) => {
-  const { 
-  handleMainChartLoad,
-  handleMainChartNoData,  // 🆕 AGREGAR ESTA LÍNEA
-} = useChartColors();
+  const [datosCalculados, setDatosCalculados] = useState(null);
+  const {
+    handleMainChartLoad,
+    handleMainChartNoData, // 🆕 AGREGAR ESTA LÍNEA
+  } = useChartColors();
   const [categorias, setCategorias] = useState([]);
   const [maquinas, setMaquinas] = useState([]);
   const [selectedCategoria, setSelectedCategoria] = useState(null);
@@ -514,6 +519,142 @@ const ConsumptionPieChart = ({
     return changed;
   };
 
+  // ✅ SOLUCIÓN FINAL: Copiar exactamente la lógica de ResumenStockDetallado
+  useEffect(() => {
+    const cargarDatosStock = async () => {
+      try {
+        console.log("🔍 Cargando datos de stock con parámetros:", {
+          faena: faenaSeleccionada,
+          fechaDesde,
+          fechaHasta,
+        });
+
+        // ✅ USAR EXACTAMENTE LOS MISMOS PARÁMETROS QUE ResumenStockDetallado
+        const params = {
+          fecha_desde: fechaDesde,
+          fecha_hasta: fechaHasta,
+          id_faena: faenaSeleccionada, // ✅ Incluir "todas" tal como lo hace ResumenStockDetallado
+        };
+
+        console.log("📊 Parámetros enviados:", params);
+
+        // ✅ USAR EL MISMO ENDPOINT QUE ResumenStockDetallado
+        const response = await axios.get(
+          "/api/verificacion-ingresos/resumen-detallado",
+          {
+            params,
+          }
+        );
+
+        console.log("📊 Respuesta completa:", response.data);
+
+        // ✅ USAR LA MISMA LÓGICA DE VALIDACIÓN QUE ResumenStockDetallado
+        if (response.data.success) {
+          // ✅ La estructura es response.data.data, no response.data.calculo_stock_detallado
+          setDatosCalculados(response.data.data);
+          console.log("✅ Datos de stock cargados:", response.data.data);
+        } else {
+          throw new Error(response.data.message || "Error al cargar datos");
+        }
+      } catch (error) {
+        console.error("❌ Error cargando datos de stock:", error);
+        console.error("❌ Detalles del error:", {
+          status: error.response?.status,
+          message: error.response?.data?.message,
+          data: error.response?.data,
+        });
+        setDatosCalculados(null);
+      }
+    };
+
+    // ✅ VALIDAR FECHAS (igual que ResumenStockDetallado)
+    if (fechaDesde && fechaHasta && faenaSeleccionada) {
+      cargarDatosStock();
+    } else {
+      console.log("⚠️ Faltan parámetros para cargar datos de stock:", {
+        fechaDesde,
+        fechaHasta,
+        faenaSeleccionada,
+      });
+      setDatosCalculados(null);
+    }
+  }, [faenaSeleccionada, fechaDesde, fechaHasta]);
+
+  // ✅ ACTUALIZAR StockFinalCard para usar la estructura correcta de resumen-detallado
+  const renderStockFinalCard = () => {
+    if (loading) {
+      return (
+        <div className="bg-green-50 rounded-lg p-4 border border-green-200 animate-pulse">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <div className="h-4 bg-green-200 rounded mb-2 w-20"></div>
+              <div className="h-8 bg-green-200 rounded mb-1 w-24"></div>
+              <div className="h-3 bg-green-200 rounded w-12"></div>
+            </div>
+            <div className="w-6 h-6 bg-green-200 rounded"></div>
+          </div>
+        </div>
+      );
+    }
+
+    if (!datosCalculados) {
+      return (
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Stock Final</p>
+              <p className="text-2xl font-bold text-gray-400">--</p>
+              <p className="text-xs text-gray-500">Sin datos</p>
+            </div>
+            <GiGasPump className="text-gray-400" size={24} />
+          </div>
+        </div>
+      );
+    }
+
+    // ✅ DEBUGGING: Ver exactamente qué estructura tenemos
+    console.log("🔍 DEBUG - datosCalculados completos:", datosCalculados);
+    console.log(
+      "🔍 DEBUG - Propiedades disponibles:",
+      Object.keys(datosCalculados)
+    );
+
+    // ✅ ACCEDER A calculo_stock_detallado dentro de datosCalculados
+    const calculoStock = datosCalculados.calculo_stock_detallado;
+    console.log("🔍 DEBUG - calculoStock:", calculoStock);
+    console.log(
+      "🔍 DEBUG - stock_final_calculado:",
+      calculoStock?.stock_final_calculado
+    );
+
+    // ✅ VALIDAR QUE TENEMOS LOS DATOS CORRECTOS
+    if (!calculoStock || calculoStock.stock_final_calculado === undefined) {
+      return (
+        <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-yellow-600">Stock Final</p>
+              <p className="text-2xl font-bold text-yellow-400">??</p>
+              <p className="text-xs text-yellow-500">
+                Estructura no reconocida
+              </p>
+            </div>
+            <GiGasPump className="text-yellow-400" size={24} />
+          </div>
+        </div>
+      );
+    }
+
+    // ✅ PASAR LOS DATOS CALCULADOS CORRECTOS AL COMPONENTE
+    return (
+      <StockFinalCard
+        datosCalculados={calculoStock} // ✅ Pasar solo calculo_stock_detallado
+        loading={false}
+        className="shadow-sm"
+      />
+    );
+  };
+
   // Datos actuales según el modo de vista
   const currentData = viewMode === "categorias" ? categorias : maquinas;
 
@@ -533,7 +674,7 @@ const ConsumptionPieChart = ({
       payload,
     } = props;
 
-    if (percent < 0.003) return null;
+    if (percent < 0.015) return null;
 
     const RADIAN = Math.PI / 180;
     const normalizedAngle = ((((midAngle * 180) / Math.PI) % 360) + 360) % 360;
@@ -784,190 +925,220 @@ const ConsumptionPieChart = ({
     );
   };
 
-// Cargar datos de categorías - VERSIÓN CORREGIDA
-const cargarDatosCategorias = async () => {
-  if (!isMounted.current) return;
-
-  try {
-    // ❌ REMOVIDO: setMainChartLoading(true);
-    setLoading(true);
-    setError(null);
-
-    if (!fechaDesde || !fechaHasta) {
-      setError("Por favor, seleccione un rango de fechas válido.");
-      setCategorias([]);
-      setLoading(false);
-      // 🆕 NUEVO: Notificar que completamos sin datos
-      if (handleMainChartNoData) handleMainChartNoData();
-      return;
-    }
-
-    if (new Date(fechaDesde) > new Date(fechaHasta)) {
-      setError("La fecha 'Hasta' no puede ser anterior a la fecha 'Desde'.");
-      setCategorias([]);
-      setLoading(false);
-      // 🆕 NUEVO: Notificar que completamos sin datos
-      if (handleMainChartNoData) handleMainChartNoData();
-      return;
-    }
-
-    const requestBody = {
-      fecha_inicio: fechaDesde,
-      fecha_fin: fechaHasta,
-      modo: "categorias",
-      incluir_redistribucion: false,
-      tipo_chart: "principal",
-    };
-
-    if (faenaSeleccionada && faenaSeleccionada !== "todas") {
-      requestBody.id_faena = faenaSeleccionada;
-    }
-
-    console.log("🎨 ConsumptionPieChart: Enviando request:", requestBody);
-
-    const response = await axios.post(
-      "/api/categorias-chart/categorias",
-      requestBody
-    );
-
-    console.log("📊 ConsumptionPieChart: Respuesta recibida:", response.data);
-
+  // Cargar datos de categorías - VERSIÓN CORREGIDA
+  const cargarDatosCategorias = async () => {
     if (!isMounted.current) return;
 
-    if (response.data && response.data.success && response.data.categorias) {
-      // Determinar qué categorías usar
-      const categoriasParaUsar =
-        response.data.categorias.categoriasFinales ||
-        response.data.categorias.categoriasIniciales ||
-        response.data.categorias ||
-        [];
+    try {
+      // ❌ REMOVIDO: setMainChartLoading(true);
+      setLoading(true);
+      setError(null);
 
-      console.log("🔍 ConsumptionPieChart: Categorías encontradas:", categoriasParaUsar.length);
+      if (!fechaDesde || !fechaHasta) {
+        setError("Por favor, seleccione un rango de fechas válido.");
+        setCategorias([]);
+        setLoading(false);
+        // 🆕 NUEVO: Notificar que completamos sin datos
+        if (handleMainChartNoData) handleMainChartNoData();
+        return;
+      }
 
-      if (categoriasParaUsar.length > 0) {
-        // Ordenar por valor descendente ANTES de asignar colores
-        const datosOrdenados = categoriasParaUsar
-          .filter((item) => (item.value || 0) > 0)
-          .sort((a, b) => (b.value || 0) - (a.value || 0));
+      if (new Date(fechaDesde) > new Date(fechaHasta)) {
+        setError("La fecha 'Hasta' no puede ser anterior a la fecha 'Desde'.");
+        setCategorias([]);
+        setLoading(false);
+        // 🆕 NUEVO: Notificar que completamos sin datos
+        if (handleMainChartNoData) handleMainChartNoData();
+        return;
+      }
 
-        // Formatear datos CON colores asignados
-        const formattedData = datosOrdenados.map((item, index) => {
-          const nombre = item.name || item.nombre || "Sin categoría";
-          const valor = Math.round((item.value || 0) * 100) / 100;
-          const color = chartColors[index % chartColors.length];
+      const requestBody = {
+        fecha_inicio: fechaDesde,
+        fecha_fin: fechaHasta,
+        modo: "categorias",
+        incluir_redistribucion: false,
+        tipo_chart: "principal",
+      };
 
-          return {
-            id: item.id,
-            nombre: nombre,
-            name: nombre,
-            value: valor,
-            maquinas_count: item.maquinas_count || 0,
-            maquinas_internas: item.maquinas_internas || 0,
-            maquinas_externas: item.maquinas_externas || 0,
-            tipo_medicion: item.tipo_medicion,
-            promedio_consumo: item.promedio_consumo || 0,
-            total_registros: item.total_registros || 0,
-            color: color,
-            assignedColor: color,
-          };
-        });
+      if (faenaSeleccionada && faenaSeleccionada !== "todas") {
+        requestBody.id_faena = faenaSeleccionada;
+      }
 
-        setCategorias(formattedData);
+      console.log("🎨 ConsumptionPieChart: Enviando request:", requestBody);
 
-        const metadata = response.data.resumen || response.data.metadata;
-        const total =
-          metadata?.total_consumo_litros ||
-          formattedData.reduce((sum, item) => sum + item.value, 0);
+      const response = await axios.post(
+        "/api/categorias-chart/categorias",
+        requestBody
+      );
 
-        setTotalConsumo(total);
+      console.log("📊 ConsumptionPieChart: Respuesta recibida:", response.data);
 
-        // Callback existente
-        if (onCategoriesLoad && typeof onCategoriesLoad === "function") {
-          onCategoriesLoad(formattedData);
+      if (!isMounted.current) return;
+
+      if (response.data && response.data.success && response.data.categorias) {
+        // Determinar qué categorías usar
+        const categoriasParaUsar =
+          response.data.categorias.categoriasFinales ||
+          response.data.categorias.categoriasIniciales ||
+          response.data.categorias ||
+          [];
+
+        console.log(
+          "🔍 ConsumptionPieChart: Categorías encontradas:",
+          categoriasParaUsar.length
+        );
+
+        if (categoriasParaUsar.length > 0) {
+          // Ordenar por valor descendente ANTES de asignar colores
+          const datosOrdenados = categoriasParaUsar
+            .filter((item) => (item.value || 0) > 0)
+            .sort((a, b) => (b.value || 0) - (a.value || 0));
+
+          // Formatear datos CON colores asignados
+          const formattedData = datosOrdenados.map((item, index) => {
+            const nombre = item.name || item.nombre || "Sin categoría";
+            const valor = Math.round((item.value || 0) * 100) / 100;
+            const color = chartColors[index % chartColors.length];
+
+            return {
+              id: item.id,
+              nombre: nombre,
+              name: nombre,
+              value: valor,
+              maquinas_count: item.maquinas_count || 0,
+              maquinas_internas: item.maquinas_internas || 0,
+              maquinas_externas: item.maquinas_externas || 0,
+              tipo_medicion: item.tipo_medicion,
+              promedio_consumo: item.promedio_consumo || 0,
+              total_registros: item.total_registros || 0,
+              color: color,
+              assignedColor: color,
+            };
+          });
+
+          setCategorias(formattedData);
+
+          const metadata = response.data.resumen || response.data.metadata;
+          const total =
+            metadata?.total_consumo_litros ||
+            formattedData.reduce((sum, item) => sum + item.value, 0);
+
+          setTotalConsumo(total);
+
+          // Callback existente
+          if (onCategoriesLoad && typeof onCategoriesLoad === "function") {
+            onCategoriesLoad(formattedData);
+          }
+
+          // 🔑 CRÍTICO: Notificar al contexto que terminamos de cargar CON datos
+          if (
+            handleMainChartLoad &&
+            typeof handleMainChartLoad === "function"
+          ) {
+            console.log(
+              "✅ ConsumptionPieChart: Notificando contexto CON datos:",
+              formattedData.length
+            );
+            handleMainChartLoad(formattedData);
+          }
+
+          // Callback de finalización
+          if (onLoadComplete && typeof onLoadComplete === "function") {
+            onLoadComplete(formattedData);
+          }
+
+          setFechaActualizacion(new Date());
+          initialLoadDone.current = true;
+        } else {
+          // Sin datos válidos
+          console.log(
+            "⚠️ ConsumptionPieChart: No se encontraron categorías válidas"
+          );
+          setCategorias([]);
+          setTotalConsumo(0);
+
+          // 🆕 NUEVO: Notificar que completamos sin datos
+          if (
+            handleMainChartNoData &&
+            typeof handleMainChartNoData === "function"
+          ) {
+            console.log(
+              "📢 ConsumptionPieChart: Llamando handleMainChartNoData - sin categorías válidas"
+            );
+            handleMainChartNoData();
+          }
+
+          if (onLoadComplete && typeof onLoadComplete === "function") {
+            onLoadComplete([]);
+          }
+
+          setFechaActualizacion(new Date());
+          initialLoadDone.current = true;
         }
-
-        // 🔑 CRÍTICO: Notificar al contexto que terminamos de cargar CON datos
-        if (handleMainChartLoad && typeof handleMainChartLoad === "function") {
-          console.log("✅ ConsumptionPieChart: Notificando contexto CON datos:", formattedData.length);
-          handleMainChartLoad(formattedData);
-        }
-
-        // Callback de finalización
-        if (onLoadComplete && typeof onLoadComplete === "function") {
-          onLoadComplete(formattedData);
-        }
-
-        setFechaActualizacion(new Date());
-        initialLoadDone.current = true;
-
       } else {
-        // Sin datos válidos
-        console.log("⚠️ ConsumptionPieChart: No se encontraron categorías válidas");
+        // Response no exitoso
+        console.log(
+          "⚠️ ConsumptionPieChart: Response no exitoso:",
+          response.data
+        );
         setCategorias([]);
         setTotalConsumo(0);
-        
+
         // 🆕 NUEVO: Notificar que completamos sin datos
-        if (handleMainChartNoData && typeof handleMainChartNoData === "function") {
-          console.log("📢 ConsumptionPieChart: Llamando handleMainChartNoData - sin categorías válidas");
+        if (
+          handleMainChartNoData &&
+          typeof handleMainChartNoData === "function"
+        ) {
+          console.log(
+            "📢 ConsumptionPieChart: Llamando handleMainChartNoData - response no exitoso"
+          );
           handleMainChartNoData();
         }
-        
+
         if (onLoadComplete && typeof onLoadComplete === "function") {
           onLoadComplete([]);
         }
-        
+
         setFechaActualizacion(new Date());
         initialLoadDone.current = true;
       }
+    } catch (err) {
+      console.error(
+        "❌ ConsumptionPieChart: Error al cargar datos de categorías:",
+        err
+      );
+      if (isMounted.current) {
+        setCategorias([]);
+        setTotalConsumo(0);
+        setError(
+          "No se pudieron cargar los datos de consumo por categoría: " +
+            err.message
+        );
 
-    } else {
-      // Response no exitoso
-      console.log("⚠️ ConsumptionPieChart: Response no exitoso:", response.data);
-      setCategorias([]);
-      setTotalConsumo(0);
-      
-      // 🆕 NUEVO: Notificar que completamos sin datos
-      if (handleMainChartNoData && typeof handleMainChartNoData === "function") {
-        console.log("📢 ConsumptionPieChart: Llamando handleMainChartNoData - response no exitoso");
-        handleMainChartNoData();
+        // 🆕 NUEVO: Notificar error pero permitir continuar
+        if (
+          handleMainChartNoData &&
+          typeof handleMainChartNoData === "function"
+        ) {
+          console.log(
+            "📢 ConsumptionPieChart: Llamando handleMainChartNoData - error en carga"
+          );
+          handleMainChartNoData();
+        }
+
+        if (onLoadComplete && typeof onLoadComplete === "function") {
+          onLoadComplete([]);
+        }
+
+        setFechaActualizacion(new Date());
+        initialLoadDone.current = true;
       }
-      
-      if (onLoadComplete && typeof onLoadComplete === "function") {
-        onLoadComplete([]);
+    } finally {
+      if (isMounted.current) {
+        setLoading(false);
       }
-      
-      setFechaActualizacion(new Date());
-      initialLoadDone.current = true;
     }
-
-  } catch (err) {
-    console.error("❌ ConsumptionPieChart: Error al cargar datos de categorías:", err);
-    if (isMounted.current) {
-      setCategorias([]);
-      setTotalConsumo(0);
-      setError("No se pudieron cargar los datos de consumo por categoría: " + err.message);
-      
-      // 🆕 NUEVO: Notificar error pero permitir continuar
-      if (handleMainChartNoData && typeof handleMainChartNoData === "function") {
-        console.log("📢 ConsumptionPieChart: Llamando handleMainChartNoData - error en carga");
-        handleMainChartNoData();
-      }
-      
-      if (onLoadComplete && typeof onLoadComplete === "function") {
-        onLoadComplete([]);
-      }
-      
-      setFechaActualizacion(new Date());
-      initialLoadDone.current = true;
-    }
-  } finally {
-    if (isMounted.current) {
-      setLoading(false);
-    }
-  }
-};
-
-
+  };
 
   // Cargar máquinas por categoría
   const cargarMaquinasPorCategoria = async (categoria) => {
@@ -1222,21 +1393,32 @@ const cargarDatosCategorias = async () => {
 
       <div className="w-full p-2 bg-white rounded-lg shadow-lg">
         <div className="mb-1">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-gray-800">
+          <div
+            className={`grid items-center mb-4 p-4 
+      ${
+        viewMode === "maquinas"
+          ? "lg:grid-cols-3 gap-25"
+          : "lg:grid-cols-3 gap-25"
+      }`}
+          >
+            <h2 className="text-2xl font-bold text-gray-800 col-span-2">
               {viewMode === "categorias"
-                ? "Consumo por Categoría de Máquinas (Egreso de Estanques)"
-                : `Consumo por Máquina (Egreso de Estanques)- ${selectedCategoria?.nombre}`}
+                ? `Consumo por Categoría de Máquinas (Egreso de Estanques) - ${nombreFaena}`
+                : `Consumo por Máquina (Egreso de Estanques) - ${selectedCategoria?.nombre} - ${nombreFaena}`}
             </h2>
-
-            {viewMode === "maquinas" && (
+            <div className="lg:max-w-xs w-full lg:w-auto">
+              {renderStockFinalCard()}
+                 {viewMode === "maquinas" && (
               <button
                 onClick={handleBackToCategories}
-                className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors flex items-center gap-2"
+                className="w-full h-full bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
               >
                 <FiArrowLeft /> Volver a Categorías
               </button>
             )}
+            </div>
+
+         
           </div>
         </div>
 

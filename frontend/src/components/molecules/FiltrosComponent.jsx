@@ -216,24 +216,28 @@ const FiltrosComponent = ({
     }
   };
 
- const handleEquipoFilterChange = (valor) => {
-  setEquipoFilterInterno(valor);
-  if (onChange) {
-    // 🔧 SOLUCIÓN: Enviar la clave correcta según el contexto
-    const clave = labelEquipo.includes("Documento") ? "numeroDocumento" : "equipoFilter";
-    notificarCambio({ [clave]: valor });
-  }
-};
+  const handleEquipoFilterChange = (valor) => {
+    setEquipoFilterInterno(valor);
+    if (onChange) {
+      // 🔧 SOLUCIÓN: Enviar la clave correcta según el contexto
+      const clave = labelEquipo.includes("Documento")
+        ? "numeroDocumento"
+        : "equipoFilter";
+      notificarCambio({ [clave]: valor });
+    }
+  };
 
   // 🔧 CAMBIAR POR:
-const limpiarEquipoFilter = () => {
-  setEquipoFilterInterno("");
-  if (onChange) {
-    // 🔧 SOLUCIÓN: Enviar la clave correcta según el contexto
-    const clave = labelEquipo.includes("Documento") ? "numeroDocumento" : "equipoFilter";
-    notificarCambio({ [clave]: "" });
-  }
-};
+  const limpiarEquipoFilter = () => {
+    setEquipoFilterInterno("");
+    if (onChange) {
+      // 🔧 SOLUCIÓN: Enviar la clave correcta según el contexto
+      const clave = labelEquipo.includes("Documento")
+        ? "numeroDocumento"
+        : "equipoFilter";
+      notificarCambio({ [clave]: "" });
+    }
+  };
   // Función para formatear fecha y hora
   const formatearFechaHora = (fecha, hora) => {
     if (!fecha) return "";
@@ -346,7 +350,6 @@ const limpiarEquipoFilter = () => {
                   value={equipoFilterInterno}
                   onChange={(e) => handleEquipoFilterChange(e.target.value)}
                   placeholder={placeholderEquipo}
-                  
                   className={`w-full px-3 py-2 pl-10 pr-10 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${
                     cargando ? "opacity-50 cursor-not-allowed" : ""
                   }`}

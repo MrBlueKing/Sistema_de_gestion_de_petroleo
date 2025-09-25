@@ -25,6 +25,7 @@ const ResumenStockDetallado = ({
   idFaena,
   mostrarDetalle,
   onToggleDetalle,
+  refreshKey, // 👈 AGREGAR ESTA LÍNEA
 }) => {
   const [datosStock, setDatosStock] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -54,7 +55,7 @@ const ResumenStockDetallado = ({
     if (fechaDesde && fechaHasta && idFaena && mostrarDetalle) {
       cargarDatosStock();
     }
-  }, [fechaDesde, fechaHasta, idFaena, mostrarDetalle]);
+  }, [fechaDesde, fechaHasta, idFaena, mostrarDetalle,refreshKey]);
 
   const cargarDatosStock = async () => {
     setLoading(true);
@@ -133,7 +134,7 @@ const ResumenStockDetallado = ({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
         <div className="flex items-center justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
           <span className="ml-3 text-gray-600">
@@ -404,6 +405,19 @@ const ResumenStockDetallado = ({
                                     <p className="text-xs text-orange-600">
                                       Litros
                                     </p>
+
+                                    {/* 🆕 AGREGAR: Mostrar errores iniciales si están disponibles */}
+                                    {faena.total_errores_iniciales !== null &&
+                                      faena.total_errores_iniciales !==
+                                        undefined && (
+                                        <p className="text-xs text-red-500 font-medium mt-1">
+                                          Errores iniciales:{" "}
+                                          {formatNumber(
+                                            faena.total_errores_iniciales
+                                          )}{" "}
+                                          L
+                                        </p>
+                                      )}
                                   </div>
                                   <FiTrendingUp
                                     className="text-orange-500"
@@ -566,12 +580,6 @@ const ResumenStockDetallado = ({
                             <p className="text-xs text-gray-500">
                               Stock: {formatNumber(stockResultante)} L
                             </p>
-                            {movimiento.diferencia && (
-                              <p className="text-xs text-gray-400">
-                                Δ: {movimiento.diferencia > 0 ? "+" : ""}
-                                {formatNumber(movimiento.diferencia)}
-                              </p>
-                            )}
                           </div>
                         </div>
                       );

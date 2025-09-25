@@ -28,8 +28,8 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 
 - [Testing:Seba] Gerente / Administrador Operador Vehiculos --> Historial Consumos --> Añadir maquina en la tarjeta de consumos.
 
-- [Queued] Gerente / Admin / Amdin OV --> Funcionalidad para agregar distribución.
-                                          Anotar Camiones Semanales por faena.      
+- [Queued] Gerente / Admin / Amdin OV --> Funcionalidad para agregar distribución (pendiente).
+                                          Anotar Camiones Semanales por faena (pendiente).      
 
 - [Testing:Seba] Gerente --> Verificación Ingresos poner Stock Final en cada Ingreso.   
 
@@ -40,7 +40,7 @@ Usamos las siguientes etiquetas para organizar los cambios en desarrollo:
 - [Testing:Nico] Gerente --> Grafico Pie comparativo --> Operacional = Todo - Micro - Camiones Tolva - Camionetas 50% +                                                  50% Camionetas que tributen a la Faena
 - [Queued] Operador Vehiculos --> Formulario principal --> La carga que realiza el usuario, debe ser asignada a la faena a la cual pertenece el user.
 
-- [WIP:NICO] Gerente --> Grafico Pie comparativo --> Operacional = Todo - Micro - Camiones Tolva - Camionetas 50% +                                                  50% Camionetas que tributen a la Faena
+- [Testing:seba] Gerente --> Grafico Pie comparativo --> Operacional = Todo - Micro - Camiones Tolva - Camionetas 50% +                                                  50% Camionetas que tributen a la Faena
                                                    Total = Todo + Camion (Asignado) + Camionetas 50% + 50% Camionetas que tributen a la Faena
 
 ### Depecrated
