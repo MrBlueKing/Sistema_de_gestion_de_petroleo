@@ -91,7 +91,7 @@ export const FAENA_COLORS = {
     emoji: "🌋", // Puede ser montaña / volcán / roca / galaxia según prefieras
     id: 8
   },
-  6: {
+  7: {
     name: "La Cruz (Oficina Central)",
     region: "Región de Valparaíso",
     // Colores para fondo y bordes
