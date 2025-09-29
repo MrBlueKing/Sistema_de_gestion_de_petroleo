@@ -92,7 +92,7 @@ export const FAENA_COLORS = {
     id: 8
   },
   7: {
-    name: "La Cruz (Oficina Central)",
+    name: "La Cruz",
     region: "Región de Valparaíso",
     // Colores para fondo y bordes
     bg: "bg-yellow-50/40",
@@ -121,6 +121,34 @@ export const FAENA_COLORS = {
 
     // Elementos decorativos
     emoji: "🏢", // Representa la oficina central
+    id: 7
+  },
+  6: {
+    name: "Laboratorio",
+    region: "Región Metropolitana",
+    // Colores para fondo y bordes
+    bg: "bg-blue-50/40",
+    border: "border-l-blue-500",
+    borderFull: "border-blue-200",
+
+    // Badges y etiquetas
+    badge: "bg-blue-100 text-blue-800",
+
+    // Iconos y textos
+    icon: "text-blue-600",
+    text: "text-blue-800",
+
+    // Gradientes
+    gradient: "bg-gradient-to-r from-blue-600 to-blue-700",
+    gradientLight: "bg-gradient-to-r from-blue-50 to-blue-100/50",
+
+    // Colores específicos (hex)
+    primary: "#2563eb", // blue-600
+    light: "#dbeafe",   // blue-100
+    dark: "#1e40af",    // blue-700
+
+    // Elementos decorativos
+    emoji: "🧪", // Representa laboratorio
     id: 6
   },
 };

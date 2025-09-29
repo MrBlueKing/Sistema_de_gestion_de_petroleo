@@ -18,259 +18,8 @@ import { GiGasPump } from "react-icons/gi";
 import SelectorEstanque from "../../molecules/SelectorEstanque";
 import bomberoService from "../../../context/bomberoService";
 import axios from "../../../lib/axios";
+import ModalValidacion from "../../molecules/ModalValidacionValorAnomalo";
 
-
-// 🎨 COMPONENTE MODAL BONITO - VERSIÓN CORREGIDA
-// 📱 MODAL DE VALIDACIÓN OPTIMIZADO - CON BOTONES Y SIN SCROLL
-const ModalValidacion = ({ isOpen, onClose, onContinue, validacion }) => {
-  // 🔒 PREVENIR SCROLL DEL BODY CUANDO EL MODAL ESTÁ ABIERTO
-  React.useEffect(() => {
-    if (isOpen) {
-      // Guardar el scroll actual
-      const scrollY = window.scrollY;
-
-      // Prevenir scroll del body
-      document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${scrollY}px`;
-      document.body.style.width = '100%';
-
-      return () => {
-        // Restaurar scroll cuando se cierre el modal
-        document.body.style.overflow = '';
-        document.body.style.position = '';
-        document.body.style.top = '';
-        document.body.style.width = '';
-        window.scrollTo(0, scrollY);
-      };
-    }
-  }, [isOpen]);
-
-  if (!isOpen || !validacion) return null;
-
-  const esError = validacion.severidad === 'error';
-  const esWarning = validacion.severidad === 'warning';
-
-  // 🔒 PREVENIR CIERRE DEL MODAL AL HACER CLICK EN OVERLAY PARA ERRORES CRÍTICOS
-  const handleOverlayClick = (e) => {
-    if (e.target === e.currentTarget && !esError) {
-      onClose();
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[9999] overflow-hidden">
-      {/* 📱 OVERLAY MÓVIL OPTIMIZADO */}
-      <div
-        className={`fixed inset-0 transition-all duration-300 ease-in-out ${isOpen
-          ? 'bg-transparent bg-opacity-70 backdrop-blur-sm'
-          : 'bg-transparent'
-          }`}
-        onClick={handleOverlayClick}
-        style={{ touchAction: 'none' }}
-      />
-
-      {/* 📱 CONTENEDOR MODAL CENTRADO */}
-      <div className="fixed inset-0 z-10 flex items-center justify-center p-4">
-
-        {/* 📱 MODAL SIN SCROLL INTERNO */}
-        <div
-          className={`relative w-full max-w-md transform transition-all duration-300 ease-out ${isOpen
-            ? 'scale-100 opacity-100 translate-y-0'
-            : 'scale-95 opacity-0 translate-y-4'
-            } 
-          bg-white rounded-2xl shadow-2xl overflow-hidden`}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="modal-headline"
-        >
-
-          {/* 🎨 BARRA SUPERIOR NARANJA */}
-          <div className={`h-1 ${esError ? 'bg-red-500' : 'bg-orange-400'}`} />
-
-          {/* 📱 CONTENIDO PRINCIPAL */}
-          <div className="px-4 py-5 sm:px-6">
-
-            {/* 🎨 HEADER */}
-            <div className="flex items-start space-x-3 mb-5">
-
-              {/* 🎨 ICONO NARANJA */}
-              <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${esError ? 'bg-red-100' : 'bg-orange-100'
-                }`}>
-                {esError ? (
-                  <FaExclamationCircle className="w-6 h-6 text-red-600" />
-                ) : (
-                  <FaExclamationTriangle className="w-6 h-6 text-orange-600" />
-                )}
-              </div>
-
-              <div className="flex-1 text-left min-w-0">
-                <h3
-                  id="modal-headline"
-                  className={`text-lg font-semibold leading-tight ${esError ? 'text-red-900' : 'text-orange-900'
-                    }`}
-                >
-                  {esError ? '🚫 Error en Medición' : ' Advertencia de Medición'}
-                </h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  {esError
-                    ? 'Se detectó un valor incorrecto'
-                    : 'Se detectó un valor anómalo, pero puedes continuar.'
-                  }
-                </p>
-              </div>
-
-              {/* 🔒 BOTÓN CERRAR SOLO PARA WARNINGS */}
-              {!esError && (
-                <button
-                  onClick={onClose}
-                  className="flex-shrink-0 rounded-md p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors"
-                  aria-label="Cerrar modal"
-                >
-                  <FaTimes className="w-5 h-5" />
-                </button>
-              )}
-            </div>
-
-            {/* 📱 CONTENIDO PRINCIPAL CON COLORES NARANJAS */}
-            <div className={`p-4 mb-5 rounded-xl border border-l-4 ${esError
-              ? 'bg-red-50 border-red-200 border-l-red-400'
-              : 'bg-orange-50 border-orange-200 border-l-orange-400'
-              }`}>
-
-              {/* 📱 MENSAJE PRINCIPAL */}
-              <div className="mb-4">
-                <p className={`text-sm font-medium ${esError ? 'text-red-800' : 'text-orange-800'
-                  }`}>
-                  {validacion.mensaje}
-                </p>
-              </div>
-
-              {/* 📱 DETALLES NUMÉRICOS */}
-              {validacion.detalles && (
-                <div className="space-y-3 mb-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-white rounded-lg p-3 shadow-sm border">
-                      <div className="text-center">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                          {validacion.tipo === 'numeral_inicial' ? 'Numeral Ingresado' : 'Valor Ingresado'}
-                        </p>
-                        <p className={`text-xl font-bold ${esError ? 'text-red-600' : 'text-orange-600'
-                          }`}>
-                          {validacion.detalles.valorActual?.toLocaleString()}
-                          <span className="text-sm font-normal text-gray-500 ml-1">
-                            {validacion.tipo === 'horometro' ? 'hrs' : validacion.tipo === 'numeral_inicial' ? 'L' : 'km'}
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="bg-white rounded-lg p-3 shadow-sm border">
-                      <div className="text-center">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                          {validacion.tipo === 'numeral_inicial' ? 'Numeral Sugerido' : 'Última Medición'}
-                        </p>
-                        <p className="text-xl font-bold text-gray-600">
-                          {(validacion.detalles.valorAnterior || validacion.detalles.valorMinimo)?.toLocaleString()}
-                          <span className="text-sm font-normal text-gray-500 ml-1">
-                            {validacion.tipo === 'horometro' ? 'hrs' : validacion.tipo === 'numeral_inicial' ? 'L' : 'km'}
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 📱 DIFERENCIA CALCULADA */}
-                  {validacion.detalles.diferencia !== undefined && (
-                    <div className="bg-gray-50 rounded-lg p-3 border">
-                      <div className="text-center">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                          {validacion.tipo === 'horometro' ? 'Tiempo Transcurrido' : 'Distancia Recorrida'}
-                        </p>
-                        <p className={`text-lg font-bold ${validacion.detalles.diferencia > 0 ? 'text-blue-600' : 'text-red-600'
-                          }`}>
-                          {Math.abs(validacion.detalles.diferencia).toLocaleString()}
-                          <span className="text-sm font-normal text-gray-500 ml-1">
-                            {validacion.tipo === 'horometro' ? 'hrs' : validacion.tipo === 'numeral_inicial' ? 'L' : 'km'}
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* 📱 SUGERENCIA */}
-              {validacion.detalles?.sugerencia && (
-                <div className="p-3 border border-blue-200 rounded-lg bg-blue-50">
-                  <div className="flex items-start gap-2">
-                    <FaInfoCircle className="w-4 h-4 mt-0.5 text-blue-500 flex-shrink-0" />
-
-                    <div>
-                      <p className="mb-1 text-lg font-semibold text-blue-800">Sugerencia</p>
-                      <p className="text-sm text-blue-700">{validacion.detalles.sugerencia}</p>
-                    </div>
-                  </div>
-                </div>
-
-              )}
-            </div>
-
-            {/* 📱 NOTA PARA ERRORES CRÍTICOS */}
-            {esError && (
-              <div className="mb-5 p-3 bg-red-100 border border-red-300 rounded-lg">
-                <div className="flex items-center justify-center space-x-2">
-                  <FaExclamationCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-                  <p className="text-xs text-red-700 font-medium text-center">
-                    <strong>Corrección requerida:</strong> Este valor debe ser corregido antes de continuar.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* 📱 BOTONES MÓVILES OPTIMIZADOS */}
-            <div className="flex gap-3">
-
-              {/* 🚫 BOTÓN CANCELAR/CORREGIR */}
-              <button
-                onClick={onClose}
-                className="flex-1 inline-flex items-center justify-center px-4 py-3 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
-                style={{ minHeight: '48px' }}
-              >
-                <span className="mr-2">✏️</span>
-                {esError ? 'Corregir Valor' : 'Cancelar'}
-              </button>
-
-              {/* ✅ BOTÓN CONTINUAR - Solo para warnings CON COLORES NARANJAS */}
-              {!esError && (
-                <button
-                  onClick={onContinue}
-                  className="flex-1 inline-flex items-center justify-center px-4 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-orange-500 hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors"
-                  style={{ minHeight: '48px' }}
-                >
-                  <span className="mr-2">✅</span>
-                  Continuar Igual
-                </button>
-              )}
-
-              {/* ✅ BOTÓN PARA ERRORES CRÍTICOS */}
-              {esError && (
-                <button
-                  onClick={onClose}
-                  className="flex-1 inline-flex items-center justify-center px-4 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
-                  style={{ minHeight: '48px' }}
-                >
-                  <span className="mr-2">🔧</span>
-                  Entendido
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 const FormConsumo = ({
   formData,
   handleChange,
@@ -356,6 +105,7 @@ const FormConsumo = ({
     const valorActual = parseFloat(valor);
     const ultimaMedicion = datosUltimaMedicion.ultimo_consumo_maquina?.medicion || 0;
 
+    // Para KILOMETRAJE - AGREGAR DESPUÉS DEL BLOQUEO < 1:
     if (tipo === 'kilometraje') {
       // ❌ ERROR CRÍTICO: No puede ser menor
       if (valorActual < ultimaMedicion) {
@@ -375,7 +125,25 @@ const FormConsumo = ({
         };
       }
 
-      // ⚠️ ADVERTENCIA: Valor alto - necesita confirmación
+      // 🚫 BLOQUEO TOTAL: Diferencia menor a 1 km (YA LO TIENES)
+      if (valorActual - ultimaMedicion < 1) {
+        return {
+          valido: false,
+          mensaje: `La diferencia no puede ser menor a 1: (${(valorActual - ultimaMedicion).toFixed(2)} km)`,
+          puedeIgnorar: false
+        };
+      }
+
+      // 🆕 MODAL DE CONFIRMACIÓN: Diferencia entre 1 y 15 km
+      if (valorActual - ultimaMedicion >= 1 && valorActual - ultimaMedicion < 15) {
+        return {
+          valido: false,
+          mensaje: `Recorrido bajo (${(valorActual - ultimaMedicion).toFixed(1)} km) - Confirmar al guardar`,
+          puedeIgnorar: true  // ← ESTO HACE QUE MUESTRE EL MODAL
+        };
+      }
+
+      // ⚠️ ADVERTENCIA: Valor muy alto - necesita confirmación (YA LO TIENES)
       const limiteCuidadoKm = ultimaMedicion + 500;
       if (valorActual > limiteCuidadoKm) {
         return {
@@ -404,7 +172,25 @@ const FormConsumo = ({
         };
       }
 
-      // ⚠️ ADVERTENCIA: Valor alto - necesita confirmación
+      // 🚫 BLOQUEO TOTAL: Diferencia menor a 1 hora (YA LO TIENES)
+      if (valorActual - ultimaMedicion < 1) {
+        return {
+          valido: false,
+          mensaje: `La diferencia no puede ser menor a 1: (${(valorActual - ultimaMedicion).toFixed(2)} hrs)`,
+          puedeIgnorar: false
+        };
+      }
+
+      // 🆕 MODAL DE CONFIRMACIÓN: Diferencia entre 1 y 2 horas
+      if (valorActual - ultimaMedicion >= 1 && valorActual - ultimaMedicion < 2) {
+        return {
+          valido: false,
+          mensaje: `Tiempo de trabajo bajo (${(valorActual - ultimaMedicion).toFixed(1)} hrs) - Confirmar al guardar`,
+          puedeIgnorar: true  // ← ESTO HACE QUE MUESTRE EL MODAL
+        };
+      }
+
+      // ⚠️ ADVERTENCIA: Valor muy alto - necesita confirmación (YA LO TIENES)
       const limiteCuidado = ultimaMedicion + 12;
       if (valorActual > limiteCuidado) {
         return {
@@ -414,7 +200,6 @@ const FormConsumo = ({
         };
       }
     }
-
     return { valido: true, mensaje: '', puedeIgnorar: false };
   }, [datosUltimaMedicion]);
 
@@ -434,7 +219,7 @@ const FormConsumo = ({
     if (estanqueSeleccionado?.tipo_estanque === "movil" && formData.numeralInicial !== "0") {
       DEBUG && console.log('🚛 Estableciendo numeral inicial en 0 para estanque móvil');
       handleChange("numeralInicial", "0");
-    } 
+    }
   }, [estanqueSeleccionado?.tipo_estanque, numeralInicialSugerido, formData.numeralInicial, handleChange]);
 
   useEffect(() => {
@@ -792,6 +577,8 @@ const FormConsumo = ({
     }
 
     // 🔧 FUNCIÓN DE VALIDACIÓN MEJORADA
+    // 🔧 BUSCA ESTA FUNCIÓN DENTRO DE handleSubmitWrapper:
+    // 🔧 FUNCIÓN DE VALIDACIÓN MEJORADA
     const validarMedicion = (datosUltimaMedicion, tipoMedicion, formData) => {
       DEBUG && console.log("🔍 Ejecutando validarMedicion con datos:", {
         datosUltimaMedicion,
@@ -813,7 +600,8 @@ const FormConsumo = ({
       // 🔧 VALIDACIÓN PARA HORÓMETRO
       if (tipoMedicion === "Horometro" && formData.horometro) {
         const horasActual = parseFloat(formData.horometro);
-        DEBUG && console.log("⏰ Validando horómetro:", { horasActual, ultimaMedicion });
+        const diferencia = horasActual - ultimaMedicion;
+        DEBUG && console.log("⏰ Validando horómetro:", { horasActual, ultimaMedicion, diferencia });
 
         // ❌ ERROR CRÍTICO: Horómetro menor que última medición
         if (horasActual < ultimaMedicion) {
@@ -844,43 +632,58 @@ const FormConsumo = ({
               valorActual: horasActual,
               valorAnterior: ultimaMedicion,
               diferencia: 0,
-              sugerencia: `El horómetro debe haber avanzado. Ingrese un valor mayor que ${ultimaMedicion.toLocaleString()} hrs.`
+              sugerencia: `La máquina debe haber trabajado algo de tiempo. Ingrese un valor mayor que ${ultimaMedicion.toLocaleString()} hrs.`
             }
           };
         }
 
-        // ⚠️ WARNING: Horómetro excesivo (MÁS DE 12 horas)
-        const maximoEsperado = ultimaMedicion + 12;
-        if (horasActual > maximoEsperado) {
-          DEBUG && console.log("⚠️ Horómetro mayor que límite esperado - WARNING");
+        // 🚫 BLOQUEO TOTAL: Diferencia menor a 1 hora
+        if (diferencia < 1) {
+          DEBUG && console.log("🚫 Diferencia menor a 1 hora - BLOQUEO TOTAL");
           return {
             valido: false,
-            severidad: 'warning',
+            severidad: 'error',
             tipo: 'horometro',
-            mensaje: `El horómetro indica ${(horasActual - ultimaMedicion).toFixed(1)} horas de trabajo desde la última medición. ¿Está seguro de que es correcto?`,
+            mensaje: `La diferencia mínima debe ser de 1 hora. Diferencia actual: ${diferencia.toFixed(2)} hrs.`,
             detalles: {
               valorActual: horasActual,
               valorAnterior: ultimaMedicion,
-              diferencia: horasActual - ultimaMedicion,
-              sugerencia: `Normalmente se esperan máximo 12 horas de trabajo. Verifique si ${horasActual.toLocaleString()} hrs es correcto.`
+              diferencia: diferencia,
+              sugerencia: `El tiempo mínimo de trabajo registrable es 1 hora.`
             }
           };
         }
 
-        // ⚠️ WARNING: Horómetro alto pero razonable (6-12 horas)
-        const limiteCuidado = ultimaMedicion + 12;
-        if (horasActual > limiteCuidado) {
-          DEBUG && console.log("⚠️ Horómetro en rango alto - WARNING");
+        // 🆕 ⚠️ WARNING: Diferencia entre 1 y 2 horas - MODAL DE CONFIRMACIÓN
+        if (diferencia >= 1 && diferencia < 2) {
+          DEBUG && console.log("⚠️ Diferencia baja en horómetro - WARNING");
           return {
             valido: false,
             severidad: 'warning',
             tipo: 'horometro',
-            mensaje: `El horómetro indica ${(horasActual - ultimaMedicion).toFixed(1)} horas de trabajo. ¿Es correcto?`,
+            mensaje: `Tiempo de trabajo bajo: ${diferencia.toFixed(1)} hrs desde la última medición. ¿Confirma continuar?`,
             detalles: {
               valorActual: horasActual,
               valorAnterior: ultimaMedicion,
-              diferencia: horasActual - ultimaMedicion,
-              sugerencia: `Se detectaron más de 12 horas de trabajo. Confirme si es correcto.`
+              diferencia: diferencia,
+              sugerencia: `Se registrarán ${diferencia.toFixed(1)} horas de trabajo desde la última medición.`
+            }
+          };
+        }
+
+        // ⚠️ WARNING: Horómetro muy alto (+12 horas)
+        if (diferencia > 12) {
+          DEBUG && console.log("⚠️ Horómetro muy alto - WARNING");
+          return {
+            valido: false,
+            severidad: 'warning',
+            tipo: 'horometro',
+            mensaje: `La máquina habría trabajado ${diferencia.toFixed(1)} hrs desde la última medición. ¿Está seguro?`,
+            detalles: {
+              valorActual: horasActual,
+              valorAnterior: ultimaMedicion,
+              diferencia: diferencia,
+              sugerencia: `Más de 12 horas de trabajo es inusual. Verifique el horómetro.`
             }
           };
         }
@@ -889,7 +692,8 @@ const FormConsumo = ({
       // 🔧 VALIDACIÓN PARA KILOMETRAJE
       if (tipoMedicion === "Kilometraje" && formData.kilometraje) {
         const kmActual = parseFloat(formData.kilometraje);
-        DEBUG && console.log("🚗 Validando kilometraje:", { kmActual, ultimaMedicion });
+        const diferencia = kmActual - ultimaMedicion;
+        DEBUG && console.log("🚗 Validando kilometraje:", { kmActual, ultimaMedicion, diferencia });
 
         // ❌ ERROR CRÍTICO: Kilometraje menor que última medición
         if (kmActual < ultimaMedicion) {
@@ -925,63 +729,58 @@ const FormConsumo = ({
           };
         }
 
+        // 🚫 BLOQUEO TOTAL: Diferencia menor a 1 km
+        if (diferencia < 1) {
+          DEBUG && console.log("🚫 Diferencia menor a 1 km - BLOQUEO TOTAL");
+          return {
+            valido: false,
+            severidad: 'error',
+            tipo: 'kilometraje',
+            mensaje: `La diferencia mínima debe ser de 1 km. Diferencia actual: ${diferencia.toFixed(2)} km.`,
+            detalles: {
+              valorActual: kmActual,
+              valorAnterior: ultimaMedicion,
+              diferencia: diferencia,
+              sugerencia: `La distancia mínima registrable es 1 km.`
+            }
+          };
+        }
+
+        // 🆕 ⚠️ WARNING: Diferencia entre 1 y 15 km - MODAL DE CONFIRMACIÓN
+        if (diferencia >= 1 && diferencia < 15) {
+          DEBUG && console.log("⚠️ Diferencia baja en kilometraje - WARNING");
+          return {
+            valido: false,
+            severidad: 'warning',
+            tipo: 'kilometraje',
+            mensaje: `Recorrido bajo: ${diferencia.toFixed(1)} km desde la última medición. ¿Confirma continuar?`,
+            detalles: {
+              valorActual: kmActual,
+              valorAnterior: ultimaMedicion,
+              diferencia: diferencia,
+              sugerencia: `Se registrarán ${diferencia.toFixed(1)} km recorridos desde la última medición.`
+            }
+          };
+        }
+
         // ⚠️ WARNING: Kilometraje muy alto (+10,000 km)
-        const limiteMuyAlto = ultimaMedicion + 10000;
-        if (kmActual > limiteMuyAlto) {
+        if (diferencia > 10000) {
           DEBUG && console.log("⚠️ Kilometraje muy alto - WARNING");
           return {
             valido: false,
             severidad: 'warning',
             tipo: 'kilometraje',
-            mensaje: `El vehículo habría recorrido ${(kmActual - ultimaMedicion).toLocaleString()} km desde la última medición. ¿Está seguro?`,
+            mensaje: `El vehículo habría recorrido ${diferencia.toLocaleString()} km desde la última medición. ¿Está seguro?`,
             detalles: {
               valorActual: kmActual,
               valorAnterior: ultimaMedicion,
-              diferencia: kmActual - ultimaMedicion,
-              sugerencia: `Un recorrido de más de 10,000 km es inusual. Verifique si ${kmActual.toLocaleString()} km es correcto.`
-            }
-          };
-        }
-
-        // ⚠️ WARNING: Kilometraje alto pero razonable (1,000-10,000 km)
-        const limiteCuidadoKm = ultimaMedicion + 500;
-        if (kmActual > limiteCuidadoKm) {
-          DEBUG && console.log("⚠️ Kilometraje en rango alto - WARNING");
-          return {
-            valido: false,
-            severidad: 'warning',
-            tipo: 'kilometraje',
-            mensaje: `El vehículo habría recorrido ${(kmActual - ultimaMedicion).toLocaleString()} km. ¿Es correcto?`,
-            detalles: {
-              valorActual: kmActual,
-              valorAnterior: ultimaMedicion,
-              diferencia: kmActual - ultimaMedicion,
-              sugerencia: `Se detectó un recorrido superior a 500 km. Confirme si es correcto.`
+              diferencia: diferencia,
+              sugerencia: `Un recorrido de más de 10,000 km es inusual. Verifique el odómetro.`
             }
           };
         }
       }
-      // 🆕 VALIDACIÓN PARA NUMERAL INICIAL MODIFICADO
-      if (estanqueSeleccionado?.tipo_estanque === "fijo" && numeralInicialSugerido && formData.numeralInicial) {
-        const numeralIngresado = parseFloat(formData.numeralInicial);
-        const numeralSugerido = parseFloat(numeralInicialSugerido);
 
-        if (numeralIngresado !== numeralSugerido) {
-          DEBUG && console.log("⚠️ Numeral inicial modificado - WARNING");
-          return {
-            valido: false,
-            severidad: 'warning',
-            tipo: 'numeral_inicial',
-            mensaje: `Has modificado el numeral inicial de ${numeralSugerido.toLocaleString()} a ${numeralIngresado.toLocaleString()}. ¿Confirmas continuar?`,
-            detalles: {
-              valorActual: numeralIngresado,
-              valorSugerido: numeralSugerido,
-              diferencia: numeralIngresado - numeralSugerido,
-              sugerencia: `El sistema sugiere ${numeralSugerido.toLocaleString()} basado en el último registro de la faena.`
-            }
-          };
-        }
-      }
       DEBUG && console.log("✅ Validación pasó correctamente");
       return { valido: true, mensaje: '', severidad: 'success' };
     };
@@ -1756,6 +1555,13 @@ const FormConsumo = ({
           )
         )}
       </div>
+      {/* 🆕 MODAL DE VALIDACIÓN - AHORA COMO COMPONENTE SEPARADO */}
+      <ModalValidacion
+        isOpen={modalValidacion.isOpen}
+        onClose={handleModalClose}
+        onContinue={handleModalContinue}
+        validacion={modalValidacion.validacion}
+      />
     </div>
   );
 };

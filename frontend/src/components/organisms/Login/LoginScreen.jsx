@@ -217,12 +217,12 @@ const LoginScreen = () => {
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
             <label htmlFor="rut" className="block text-sm font-medium text-gray-700 mb-2">
-              RUT
+              RUT / Usuario
             </label>
             <InputField
               id="rut"
               type="text"
-              placeholder="Ej: 12345678-9"
+              placeholder="Ej: 12345678-9 / JTU1234"
               value={formData.rut}
               onChange={(e) => handleInputChange('rut', e.target.value)}
               icon={<FaUser className="text-gray-400" />}

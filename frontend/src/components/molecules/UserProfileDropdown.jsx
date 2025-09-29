@@ -2,9 +2,9 @@ import React, { useRef, useEffect, useContext } from "react";
 import { FaChevronDown } from "react-icons/fa";
 import { UserContext } from "../../context/userContext";
 
-const UserProfileDropdown = ({ 
-  userMenuOpen, 
-  setUserMenuOpen, 
+const UserProfileDropdown = ({
+  userMenuOpen,
+  setUserMenuOpen,
   handleLogout,
   faenaColors = null // 🎨 NUEVA PROP PARA COLORES
 }) => {
@@ -13,28 +13,33 @@ const UserProfileDropdown = ({
 
   // 🎨 CONFIGURACIÓN LOCAL DE COLORES POR FAENA - INDEPENDIENTE DEL PADRE
   const FAENAS_COLORS = {
-    1: { 
+    1: {
       bgColor: "bg-green-700",    // Cabildo - Verde Oliva
       textColor: "text-green-600" // Para texto "Cargando..."
-    },   
-    2: { 
+    },
+    2: {
       bgColor: "bg-yellow-600",   // Catemu - Amarillo Mostaza
       textColor: "text-yellow-600"
-    },  
-    3: { 
+    },
+    3: {
       bgColor: "bg-blue-700",     // Chincolco - Azul Piedra
       textColor: "text-blue-600"
-    },    
-    4: { 
+    },
+    4: {
       bgColor: "bg-red-700",      // Tiltil - Rojo Arcilla
       textColor: "text-red-600"
-    },     
+    },
+    6: {
+      bgColor: "bg-yellow-50/40",      // Tiltil - Rojo Arcilla
+      textColor: "text-yellow -600"
+    },
+
   };
 
   // 🎨 FUNCIÓN PARA DETERMINAR SI EL ROL DEBE TENER COLORES PERSONALIZADOS
   const shouldUseCustomColors = () => {
     if (!user || !user.id_rol) return false;
-    
+
     // Solo aplicar colores personalizados para bombero (1) y asistente_bombero (7)  
     return (user.id_rol === 1 || user.id_rol === 7) && (faenaColors || user.id_faena);
   };
@@ -63,7 +68,7 @@ const UserProfileDropdown = ({
     } catch (e) {
       // Fallback silencioso
     }
-    
+
     return "text-gray-500"; // Color por defecto
   };
   // 🎨 OBTENER COLOR DEL CÍRCULO DEL PERFIL - USANDO PROP DEL PADRE PRIMERO
@@ -72,7 +77,7 @@ const UserProfileDropdown = ({
     if (faenaColors && user && user.id_rol && (user.id_rol === 1 || user.id_rol === 7)) {
       return faenaColors.bgColor;
     }
-    
+
     // 2. FALLBACK: Usar colores locales
     if (user && user.id_rol && (user.id_rol === 1 || user.id_rol === 7) && user.id_faena) {
       const faenaColor = FAENAS_COLORS[user.id_faena];
@@ -80,7 +85,7 @@ const UserProfileDropdown = ({
         return faenaColor.bgColor;
       }
     }
-    
+
     return "bg-blue-200"; // Color por defecto
   };
 
@@ -89,7 +94,7 @@ const UserProfileDropdown = ({
     // Mapeo de ID de rol a nombre descriptivo
     const roles = {
       1: "Encargado de Operaciones de Combustible",
-      2: "Gerente", 
+      2: "Gerente",
       3: "Administrador",
       4: "Distpach",
       5: "Taller Mecánico",
@@ -98,7 +103,7 @@ const UserProfileDropdown = ({
       8: "Administrador",
       9: "Operaciones",
     };
-        
+
     // Si el ID existe en nuestro mapeo, devolvemos el nombre del rol
     // Si no, mostramos el ID como fallback
     return roles[idRol] || `Rol ${idRol}`;
@@ -129,11 +134,11 @@ const UserProfileDropdown = ({
       // Solo mostrar "..." si realmente no tenemos datos del usuario
       return <span className="font-semibold text-white">...</span>;
     }
-        
+
     if (!user || !user.nombre || !user.apellido) {
       return <span className="font-semibold text-white">N/A</span>;
     }
-        
+
     return (
       <span className="font-semibold text-white">
         {user.nombre.charAt(0)}{user.apellido.charAt(0)}
@@ -144,14 +149,14 @@ const UserProfileDropdown = ({
   // 🎨 OBTENER INFORMACIÓN DE LA FAENA PARA DEBUG (OPCIONAL)  
   const getFaenaInfo = () => {
     if (!shouldUseCustomColors()) return null;
-    
+
     const faenaNames = {
       1: "Cabildo",
-      2: "Catemu", 
+      2: "Catemu",
       3: "Chincolco",
       4: "Tiltil"
     };
-    
+
     return user?.id_faena ? faenaNames[user.id_faena] : null;
   };
 
@@ -166,7 +171,7 @@ const UserProfileDropdown = ({
         <div className={`w-10 h-10 rounded-full ${getProfileCircleColor()} flex items-center justify-center transition-colors shadow-sm`}>
           {renderInitials()}
         </div>
-        
+
         {/* 🎨 INFORMACIÓN DEL USUARIO - CON "CARGANDO..." DE COLOR FAENA */}
         <div className="hidden md:block text-left">
           {!user ? (
