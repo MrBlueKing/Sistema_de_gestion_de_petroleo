@@ -905,7 +905,7 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                             <InputField
                                 id="ubicacion"
                                 type="text"
-                                placeholder="Cabildo Copec, Til til copec, etc."
+                                placeholder="Copec Cabildo, Copec Til Til, etc."
                                 value={formData.ubicacion}
                                 onChange={(e) => handleInputChange('ubicacion', e.target.value)}
                                 icon={<FaMapMarkerAlt />}
