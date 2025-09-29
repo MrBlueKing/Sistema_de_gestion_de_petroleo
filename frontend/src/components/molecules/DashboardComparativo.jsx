@@ -705,10 +705,7 @@ const DashboardComparativo = ({
                 <p className="text-blue-600 font-medium">
                   Anterior: {anterior.toLocaleString("es-CL")} L
                 </p>
-                <p className="text-purple-600 font-medium border-t pt-1">
-                  🔥 Incidencia Total: {incidenciaTotal.toLocaleString("es-CL")}{" "}
-                  L
-                </p>
+                
                 <div
                   className={`flex items-center text-sm font-medium ${
                     esPositivo ? "text-red-600" : "text-green-600"

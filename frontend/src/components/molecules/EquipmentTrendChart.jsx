@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { getFaenaColors } from "../../context/faenaColor";
+
 import {
   ResponsiveContainer,
   LineChart,
@@ -56,6 +58,7 @@ const CustomLabel = (props) => {
     <text
       x={labelX}
       y={labelY}
+      
       textAnchor="middle"
       dominantBaseline="bottom"
       fill="#374151"
@@ -140,9 +143,14 @@ const CustomTooltip = ({ active, payload, label, groupBy }) => {
             </div>
             {groupBy === "cargas" && (
               <div className="mt-1 text-xs text-gray-500 ml-5">
+                {entry.payload[`${entry.dataKey}_faena_nomrbe`] && (
+                  <div>👤 {entry.payload[`${entry.dataKey}_faena_nombre`]}</div>
+                )}
+
                 {entry.payload[`${entry.dataKey}_solicitante`] && (
                   <div>👤 {entry.payload[`${entry.dataKey}_solicitante`]}</div>
                 )}
+
                 {entry.payload[`${entry.dataKey}_observacion`] && (
                   <div>📝 {entry.payload[`${entry.dataKey}_observacion`]}</div>
                 )}
@@ -158,14 +166,18 @@ const CustomTooltip = ({ active, payload, label, groupBy }) => {
 };
 
 // Función para calcular ticks estandarizados del eje Y
-const calculateStandardizedYAxis = (chartData, selectedEquipments, uniqueEquipments) => {
+const calculateStandardizedYAxis = (
+  chartData,
+  selectedEquipments,
+  uniqueEquipments
+) => {
   // Encontrar el valor máximo en los datos
   let maxValue = 0;
-  
-  chartData.forEach(item => {
+
+  chartData.forEach((item) => {
     uniqueEquipments
-      .filter(equipment => selectedEquipments.has(equipment))
-      .forEach(equipment => {
+      .filter((equipment) => selectedEquipments.has(equipment))
+      .forEach((equipment) => {
         if (item[equipment] && item[equipment] > maxValue) {
           maxValue = item[equipment];
         }
@@ -180,17 +192,17 @@ const calculateStandardizedYAxis = (chartData, selectedEquipments, uniqueEquipme
   // Determinar el intervalo base según el rango de valores
   let interval;
   if (maxValue <= 50) {
-    interval = 10;        // Intervalos de 10
+    interval = 10; // Intervalos de 10
   } else if (maxValue <= 100) {
-    interval = 25;        // Intervalos de 25
+    interval = 25; // Intervalos de 25
   } else if (maxValue <= 500) {
-    interval = 50;        // Intervalos de 50
+    interval = 50; // Intervalos de 50
   } else if (maxValue <= 1000) {
-    interval = 100;       // Intervalos de 100
+    interval = 100; // Intervalos de 100
   } else if (maxValue <= 5000) {
-    interval = 500;       // Intervalos de 500
+    interval = 500; // Intervalos de 500
   } else {
-    interval = 1000;      // Intervalos de 1000
+    interval = 1000; // Intervalos de 1000
   }
 
   // Calcular el máximo del eje: siguiente múltiplo del intervalo + un intervalo extra
@@ -205,7 +217,6 @@ const calculateStandardizedYAxis = (chartData, selectedEquipments, uniqueEquipme
 
   return { domain: [0, domainMax], ticks };
 };
-
 
 // Componente de Gráfico de Tendencias por Equipo
 const EquipmentTrendChart = ({
@@ -241,8 +252,6 @@ const EquipmentTrendChart = ({
     "#ee82ee",
     "#90ee90",
   ];
-
-
 
   // 🔧 FUNCIÓN PARA FORMATEAR FECHAS (movida aquí para evitar hoisting error)
   const formatDateForDisplay = (dateStr, groupType, index = null) => {
@@ -343,6 +352,7 @@ const EquipmentTrendChart = ({
             index: index + 1,
             [equipmentKey]: parseFloat(consumo.litros_consumidos || 0),
             [`${equipmentKey}_consumo_id`]: consumo.id_consumo,
+            [`${equipmentKey}_faena_nombre`]: consumo.faena_nombre,
             [`${equipmentKey}_solicitante`]:
               consumo.solicitante_nombre || "N/A",
             [`${equipmentKey}_observacion`]: consumo.observacion || "",
@@ -427,8 +437,6 @@ const EquipmentTrendChart = ({
         finalData
       );
 
-
-      
       return finalData;
     }
   }, [consumosData, groupBy, selectedEquipments]);
@@ -485,6 +493,7 @@ const EquipmentTrendChart = ({
             index: index + 1,
             [equipmentKey]: parseFloat(consumo.litros_consumidos || 0),
             [`${equipmentKey}_consumo_id`]: consumo.id_consumo,
+            [`${equipmentKey}_faena_nombre`]: consumo.faena_nombre,
             [`${equipmentKey}_solicitante`]:
               consumo.solicitante_nombre || "N/A",
             [`${equipmentKey}_observacion`]: consumo.observacion || "",
@@ -619,10 +628,15 @@ const EquipmentTrendChart = ({
   }, [chartData, uniqueEquipments, groupBy]);
 
   // 🆕 AGREGAR AQUÍ - Configuración del eje Y estandarizado
-const yAxisConfig = useMemo(() => 
-  calculateStandardizedYAxis(chartData, selectedEquipments, uniqueEquipments),
-  [chartData, selectedEquipments, uniqueEquipments]
-);
+  const yAxisConfig = useMemo(
+    () =>
+      calculateStandardizedYAxis(
+        chartData,
+        selectedEquipments,
+        uniqueEquipments
+      ),
+    [chartData, selectedEquipments, uniqueEquipments]
+  );
 
   // Inicializar equipos seleccionados
   useEffect(() => {
@@ -685,10 +699,17 @@ const yAxisConfig = useMemo(() =>
                       {entry.value.toLocaleString("es-CL")} L
                     </span>
                   </div>
-
-                  {/* 🆕 INFORMACIÓN ADICIONAL PARA MODO CARGAS */}
                   {groupBy === "cargas" && (
                     <div className="mt-1 text-xs text-gray-500 ml-5">
+                      {consumoData[`${equipmentName}_faena_nombre`] && (
+                        <div>
+                          {/* 🎯 AQUÍ ESTÁ EL CAMBIO: usa el emoji dinámico según la faena */}
+                          {getFaenaColors(
+                            consumoData[`${equipmentName}_faena_nombre`]
+                          )?.emoji || "👤"}{" "}
+                          {consumoData[`${equipmentName}_faena_nombre`]}
+                        </div>
+                      )}
                       {consumoData[`${equipmentName}_solicitante`] && (
                         <div>
                           👤 {consumoData[`${equipmentName}_solicitante`]}
@@ -903,8 +924,8 @@ const yAxisConfig = useMemo(() =>
             {chartType === "line" ? (
               <LineChart
                 data={chartData}
-                margin={{ top: 5, right: 30, left: 0 , bottom: 60 }}  
-                     >
+                margin={{ top: 5, right: 30, left: 0, bottom: 60 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis
                   dataKey="fechaDisplay"
@@ -916,20 +937,22 @@ const yAxisConfig = useMemo(() =>
                   height={80}
                   interval={groupBy === "cargas" ? "preserveStartEnd" : 0}
                 />
-       <YAxis
-  stroke="#666"
-  tick={{ fontSize: 12 }}
-  domain={yAxisConfig.domain}
-  ticks={yAxisConfig.ticks}
-  
-  type="number"
-  label={{
-    value: "Litros",
-    angle: -90,
-    position: "insideLeft",
-  }}
-/>
-                <Tooltip content={<CustomTooltip />} />
+                <YAxis
+                  stroke="#666"
+                  tick={{ fontSize: 12 }}
+                  domain={yAxisConfig.domain}
+                  ticks={yAxisConfig.ticks}
+                  type="number"
+                  label={{
+                    value: "Litros",
+                    angle: -90,
+                    position: "insideLeft",
+                  }}
+                />
+                <Tooltip 
+                offset={150}
+                content={<CustomTooltip />} />
+                
                 <Legend />
 
                 {uniqueEquipments
@@ -981,18 +1004,18 @@ const yAxisConfig = useMemo(() =>
                   height={80}
                   interval={groupBy === "cargas" ? "preserveStartEnd" : 0}
                 />
-           <YAxis
-  stroke="#666"
-  tick={{ fontSize: 12 }}
-  domain={yAxisConfig.domain}
-  ticks={yAxisConfig.ticks}
-  type="number"
-  label={{
-    value: "Litros",
-    angle: -90,
-    position: "insideLeft",
-  }}
-/>
+                <YAxis
+                  stroke="#666"
+                  tick={{ fontSize: 12 }}
+                  domain={yAxisConfig.domain}
+                  ticks={yAxisConfig.ticks}
+                  type="number"
+                  label={{
+                    value: "Litros",
+                    angle: -90,
+                    position: "insideLeft",
+                  }}
+                />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
                 {uniqueEquipments
