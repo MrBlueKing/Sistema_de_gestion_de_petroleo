@@ -658,7 +658,7 @@ class ConsumoCategoriasController extends Controller
             // 1. Obtener el primer valor del mes en curso
             $inicioMesActual = Carbon::parse($fechaInicio)->startOfMonth();
 
-            $primerValorMes = DB::table('consumos')
+            $primerValorMes = DB::table('consumos_unificados')
                 ->where('id_equipo', $idMaquina)
                 ->where('fecha_consumo', '>=', $inicioMesActual)
                 ->when($idFaena, function ($query, $idFaena) {
@@ -670,7 +670,7 @@ class ConsumoCategoriasController extends Controller
                 ->first();
 
             // 2. Obtener el último valor confirmado en el período consultado
-            $ultimoValorConfirmado = DB::table('consumos')
+            $ultimoValorConfirmado = DB::table('consumos_unificados')
                 ->where('id_equipo', $idMaquina)
                 ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
                 ->when($idFaena, function ($query, $idFaena) {
@@ -739,7 +739,7 @@ class ConsumoCategoriasController extends Controller
             // 1. Primer valor del mes en curso
             $inicioMesActual = Carbon::parse($fechaFinalFiltro)->startOfMonth();
 
-            $primerValorMes = DB::table('consumos')
+            $primerValorMes = DB::table('consumos_unificados')
                 ->where('id_equipo', $idMaquina)
                 ->where('fecha_consumo', '>=', $inicioMesActual)
                 ->when($idFaena, function ($query, $idFaena) {
@@ -751,7 +751,7 @@ class ConsumoCategoriasController extends Controller
                 ->first();
 
             // 2. Último valor hasta la fecha final del filtro
-            $ultimoValorHastaFiltro = DB::table('consumos')
+            $ultimoValorHastaFiltro = DB::table('consumos_unificados')
                 ->where('id_equipo', $idMaquina)
                 ->where('fecha_consumo', '<=', $fechaFinalFiltro)
                 ->when($idFaena, function ($query, $idFaena) {
@@ -811,7 +811,7 @@ class ConsumoCategoriasController extends Controller
             $finCarbon = Carbon::parse($fechaFin);
 
             // Obtener todos los consumos del período
-            $query = DB::table('consumos')
+            $query = DB::table('consumos_unificados')
                 ->where('id_equipo', $idMaquina)
                 ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin]);
 
@@ -991,7 +991,7 @@ class ConsumoCategoriasController extends Controller
             $fechaFinFiltro = Carbon::parse($fechaFin);
 
             // 🎯 CAMBIO: Buscar último consumo DENTRO del rango del filtro
-            $ultimoConsumoDentroDelRango = DB::table('consumos')
+            $ultimoConsumoDentroDelRango = DB::table('consumos_unificados')
                 ->where('id_equipo', $idMaquina)
                 ->whereBetween('fecha_consumo', [$fechaInicioFiltro, $fechaFinFiltro])
                 ->when($idFaena, function ($query, $idFaena) {
@@ -1061,7 +1061,7 @@ class ConsumoCategoriasController extends Controller
                 $esUltimoMes = $infoUltimoConsumo && $mesKey === $infoUltimoConsumo['mes_ultimo_consumo'];
 
                 // PRIMER VALOR DEL MES ACTUAL
-                $primerValorMes = DB::table('consumos')
+                $primerValorMes = DB::table('consumos_unificados')
                     ->where('id_equipo', $idMaquina)
                     ->whereBetween('fecha_consumo', [$inicioMes, $finMes])
                     ->when($idFaena, function ($query, $idFaena) {
@@ -1078,7 +1078,7 @@ class ConsumoCategoriasController extends Controller
 
                 if ($esUltimoMes) {
                     // MES DEL ÚLTIMO CONSUMO: Usar último consumo DENTRO del mes (no buscar siguiente)
-                    $ultimoValorMes = DB::table('consumos')
+                    $ultimoValorMes = DB::table('consumos_unificados')
                         ->where('id_equipo', $idMaquina)
                         ->whereBetween('fecha_consumo', [$inicioMes, $finMes])
                         ->when($idFaena, function ($query, $idFaena) {
@@ -1095,7 +1095,7 @@ class ConsumoCategoriasController extends Controller
                     // MES ANTERIOR: Buscar primer consumo del siguiente mes
                     $inicioMesSiguiente = $mesActual->copy()->addMonth()->startOfMonth();
 
-                    $ultimoValorMes = DB::table('consumos')
+                    $ultimoValorMes = DB::table('consumos_unificados')
                         ->where('id_equipo', $idMaquina)
                         ->where('fecha_consumo', '>=', $inicioMesSiguiente)
                         ->when($idFaena, function ($query, $idFaena) {
@@ -1109,7 +1109,7 @@ class ConsumoCategoriasController extends Controller
                     if ($ultimoValorMes) {
                         $explicacion = "Primer del mes → Primer del siguiente mes (confirma carga)";
                     } else {
-                        $ultimoValorMes = DB::table('consumos')
+                        $ultimoValorMes = DB::table('consumos_unificados')
                             ->where('id_equipo', $idMaquina)
                             ->whereBetween('fecha_consumo', [$inicioMes, $finMes])
                             ->when($idFaena, function ($query, $idFaena) {
@@ -1256,7 +1256,7 @@ class ConsumoCategoriasController extends Controller
             $inicioMesActual = Carbon::parse($fechaFinalFiltro)->startOfMonth();
 
             // === 1. CONSULTA PARA MÉTRICAS ===
-            $resumenQuery = DB::table('consumos')
+            $resumenQuery = DB::table('consumos_unificados')
                 ->where('id_equipo', $idMaquina)
                 ->whereBetween('fecha_consumo', [$inicioMesActual, $fechaFinalFiltro])
                 ->when($idFaena, function ($query, $idFaena) {
@@ -1272,7 +1272,7 @@ class ConsumoCategoriasController extends Controller
             )->first();
 
             // === 2. CONSULTA PARA OBTENER EL ÚLTIMO CONSUMO ===
-            $ultimoConsumo = DB::table('consumos')
+            $ultimoConsumo = DB::table('consumos_unificados')
                 ->where('id_equipo', $idMaquina)
                 ->whereBetween('fecha_consumo', [$inicioMesActual, $fechaFinalFiltro])
                 ->when($idFaena, function ($query, $idFaena) {
@@ -1388,7 +1388,7 @@ class ConsumoCategoriasController extends Controller
             // 1. Obtener primer valor del mes
             $inicioMesActual = Carbon::parse($fechaFinalFiltro)->startOfMonth();
 
-            $primerValorMes = DB::table('consumos')
+            $primerValorMes = DB::table('consumos_unificados')
                 ->where('id_equipo', $idMaquina)
                 ->whereBetween('fecha_consumo', [$inicioMesActual, $fechaFinalFiltro])
                 ->when($idFaena, function ($query, $idFaena) {
@@ -1406,7 +1406,7 @@ class ConsumoCategoriasController extends Controller
             }
 
             // 2. Obtener último valor confirmado del mes
-            $ultimoValorConfirmado = DB::table('consumos')
+            $ultimoValorConfirmado = DB::table('consumos_unificados')
                 ->where('id_equipo', $idMaquina)
                 ->whereBetween('fecha_consumo', [$inicioMesActual, $fechaFinalFiltro])
                 ->when($idFaena, function ($query, $idFaena) {
@@ -1506,7 +1506,7 @@ class ConsumoCategoriasController extends Controller
             $tipoMedicion = $categoria->tipo_medicion ?? 'Kilometraje';
 
             // Obtener todos los consumos con medición válida en el período
-            $query = DB::table('consumos')
+            $query = DB::table('consumos_unificados')
                 ->where('id_equipo', $idMaquina)
                 ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
                 ->whereNotNull('medicion')
@@ -1734,7 +1734,7 @@ class ConsumoCategoriasController extends Controller
 
             if ($idFaena === null) {
                 // Es múltiples faenas, necesitamos obtener el id_faena de la última carga
-                $ultimaCarga = DB::table('consumos')
+                $ultimaCarga = DB::table('consumos_unificados')
                     ->where('id_equipo', $idMaquina)
                     ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
                     ->orderBy('fecha_consumo', 'desc')
@@ -2373,7 +2373,7 @@ class ConsumoCategoriasController extends Controller
     private function analizarMaquinaConSeparacionFaenas($idMaquina, $fechaInicio, $fechaFin, $categoria, $incluirSimulacion, $incluirSabados, $incluirDomingos, $momentoConsulta, $idFaena = null)
     {
         // ✅ CAMBIO: Obtener TODOS los consumos (consolidados) en lugar de separarlos por faena
-        $query = DB::table('consumos')
+        $query = DB::table('consumos_unificados')
             ->where('id_equipo', $idMaquina)
             ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin]);
 
@@ -2389,12 +2389,12 @@ class ConsumoCategoriasController extends Controller
         }
 
         // ✅ NUEVO: Obtener info de faenas para metadata (pero sin separar análisis)
-        $faenasOperacion = DB::table('consumos')
-            ->join('faenas', 'consumos.id_faena', '=', 'faenas.id_faena')
-            ->where('consumos.id_equipo', $idMaquina)
-            ->whereBetween('consumos.fecha_consumo', [$fechaInicio, $fechaFin])
+        $faenasOperacion = DB::table('consumos_unificados')
+            ->join('faenas', 'consumos_unificados.id_faena', '=', 'faenas.id_faena')
+            ->where('consumos_unificados.id_equipo', $idMaquina)
+            ->whereBetween('consumos_unificados.fecha_consumo', [$fechaInicio, $fechaFin])
             ->when($idFaena, function ($query, $idFaena) {
-                return $query->where('consumos.id_faena', $idFaena);
+                return $query->where('consumos_unificados.id_faena', $idFaena);
             })
             ->select([
                 'faenas.id_faena',
@@ -2408,7 +2408,7 @@ class ConsumoCategoriasController extends Controller
         // ✅ CAMBIO: Análisis consolidado (igual que analizarMaquinaEnFaenaEspecifica pero sin filtro de faena)
         $analisisConsolidado = $this->analizarMaquinaEnFaenaEspecifica(
             $idMaquina,
-            null, // ✅ NULL = no filtrar por faena específica 
+        $idFaena, // ✅ Ahora respeta el filtro de faena
             $fechaInicio,
             $fechaFin,
             $categoria,
@@ -2504,7 +2504,7 @@ class ConsumoCategoriasController extends Controller
     private function analizarMaquinaEnFaenaEspecifica($idMaquina, $idFaena, $fechaInicio, $fechaFin, $categoria, $incluirSimulacion, $incluirSabados, $incluirDomingos, $momentoConsulta)
     {
         // ✅ CAMBIO: Permitir idFaena = null para análisis consolidado
-        $query = DB::table('consumos')
+        $query = DB::table('consumos_unificados')
             ->where('id_equipo', $idMaquina)
             ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin]);
 
@@ -2786,7 +2786,7 @@ class ConsumoCategoriasController extends Controller
     private function obtenerPrecioPromedioMaquina($idMaquina, $fechaInicio, $fechaFin, $idFaena = null)
     {
         // ✅ 1. Buscar el último consumo en el rango
-        $ultimoConsumo = DB::table('consumos')
+        $ultimoConsumo = DB::table('consumos_unificados')
             ->where('id_equipo', $idMaquina)
             ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
             ->whereNotNull('precio_litro')
@@ -2799,7 +2799,7 @@ class ConsumoCategoriasController extends Controller
             ->value('id_consumo');
 
         // ✅ 2. Calcular ponderado, excluyendo ese último consumo
-        $query = DB::table('consumos')
+        $query = DB::table('consumos_unificados')
             ->selectRaw('SUM(litros_consumidos * precio_litro) / SUM(litros_consumidos) as precio_promedio_ponderado')
             ->where('id_equipo', $idMaquina)
             ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
@@ -2828,7 +2828,7 @@ class ConsumoCategoriasController extends Controller
             ->where('maquinas.id_maquina', $idMaquina)
             ->value('categorias_maquinas.tipo_medicion');
 
-        $query = DB::table('consumos')
+        $query = DB::table('consumos_unificados')
             ->where('id_equipo', $idMaquina)
             ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin])
             ->whereNotNull('medicion')
@@ -2885,17 +2885,17 @@ class ConsumoCategoriasController extends Controller
         }
         // ✅ NUEVO: Verificar faenas REALMENTE USADAS en el período específico
         if ($fechaInicio && $fechaFin) {
-            $faenasUsadasEnPeriodo = DB::table('consumos')
-                ->join('faenas', 'consumos.id_faena', '=', 'faenas.id_faena')
-                ->where('consumos.id_equipo', $idMaquina)
-                ->whereBetween('consumos.fecha_consumo', [$fechaInicio, $fechaFin])
+            $faenasUsadasEnPeriodo = DB::table('consumos_unificados')
+                ->join('faenas', 'consumos_unificados.id_faena', '=', 'faenas.id_faena')
+                ->where('consumos_unificados.id_equipo', $idMaquina)
+                ->whereBetween('consumos_unificados.fecha_consumo', [$fechaInicio, $fechaFin])
                 ->select([
                     'faenas.id_faena',
                     'faenas.ubicacion',
                     'faenas.detalle',
                     DB::raw('COUNT(*) as consumos_count'),
-                    DB::raw('MIN(consumos.fecha_consumo) as primera_fecha'),
-                    DB::raw('MAX(consumos.fecha_consumo) as ultima_fecha')
+                    DB::raw('MIN(consumos_unificados.fecha_consumo) as primera_fecha'),
+                    DB::raw('MAX(consumos_unificados.fecha_consumo) as ultima_fecha')
                 ])
                 ->groupBy('faenas.id_faena', 'faenas.ubicacion', 'faenas.detalle')
                 ->orderBy('consumos_count', 'desc')
@@ -2989,7 +2989,7 @@ class ConsumoCategoriasController extends Controller
     {
 
         // ✅ AQUÍ ESTÁ EL CAMBIO CRÍTICO
-        $query = DB::table('consumos')
+        $query = DB::table('consumos_unificados')
             ->where('id_equipo', $idMaquina)
             ->whereBetween('fecha_consumo', [$fechaInicio, $fechaFin]);
         // ✅ FILTRO POR FAENA - ESTO DEBE ESTAR PRESENTE
@@ -3466,7 +3466,7 @@ class ConsumoCategoriasController extends Controller
     private function calcularProyeccionHastaCarga($fechaUltimaCarga, $ultimaCarga, $stockDisponible, $categoria, $incluirSabados, $incluirDomingos)
     {
         // Encontrar carga anterior
-        $cargaAnterior = DB::table('consumos')
+        $cargaAnterior = DB::table('consumos_unificados')
             ->where('id_equipo', $ultimaCarga->id_equipo)
             ->where('fecha_consumo', '<', $fechaUltimaCarga)
             ->orderBy('fecha_consumo', 'desc')
@@ -3503,7 +3503,7 @@ class ConsumoCategoriasController extends Controller
     private function calcularConsumoHastaUltimaCarga($fechaUltimaCarga, $ultimaCarga, $categoria, $incluirSabados, $incluirDomingos)
     {
         // Encontrar la carga anterior para determinar desde cuándo simular
-        $cargaAnterior = DB::table('consumos')
+        $cargaAnterior = DB::table('consumos_unificados')
             ->where('id_equipo', $ultimaCarga->id_equipo)
             ->where('fecha_consumo', '<', $fechaUltimaCarga)
             ->orderBy('fecha_consumo', 'desc')
@@ -4249,20 +4249,20 @@ class ConsumoCategoriasController extends Controller
             $fechaInicio = $ahora->copy()->subDay()->setTime(self::HORA_INICIO_LABORAL, 0, 0);
             $fechaFin = $ahora->copy()->setTime(self::HORA_FIN_LABORAL, 0, 0);
 
-            $consumosHoy = DB::table('consumos')
-                ->join('maquinas', 'consumos.id_equipo', '=', 'maquinas.id_maquina')
+            $consumosHoy = DB::table('consumos_unificados')
+                ->join('maquinas', 'consumos_unificados.id_equipo', '=', 'maquinas.id_maquina')
                 ->join('categorias_maquinas', 'maquinas.id_categoria', '=', 'categorias_maquinas.id_categoria')
-                ->whereBetween('consumos.fecha_consumo', [$fechaInicio, $fechaFin])
+                ->whereBetween('consumos_unificados.fecha_consumo', [$fechaInicio, $fechaFin])
                 ->when($request->faena, function ($query, $faena) {
-                    return $query->where('consumos.id_faena', $faena);
+                    return $query->where('consumos_unificados.id_faena', $faena);
                 })
                 ->select([
-                    'consumos.*',
+                    'consumos_unificados.*',
                     'maquinas.nombre_maquina',
                     'maquinas.patente',
                     'categorias_maquinas.nombre_categoria'
                 ])
-                ->orderBy('consumos.fecha_consumo', 'desc')
+                ->orderBy('consumos_unificados.fecha_consumo', 'desc')
                 ->get();
 
             $estadisticasHoy = [
@@ -4406,10 +4406,7 @@ class ConsumoCategoriasController extends Controller
             // ===== NUEVO: EXCLUIR CATEGORÍA 4 =====
             ->where('id_categoria', '!=', 3);
 
-        if ($idFaena) {
-            $query->join('permisos_maquinas_faenas', 'maquinas.id_maquina', '=', 'permisos_maquinas_faenas.id_maquina')
-                ->where('permisos_maquinas_faenas.id_faena', $idFaena);
-        }
+     
 
         return $query->select('maquinas.*')->get();
     }
@@ -4541,23 +4538,23 @@ class ConsumoCategoriasController extends Controller
     }
     private function obtenerPrecioPromedioCategoria($idCategoria, $fechaInicio = null, $fechaFin = null, $idFaena = null)
     {
-        $query = DB::table('consumos')
-            ->join('maquinas', 'consumos.id_equipo', '=', 'maquinas.id_maquina')
+        $query = DB::table('consumos_unificados')
+            ->join('maquinas', 'consumos_unificados.id_equipo', '=', 'maquinas.id_maquina')
             ->where('maquinas.id_categoria', $idCategoria)
-            ->whereNotNull('consumos.precio_litro')
-            ->where('consumos.precio_litro', '>', 0);
+            ->whereNotNull('consumos_unificados.precio_litro')
+            ->where('consumos_unificados.precio_litro', '>', 0);
 
         // ← AGREGAR FILTRO DE FECHAS
         if ($fechaInicio && $fechaFin) {
-            $query->whereBetween('consumos.fecha_consumo', [$fechaInicio, $fechaFin]);
+            $query->whereBetween('consumos_unificados.fecha_consumo', [$fechaInicio, $fechaFin]);
         }
 
         // ✅ FILTRO POR FAENA
         if ($idFaena) {
-            $query->where('consumos.id_faena', $idFaena);
+            $query->where('consumos_unificados.id_faena', $idFaena);
         }
 
-        return $query->avg('consumos.precio_litro') ?? 0;
+        return $query->avg('consumos_unificados.precio_litro') ?? 0;
     }
 
     private function obtenerNombreFaena($idFaena)

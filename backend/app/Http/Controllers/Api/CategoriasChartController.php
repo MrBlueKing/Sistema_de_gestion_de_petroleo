@@ -126,7 +126,7 @@ class CategoriasChartController extends Controller
         // ===============================================
         // 🎯 PASO 1: OBTENER DATOS BASE
         // ===============================================
-        $query = DB::table('consumos as c')
+        $query = DB::table('consumos_unificados as c')
             ->join('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
             ->leftJoin('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
             ->join('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria')
@@ -896,7 +896,7 @@ class CategoriasChartController extends Controller
 
         try {
             // 🎯 CONSULTA CORREGIDA: Usar tabla consumos con estructura correcta
-            $query = DB::table('consumos as c')
+            $query = DB::table('consumos_unificados as c')
                 ->join('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
                 ->join('faenas as f', 'c.id_faena', '=', 'f.id_faena')
                 ->leftJoin('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
@@ -1033,7 +1033,7 @@ class CategoriasChartController extends Controller
      */
     private function obtenerConsumosCamionesTolvaIndividuales($fechaInicio, $fechaFin)
     {
-        $queryConsumos = DB::table('consumos as c')
+        $queryConsumos = DB::table('consumos_unificados as c')
             ->join('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
             ->leftJoin('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
             ->join('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria')
@@ -1089,7 +1089,7 @@ class CategoriasChartController extends Controller
         }
 
         // 🆕 QUERY CORREGIDA: Una sola consulta con LEFT JOIN
-        $resultados = DB::table('consumos as c')
+        $resultados = DB::table('consumos_unificados as c')
             ->join('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
             ->leftJoin('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
             ->where('m.id_categoria', $idCategoria)
@@ -1287,7 +1287,7 @@ class CategoriasChartController extends Controller
         }
 
         // Obtener consumo de camionetas por faena (sin filtro de faena)
-        $queryConsumos = DB::table('consumos as c')
+        $queryConsumos = DB::table('consumos_unificados as c')
             ->join('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
             ->leftJoin('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
             ->join('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria')
@@ -1460,7 +1460,7 @@ class CategoriasChartController extends Controller
             }
 
             // 🆕 QUERY PARA CONSUMOS INDIVIDUALES (NO AGRUPADOS)
-            $query = DB::table('consumos as c')
+            $query = DB::table('consumos_unificados as c')
                 ->join('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
                 ->leftJoin('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
                 ->leftJoin('faenas as f', 'c.id_faena', '=', 'f.id_faena')

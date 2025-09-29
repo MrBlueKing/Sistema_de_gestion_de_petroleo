@@ -530,7 +530,7 @@ const TopEquiposChart = ({
           <div className="text-red-700 mb-4">{error}</div>
           <button
             onClick={handleRetry}
-            className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors flex items-center"
+            className="bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors flex items-center"
           >
             <FiRefreshCw className="mr-2" /> Reintentar
           </button>

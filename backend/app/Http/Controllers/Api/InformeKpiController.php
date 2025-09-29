@@ -27,7 +27,7 @@ class InformeKpiController extends Controller
             $consumosColumns = DB::getSchemaBuilder()->getColumnListing('consumos_unificados');
 
             // ✅ CORREGIDO: Usar la estructura correcta de relaciones
-            $equipos = DB::table('consumos as c')
+            $equipos = DB::table('consumos_unificados as c')
                 ->join('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
                 ->join('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
                 ->select(
@@ -122,7 +122,7 @@ class InformeKpiController extends Controller
             }
 
             // 1. 🆕 OBTENER MÁQUINAS INTERNAS CON SUS CONSUMOS
-            $equiposInternos = DB::table('consumos as c')
+            $equiposInternos = DB::table('consumos_unificados as c')
                 ->join('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
                 ->join('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
                 ->join('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria')
@@ -154,7 +154,7 @@ class InformeKpiController extends Controller
                 );
 
             // 2. 🆕 OBTENER MÁQUINAS EXTERNAS CON SUS CONSUMOS
-            $equiposExternos = DB::table('consumos as c')
+            $equiposExternos = DB::table('consumos_unificados as c')
                 ->join('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
                 ->join('maquinas_externas as me', 'm.id_maquina', '=', 'me.id_maquina')
                 ->join('empresas_externas as ee', 'me.id_empresa', '=', 'ee.id_empresa')
@@ -251,7 +251,7 @@ class InformeKpiController extends Controller
             foreach ($equiposCompletos as $equipo) {
                 // Obtener consumo filtrado (sin último consumo) para rendimiento
                 if ($equipo->total_consumos_periodo > 1) {
-                    $consumoFiltrado = DB::table('consumos as c')
+                    $consumoFiltrado = DB::table('consumos_unificados as c')
                         ->join('maquinas as m', 'c.id_equipo', '=', 'm.id_maquina')
                         ->where('m.id_maquina', $equipo->id)
                         ->whereBetween('c.fecha_consumo', [$fechaInicio, $fechaFin])
