@@ -83,7 +83,6 @@ class AuthController extends Controller
                 ],
                 'token' => $token,
             ], 201);
-
         } catch (\Exception $e) {
             Log::error('Error en registro de usuario', [
                 'error' => $e->getMessage(),
@@ -102,6 +101,19 @@ class AuthController extends Controller
      */
     public function login(Request $request)
     {
+        // 📝 LOG INICIAL - Captura TODO lo que llega
+        Log::info('=== INICIO LOGIN ===', [
+            'timestamp' => now()->toDateTimeString(),
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'rut_recibido' => $request->rut ?? 'no_enviado',
+            'tiene_password' => !empty($request->password) ? 'SI' : 'NO',
+            'todos_los_datos' => $request->except(['password']), // Todo excepto password
+            'metodo_http' => $request->method(),
+            'url_completa' => $request->fullUrl(),
+            'headers' => $request->headers->all()
+        ]);
+
         try {
             // Rate limiting por IP
             $key = 'login_attempts:' . $request->ip();
@@ -110,6 +122,14 @@ class AuthController extends Controller
 
             if (RateLimiter::tooManyAttempts($key, $maxAttempts)) {
                 $seconds = RateLimiter::availableIn($key);
+
+                Log::warning('❌ RATE LIMIT EXCEDIDO', [
+                    'ip' => $request->ip(),
+                    'intentos' => RateLimiter::attempts($key),
+                    'max_permitido' => $maxAttempts,
+                    'segundos_restantes' => $seconds
+                ]);
+
                 return response()->json([
                     'message' => 'Demasiados intentos de login',
                     'error' => "Intenta nuevamente en {$seconds} segundos"
@@ -126,6 +146,11 @@ class AuthController extends Controller
             ]);
 
             if ($validator->fails()) {
+                Log::warning('❌ VALIDACIÓN FALLIDA', [
+                    'errores' => $validator->errors()->toArray(),
+                    'datos_recibidos' => $request->except(['password'])
+                ]);
+
                 return response()->json([
                     'message' => 'Datos de entrada inválidos',
                     'errors' => $validator->errors()
@@ -133,25 +158,46 @@ class AuthController extends Controller
             }
 
             $credentials = $request->only('rut', 'password');
-            
-            Log::info('Intento de login', [
+
+            Log::info('✅ VALIDACIÓN CORRECTA - Buscando usuario', [
                 'rut' => $request->rut,
-                'ip' => $request->ip(),
-                'user_agent' => $request->userAgent()
+                'ip' => $request->ip()
             ]);
 
             // Verificar que el usuario existe y está activo
             $user = User::where('rut', $request->rut)->first();
-            
+
             if (!$user) {
                 RateLimiter::hit($key, $decayMinutes * 60);
+
+                Log::warning('❌ USUARIO NO ENCONTRADO', [
+                    'rut_buscado' => $request->rut,
+                    'ip' => $request->ip(),
+                    'intentos_acumulados' => RateLimiter::attempts($key)
+                ]);
+
                 return response()->json([
                     'message' => 'Credenciales inválidas',
                     'error' => 'RUT o contraseña incorrectos'
                 ], 401);
             }
 
+            Log::info('✅ USUARIO ENCONTRADO', [
+                'user_id' => $user->id,
+                'rut' => $user->rut,
+                'nombre' => $user->nombre,
+                'estado_activo' => $user->estado ? 'SI' : 'NO',
+                'tiene_rol' => $user->id_rol ?? 'sin_rol',
+                'tiene_faena' => $user->id_faena ?? 'sin_faena'
+            ]);
+
             if (!$user->estado) {
+                Log::warning('❌ CUENTA INACTIVA', [
+                    'user_id' => $user->id,
+                    'rut' => $user->rut,
+                    'nombre' => $user->nombre
+                ]);
+
                 return response()->json([
                     'message' => 'Cuenta inactiva',
                     'error' => 'Tu cuenta ha sido desactivada. Contacta al administrador.'
@@ -159,12 +205,18 @@ class AuthController extends Controller
             }
 
             // Intentar autenticación
+            Log::info('🔐 INTENTANDO AUTENTICACIÓN', [
+                'rut' => $request->rut
+            ]);
+
             if (!Auth::attempt($credentials)) {
                 RateLimiter::hit($key, $decayMinutes * 60);
-                
-                Log::warning('Intento de login fallido', [
+
+                Log::warning('❌ AUTENTICACIÓN FALLIDA - Password incorrecta', [
+                    'user_id' => $user->id,
                     'rut' => $request->rut,
-                    'ip' => $request->ip()
+                    'ip' => $request->ip(),
+                    'intentos_acumulados' => RateLimiter::attempts($key)
                 ]);
 
                 return response()->json([
@@ -176,24 +228,50 @@ class AuthController extends Controller
             // Login exitoso - limpiar rate limiting
             RateLimiter::clear($key);
 
-            // Obtener usuario autenticado con relaciones
-            $user = $request->user();
-            $user->load(['rol', 'faena']);
-
-            // Revocar tokens antiguos (opcional - mantener solo un token activo)
-            // $user->tokens()->delete();
-
-            // Crear nuevo token con expiración de 24 horas
-            $token = $user->createToken('api_token', ['*'], now()->addHours(24))->plainTextToken;
-
-            Log::info('Login exitoso', [
+            Log::info('✅ AUTENTICACIÓN EXITOSA', [
                 'user_id' => $user->id,
-                'rut' => $user->rut,
-                'rol' => $user->rol->rol ?? 'sin_rol',
-                'faena' => $user->faena->ubicacion ?? 'sin_faena'
+                'rut' => $request->rut
             ]);
 
-            return response()->json([
+            // Obtener usuario autenticado con relaciones
+            $user = $request->user();
+
+            try {
+                $user->load(['rol', 'faena']);
+
+                Log::info('✅ RELACIONES CARGADAS', [
+                    'user_id' => $user->id,
+                    'tiene_rol_cargado' => isset($user->rol) ? 'SI' : 'NO',
+                    'tiene_faena_cargada' => isset($user->faena) ? 'SI' : 'NO',
+                    'rol_nombre' => $user->rol->rol ?? 'sin_rol',
+                    'faena_ubicacion' => $user->faena->ubicacion ?? 'sin_faena'
+                ]);
+            } catch (\Exception $loadError) {
+                Log::error('❌ ERROR CARGANDO RELACIONES', [
+                    'user_id' => $user->id,
+                    'error' => $loadError->getMessage(),
+                    'trace' => $loadError->getTraceAsString()
+                ]);
+            }
+
+            // Crear nuevo token con expiración de 24 horas
+            try {
+                $token = $user->createToken('api_token', ['*'], now()->addHours(24))->plainTextToken;
+
+                Log::info('✅ TOKEN CREADO', [
+                    'user_id' => $user->id,
+                    'expira_en' => now()->addHours(24)->toDateTimeString()
+                ]);
+            } catch (\Exception $tokenError) {
+                Log::error('❌ ERROR CREANDO TOKEN', [
+                    'user_id' => $user->id,
+                    'error' => $tokenError->getMessage(),
+                    'trace' => $tokenError->getTraceAsString()
+                ]);
+                throw $tokenError;
+            }
+
+            $responseData = [
                 'message' => 'Login exitoso',
                 'user' => [
                     'id' => $user->id,
@@ -208,13 +286,29 @@ class AuthController extends Controller
                 ],
                 'token' => $token,
                 'expires_at' => now()->addHours(24)->toISOString(),
-            ], 200);
+            ];
 
+            Log::info('=== LOGIN EXITOSO COMPLETO ===', [
+                'user_id' => $user->id,
+                'rut' => $user->rut,
+                'rol' => $user->rol->rol ?? 'sin_rol',
+                'faena' => $user->faena->ubicacion ?? 'sin_faena',
+                'token_primeros_chars' => substr($token, 0, 10) . '...',
+                'response_keys' => array_keys($responseData)
+            ]);
+
+            return response()->json($responseData, 200);
         } catch (\Exception $e) {
-            Log::error('Error en login', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'rut' => $request->rut ?? 'no_provided'
+            Log::error('💥 ERROR CRÍTICO EN LOGIN', [
+                'timestamp' => now()->toDateTimeString(),
+                'error_mensaje' => $e->getMessage(),
+                'error_linea' => $e->getLine(),
+                'error_archivo' => $e->getFile(),
+                'error_tipo' => get_class($e),
+                'trace_completo' => $e->getTraceAsString(),
+                'rut_intento' => $request->rut ?? 'no_provided',
+                'ip' => $request->ip(),
+                'datos_request' => $request->except(['password'])
             ]);
 
             return response()->json([
@@ -231,14 +325,14 @@ class AuthController extends Controller
     {
         try {
             $user = $request->user();
-            
+
             // Obtener el token actual
             $currentToken = $request->user()->currentAccessToken();
-            
+
             if ($currentToken) {
                 // Eliminar solo el token actual
                 $currentToken->delete();
-                
+
                 Log::info('Logout exitoso', [
                     'user_id' => $user->id,
                     'rut' => $user->rut
@@ -248,7 +342,6 @@ class AuthController extends Controller
             return response()->json([
                 'message' => 'Sesión cerrada exitosamente'
             ], 200);
-
         } catch (\Exception $e) {
             Log::error('Error en logout', [
                 'error' => $e->getMessage(),
@@ -270,10 +363,10 @@ class AuthController extends Controller
         try {
             $user = $request->user();
             $currentToken = $request->user()->currentAccessToken();
-            
+
             // Crear nuevo token
             $newToken = $user->createToken('api_token', ['*'], now()->addHours(24))->plainTextToken;
-            
+
             // Eliminar token anterior
             if ($currentToken) {
                 $currentToken->delete();
@@ -284,7 +377,6 @@ class AuthController extends Controller
                 'token' => $newToken,
                 'expires_at' => now()->addHours(24)->toISOString(),
             ], 200);
-
         } catch (\Exception $e) {
             Log::error('Error al refrescar token', [
                 'error' => $e->getMessage(),
@@ -306,9 +398,9 @@ class AuthController extends Controller
         try {
             $user = $request->user();
             $user->load(['rol', 'faena']);
-            
+
             $currentToken = $request->user()->currentAccessToken();
-            
+
             return response()->json([
                 'message' => 'Token válido',
                 'user' => [
@@ -328,7 +420,6 @@ class AuthController extends Controller
                     'expires_at' => $currentToken->expires_at,
                 ]
             ], 200);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Token inválido',
@@ -344,10 +435,10 @@ class AuthController extends Controller
     {
         try {
             $user = $request->user();
-            
+
             // Eliminar todos los tokens del usuario
             $user->tokens()->delete();
-            
+
             Log::info('Todos los tokens revocados', [
                 'user_id' => $user->id,
                 'rut' => $user->rut
@@ -356,7 +447,6 @@ class AuthController extends Controller
             return response()->json([
                 'message' => 'Todas las sesiones han sido cerradas'
             ], 200);
-
         } catch (\Exception $e) {
             Log::error('Error al revocar tokens', [
                 'error' => $e->getMessage(),

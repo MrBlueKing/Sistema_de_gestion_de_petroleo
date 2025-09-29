@@ -103,13 +103,14 @@ const UniversalHeader = ({
 
   // Actualizar reloj
   useEffect(() => {
-    if (showClock || type === "bombero" || type === "operador") {
-      const timer = setInterval(() => {
-        setCurrentTime(new Date());
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [showClock, type]);
+    // ✅ Iniciar el reloj siempre, sin importar el tipo de usuario
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    // Limpiar el intervalo cuando el componente se desmonte
+    return () => clearInterval(timer);
+  }, []); // ✅ Sin dependencias - se ejecuta solo una vez al montar
 
   // Efecto de scroll solo para tipos que lo necesiten
   useEffect(() => {
