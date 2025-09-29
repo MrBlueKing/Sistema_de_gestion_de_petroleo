@@ -5,9 +5,9 @@ import GestionarPermisoMaquinaMain from "../../organisms/Administrador/Gestionar
 const GestionarPersonalExternoPersonalPage = () => {
   return (
     <div>
-<UniversalHeader type="admin" />
+      <UniversalHeader type="admin" />
       <GestionarPermisoMaquinaMain />
-    </div>    
+    </div>
   );
 };
 

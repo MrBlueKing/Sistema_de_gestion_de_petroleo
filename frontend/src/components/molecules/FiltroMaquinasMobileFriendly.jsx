@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { 
-    FaTruck, 
-    FaTimes, 
-    FaChevronDown, 
-    FaSearch, 
+import {
+    FaTruck,
+    FaTimes,
+    FaChevronDown,
+    FaSearch,
     FaSpinner,
     FaCheck,
     FaCheckSquare,
@@ -23,14 +23,14 @@ const FiltroMaquinasMobileFriendly = ({
     const [isFocused, setIsFocused] = useState(false);
     const [selectedMaquinas, setSelectedMaquinas] = useState(equipoFilter || []);
     const [tempSelectedMaquinas, setTempSelectedMaquinas] = useState(equipoFilter || []);
-    
+
     // 🆕 Lista completa de máquinas para el selector
     const [listaMaquinasCompleta, setListaMaquinasCompleta] = useState([]);
-    
+
     // 🆕 Refs para control de estado interno
     const isInternalUpdate = useRef(false);
     const lastExternalFilter = useRef(equipoFilter);
-    
+
     const containerRef = useRef(null);
     const inputRef = useRef(null);
     const debounceRef = useRef(null);
@@ -47,21 +47,21 @@ const FiltroMaquinasMobileFriendly = ({
     // 🔄 SOLO sincronizar en el montaje inicial o cambios REALMENTE externos
     useEffect(() => {
         const newSelected = Array.isArray(equipoFilter) ? equipoFilter : (equipoFilter ? [equipoFilter] : []);
-        
+
         // 🛡️ Solo sincronizar si NO estamos en una actualización interna
         // Y si realmente cambió desde una fuente externa
         if (!isInternalUpdate.current) {
             const lastExternal = lastExternalFilter.current;
             const lastExternalString = JSON.stringify([...(Array.isArray(lastExternal) ? lastExternal : [])].sort());
             const newSelectedString = JSON.stringify([...newSelected].sort());
-            
+
             if (lastExternalString !== newSelectedString) {
                 setSelectedMaquinas(newSelected);
                 setTempSelectedMaquinas(newSelected);
                 lastExternalFilter.current = equipoFilter;
             }
         }
-        
+
         // Reset flag después de procesar
         isInternalUpdate.current = false;
     }, [equipoFilter]);
@@ -71,7 +71,7 @@ const FiltroMaquinasMobileFriendly = ({
         if (debounceRef.current) {
             clearTimeout(debounceRef.current);
         }
-        
+
         debounceRef.current = setTimeout(() => {
             // 🛡️ Marcar como actualización interna antes de notificar
             isInternalUpdate.current = true;
@@ -89,15 +89,23 @@ const FiltroMaquinasMobileFriendly = ({
         };
     }, []);
 
+    const normalizarTexto = (texto) => {
+        return texto
+            .toLowerCase()
+            .normalize('NFD')  // Descompone los caracteres acentuados
+            .replace(/[\u0300-\u036f]/g, '');  // Elimina los diacríticos
+    };
+
     // 🔍 Filtrar máquinas en tiempo real - USAR LISTA COMPLETA
     const maquinasFiltradas = useMemo(() => {
         if (!searchTerm.trim()) return listaMaquinasCompleta;
-        
-        const term = searchTerm.toLowerCase();
+
+        const termNormalizado = normalizarTexto(searchTerm);
+
         return listaMaquinasCompleta.filter(maquina => {
-            const maquinaLower = maquina.toLowerCase();
-            return maquinaLower.includes(term) || 
-                   maquinaLower.split(' ').some(word => word.startsWith(term));
+            const maquinaNormalizada = normalizarTexto(maquina);
+            return maquinaNormalizada.includes(termNormalizado) ||
+                maquinaNormalizada.split(' ').some(word => word.startsWith(termNormalizado));
         });
     }, [listaMaquinasCompleta, searchTerm]);
 
@@ -154,11 +162,11 @@ const FiltroMaquinasMobileFriendly = ({
         const newSelected = tempSelectedMaquinas.includes(maquina)
             ? tempSelectedMaquinas.filter(m => m !== maquina)  // ❌ Quitar
             : [...tempSelectedMaquinas, maquina];              // ➕ Agregar
-        
+
         // 🎯 Actualizar estado local inmediatamente (sin esperar debounce)
         setTempSelectedMaquinas(newSelected);
         setSelectedMaquinas(newSelected); // 🆕 También actualizar selectedMaquinas
-        
+
         // 🚀 Notificar cambio con debounce (no afecta estado local)
         debouncedNotifyChange(newSelected);
     };
@@ -166,10 +174,10 @@ const FiltroMaquinasMobileFriendly = ({
     // 🔄 Seleccionar todas las máquinas - INMEDIATO
     const handleSelectAll = () => {
         const newSelected = stats.allSelected ? [] : [...listaMaquinasCompleta];
-        
+
         setTempSelectedMaquinas(newSelected);
         setSelectedMaquinas(newSelected);
-        
+
         // 🆕 Notificar inmediatamente para acciones masivas
         isInternalUpdate.current = true;
         lastExternalFilter.current = newSelected;
@@ -180,7 +188,7 @@ const FiltroMaquinasMobileFriendly = ({
     const handleClearAll = () => {
         setTempSelectedMaquinas([]);
         setSelectedMaquinas([]);
-        
+
         // 🆕 Notificar inmediatamente para acciones masivas
         isInternalUpdate.current = true;
         lastExternalFilter.current = [];
@@ -211,7 +219,7 @@ const FiltroMaquinasMobileFriendly = ({
         if (isFocused || isOpen) {
             return 'Buscar máquinas...';
         }
-        
+
         if (tempSelectedMaquinas.length === 0) {
             return 'Todas las máquinas';
         } else if (tempSelectedMaquinas.length === 1) {
@@ -226,8 +234,8 @@ const FiltroMaquinasMobileFriendly = ({
         <div
             className={`
                 w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200
-                ${checked 
-                    ? 'bg-blue-500 border-blue-500 text-white' 
+                ${checked
+                    ? 'bg-blue-500 border-blue-500 text-white'
                     : indeterminate
                         ? 'bg-blue-100 border-blue-300 text-blue-600'
                         : 'bg-white border-gray-300'
@@ -265,7 +273,7 @@ const FiltroMaquinasMobileFriendly = ({
                 <FaTruck className="text-blue-600" />
                 Filtrar Máquinas
                 <span className="text-xs text-gray-500 ml-auto">
-                    {tempSelectedMaquinas.length > 0 
+                    {tempSelectedMaquinas.length > 0
                         ? `${tempSelectedMaquinas.length}/${listaMaquinasCompleta.length} seleccionadas`
                         : `${listaMaquinasCompleta.length} disponibles`
                     }
@@ -276,10 +284,10 @@ const FiltroMaquinasMobileFriendly = ({
             <div className="relative">
                 <div className={`
                     relative overflow-hidden rounded-lg border-2 bg-white transition-all duration-200
-                    ${isOpen 
-                        ? 'border-blue-400 shadow-lg ring-2 ring-blue-100' 
-                        : tempSelectedMaquinas.length > 0 
-                            ? 'border-green-300 bg-green-50/50' 
+                    ${isOpen
+                        ? 'border-blue-400 shadow-lg ring-2 ring-blue-100'
+                        : tempSelectedMaquinas.length > 0
+                            ? 'border-green-300 bg-green-50/50'
                             : 'border-gray-300 hover:border-blue-300'
                     }
                 `}>
@@ -324,7 +332,7 @@ const FiltroMaquinasMobileFriendly = ({
                                 <FaTimes className="text-xs" />
                             </button>
                         )}
-                        
+
                         <FaChevronDown className={`
                             text-gray-400 transition-all duration-200 text-sm
                             ${isOpen ? 'rotate-180 text-blue-500' : ''}
@@ -342,8 +350,8 @@ const FiltroMaquinasMobileFriendly = ({
             <div className={`
                 overflow-hidden bg-white rounded-lg shadow-xl border border-gray-200 z-50
                 transform transition-all duration-200 origin-top
-                ${isOpen 
-                    ? 'opacity-100 scale-y-100 max-h-96 mt-1' 
+                ${isOpen
+                    ? 'opacity-100 scale-y-100 max-h-96 mt-1'
                     : 'opacity-0 scale-y-95 max-h-0 border-0 mt-0'
                 }
             `}>
@@ -363,7 +371,7 @@ const FiltroMaquinasMobileFriendly = ({
                                 {stats.allSelected ? 'Deseleccionar todas' : 'Seleccionar todas'}
                             </span>
                         </button>
-                        
+
                         <div className="flex items-center gap-2 text-xs text-gray-500">
                             <span>{tempSelectedMaquinas.length} seleccionadas</span>
                         </div>
@@ -388,8 +396,8 @@ const FiltroMaquinasMobileFriendly = ({
                                     onClick={() => handleToggleMaquina(maquina)}
                                     className={`
                                         w-full px-4 py-3 text-left flex items-center gap-3 transition-colors
-                                        ${isSelected 
-                                            ? 'bg-blue-50 text-blue-700' 
+                                        ${isSelected
+                                            ? 'bg-blue-50 text-blue-700'
                                             : 'text-gray-700 hover:bg-gray-50'
                                         }
                                     `}
@@ -398,14 +406,14 @@ const FiltroMaquinasMobileFriendly = ({
                                     <CustomCheckbox
                                         checked={isSelected}
                                     />
-                                    
+
                                     <div className={`
                                         p-1.5 rounded-full
                                         ${isSelected ? 'bg-blue-200' : 'bg-gray-100'}
                                     `}>
                                         🚛
                                     </div>
-                                    
+
                                     <span className="flex-1 truncate font-medium">{maquina}</span>
                                 </button>
                             );
@@ -417,8 +425,8 @@ const FiltroMaquinasMobileFriendly = ({
                 <div className="border-t border-gray-100 px-4 py-2 bg-gray-50 text-xs text-gray-600">
                     <div className="flex items-center justify-between">
                         <span>
-                            {searchTerm 
-                                ? `${maquinasFiltradas.length} encontradas` 
+                            {searchTerm
+                                ? `${maquinasFiltradas.length} encontradas`
                                 : `${listaMaquinasCompleta.length} máquinas total`
                             }
                         </span>
@@ -443,7 +451,7 @@ const FiltroMaquinasMobileFriendly = ({
                 <div className="mt-2">
                     <div className="flex flex-wrap gap-1">
                         {tempSelectedMaquinas.slice(0, 10).map((maquina, index) => (
-                            <span 
+                            <span
                                 key={index}
                                 className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium"
                             >

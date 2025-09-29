@@ -23,7 +23,7 @@ const LoginScreen = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // 🎯 USAR TUS FUNCIONES DEL CONTEXTO
   const { setUser, clearUserContext, forceRefresh } = useContext(UserContext);
 
@@ -41,7 +41,7 @@ const LoginScreen = () => {
 
     const roleRoutes = {
       admin: "/administrador",
-      bombero: "/bombero", 
+      bombero: "/bombero",
       gerente: "/gerente",
       toneladas: "/IngresoToneladas",
       planificador: "/TallerMecanico",
@@ -55,14 +55,14 @@ const LoginScreen = () => {
 
     try {
       console.log("✅ Redirigiendo a:", targetRoute);
-      
+
       // 🔄 USANDO TU FUNCIÓN DE FORZAR REFRESH
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       // Navegación React Router con estado
-      navigate(targetRoute, { 
+      navigate(targetRoute, {
         replace: true,
-        state: { 
+        state: {
           loginSuccess: true,
           timestamp: Date.now()
         }
@@ -172,10 +172,14 @@ const LoginScreen = () => {
       }
 
     } catch (err) {
-      console.error("❌ Error en login:", err);
-      
-      let errorMessage = "Error al iniciar sesión.";
-      
+      console.log("Error completo:", err);
+      console.log("Response:", err.response);
+      console.log("Data:", err.response?.data);
+      console.log("Message:", err.message);
+      console.log("Code:", err.code);
+
+      let errorMessage = "";
+
       if (err.response?.status === 401) {
         errorMessage = "RUT o contraseña incorrectos.";
         setFormData(prev => ({ ...prev, password: "" }));
@@ -190,7 +194,7 @@ const LoginScreen = () => {
       } else if (!err.response) {
         errorMessage = "Sin conexión al servidor.";
       }
-      
+
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -273,7 +277,7 @@ const LoginScreen = () => {
             loading={isLoading}
           />
         </form>
-        
+
         <div className="absolute top-4 right-4">
           <div className="flex items-center space-x-1">
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
