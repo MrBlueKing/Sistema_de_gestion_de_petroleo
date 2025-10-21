@@ -31,6 +31,7 @@ import { UserContext } from "../../../context/userContext";
 import UniversalHeader from "../Todos/UniversalHeader";
 import VisualizacionesConsumoMaquina from "../Bombero/VisualizacionesConsumoMaquina";
 import PDFGenerator from "../../../pdf/components/PDFGenerator";
+import ExcelGenerator from '../../excel/ExcelGenerator';
 import FiltroMaquinasMobileFriendly from "../../molecules/FiltroMaquinasMobileFriendly";
 import { FAENA_COLORS } from "../../../context/faenaColor";
 import { getFaenaColors } from "../../../context/faenaColor";
@@ -1522,12 +1523,25 @@ const HistorialMaquinasView = () => {
                 </div>
               </div>
 
-              {/* BOTONES COMPACTOS */}
-              <div className="flex flex-col gap-2 flex-shrink-0">
+              {/* BOTONES COMPACTOS - MEJORADO */}
+              <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+                {/* Botón PDF */}
                 <PDFGenerator
                   consumos={consumos}
                   stats={stats}
-                  filters={prepareFiltersForPDF} // ✅ Usar filtros preparados
+                  filters={prepareFiltersForPDF}
+                  totalItems={totalItems}
+                  currentPage={currentPage}
+                  user={user}
+                  size="small"
+                  disabled={loading || selectedFaenas.length === 0}
+                />
+
+                {/* 🆕 Botón Excel */}
+                <ExcelGenerator
+                  consumos={consumos}
+                  stats={stats}
+                  filters={prepareFiltersForPDF}
                   totalItems={totalItems}
                   currentPage={currentPage}
                   user={user}

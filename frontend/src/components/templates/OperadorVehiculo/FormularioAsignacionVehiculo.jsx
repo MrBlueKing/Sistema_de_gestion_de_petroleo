@@ -15,6 +15,11 @@ import axios from "../../../lib/axios";
 import SelectorMaquinasOperadorVehiculo from "../../molecules/SelectorMaquinasOperadorVehiculo";
 import { useMaquinasDisponibles } from "../../../hook/OperadorVehiculo/useMaquinasDisponibles";
 
+// Control global de logs
+const debug = false; // o false para desactivar logs
+
+console.log = debug ? console.log : () => {};
+
 // ✅ COMPONENTE FUERA PARA EVITAR PÉRDIDA DE FOCO
 const InputKilometrajeSimple = ({
     label,
@@ -130,6 +135,11 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
     const [maquinaSeleccionada, setMaquinaSeleccionada] = useState(null);
     const [datosUltimoConsumo, setDatosUltimoConsumo] = useState(null);
     const { obtenerMaquinaPorId } = useMaquinasDisponibles();
+
+    const [recargandoHistorial, setRecargandoHistorial] = useState(false);
+
+    // 🆕 AGREGAR DESPUÉS DE LOS OTROS ESTADOS
+    const [modoCalculo, setModoCalculo] = useState('COPEC'); // 'COPEC' o 'SHELL'
 
     // 🆕 FUNCIÓN PARA MANEJAR SELECCIÓN DE MÁQUINA
     const handleSeleccionarMaquina = async (maquina) => {
@@ -370,15 +380,28 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
     }, [error]);
 
     // ✅ CALCULAR COSTO AUTOMÁTICAMENTE
+    // ✅ CÁLCULO AUTOMÁTICO SEGÚN MODO (COPEC o SHELL)
     useEffect(() => {
-        if (formData.precio_por_litro && formData.litros && parseFloat(formData.litros) > 0) {
-            const costoCalculado = (parseFloat(formData.precio_por_litro) * parseFloat(formData.litros)).toFixed(2);
-            setFormData(prev => ({
-                ...prev,
-                costo: costoCalculado
-            }));
+        if (modoCalculo === 'COPEC') {
+            // Modo COPEC: Calcular costo total
+            if (formData.precio_por_litro && formData.litros && parseFloat(formData.litros) > 0) {
+                const costoCalculado = (parseFloat(formData.precio_por_litro) * parseFloat(formData.litros)).toFixed(2);
+                setFormData(prev => ({
+                    ...prev,
+                    costo: costoCalculado
+                }));
+            }
+        } else {
+            // Modo SHELL: Calcular precio por litro
+            if (formData.costo && formData.litros && parseFloat(formData.litros) > 0) {
+                const precioCalculado = (parseFloat(formData.costo) / parseFloat(formData.litros)).toFixed(2);
+                setFormData(prev => ({
+                    ...prev,
+                    precio_por_litro: precioCalculado
+                }));
+            }
         }
-    }, [formData.precio_por_litro, formData.litros]);
+    }, [formData.precio_por_litro, formData.litros, formData.costo, modoCalculo]);
 
     // ✅ FUNCIÓN PARA MANEJAR INPUT CHANGE
     const handleInputChange = (field, value) => {
@@ -560,11 +583,26 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
     };
 
     // 🆕 CERRAR MODAL DE ÉXITO
-    const handleCloseSuccessModal = (action) => {
+    const handleCloseSuccessModal = async (action) => {
         setShowSuccessModal(false);
         setCreatedCarga(null);
 
         if (action === 'new') {
+            if (maquinaSeleccionada?.id_maquina) {
+                setRecargandoHistorial(true); // 🔄 Mostrar indicador
+                console.log('🔄 Recargando historial de la máquina después del registro...');
+                try {
+                    await cargarHistorialConsumos(maquinaSeleccionada.id_maquina, 2);
+                    console.log('✅ Historial actualizado correctamente');
+                    // Mostrar mensaje de éxito
+                    setSuccessMessage("Historial actualizado correctamente");
+                } catch (error) {
+                    console.warn('⚠️ Error al recargar historial:', error);
+                } finally {
+                    setRecargandoHistorial(false); // ✅ Ocultar indicador
+                }
+            }
+
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } else {
             navigate('/OperadorVehiculo');
@@ -692,7 +730,7 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                             1.- Seleccione la Máquina a Cargar.
                         </h3>
                         <div ref={el => errorRefs.current['maquina'] = el}>
-                            {console.log("Datos enviados:", { maquinaSeleccionada})}
+                            {console.log("Datos enviados:", { maquinaSeleccionada })}
                             <SelectorMaquinasOperadorVehiculo
                                 maquinaSeleccionada={maquinaSeleccionada?.id_maquina}
                                 onSeleccionarMaquina={handleSeleccionarMaquina}
@@ -709,6 +747,62 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                             <FaFileInvoiceDollar className="text-orange-500" />
                             2.- Información de la Boleta
                         </h3>
+                        {/* 🆕 BOTONES SHELL / COPEC */}
+                        <div className="space-y-4 mb-6">
+                            <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                                <FaBuilding className="text-orange-500" />
+                                Modo de Cálculo
+                            </h3>
+                            <div className="flex gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setModoCalculo('COPEC')}
+                                    disabled={isLoading}
+                                    className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all duration-200 ${modoCalculo === 'COPEC'
+                                        ? 'bg-orange-500 text-white shadow-lg scale-105'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        }`}
+                                >
+                                    🛢️ COPEC
+                                    <div className="text-xs font-normal mt-1">
+                                        Calcular costo total
+                                    </div>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setModoCalculo('SHELL')}
+                                    disabled={isLoading}
+                                    className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all duration-200 ${modoCalculo === 'SHELL'
+                                        ? 'bg-red-500 text-white shadow-lg scale-105'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        }`}
+                                >
+                                    ⛽ SHELL
+                                    <div className="text-xs font-normal mt-1">
+                                        Calcular precio/litro
+                                    </div>
+                                </button>
+                            </div>
+
+                            {/* Explicación del modo activo */}
+                            <div className={`p-3 rounded-lg text-sm ${modoCalculo === 'COPEC' ? 'bg-orange-50 border border-orange-200' : 'bg-red-50 border border-red-200'}`}>
+                                {modoCalculo === 'COPEC' ? (
+                                    <>
+                                        <strong className="text-gray-800">Modo COPEC:</strong>
+                                        <span className="text-gray-600"> Ingresa litros y precio por litro. El costo total se calcula automáticamente.</span>
+                                        <br />
+                                        <span className="text-xs text-gray-500">Fórmula: Costo Total = Litros × Precio por Litro</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <strong className="text-gray-800">Modo SHELL:</strong>
+                                        <span className="text-gray-600"> Ingresa litros y costo total. El precio por litro se calcula automáticamente.</span>
+                                        <br />
+                                        <span className="text-xs text-gray-500">Fórmula: Precio por Litro = Costo Total ÷ Litros</span>
+                                    </>
+                                )}
+                            </div>
+                        </div>
                         <div ref={el => errorRefs.current['numero_boleta'] = el}>
                             <Label
                                 htmlFor="numero_boleta"
@@ -810,20 +904,27 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                             <div ref={el => errorRefs.current['precio_por_litro'] = el}>
                                 <Label
                                     htmlFor="precio_por_litro"
-                                    label="Precio por Litro ($)"
-                                    required={true}
+                                    label={`Precio por Litro ($) ${modoCalculo === 'SHELL' ? '(Auto)' : ''}`}
+                                    required={modoCalculo === 'COPEC'}
                                 />
-                                <InputField
-                                    id="precio_por_litro"
-                                    type="number"
-                                    step="0.01"
-                                    placeholder="986"
-                                    value={formData.precio_por_litro}
-                                    onChange={(e) => handleInputChange('precio_por_litro', e.target.value)}
-                                    icon={<FaDollarSign />}
-                                    disabled={isLoading}
-                                    className={`${getFieldError('precio_por_litro') ? 'border-red-300 focus:border-red-500' : ''} text-base`}
-                                />
+                                <div className="relative">
+                                    <InputField
+                                        id="precio_por_litro"
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="986"
+                                        value={formData.precio_por_litro}
+                                        onChange={(e) => handleInputChange('precio_por_litro', e.target.value)}
+                                        icon={<FaDollarSign />}
+                                        disabled={isLoading || modoCalculo === 'SHELL'}
+                                        className={`${getFieldError('precio_por_litro') ? 'border-red-300 focus:border-red-500' : ''} ${modoCalculo === 'SHELL' ? 'bg-gray-50' : ''} text-base`}
+                                    />
+                                    {modoCalculo === 'SHELL' && (
+                                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-medium">
+                                            Auto
+                                        </div>
+                                    )}
+                                </div>
                                 {getFieldError('precio_por_litro') && (
                                     <p className="text-red-500 text-sm mt-1">{getFieldError('precio_por_litro')}</p>
                                 )}
@@ -831,33 +932,40 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                         </div>
 
                         {/* Costo Total - Calculado automáticamente */}
+                        {/* Costo Total */}
                         <div>
                             <Label
                                 htmlFor="costo"
-                                label="Costo Total (Calculado automáticamente)"
+                                label={`Costo Total ${modoCalculo === 'COPEC' ? '(Calculado automáticamente)' : '($)'}`}
+                                required={modoCalculo === 'SHELL'}
                             />
                             <div className="relative">
                                 <InputField
                                     id="costo"
-                                    type="text"
+                                    type={modoCalculo === 'COPEC' ? "text" : "number"}
+                                    step="0.01"
                                     value={
-                                        formData.costo
+                                        modoCalculo === 'COPEC' && formData.costo
                                             ? `${Math.round(parseFloat(formData.costo)).toLocaleString('es-CL')}`
-                                            : ''
+                                            : formData.costo
                                     }
+                                    onChange={(e) => modoCalculo === 'SHELL' && handleInputChange('costo', e.target.value)}
                                     icon={<FaDollarSign />}
-                                    disabled={true}
-                                    className="bg-gray-100 text-base font-semibold text-gray-700"
-                                    placeholder="Se calcula automáticamente"
+                                    disabled={isLoading || modoCalculo === 'COPEC'}
+                                    className={`${modoCalculo === 'COPEC' ? 'bg-gray-100' : 'bg-white'} text-base font-semibold text-gray-700`}
+                                    placeholder={modoCalculo === 'COPEC' ? "Se calcula automáticamente" : "Ingrese costo total"}
                                 />
-                                {formData.costo && (
-                                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-medium">
+                                {modoCalculo === 'COPEC' && formData.costo && (
+                                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-medium">
                                         Auto
                                     </div>
                                 )}
                             </div>
                             <p className="text-gray-600 text-xs mt-1">
-                                Fórmula: Litros × Precio por Litro = Costo Total
+                                {modoCalculo === 'COPEC'
+                                    ? 'Fórmula: Litros × Precio por Litro = Costo Total'
+                                    : 'Ingresa el costo total de la carga'
+                                }
                             </p>
                         </div>
                     </div>

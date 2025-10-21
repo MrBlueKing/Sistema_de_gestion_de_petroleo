@@ -273,7 +273,7 @@ const SelectorEstanque = ({
   showTitle = true,
   className = "",
 }) => {
-  const DEBUG = false;
+  const DEBUG = true;
 
   const [estanques, setEstanques] = useState([]);
   const [loading, setLoading] = useState(true);

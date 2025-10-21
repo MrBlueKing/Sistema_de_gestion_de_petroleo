@@ -3,7 +3,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import {
   FaGasPump, FaSearch, FaTimes, FaFilter, FaChevronDown,
   FaSync, FaEdit, FaCheck, FaClock, FaExclamationTriangle,
-  FaChevronLeft, FaChevronRight, FaEye, FaCheckCircle, FaDollarSign
+  FaChevronLeft, FaChevronRight, FaEye, FaCheckCircle, FaDollarSign, FaFileExcel
 } from 'react-icons/fa';
 import useConsumos from '../../../hook/AdminVehiculos/useConsumos'; // Ajusta la ruta según tu estructura
 import axios from '../../../lib/axios'; // Ajusta la ruta según tu estructura
@@ -11,6 +11,7 @@ import DetalleCargaModal from '../../molecules/DetalleCargaModal';
 import SuccessNotificationRendir from '../../molecules/SuccessNotificationRendir';
 import PageControl from '../../molecules/PageControl';
 import { useAuth } from '../../../routes/PrivateRoutes';
+import ExcelJS from 'exceljs';
 
 // Componente de Badge para estados
 const EstadoBadge = ({ estado, estadoBadge }) => {
@@ -53,9 +54,466 @@ const AdminCargasView = () => {
   // 🔐 AGREGAR: Función para verificar si puede rendir
   const canRender = () => {
     const userRole = user?.rol;
-    console.log("Rol:", userRole);
+    ("Rol:", userRole);
     // Solo admin_operador puede rendir, gerente NO puede
     return userRole === 'admin_operador';
+  };
+
+  // 📊 FUNCIÓN COMPLETA DE EXPORTACIÓN
+  // Esta función descarga TODOS los datos respetando los filtros aplicados
+  const exportarAExcel = async () => {
+    try {
+      console.log('🚀 Iniciando exportación completa...');
+
+      // 📊 Obtener total de registros
+      const totalRegistros = metadatos?.total_con_filtros || totalFiltrado || infoPaginacion?.total || 0;
+
+      console.log('📦 Total de registros a exportar:', totalRegistros);
+
+      if (totalRegistros === 0) {
+        setNotification({
+          visible: true,
+          title: "⚠️ Sin datos",
+          message: "No hay registros para exportar con los filtros aplicados"
+        });
+        return;
+      }
+
+      // 🔄 Mostrar notificación de inicio
+      setNotification({
+        visible: true,
+        title: "⏳ Preparando exportación...",
+        message: `Descargando ${totalRegistros} registros...`
+      });
+
+      // 📡 Construir parámetros con los filtros actuales
+      const construirParams = (pagina) => {
+        const params = new URLSearchParams();
+        params.append('page', pagina.toString());
+        params.append('per_page', '100');
+
+        // Agregar TODOS los filtros activos (usando las variables del hook useConsumos)
+        if (searchTerm) params.append('search', searchTerm);
+        if (filtroEstado && filtroEstado !== 'todos') params.append('estado', filtroEstado);
+        if (filtroFaena && filtroFaena !== 'todas') params.append('faena', filtroFaena);
+        if (filtroTipoCombustible) params.append('tipo_combustible', filtroTipoCombustible);
+        if (filtroFechaInicio) params.append('fecha_inicio', filtroFechaInicio);
+        if (filtroFechaFin) params.append('fecha_fin', filtroFechaFin);
+        if (filtroOperador) params.append('operador', filtroOperador);
+        if (filtroMaquina) params.append('maquina', filtroMaquina);
+        if (filtroPatente) params.append('patente', filtroPatente);
+        if (filtroNumeroBoleta) params.append('numero_boleta', filtroNumeroBoleta);
+
+        return params;
+      };
+
+      // 📥 Descargar TODOS los registros página por página
+      const totalPaginas = Math.ceil(totalRegistros / 100);
+      console.log(`📄 Total de páginas a descargar: ${totalPaginas}`);
+
+      const todasLasCargas = [];
+
+      for (let pagina = 1; pagina <= totalPaginas; pagina++) {
+        try {
+          const params = construirParams(pagina);
+          const response = await axios.get(`/api/adminOperador/cargas/paginadas?${params.toString()}`);
+
+          if (response.data && response.data.data) {
+            const cargasPagina = response.data.data;
+            todasLasCargas.push(...cargasPagina);
+            console.log(`✅ Página ${pagina} descargada: ${cargasPagina.length} registros`);
+          } else {
+            console.warn(`⚠️ Página ${pagina} sin datos`);
+          }
+
+          if (pagina < totalPaginas) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+
+        } catch (error) {
+          console.error(`❌ Error en página ${pagina}:`, error);
+          throw new Error(`Error al descargar página ${pagina}: ${error.message}`);
+        }
+      }
+
+      console.log(`✅ Descarga completa: ${todasLasCargas.length} registros`);
+
+      // 🎨 Actualizar notificación: generando Excel
+      setNotification({
+        visible: true,
+        title: "📊 Generando Excel...",
+        message: `Procesando ${todasLasCargas.length} registros...`
+      });
+
+      // ============================================
+      // 📊 CREAR EL ARCHIVO EXCEL
+      // ============================================
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'Sistema de Gestión de Petróleo';
+      workbook.created = new Date();
+
+      // 📋 HOJA 1: DATOS COMPLETOS
+      const worksheet = workbook.addWorksheet('Cargas de Combustible');
+
+      worksheet.columns = [
+        { header: '👤 Operador', key: 'operador', width: 22 },
+        { header: '📅 Fecha', key: 'fecha', width: 12 },
+        { header: '🧾 Boleta', key: 'boleta', width: 12 },
+        { header: '🚜 Máquina', key: 'maquina', width: 20 },
+        { header: '🚗 Patente', key: 'patente', width: 12 },
+        { header: '⛽ Combustible', key: 'combustible', width: 15 },
+        { header: '📊 Litros', key: 'litros', width: 10 },
+        { header: '💵 Precio Unit.', key: 'precioUnitario', width: 12 },
+        { header: '💰 Monto Total', key: 'monto', width: 12 },
+        { header: '📏 Med. Inicial', key: 'medicionInicial', width: 12 },
+        { header: '📏 Med. Final', key: 'medicionFinal', width: 12 },
+        { header: '🏪 Estación', key: 'estacion', width: 20 },
+        { header: '📍 Estado', key: 'estado', width: 12 }
+      ];
+
+      // Estilo del encabezado
+      worksheet.getRow(1).eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF2563EB' }
+        };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      });
+
+      // Variables para cálculos
+      let totalLitros = 0;
+      let totalCosto = 0;
+      const operadoresUnicos = new Set();
+
+      // Agregar datos
+      todasLasCargas.forEach((carga) => {
+        const litros = parseFloat(carga.cantidad_litros) || 0;
+        const monto = parseFloat(carga.costo_total) || 0;
+
+        totalLitros += litros;
+        totalCosto += monto;
+
+        // Obtener nombre del operador (intentar múltiples formatos)
+        const nombreOperador = carga.operador?.nombre_completo ||
+          (carga.operador ? `${carga.operador.nombre || ''} ${carga.operador.apellido || ''}`.trim() : '') ||
+          (carga.usuario ? `${carga.usuario.nombre || ''} ${carga.usuario.apellido || ''}`.trim() : '') ||
+          'Sin operador';
+
+        operadoresUnicos.add(nombreOperador);
+
+        const row = worksheet.addRow({
+          operador: nombreOperador,
+          fecha: carga.fecha_carga ? new Date(carga.fecha_carga).toLocaleDateString('es-CL') : '',
+          boleta: carga.numero_boleta || '',
+          maquina: carga.maquina?.nombre || carga.vehiculo?.tipo_vehiculo?.nombre || '',
+          patente: carga.maquina?.patente || carga.vehiculo?.patente || '',
+          combustible: carga.tipo_combustible || '',
+          litros: litros.toLocaleString('es-CL', { minimumFractionDigits: 2 }),
+          precioUnitario: monto && litros ? `${Math.round(monto / litros).toLocaleString('es-CL')}` : '',
+          monto: `${monto.toLocaleString('es-CL')}`,
+          medicionInicial: carga.medicion_inicial || '',
+          medicionFinal: carga.medicion_final || '',
+          estacion: carga.estacion_servicio || '',
+          estado: carga.estado_rendicion === 'rendido' ? 'Rendido' : 'Por Rendir'
+        });
+
+        row.eachCell((cell) => {
+          cell.alignment = { vertical: 'middle' };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+            left: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+            bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+            right: { style: 'thin', color: { argb: 'FFD1D5DB' } }
+          };
+        });
+
+        if (carga.estado_rendicion === 'rendido') {
+          row.getCell('estado').fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFD1FAE5' }
+          };
+          row.getCell('estado').font = { color: { argb: 'FF065F46' } };
+        } else {
+          row.getCell('estado').fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFFEF3C7' }
+          };
+          row.getCell('estado').font = { color: { argb: 'FF92400E' } };
+        }
+      });
+
+      // ============================================
+      // 📊 HOJA 2: RESUMEN GENERAL
+      // ============================================
+      const resumenSheet = workbook.addWorksheet('Resumen General');
+
+      resumenSheet.columns = [
+        { header: '📊 Métrica', key: 'metrica', width: 35 },
+        { header: '💡 Valor', key: 'valor', width: 25 }
+      ];
+
+      resumenSheet.getRow(1).eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF059669' }
+        };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      });
+
+      const filtrosAplicados = [];
+      if (searchTerm) filtrosAplicados.push(`Búsqueda: "${searchTerm}"`);
+      if (filtroEstado && filtroEstado !== 'todos') filtrosAplicados.push(`Estado: ${filtroEstado}`);
+      if (filtroFaena && filtroFaena !== 'todas') filtrosAplicados.push(`Faena: ${filtroFaena}`);
+      if (filtroTipoCombustible) filtrosAplicados.push(`Combustible: ${filtroTipoCombustible}`);
+      if (filtroFechaInicio) filtrosAplicados.push(`Desde: ${filtroFechaInicio}`);
+      if (filtroFechaFin) filtrosAplicados.push(`Hasta: ${filtroFechaFin}`);
+      if (filtroOperador) filtrosAplicados.push(`Operador: ${filtroOperador}`);
+      if (filtroMaquina) filtrosAplicados.push(`Máquina: ${filtroMaquina}`);
+      if (filtroPatente) filtrosAplicados.push(`Patente: ${filtroPatente}`);
+      if (filtroNumeroBoleta) filtrosAplicados.push(`Boleta: ${filtroNumeroBoleta}`);
+
+      const datosResumen = [
+        { metrica: '🔍 INFORMACIÓN DE LA EXPORTACIÓN', valor: '' },
+        { metrica: '📅 Fecha de Exportación', valor: new Date().toLocaleString('es-CL') },
+        { metrica: '🔎 Filtros Aplicados', valor: filtrosAplicados.length > 0 ? 'Sí' : 'No' },
+        { metrica: '📊 Páginas Descargadas', valor: totalPaginas.toString() },
+        { metrica: '', valor: '' },
+        { metrica: '📦 Total de Cargas', valor: todasLasCargas.length.toString() },
+        { metrica: '⛽ Total de Litros', valor: `${totalLitros.toLocaleString('es-CL', { minimumFractionDigits: 2 })} L` },
+        { metrica: '💰 Costo Total', valor: `$${totalCosto.toLocaleString('es-CL')}` },
+        { metrica: '💵 Precio Promedio/Litro', valor: totalLitros > 0 ? `$${Math.round(totalCosto / totalLitros).toLocaleString('es-CL')}` : 'N/A' },
+        { metrica: '👥 Operadores Únicos', valor: operadoresUnicos.size.toString() },
+        { metrica: '⏳ Cargas Pendientes', valor: (estadisticas?.porRendir || 0).toString() },
+        { metrica: '✅ Cargas Rendidas', valor: (estadisticas?.rendidos || 0).toString() }
+      ];
+
+      if (filtrosAplicados.length > 0) {
+        datosResumen.push({ metrica: '', valor: '' });
+        datosResumen.push({ metrica: '🔍 FILTROS APLICADOS', valor: '' });
+        filtrosAplicados.forEach(filtro => {
+          datosResumen.push({ metrica: `  • ${filtro}`, valor: '' });
+        });
+      }
+
+      datosResumen.forEach(dato => {
+        const row = resumenSheet.addRow(dato);
+
+        if (dato.metrica.includes('FILTROS APLICADOS')) {
+          row.font = { bold: true, size: 11 };
+          row.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF3F4F6' }
+          };
+        }
+
+        row.eachCell((cell) => {
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+        });
+      });
+
+      // ============================================
+      // 📊 HOJA 3: DETALLE POR OPERADOR
+      // ============================================
+      const operadorSheet = workbook.addWorksheet('Detalle por Operador');
+
+      // Agrupar cargas por operador
+      const cargasPorOperador = {};
+
+      todasLasCargas.forEach((carga) => {
+        // Obtener nombre del operador (intentar múltiples formatos)
+        const nombreOperador = carga.operador?.nombre_completo ||
+          (carga.operador ? `${carga.operador.nombre || ''} ${carga.operador.apellido || ''}`.trim() : '') ||
+          (carga.usuario ? `${carga.usuario.nombre || ''} ${carga.usuario.apellido || ''}`.trim() : '') ||
+          'Sin operador';
+
+        if (!cargasPorOperador[nombreOperador]) {
+          cargasPorOperador[nombreOperador] = [];
+        }
+        cargasPorOperador[nombreOperador].push(carga);
+      });
+
+      // Ordenar operadores alfabéticamente
+      const operadoresOrdenados = Object.keys(cargasPorOperador).sort();
+
+      let filaActual = 1;
+
+      operadoresOrdenados.forEach((operador, index) => {
+        const cargasOperador = cargasPorOperador[operador];
+
+        // Calcular totales del operador
+        let totalCargasOp = cargasOperador.length;
+        let totalLitrosOp = 0;
+        let totalMontoOp = 0;
+
+        cargasOperador.forEach(carga => {
+          totalLitrosOp += parseFloat(carga.cantidad_litros) || 0;
+          totalMontoOp += parseFloat(carga.costo_total) || 0;
+        });
+
+        // ENCABEZADO DEL OPERADOR
+        operadorSheet.mergeCells(filaActual, 1, filaActual, 6);
+        const encabezadoCell = operadorSheet.getCell(filaActual, 1);
+        encabezadoCell.value = `👤 ${operador.toUpperCase()}`;
+        encabezadoCell.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+        encabezadoCell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF1E40AF' }
+        };
+        encabezadoCell.alignment = { vertical: 'middle', horizontal: 'left' };
+        encabezadoCell.border = {
+          top: { style: 'medium' },
+          left: { style: 'medium' },
+          bottom: { style: 'medium' },
+          right: { style: 'medium' }
+        };
+        filaActual++;
+
+        // RESUMEN DEL OPERADOR
+        operadorSheet.mergeCells(filaActual, 1, filaActual, 6);
+        const resumenCell = operadorSheet.getCell(filaActual, 1);
+        resumenCell.value = `📊 Total de cargas: ${totalCargasOp}  |  💰 Monto total: $${totalMontoOp.toLocaleString('es-CL')}  |  ⛽ Litros totales: ${totalLitrosOp.toLocaleString('es-CL', { minimumFractionDigits: 2 })} L`;
+        resumenCell.font = { bold: true, size: 11 };
+        resumenCell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFE0E7FF' }
+        };
+        resumenCell.alignment = { vertical: 'middle', horizontal: 'left' };
+        resumenCell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+        filaActual++;
+
+        // ENCABEZADO DE LA TABLA
+        const headers = ['📅 Fecha', '🧾 Nº Factura', '🚗 Patente', '💰 Monto', '⛽ Litros', '📏 Medición'];
+        const headerRow = operadorSheet.getRow(filaActual);
+
+        headers.forEach((header, colIndex) => {
+          const cell = headerRow.getCell(colIndex + 1);
+          cell.value = header;
+          cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF6366F1' }
+          };
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+        });
+
+        // Ajustar anchos de columna
+        operadorSheet.getColumn(1).width = 12;  // Fecha
+        operadorSheet.getColumn(2).width = 15;  // Nº Factura
+        operadorSheet.getColumn(3).width = 12;  // Patente
+        operadorSheet.getColumn(4).width = 15;  // Monto
+        operadorSheet.getColumn(5).width = 12;  // Litros
+        operadorSheet.getColumn(6).width = 25;  // Medición
+
+        filaActual++;
+
+        // DATOS DEL OPERADOR
+        cargasOperador.forEach((carga) => {
+          const litros = parseFloat(carga.cantidad_litros) || 0;
+          const monto = parseFloat(carga.costo_total) || 0;
+          const medicionInicial = carga.medicion_inicial || 'N/A';
+          const medicionFinal = carga.medicion_final || 'N/A';
+          const medicion = `${medicionInicial} → ${medicionFinal}`;
+
+          const dataRow = operadorSheet.getRow(filaActual);
+
+          dataRow.getCell(1).value = carga.fecha_carga ? new Date(carga.fecha_carga).toLocaleDateString('es-CL') : '';
+          dataRow.getCell(2).value = carga.numero_boleta || '';
+          dataRow.getCell(3).value = carga.maquina?.patente || carga.vehiculo?.patente || '';
+          dataRow.getCell(4).value = `${monto.toLocaleString('es-CL')}`;
+          dataRow.getCell(5).value = `${litros.toLocaleString('es-CL', { minimumFractionDigits: 2 })} L`;
+          dataRow.getCell(6).value = medicion;
+
+          dataRow.eachCell((cell) => {
+            cell.alignment = { vertical: 'middle', horizontal: 'left' };
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+              left: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+              bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+              right: { style: 'thin', color: { argb: 'FFD1D5DB' } }
+            };
+          });
+
+          filaActual++;
+        });
+
+        // ESPACIO EN BLANCO entre operadores (solo si no es el último)
+        if (index < operadoresOrdenados.length - 1) {
+          filaActual += 2;
+        }
+      });
+
+      // ============================================
+      // 💾 GENERAR Y DESCARGAR
+      // ============================================
+      const fecha = new Date().toISOString().split('T')[0];
+      const hora = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }).replace(':', '');
+      const nombreArchivo = `Cargas_Combustible_${fecha}_${hora}.xlsx`;
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = nombreArchivo;
+      link.click();
+      window.URL.revokeObjectURL(url);
+
+      // 🎉 Notificación de éxito
+      setNotification({
+        visible: true,
+        title: "✅ Exportación Completa",
+        message: `Se exportaron ${todasLasCargas.length} registros${filtrosAplicados.length > 0 ? ' (con filtros aplicados)' : ''}`
+      });
+
+    } catch (error) {
+      console.error('❌ Error en exportación:', error);
+      setNotification({
+        visible: true,
+        title: "❌ Error en Exportación",
+        message: error.message || "No se pudo completar la exportación"
+      });
+    }
   };
 
   // Hook personalizado para cargas
@@ -103,6 +561,20 @@ const AdminCargasView = () => {
     console.log('🔍 DEBUG - Loading:', loading);
     console.log('🔍 DEBUG - Hay filtros activos:', hayFiltrosActivos);
   }, [estadisticas, metadatos, loading, hayFiltrosActivos]);
+
+  useEffect(() => {
+    console.log('📊 ========== DEBUG EXPORTACIÓN ==========');
+    console.log('📦 Cargas actuales (página):', cargas.length);
+    console.log('📋 Datos de cargas:', cargas);
+    console.log('📄 Página actual:', paginaActual);
+    console.log('📑 Info paginación:', infoPaginacion);
+    console.log('🔢 Total filtrado:', totalFiltrado);
+    console.log('📊 Metadatos:', metadatos);
+    console.log('🔍 Hay filtros activos:', hayFiltrosActivos);
+    console.log('==========================================');
+  }, [cargas, paginaActual, infoPaginacion, totalFiltrado, metadatos]);
+
+
 
 
   // ✅ AGREGAR: Los nuevos filtros al debugging
@@ -567,7 +1039,37 @@ const AdminCargasView = () => {
               Lista de Cargas {totalFiltrado && `(${totalFiltrado} resultados)`}
             </h3>
           </div>
+          <div className="px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              {/* Título */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Lista de Cargas
+                </h3>
+                {totalFiltrado > 0 && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Mostrando {cargas.length} {hayFiltrosActivos ? 'resultados filtrados' : 'registros'}
+                  </p>
+                )}
+              </div>
 
+              {/* Botón de exportación */}
+              <button
+                onClick={exportarAExcel}
+                disabled={cargas.length === 0}
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg font-medium transition-all shadow-sm hover:shadow-md"
+                title={cargas.length === 0 ? 'No hay datos para exportar' : 'Exportar datos visibles a Excel'}
+              >
+                <FaFileExcel className="w-4 h-4" />
+                <span>Exportar a Excel</span>
+                {hayFiltrosActivos && (
+                  <span className="bg-transparent bg-opacity-20 px-2 py-0.5 rounded text-xs">
+                    {cargas.length}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <FaSync className="animate-spin text-blue-600 text-2xl mr-3" />
