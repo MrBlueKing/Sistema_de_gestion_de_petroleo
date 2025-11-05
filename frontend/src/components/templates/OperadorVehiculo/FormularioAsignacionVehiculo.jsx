@@ -15,11 +15,6 @@ import axios from "../../../lib/axios";
 import SelectorMaquinasOperadorVehiculo from "../../molecules/SelectorMaquinasOperadorVehiculo";
 import { useMaquinasDisponibles } from "../../../hook/OperadorVehiculo/useMaquinasDisponibles";
 
-// Control global de logs
-const debug = false; // o false para desactivar logs
-
-console.log = debug ? console.log : () => {};
-
 // ✅ COMPONENTE FUERA PARA EVITAR PÉRDIDA DE FOCO
 const InputKilometrajeSimple = ({
     label,

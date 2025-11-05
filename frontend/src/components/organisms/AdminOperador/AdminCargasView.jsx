@@ -92,7 +92,7 @@ const AdminCargasView = () => {
         params.append('page', pagina.toString());
         params.append('per_page', '100');
 
-        // Agregar TODOS los filtros activos (usando las variables del hook useConsumos)
+        // Agregar TODOS los filtros activos
         if (searchTerm) params.append('search', searchTerm);
         if (filtroEstado && filtroEstado !== 'todos') params.append('estado', filtroEstado);
         if (filtroFaena && filtroFaena !== 'todas') params.append('faena', filtroFaena);
@@ -136,6 +136,7 @@ const AdminCargasView = () => {
         }
       }
 
+      console.log("Datos IMPORTANTES:", todasLasCargas);
       console.log(`✅ Descarga completa: ${todasLasCargas.length} registros`);
 
       // 🎨 Actualizar notificación: generando Excel
@@ -165,10 +166,9 @@ const AdminCargasView = () => {
         { header: '📊 Litros', key: 'litros', width: 10 },
         { header: '💵 Precio Unit.', key: 'precioUnitario', width: 12 },
         { header: '💰 Monto Total', key: 'monto', width: 12 },
-        { header: '📏 Med. Inicial', key: 'medicionInicial', width: 12 },
-        { header: '📏 Med. Final', key: 'medicionFinal', width: 12 },
-        { header: '🏪 Estación', key: 'estacion', width: 20 },
-        { header: '📍 Estado', key: 'estado', width: 12 }
+        { header: '📏 Medición', key: 'medicion', width: 12 },
+        { header: '📍 Ubicación', key: 'ubicacion', width: 20 },
+        { header: '📊 Estado', key: 'estado', width: 12 }
       ];
 
       // Estilo del encabezado
@@ -195,34 +195,31 @@ const AdminCargasView = () => {
 
       // Agregar datos
       todasLasCargas.forEach((carga) => {
-        const litros = parseFloat(carga.cantidad_litros) || 0;
-        const monto = parseFloat(carga.costo_total) || 0;
+        const litros = parseFloat(carga.litros) || 0;
+        const monto = parseFloat(carga.costo) || 0;
 
         totalLitros += litros;
         totalCosto += monto;
 
-        // Obtener nombre del operador (intentar múltiples formatos)
-        const nombreOperador = carga.operador?.nombre_completo ||
-          (carga.operador ? `${carga.operador.nombre || ''} ${carga.operador.apellido || ''}`.trim() : '') ||
-          (carga.usuario ? `${carga.usuario.nombre || ''} ${carga.usuario.apellido || ''}`.trim() : '') ||
-          'Sin operador';
-
+        // Obtener nombre del operador
+        const nombreOperador = carga.operador?.nombre_completo || 'Sin operador';
         operadoresUnicos.add(nombreOperador);
 
         const row = worksheet.addRow({
           operador: nombreOperador,
-          fecha: carga.fecha_carga ? new Date(carga.fecha_carga).toLocaleDateString('es-CL') : '',
+          fecha: carga.fecha_creacion || '',
           boleta: carga.numero_boleta || '',
-          maquina: carga.maquina?.nombre || carga.vehiculo?.tipo_vehiculo?.nombre || '',
-          patente: carga.maquina?.patente || carga.vehiculo?.patente || '',
+          maquina: carga.maquina?.nombre || '',
+          patente: carga.maquina?.patente || '',
           combustible: carga.tipo_combustible || '',
-          litros: litros.toLocaleString('es-CL', { minimumFractionDigits: 2 }),
-          precioUnitario: monto && litros ? `${Math.round(monto / litros).toLocaleString('es-CL')}` : '',
-          monto: `${monto.toLocaleString('es-CL')}`,
-          medicionInicial: carga.medicion_inicial || '',
-          medicionFinal: carga.medicion_final || '',
-          estacion: carga.estacion_servicio || '',
-          estado: carga.estado_rendicion === 'rendido' ? 'Rendido' : 'Por Rendir'
+          litros: litros,
+          precioUnitario: carga.precio_por_litro
+            ? `$${carga.precio_por_litro.toLocaleString('es-CL')}`
+            : '',
+          monto: `$${monto.toLocaleString('es-CL')}`,
+          medicion: carga.medicion || '',
+          ubicacion: carga.ubicacion || '',
+          estado: carga.estado || 'Por Rendir'
         });
 
         row.eachCell((cell) => {
@@ -235,7 +232,8 @@ const AdminCargasView = () => {
           };
         });
 
-        if (carga.estado_rendicion === 'rendido') {
+        // Colorear según estado
+        if (carga.estado === 'Rendido') {
           row.getCell('estado').fill = {
             type: 'pattern',
             pattern: 'solid',
@@ -290,6 +288,10 @@ const AdminCargasView = () => {
       if (filtroPatente) filtrosAplicados.push(`Patente: ${filtroPatente}`);
       if (filtroNumeroBoleta) filtrosAplicados.push(`Boleta: ${filtroNumeroBoleta}`);
 
+      // Calcular cargas por estado
+      const cargasRendidas = todasLasCargas.filter(c => c.estado === 'Rendido').length;
+      const cargasPendientes = todasLasCargas.filter(c => c.estado === 'Por Rendir').length;
+
       const datosResumen = [
         { metrica: '🔍 INFORMACIÓN DE LA EXPORTACIÓN', valor: '' },
         { metrica: '📅 Fecha de Exportación', valor: new Date().toLocaleString('es-CL') },
@@ -301,8 +303,8 @@ const AdminCargasView = () => {
         { metrica: '💰 Costo Total', valor: `$${totalCosto.toLocaleString('es-CL')}` },
         { metrica: '💵 Precio Promedio/Litro', valor: totalLitros > 0 ? `$${Math.round(totalCosto / totalLitros).toLocaleString('es-CL')}` : 'N/A' },
         { metrica: '👥 Operadores Únicos', valor: operadoresUnicos.size.toString() },
-        { metrica: '⏳ Cargas Pendientes', valor: (estadisticas?.porRendir || 0).toString() },
-        { metrica: '✅ Cargas Rendidas', valor: (estadisticas?.rendidos || 0).toString() }
+        { metrica: '⏳ Cargas Pendientes', valor: cargasPendientes.toString() },
+        { metrica: '✅ Cargas Rendidas', valor: cargasRendidas.toString() }
       ];
 
       if (filtrosAplicados.length > 0) {
@@ -316,7 +318,7 @@ const AdminCargasView = () => {
       datosResumen.forEach(dato => {
         const row = resumenSheet.addRow(dato);
 
-        if (dato.metrica.includes('FILTROS APLICADOS')) {
+        if (dato.metrica.includes('INFORMACIÓN') || dato.metrica.includes('FILTROS APLICADOS')) {
           row.font = { bold: true, size: 11 };
           row.fill = {
             type: 'pattern',
@@ -344,11 +346,7 @@ const AdminCargasView = () => {
       const cargasPorOperador = {};
 
       todasLasCargas.forEach((carga) => {
-        // Obtener nombre del operador (intentar múltiples formatos)
-        const nombreOperador = carga.operador?.nombre_completo ||
-          (carga.operador ? `${carga.operador.nombre || ''} ${carga.operador.apellido || ''}`.trim() : '') ||
-          (carga.usuario ? `${carga.usuario.nombre || ''} ${carga.usuario.apellido || ''}`.trim() : '') ||
-          'Sin operador';
+        const nombreOperador = carga.operador?.nombre_completo || 'Sin operador';
 
         if (!cargasPorOperador[nombreOperador]) {
           cargasPorOperador[nombreOperador] = [];
@@ -370,8 +368,8 @@ const AdminCargasView = () => {
         let totalMontoOp = 0;
 
         cargasOperador.forEach(carga => {
-          totalLitrosOp += parseFloat(carga.cantidad_litros) || 0;
-          totalMontoOp += parseFloat(carga.costo_total) || 0;
+          totalLitrosOp += parseFloat(carga.litros) || 0;
+          totalMontoOp += parseFloat(carga.costo) || 0;
         });
 
         // ENCABEZADO DEL OPERADOR
@@ -413,7 +411,7 @@ const AdminCargasView = () => {
         filaActual++;
 
         // ENCABEZADO DE LA TABLA
-        const headers = ['📅 Fecha', '🧾 Nº Factura', '🚗 Patente', '💰 Monto', '⛽ Litros', '📏 Medición'];
+        const headers = ['📅 Fecha', '🧾 Nº Boleta', '🚗 Patente', '💰 Monto', '⛽ Litros', '📏 Medición'];
         const headerRow = operadorSheet.getRow(filaActual);
 
         headers.forEach((header, colIndex) => {
@@ -436,28 +434,26 @@ const AdminCargasView = () => {
 
         // Ajustar anchos de columna
         operadorSheet.getColumn(1).width = 12;  // Fecha
-        operadorSheet.getColumn(2).width = 15;  // Nº Factura
+        operadorSheet.getColumn(2).width = 15;  // Nº Boleta
         operadorSheet.getColumn(3).width = 12;  // Patente
         operadorSheet.getColumn(4).width = 15;  // Monto
         operadorSheet.getColumn(5).width = 12;  // Litros
-        operadorSheet.getColumn(6).width = 25;  // Medición
+        operadorSheet.getColumn(6).width = 15;  // Medición
 
         filaActual++;
 
         // DATOS DEL OPERADOR
         cargasOperador.forEach((carga) => {
-          const litros = parseFloat(carga.cantidad_litros) || 0;
-          const monto = parseFloat(carga.costo_total) || 0;
-          const medicionInicial = carga.medicion_inicial || 'N/A';
-          const medicionFinal = carga.medicion_final || 'N/A';
-          const medicion = `${medicionInicial} → ${medicionFinal}`;
+          const litros = parseFloat(carga.litros) || 0;
+          const monto = parseFloat(carga.costo) || 0;
+          const medicion = carga.medicion || 'N/A';
 
           const dataRow = operadorSheet.getRow(filaActual);
 
-          dataRow.getCell(1).value = carga.fecha_carga ? new Date(carga.fecha_carga).toLocaleDateString('es-CL') : '';
+          dataRow.getCell(1).value = carga.fecha_creacion || '';
           dataRow.getCell(2).value = carga.numero_boleta || '';
-          dataRow.getCell(3).value = carga.maquina?.patente || carga.vehiculo?.patente || '';
-          dataRow.getCell(4).value = `${monto.toLocaleString('es-CL')}`;
+          dataRow.getCell(3).value = carga.maquina?.patente || '';
+          dataRow.getCell(4).value = `$${monto.toLocaleString('es-CL')}`;
           dataRow.getCell(5).value = `${litros.toLocaleString('es-CL', { minimumFractionDigits: 2 })} L`;
           dataRow.getCell(6).value = medicion;
 

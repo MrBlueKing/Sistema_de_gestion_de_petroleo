@@ -3,6 +3,15 @@ import { Routes, Route } from "react-router-dom";
 import Home from "../pages/HomePage";
 import LoginPage from "../pages/LoginPage";
 import PrivateRoute from "./PrivateRoutes";
+// Guardar referencia original
+const originalLog = console.log;
+
+// Control global de logs
+const debug = true; // Cambia a false para desactivar logs
+
+// Reasignar console.log de forma segura
+console.log = debug ? originalLog : () => {};
+
 
 // 👤 Importaciones Gerente
 import GerentePage from "../pages/Gerente/GerentePage";
