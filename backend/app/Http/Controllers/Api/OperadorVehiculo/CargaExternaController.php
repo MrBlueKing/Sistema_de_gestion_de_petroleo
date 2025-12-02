@@ -112,8 +112,7 @@ class CargaExternaController extends Controller
             // Cargas del mes actual directamente desde DB
             $cargasMes = CargaExterna::with('maquina')
                 ->where('id_user', $user->id)
-                ->whereMonth('created_at', $now->month)
-                ->whereYear('created_at', $now->year)
+                ->where('estado', 'por rendir')
                 ->orderBy('created_at', 'desc')
                 ->get();
 

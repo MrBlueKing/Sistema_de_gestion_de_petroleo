@@ -583,13 +583,13 @@ class IngresoPetroleoController extends Controller
                 ], 400);
             }
 
-            // Validar estanques destino son fijos
+            // Validar estanques destino son fijos (manual o automático)
             foreach ($request->destinos as $destino) {
                 $estanqueDestino = Estanque::find($destino['id_estanque_destino']);
-                if ($estanqueDestino->tipo_estanque !== 'fijo') {
+                if (!in_array($estanqueDestino->tipo_estanque, ['fijo', 'fijo_automatico'])) {
                     return response()->json([
                         'success' => false,
-                        'message' => "El estanque destino '{$estanqueDestino->nombre}' debe ser de tipo fijo"
+                        'message' => "El estanque destino '{$estanqueDestino->nombre}' debe ser de tipo fijo (manual o automático)"
                     ], 400);
                 }
             }

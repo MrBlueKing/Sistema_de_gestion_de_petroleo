@@ -31,6 +31,36 @@ export const FAENA_COLORS = {
     id: 1
   },
 
+  2: {
+    name: "Catemu",
+    region: "Región de Valparaíso",
+
+    // Colores para fondo y bordes - ROJO MANZANA VISIBLE
+    bg: "bg-red-200",              // ✅ Fondo rojo suave y visible (sin opacidad)
+    border: "border-l-red-600",     // ✅ Borde izquierdo rojo intenso
+    borderFull: "border-red-400",   // ✅ Borde completo rojo medio
+
+    // Badges y etiquetas
+    badge: "bg-red-200 text-red-900",  // ✅ Badge visible
+
+    // Iconos y textos
+    icon: "text-red-600",     // ✅ Ícono rojo manzana
+    text: "text-red-900",     // ✅ Texto oscuro para contraste
+
+    // Gradientes
+    gradient: "bg-gradient-to-r from-red-700 to-red-900",
+    gradientLight: "bg-gradient-to-r from-red-50 to-red-100",
+
+    // Colores específicos (hex) — rojo manzana
+    primary: "#e0002b", // rojo manzana fuerte
+    light: "#ffe5e9",   // rosado suave
+    dark: "#a00020",    // rojo profundo
+
+    // Elementos decorativos
+    emoji: "🍎",
+    id: 2
+  },
+
   4: {
     name: "Tiltil",
     region: "Región Metropolitana",

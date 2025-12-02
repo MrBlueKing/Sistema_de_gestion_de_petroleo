@@ -24,26 +24,34 @@ class UserController extends Controller
     
 
     // ✅ Nuevo método para obtener usuarios recientes
-    public function recientes()
+    public function recientes(Request $request)
     {
-        // Carga los últimos 5 usuarios y su faena relacionada
-        $usuarios = User::with(['faena', 'rol']) // ahora cargamos también 'rol'
-            ->orderBy('created_at', 'desc')
-            ->take(5)
-            ->get()
+        // Si se pasa el parámetro 'all', devolver todos los usuarios
+        $limit = $request->has('all') ? null : 5;
+
+        $query = User::with(['faena', 'rol'])
+            ->orderBy('created_at', 'desc');
+
+        if ($limit) {
+            $query->take($limit);
+        }
+
+        $usuarios = $query->get()
             ->map(function ($usuario) {
                 return [
                     'id' => $usuario->id,
                     'rut' => $usuario->rut,
                     'nombre' => $usuario->nombre,
                     'apellido' => $usuario->apellido,
+                    'id_faena' => $usuario->id_faena, // ID de la faena
                     'ubicacion_faena' => optional($usuario->faena)->ubicacion, // Aquí extraemos la ubicación
-                    'rol' => optional($usuario->rol)->rol, // Aquí extraemos la ubicación
+                    'id_rol' => $usuario->id_rol, // ✅ Agregar ID del rol
+                    'rol' => optional($usuario->rol)->rol, // Aquí extraemos el nombre del rol
                     'created_at' => $usuario->created_at,
                     'estado' => $usuario->estado,
                 ];
             });
-    
+
         return response()->json($usuarios);
     }
     

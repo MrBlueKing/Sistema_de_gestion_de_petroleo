@@ -21,8 +21,6 @@ const MenuPrincipalOperadorVehiculo = () => {
   // 🆕 Obtener datos básicos del usuario desde la sesión
   const usuario = getAuthUser();
 
-  console.log("Usuario:", usuario);
-
   // 🆕 Función para manejar ingreso exitoso
   const handleIngresoExitoso = useCallback(() => {
     console.log('✅ Ingreso exitoso detectado, recargando historial del usuario...');

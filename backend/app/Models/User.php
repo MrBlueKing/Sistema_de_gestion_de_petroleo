@@ -21,6 +21,7 @@ class User extends Authenticatable
         'rut',
         'password',
         'id_faena',
+        'faena_activa_id',
         'id_rol',
     ];
 
@@ -46,10 +47,30 @@ class User extends Authenticatable
         return $this->belongsTo(Rol::class, 'id_rol', 'id_rol');
     }
 
-    // Relación con Faena
+    // Relación con Faena principal
     public function faena()
     {
-        return $this->belongsTo(Faena::class, 'id_faena'); // Relación con la tabla faena
+        return $this->belongsTo(Faena::class, 'id_faena');
+    }
+
+    // Relación con Faena activa
+    public function faenaActiva()
+    {
+        return $this->belongsTo(Faena::class, 'faena_activa_id', 'id_faena');
+    }
+
+    // Relación muchos-a-muchos con Faenas
+    public function faenas()
+    {
+        return $this->belongsToMany(Faena::class, 'user_faena', 'user_id', 'faena_id')
+            ->withPivot('activo')
+            ->withTimestamps();
+    }
+
+    // Obtener la faena activa o la principal
+    public function getFaenaActualAttribute()
+    {
+        return $this->faena_activa_id ?? $this->id_faena;
     }
     // Relación con Recepción Petróleo
     public function ingresosPetroleo()

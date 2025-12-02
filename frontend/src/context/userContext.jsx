@@ -192,6 +192,11 @@ export const UserProvider = ({ children }) => {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [refreshUser, clearUserContext]);
 
+  // 🆕 FUNCIÓN PARA ACTUALIZAR USUARIO (wrapper de setUser)
+  const updateUser = useCallback((newUserData) => {
+    setUser(newUserData);
+  }, []);
+
   // 🎯 VALOR DEL CONTEXTO - TUS PROPS ORIGINALES + NUEVAS FUNCIONES
   const value = {
     // ✅ TUS PROPS ORIGINALES
@@ -201,6 +206,7 @@ export const UserProvider = ({ children }) => {
     error,
 
     // 🆕 NUEVAS FUNCIONES ÚTILES
+    updateUser,       // Para actualizar usuario
     clearUserContext,  // Para limpiar estado
     refreshUser,       // Para refrescar datos
     logout,           // Para logout completo

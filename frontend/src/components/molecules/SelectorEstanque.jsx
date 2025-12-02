@@ -341,7 +341,13 @@ const SelectorEstanque = ({
 
           // Filtrar por tipo si se especifica
           if (tipoEstanque !== 'todos') {
-            estanquesConStock = estanquesConStock.filter(e => e.tipo_estanque === tipoEstanque);
+            estanquesConStock = estanquesConStock.filter(e => {
+              // Si se pide 'fijo', incluir tanto 'fijo' como 'fijo_automatico'
+              if (tipoEstanque === 'fijo') {
+                return e.tipo_estanque === 'fijo' || e.tipo_estanque === 'fijo_automatico';
+              }
+              return e.tipo_estanque === tipoEstanque;
+            });
           }
 
           setEstanques(estanquesConStock);
@@ -364,8 +370,12 @@ const SelectorEstanque = ({
   // AGRUPAR ESTANQUES POR TIPO
   // AGRUPAR ESTANQUES POR TIPO
   const estanquesAgrupados = useMemo(() => {
-    // Separar por tipo
-    const fijos = estanques.filter(e => e.tipo_estanque === 'fijo' || !e.tipo_estanque);
+    // Separar por tipo - INCLUYE fijo_automatico como fijos
+    const fijos = estanques.filter(e =>
+      e.tipo_estanque === 'fijo' ||
+      e.tipo_estanque === 'fijo_automatico' ||
+      !e.tipo_estanque
+    );
     const moviles = estanques.filter(e => e.tipo_estanque === 'movil');
 
     // ✅ NUEVA FUNCIÓN DE ORDENAMIENTO
@@ -693,8 +703,8 @@ const SelectorEstanque = ({
         {/* LISTA DE ESTANQUES AGRUPADA POR TIPO */}
         <div className="max-h-[400px] overflow-y-auto">
 
-          {/* SECCIÓN DE ESTANQUES FIJOS */}
-          {(tipoEstanque === 'todos' || tipoEstanque === 'fijo') && estanquesFijosMostrados.length > 0 && (
+          {/* SECCIÓN DE ESTANQUES FIJOS (incluye fijo y fijo_automatico) */}
+          {(tipoEstanque === 'todos' || tipoEstanque === 'fijo' || tipoEstanque === 'fijo_automatico') && estanquesFijosMostrados.length > 0 && (
             <>
               <SeparadorSeccion
                 icono={<FaBuilding className="text-blue-600" size={14} />}
@@ -732,6 +742,7 @@ const SelectorEstanque = ({
 
           {/* SECCIÓN DE ESTANQUES MÓVILES */}
           {(tipoEstanque === 'todos' || tipoEstanque === 'movil') && estanquesMovilesMostrados.length > 0 && (
+            console.log('🚚 Mostrando estanques móviles:', estanquesMovilesMostrados),
             <>
               <SeparadorSeccion
                 titulo="Estanques Móviles"
@@ -802,7 +813,7 @@ const SelectorEstanque = ({
         </div>
       )}
 
-      
+
     </div>
   );
 };

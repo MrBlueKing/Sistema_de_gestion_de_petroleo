@@ -6,6 +6,8 @@ import {
   FaChartLine,
   FaUsers as FaUsersGroup,
   FaShieldAlt,
+  FaMapMarkerAlt,
+  FaGasPump,
 } from "react-icons/fa";
 import { MdCarRental, MdDashboard, MdSecurity } from "react-icons/md";
 import { GrLicense } from "react-icons/gr";
@@ -306,7 +308,7 @@ export default function Main() {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               <QuickAccessButton
                 icon={GrLicense}
                 title="Permisos Personal Interno"
@@ -320,6 +322,20 @@ export default function Main() {
                 to="/GestionarPermisoMaquinas"
                 color="from-teal-500 to-green-500"
                 description="Autorizar uso de equipos"
+              />
+              <QuickAccessButton
+                icon={FaMapMarkerAlt}
+                title="Gestión de Faenas Bomberos"
+                to="/GestionarFaenasBomberos"
+                color="from-orange-500 to-red-500"
+                description="Asignar múltiples faenas"
+              />
+              <QuickAccessButton
+                icon={FaGasPump}
+                title="Gestión de Estanques"
+                to="/administrador/estanques"
+                color="from-blue-500 to-cyan-500"
+                description="Administrar estanques"
               />
             </div>
           </div>

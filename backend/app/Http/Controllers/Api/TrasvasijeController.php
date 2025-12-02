@@ -27,6 +27,10 @@ class TrasvasijeController extends Controller
     /**
      * Registrar trasvasije de estanque móvil a fijo
      * POST /api/trasvasijes/movil-a-fijo
+     *
+     * Soporta dos tipos de estanques fijos:
+     * - 'fijo': requiere altura_fijo_inicial y altura_fijo_final
+     * - 'fijo_automatico': requiere litros_fijo_inicial y litros_fijo_final
      */
     public function registrarMovilAFijo(Request $request)
     {
@@ -40,9 +44,13 @@ class TrasvasijeController extends Controller
             'litros_movil_inicial' => 'required|numeric|min:0',
             'litros_movil_final' => 'required|numeric|min:0',
 
-            // Medición de alturas del fijo
-            'altura_fijo_inicial' => 'required|numeric|min:0',
-            'altura_fijo_final' => 'required|numeric|min:0',
+            // Medición de alturas del fijo (para estanques tipo 'fijo')
+            'altura_fijo_inicial' => 'nullable|numeric|min:0',
+            'altura_fijo_final' => 'nullable|numeric|min:0',
+
+            // Medición de litros del fijo (para estanques tipo 'fijo_automatico')
+            'litros_fijo_inicial' => 'nullable|numeric|min:0',
+            'litros_fijo_final' => 'nullable|numeric|min:0',
 
             'observaciones' => 'nullable|string|max:255'
         ]);
@@ -70,10 +78,10 @@ class TrasvasijeController extends Controller
                 ], 400);
             }
 
-            if ($estanqueFijo->tipo_estanque !== 'fijo') {
+            if (!in_array($estanqueFijo->tipo_estanque, ['fijo', 'fijo_automatico'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'El estanque destino debe ser de tipo fijo'
+                    'message' => 'El estanque destino debe ser de tipo fijo o fijo_automatico'
                 ], 400);
             }
 
@@ -83,6 +91,27 @@ class TrasvasijeController extends Controller
                     'success' => false,
                     'message' => 'Ambos estanques deben pertenecer a la faena seleccionada'
                 ], 400);
+            }
+
+            // Determinar el tipo de estanque fijo y validar campos requeridos
+            $esFijoAutomatico = $estanqueFijo->tipo_estanque === 'fijo_automatico';
+
+            if ($esFijoAutomatico) {
+                // Estanque con sensores: requiere litros_fijo_inicial y litros_fijo_final
+                if (!$request->has('litros_fijo_inicial') || !$request->has('litros_fijo_final')) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Para estanques automáticos se requieren litros_fijo_inicial y litros_fijo_final'
+                    ], 400);
+                }
+            } else {
+                // Estanque tradicional: requiere altura_fijo_inicial y altura_fijo_final
+                if (!$request->has('altura_fijo_inicial') || !$request->has('altura_fijo_final')) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Para estanques tradicionales se requieren altura_fijo_inicial y altura_fijo_final'
+                    ], 400);
+                }
             }
 
             // 🧮 CÁLCULOS AUTOMÁTICOS
@@ -96,12 +125,23 @@ class TrasvasijeController extends Controller
                 ], 400);
             }
 
-            // Validar que la altura del fijo haya aumentado
-            if ($request->altura_fijo_final <= $request->altura_fijo_inicial) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'La altura final del estanque fijo debe ser mayor que la inicial'
-                ], 400);
+            // Validar incremento en el estanque fijo según su tipo
+            if ($esFijoAutomatico) {
+                // Para automáticos: validar que los litros hayan aumentado
+                if ($request->litros_fijo_final <= $request->litros_fijo_inicial) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Los litros finales del estanque fijo deben ser mayores que los iniciales'
+                    ], 400);
+                }
+            } else {
+                // Para tradicionales: validar que la altura haya aumentado
+                if ($request->altura_fijo_final <= $request->altura_fijo_inicial) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'La altura final del estanque fijo debe ser mayor que la inicial'
+                    ], 400);
+                }
             }
 
             // Obtener stocks actuales
@@ -132,7 +172,7 @@ class TrasvasijeController extends Controller
             }
 
             // 📝 CREAR REGISTRO DE TRASVASIJE
-            $trasvasije = TrasvasijeMovilAFijo::create([
+            $datosTransvasije = [
                 'id_usuario' => $request->id_usuario,
                 'id_estanque_movil' => $request->id_estanque_movil,
                 'id_estanque_fijo' => $request->id_estanque_fijo,
@@ -144,11 +184,6 @@ class TrasvasijeController extends Controller
                 'litros_movil_final' => $request->litros_movil_final,
                 'litros_trasvasijados' => $litrosTransvasijados,
 
-                // Medición del fijo
-                'altura_fijo_inicial' => $request->altura_fijo_inicial,
-                'altura_fijo_final' => $request->altura_fijo_final,
-                // litros_calculados_altura y diferencia_medicion se calculan por trigger
-
                 // Stocks
                 'stock_inicial_movil' => $stockInicialMovil,
                 'stock_final_movil' => $stockFinalMovil,
@@ -157,11 +192,31 @@ class TrasvasijeController extends Controller
 
                 'observaciones' => $request->observaciones,
                 'verificado' => false // Por defecto no verificado
-            ]);
+            ];
 
-            // El trigger automáticamente actualiza los stocks, pero lo haremos manual para mayor control
+            // Agregar campos específicos según el tipo de estanque fijo
+            if ($esFijoAutomatico) {
+                // Estanque automático: usar litros medidos por sensor
+                $datosTransvasije['litros_fijo_inicial'] = $request->litros_fijo_inicial;
+                $datosTransvasije['litros_fijo_final'] = $request->litros_fijo_final;
+                // Para automáticos, calcular la diferencia directamente
+                $litrosSegunSensor = $request->litros_fijo_final - $request->litros_fijo_inicial;
+                $datosTransvasije['diferencia_medicion'] = $litrosSegunSensor - $litrosTransvasijados;
+            } else {
+                // Estanque tradicional: usar medición de altura
+                $datosTransvasije['altura_fijo_inicial'] = $request->altura_fijo_inicial;
+                $datosTransvasije['altura_fijo_final'] = $request->altura_fijo_final;
+                // litros_calculados_altura y diferencia_medicion se calculan por trigger
+            }
+
+            $trasvasije = TrasvasijeMovilAFijo::create($datosTransvasije);
+
+            // Actualizar stocks de los estanques
             $this->actualizarStockEstanque($request->id_estanque_movil, $stockFinalMovil, null);
-            $this->actualizarStockEstanque($request->id_estanque_fijo, $stockFinalFijo, $request->altura_fijo_final);
+
+            // Para el estanque fijo, actualizar con altura solo si es tradicional
+            $alturaActual = $esFijoAutomatico ? null : $request->altura_fijo_final;
+            $this->actualizarStockEstanque($request->id_estanque_fijo, $stockFinalFijo, $alturaActual);
 
             // Recargar para obtener los campos calculados por trigger
             $trasvasije->refresh();
@@ -172,6 +227,7 @@ class TrasvasijeController extends Controller
                 'id_trasvasije' => $trasvasije->id_trasvasije,
                 'estanque_movil' => $estanqueMovil->nombre,
                 'estanque_fijo' => $estanqueFijo->nombre,
+                'tipo_fijo' => $estanqueFijo->tipo_estanque,
                 'litros_trasvasijados' => $litrosTransvasijados,
                 'diferencia_medicion' => $trasvasije->diferencia_medicion
             ]);
@@ -266,11 +322,11 @@ class TrasvasijeController extends Controller
             $estanqueFijo = Estanque::find($request->id_estanque_fijo);
             $estanqueMovil = Estanque::find($request->id_estanque_movil);
 
-            // Validar tipos de estanque
-            if ($estanqueFijo->tipo_estanque !== 'fijo') {
+            // Validar tipos de estanque (acepta tanto fijo manual como automático)
+            if (!in_array($estanqueFijo->tipo_estanque, ['fijo', 'fijo_automatico'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'El estanque origen debe ser de tipo fijo'
+                    'message' => 'El estanque origen debe ser de tipo fijo (manual o automático)'
                 ], 400);
             }
 
@@ -832,6 +888,7 @@ class TrasvasijeController extends Controller
                         'id_estanque' => $estanque->id_estanque,
                         'nombre' => $estanque->nombre,
                         'tipo' => $estanque->tipo_estanque,
+                        'tipo_estanque' => $estanque->tipo_estanque, // ✅ Incluir campo completo para compatibilidad
                         'capacidad' => $estanque->capacidad,
                         'stock_actual' => $estanque->stock ? $estanque->stock->stock_actual : 0,
                         'altura_actual' => $estanque->stock ? $estanque->stock->altura_actual : null,
@@ -839,7 +896,8 @@ class TrasvasijeController extends Controller
                     ];
                 });
 
-            $estanquesFijos = $estanques->where('tipo', 'fijo')->values();
+            // Separar estanques fijos (manuales y automáticos) de los móviles
+            $estanquesFijos = $estanques->whereIn('tipo', ['fijo', 'fijo_automatico'])->values();
             $estanquesMoviles = $estanques->where('tipo', 'movil')->values();
 
             return response()->json([

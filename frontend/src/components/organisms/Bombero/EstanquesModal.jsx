@@ -53,11 +53,11 @@ const InputNivel = ({
   </div>
 );
 
-// Componente para distribución de litros (más simple)
+// Componente para ingresar lecturas del sensor (estanques automáticos)
 const InputLitros = ({ value, onChange, placeholder, disabled, error }) => (
   <div className="mb-3">
     <label className="text-sm font-medium text-gray-700 block mb-1.5">
-      Litros a Ingresar
+      Lectura del Sensor
     </label>
     <div className="relative group">
       <input
@@ -158,7 +158,10 @@ const EstanquesModal = ({
   // Nuevas props para distribución
   distribucionLitros = {},
   onDistribucionChange,
-  esTrasvasije = false // true para trasvasije (1 estanque), false para recepción (múltiples)
+  esTrasvasije = false, // true para trasvasije (1 estanque), false para recepción (múltiples)
+  // 🆕 Nuevas props para estanques automáticos
+  litrosEstanques = {}, // { id_estanque: { inicial: "", final: "" } }
+  handleLitrosChange // función para manejar cambios en litros de estanques automáticos
 }) => {
   const activo = false;
   // 🔍 AGREGAR ESTO PARA DEPURAR:
@@ -201,7 +204,8 @@ const EstanquesModal = ({
 
 
   // NUEVOS ESTADOS PARA NUMERALES(Cambio de contexto)
-  const modoNumerales = true; // Siempre usar numerales
+  // En TRASVASIJE no se usan numerales, solo en RECEPCIÓN
+  const modoNumerales = !esTrasvasije; // Solo usar numerales en recepción, NO en trasvasije
   const [numeralesEstanques, setNumeralesEstanques] = useState({});
   const [litrosCalculados, setLitrosCalculados] = useState({});
 
@@ -619,58 +623,75 @@ const EstanquesModal = ({
     }
   };
 
-  // Verificar si se han ingresado todos los niveles iniciales
+  // Verificar si se han ingresado todos los niveles iniciales (alturas o litros según tipo)
   const nivelesInicialesCompletos = () => {
     const estanquesConDistribucion = getEstanquesConDistribucion();
     if (estanquesConDistribucion.length === 0) return false;
 
     return estanquesConDistribucion.every((estanque) => {
-      const alturas = alturasEstanques[estanque.id_estanque] || {};
-      return alturas.inicial && alturas.inicial !== "";
+      // 🆕 Detectar tipo de estanque
+      if (estanque.tipo_estanque === 'fijo_automatico') {
+        // Estanque automático → Validar litros del sensor
+        const litros = litrosEstanques[estanque.id_estanque] || {};
+        return litros.inicial !== undefined && litros.inicial !== "";
+      } else {
+        // Estanque manual → Validar alturas
+        const alturas = alturasEstanques[estanque.id_estanque] || {};
+        return alturas.inicial && alturas.inicial !== "";
+      }
     });
   };
 
-  // Verificar si se han ingresado todos los niveles finales (solo estanques con distribución)
+  // Verificar si se han ingresado todos los niveles finales (alturas o litros según tipo)
   const nivelesFinalesCompletos = () => {
     const estanquesConDistribucion = getEstanquesConDistribucion();
     if (estanquesConDistribucion.length === 0) return false;
 
     return estanquesConDistribucion.every((estanque) => {
-      const alturas = alturasEstanques[estanque.id_estanque] || {};
-      return alturas.final && alturas.final !== "";
+      // 🆕 Detectar tipo de estanque
+      if (estanque.tipo_estanque === 'fijo_automatico') {
+        // Estanque automático → Validar litros del sensor
+        const litros = litrosEstanques[estanque.id_estanque] || {};
+        return litros.final !== undefined && litros.final !== "";
+      } else {
+        // Estanque manual → Validar alturas
+        const alturas = alturasEstanques[estanque.id_estanque] || {};
+        return alturas.final && alturas.final !== "";
+      }
     });
   };
 
   // Función para validar y mostrar errores específicos con orden lógico
   const validarYAvanzar = () => {
+    if(esTrasvasije === false){
+      // AGREGAR ESTA VALIDACIÓN AL INICIO:
+      if(modoNumerales) {
+        // Validar numerales antes de continuar
+        const estanquesConNumerales = Object.entries(numeralesEstanques)
+          .filter(([_, numeral]) => numeral && parseFloat(numeral) > 0);
 
-    // AGREGAR ESTA VALIDACIÓN AL INICIO:
-    if (modoNumerales) {
-      // Validar numerales antes de continuar
-      const estanquesConNumerales = Object.entries(numeralesEstanques)
-        .filter(([_, numeral]) => numeral && parseFloat(numeral) > 0);
-
-      if (estanquesConNumerales.length === 0) {
-        setErrorValidacion({
-          show: true,
-          message: "Debe ingresar al menos un numeral de bomba para continuar.",
-          type: "error"
-        });
-        return false;
-      }
-
-      // Verificar numerales únicos y crecientes
-      const numerales = estanquesConNumerales.map(([_, numeral]) => parseFloat(numeral));
-      const numeralesOrdenados = [...numerales].sort((a, b) => a - b);
-
-      for (let i = 1; i < numeralesOrdenados.length; i++) {
-        if (numeralesOrdenados[i] <= numeralesOrdenados[i - 1]) {
+        if (estanquesConNumerales.length === 0) {
           setErrorValidacion({
             show: true,
-            message: "Los numerales de bomba deben ser estrictamente crecientes y únicos.",
+            message: "Debe ingresar al menos un numeral de bomba para continuar.",
             type: "error"
           });
           return false;
+        }
+
+        // Verificar numerales únicos y crecientes
+        const numerales = estanquesConNumerales.map(([_, numeral]) => parseFloat(numeral));
+        const numeralesOrdenados = [...numerales].sort((a, b) => a - b);
+
+        for (let i = 1; i < numeralesOrdenados.length; i++) {
+          if (numeralesOrdenados[i] <= numeralesOrdenados[i - 1]) {
+            setErrorValidacion({
+              show: true,
+              message: "Los numerales de bomba deben ser estrictamente crecientes y únicos.",
+              type: "error"
+            });
+            return false;
+          }
         }
       }
     }
@@ -724,13 +745,22 @@ const EstanquesModal = ({
     // PASO 3: Validar niveles iniciales (después de que la distribución esté correcta)
     if (!nivelesCompletos) {
       const estanquesSinNivel = getEstanquesConDistribucion().filter((estanque) => {
-        const alturas = alturasEstanques[estanque.id_estanque] || {};
-        return !alturas.inicial || alturas.inicial === "";
+        // 🆕 Validar según tipo de estanque
+        if (estanque.tipo_estanque === 'fijo_automatico') {
+          const litros = litrosEstanques[estanque.id_estanque] || {};
+          return !litros.inicial || litros.inicial === "";
+        } else {
+          const alturas = alturasEstanques[estanque.id_estanque] || {};
+          return !alturas.inicial || alturas.inicial === "";
+        }
       });
 
+      // 🆕 Mensajes personalizados según tipo de estanque
       const mensaje = estanquesSinNivel.length === 1
-        ? `Debe ingresar el nivel inicial del estanque "${estanquesSinNivel[0].nombre}".`
-        : `Debe completar los niveles iniciales de ${estanquesSinNivel.length} estanques: ${estanquesSinNivel.map(e => e.nombre).join(", ")}.`;
+        ? estanquesSinNivel[0].tipo_estanque === 'fijo_automatico'
+          ? `Debe ingresar la lectura inicial del sensor del estanque "${estanquesSinNivel[0].nombre}".`
+          : `Debe ingresar el nivel inicial del estanque "${estanquesSinNivel[0].nombre}".`
+        : `Debe completar las mediciones iniciales de ${estanquesSinNivel.length} estanques: ${estanquesSinNivel.map(e => e.nombre).join(", ")}.`;
 
       setErrorValidacion({
         show: true,
@@ -762,13 +792,22 @@ const EstanquesModal = ({
   const handleCalcular = async () => {
     if (!nivelesFinalesCompletos()) {
       const estanquesSinNivel = getEstanquesConDistribucion().filter((estanque) => {
-        const alturas = alturasEstanques[estanque.id_estanque] || {};
-        return !alturas.final || alturas.final === "";
+        // 🆕 Validar según tipo de estanque
+        if (estanque.tipo_estanque === 'fijo_automatico') {
+          const litros = litrosEstanques[estanque.id_estanque] || {};
+          return !litros.final || litros.final === "";
+        } else {
+          const alturas = alturasEstanques[estanque.id_estanque] || {};
+          return !alturas.final || alturas.final === "";
+        }
       });
 
+      // 🆕 Mensajes personalizados según tipo de estanque
       const mensaje = estanquesSinNivel.length === 1
-        ? `Debe ingresar el nivel final del estanque "${estanquesSinNivel[0].nombre}".`
-        : `Debe completar los niveles finales de ${estanquesSinNivel.length} estanques: ${estanquesSinNivel.map(e => e.nombre).join(", ")}.`;
+        ? estanquesSinNivel[0].tipo_estanque === 'fijo_automatico'
+          ? `Debe ingresar la lectura final del sensor del estanque "${estanquesSinNivel[0].nombre}".`
+          : `Debe ingresar el nivel final del estanque "${estanquesSinNivel[0].nombre}".`
+        : `Debe completar las mediciones finales de ${estanquesSinNivel.length} estanques: ${estanquesSinNivel.map(e => e.nombre).join(", ")}.`;
 
       setErrorValidacion({
         show: true,
@@ -1813,61 +1852,93 @@ const EstanquesModal = ({
                                   </div>
                                 )}
 
-                                {/* SECCIÓN 2: MEDICIÓN DE ALTURA */}
+                                {/* SECCIÓN 2: MEDICIÓN - Detecta tipo de estanque */}
                                 <div>
-                                  <div className="flex items-center mb-4">
-                                    <div
-                                      className={`${colorEstanque.solid} p-2 rounded-lg mr-3`}
-                                    >
-                                      <FaRuler className="text-white text-sm" />
-                                    </div>
-                                    <div>
-                                      <h4
-                                        className={`font-semibold ${colorEstanque.darkText} text-base`}
-                                      >
-                                        {paso === "inicial"
-                                          ? "Nivel Inicial"
-                                          : "Nivel Final"}
-                                      </h4>
-                                      <p className="text-gray-600 text-sm">
-                                        {paso === "inicial"
-                                          ? "Antes de la recepción"
-                                          : "Después de la recepción"}
-                                      </p>
-                                    </div>
-                                  </div>
+                                  {estanque.tipo_estanque === 'fijo_automatico' ? (
+                                    // 🆕 ESTANQUE AUTOMÁTICO - Mostrar campos de litros del sensor
+                                    <>
+                                      <div className="flex items-center mb-4">
+                                        <div className={`${colorEstanque.solid} p-2 rounded-lg mr-3`}>
+                                          <FaGasPump className="text-white text-sm" />
+                                        </div>
+                                        <div>
+                                          <h4 className={`font-semibold ${colorEstanque.darkText} text-base`}>
+                                            {paso === "inicial" ? "Lectura Sensor Inicial" : "Lectura Sensor Final"}
+                                          </h4>
+                                          <p className="text-gray-600 text-sm">
+                                            {paso === "inicial"
+                                              ? "Litros medidos por sensor antes del trasvasije"
+                                              : "Litros medidos por sensor después del trasvasije"}
+                                          </p>
+                                        </div>
+                                      </div>
 
-                                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                                    <InputNivel
-                                      label=""
-                                      value={
-                                        paso === "inicial"
-                                          ? alturas.inicial || ""
-                                          : alturas.final || ""
-                                      }
-                                      onChange={(e) => {
-                                        if (paso === "inicial") {
-                                          handleAlturaChange(
-                                            estanque.id_estanque,
-                                            {
-                                              inicial: e.target.value,
-                                              final: alturas.final || "",
+                                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                        <div className="flex items-center mb-2">
+                                          <FaInfoCircle className="text-blue-600 mr-2" />
+                                          <span className="text-sm text-blue-700 font-medium">Estanque con sensor automático</span>
+                                        </div>
+                                        <InputLitros
+                                          value={paso === "inicial"
+                                            ? (litrosEstanques[estanque.id_estanque]?.inicial || "")
+                                            : (litrosEstanques[estanque.id_estanque]?.final || "")}
+                                          onChange={(e) => {
+                                            if (handleLitrosChange) {
+                                              handleLitrosChange(estanque.id_estanque, {
+                                                inicial: paso === "inicial" ? e.target.value : (litrosEstanques[estanque.id_estanque]?.inicial || ""),
+                                                final: paso === "final" ? e.target.value : (litrosEstanques[estanque.id_estanque]?.final || "")
+                                              });
                                             }
-                                          );
-                                        } else {
-                                          handleAlturaChange(
-                                            estanque.id_estanque,
-                                            {
-                                              inicial: alturas.inicial || "",
-                                              final: e.target.value,
+                                          }}
+                                          placeholder={paso === "inicial" ? "Ej: 5420.50" : "Ej: 7350.75"}
+                                          disabled={loading}
+                                        />
+                                      </div>
+                                    </>
+                                  ) : (
+                                    // ESTANQUE NORMAL (fijo) - Mostrar campos de altura (comportamiento original)
+                                    <>
+                                      <div className="flex items-center mb-4">
+                                        <div className={`${colorEstanque.solid} p-2 rounded-lg mr-3`}>
+                                          <FaRuler className="text-white text-sm" />
+                                        </div>
+                                        <div>
+                                          <h4 className={`font-semibold ${colorEstanque.darkText} text-base`}>
+                                            {paso === "inicial" ? "Nivel Inicial" : "Nivel Final"}
+                                          </h4>
+                                          <p className="text-gray-600 text-sm">
+                                            {paso === "inicial"
+                                              ? "Antes de la recepción"
+                                              : "Después de la recepción"}
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                        <InputNivel
+                                          label=""
+                                          value={paso === "inicial"
+                                            ? alturas.inicial || ""
+                                            : alturas.final || ""}
+                                          onChange={(e) => {
+                                            if (paso === "inicial") {
+                                              handleAlturaChange(estanque.id_estanque, {
+                                                inicial: e.target.value,
+                                                final: alturas.final || "",
+                                              });
+                                            } else {
+                                              handleAlturaChange(estanque.id_estanque, {
+                                                inicial: alturas.inicial || "",
+                                                final: e.target.value,
+                                              });
                                             }
-                                          );
-                                        }
-                                      }}
-                                      placeholder="Ingrese Nivel en centímetros"
-                                      disabled={loading}
-                                    />
-                                  </div>
+                                          }}
+                                          placeholder="Ingrese Nivel en centímetros"
+                                          disabled={loading}
+                                        />
+                                      </div>
+                                    </>
+                                  )}
                                 </div>
 
                                 {/* INFORMACIÓN ADICIONAL EN PASO FINAL */}
@@ -2061,7 +2132,15 @@ const EstanquesModal = ({
                 </button>
 
                 <button
-                  onClick={handleCalcular}
+                  onClick={() => {
+                    // 🆕 En trasvasije: solo cerrar modal sin calcular
+                    // En recepción: calcular con API
+                    if (esTrasvasije) {
+                      handleModalClose(true);
+                    } else {
+                      handleCalcular();
+                    }
+                  }}
                   disabled={loading}
                   className={`
                     rounded-lg text-white font-medium shadow-sm transition-all
@@ -2084,12 +2163,19 @@ const EstanquesModal = ({
                     </span>
                   ) : (
                     <span className="flex items-center justify-center">
-                      <FaCalculator
-                        className={`${isMobile ? 'mr-3' : 'mr-2'}`}
-                        size={isMobile ? 16 : 14}
-                      />
+                      {esTrasvasije ? (
+                        <FaCheck
+                          className={`${isMobile ? 'mr-3' : 'mr-2'}`}
+                          size={isMobile ? 16 : 14}
+                        />
+                      ) : (
+                        <FaCalculator
+                          className={`${isMobile ? 'mr-3' : 'mr-2'}`}
+                          size={isMobile ? 16 : 14}
+                        />
+                      )}
                       <span className={isMobile ? 'block' : 'hidden sm:inline'}>
-                        Calcular Diferencia
+                        {esTrasvasije ? 'Confirmar' : 'Calcular Diferencia'}
                       </span>
                       <span className={isMobile ? 'hidden' : 'sm:hidden'}>Calcular</span>
                     </span>

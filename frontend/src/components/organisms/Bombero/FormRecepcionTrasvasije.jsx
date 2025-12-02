@@ -204,6 +204,9 @@ const FormularioTrasvasije = () => {
   const [stockInicial, setStockInicial] = useState(0);
   const [capacidadDisponible, setCapacidadDisponible] = useState(0);
 
+  // 🆕 Estado para manejar litros de estanques automáticos (con sensores)
+  const [litrosEstanques, setLitrosEstanques] = useState({}); // { id_estanque: { inicial: "", final: "" } }
+
   // Estados de UI
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
@@ -272,8 +275,9 @@ const FormularioTrasvasije = () => {
       calculoRealizado: false,
     });
 
-    // 4. Limpiar alturas y distribución
+    // 4. Limpiar alturas, litros y distribución
     setAlturasEstanques({});
+    setLitrosEstanques({});
     setDistribucionLitros({});
     setStockInicial(0);
 
@@ -289,15 +293,21 @@ const FormularioTrasvasije = () => {
     // 7. Reinicializar distribución para estanques fijos (si existen)
     if (estanquesFijos.length > 0) {
       const initialAlturas = {};
+      const initialLitros = {};
       const initialDistribucion = {};
       estanquesFijos.forEach((estanque) => {
         initialAlturas[estanque.id_estanque] = {
           inicial: "",
           final: "",
         };
+        initialLitros[estanque.id_estanque] = {
+          inicial: "",
+          final: "",
+        };
         initialDistribucion[estanque.id_estanque] = "";
       });
       setAlturasEstanques(initialAlturas);
+      setLitrosEstanques(initialLitros);
       setDistribucionLitros(initialDistribucion);
     }
 
@@ -333,19 +343,25 @@ const FormularioTrasvasije = () => {
     }, 1500); // Dar tiempo para que se carguen los datos
   };
 
-  // Inicializar alturas cuando se cargan los estanques fijos
+  // Inicializar alturas y litros cuando se cargan los estanques fijos
   useEffect(() => {
     if (estanquesFijos.length > 0) {
       const initialAlturas = {};
+      const initialLitros = {};
       const initialDistribucion = {};
       estanquesFijos.forEach((estanque) => {
         initialAlturas[estanque.id_estanque] = {
           inicial: "",
           final: "",
         };
+        initialLitros[estanque.id_estanque] = {
+          inicial: "",
+          final: "",
+        };
         initialDistribucion[estanque.id_estanque] = "";
       });
       setAlturasEstanques(initialAlturas);
+      setLitrosEstanques(initialLitros);
       setDistribucionLitros(initialDistribucion);
     }
   }, [estanquesFijos]);
@@ -446,6 +462,39 @@ const FormularioTrasvasije = () => {
       }
     });
     resetearCalculo();
+  };
+
+  // 🆕 Manejar cambios en litros de estanques automáticos (con sensores)
+  const handleLitrosChange = (estanqueId, value) => {
+    setLitrosEstanques((prevState) => {
+      if (
+        typeof value === "object" &&
+        (value.inicial !== undefined || value.final !== undefined)
+      ) {
+        return {
+          ...prevState,
+          [estanqueId]: {
+            inicial:
+              value.inicial !== undefined
+                ? value.inicial
+                : prevState[estanqueId]?.inicial || "",
+            final:
+              value.final !== undefined
+                ? value.final
+                : prevState[estanqueId]?.final || "",
+          },
+        };
+      } else {
+        console.warn("Formato de litros no estándar para estanque", estanqueId);
+        return {
+          ...prevState,
+          [estanqueId]: {
+            inicial: value || "",
+            final: prevState[estanqueId]?.final || "",
+          },
+        };
+      }
+    });
   };
 
   // Manejar cambios en distribución - CORREGIDO PARA UN SOLO ESTANQUE
@@ -837,36 +886,6 @@ const FormularioTrasvasije = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // ✅ VALIDACIÓN EN TIEMPO REAL PARA EL CAMPO DE LITROS
-  const handleLitrosChange = (value) => {
-    setFormData(prev => ({
-      ...prev,
-      litrosDocumentados: value
-    }));
-
-    // Validar en tiempo real
-    if (errors.litros_documentados) {
-      const litros = parseFloat(value);
-      if (!isNaN(litros) && litros > 0) {
-        const estanqueSeleccionado = estanquesMoviles.find(e => e.id_estanque == formData.id_estanque_movil);
-        if (!estanqueSeleccionado || litros <= estanqueSeleccionado.stock_actual) {
-          // Limpiar error si ahora es válido
-          setErrors(prev => ({
-            ...prev,
-            litros_documentados: null
-          }));
-        }
-      }
-    }
-
-    // Limpiar cálculo previo cuando cambian los litros
-    setCalculoPetroleo({
-      litrosMedidos: 0,
-      diferencia: 0,
-      calculoRealizado: false,
-    });
-  };
-
   // ✅ VALIDAR CUANDO SE SELECCIONA UN ESTANQUE MÓVIL
   const handleEstanqueMovilChange = (idEstanque) => {
     const estanqueSeleccionado = estanquesMoviles.find(e => e.id_estanque == idEstanque);
@@ -958,17 +977,9 @@ const FormularioTrasvasije = () => {
       return;
     }
 
-    if (!calculoPetroleo.calculoRealizado) {
-      mostrarAlerta("error", "Debe ingresar las alturas de los estanques y calcular la diferencia.");
-      setShowEstanquesModal(true);
-      return;
-    }
-
-    if (!verificarAlturasCompletas()) {
-      mostrarAlerta("error", "Debe ingresar todas las alturas iniciales y finales de los estanques.");
-      setShowEstanquesModal(true);
-      return;
-    }
+    // ✅ VALIDACIONES REMOVIDAS PARA TRASVASIJE:
+    // - calculoPetroleo.calculoRealizado (solo para recepción)
+    // - verificarAlturasCompletas (se valida después según tipo de estanque)
 
     setIsSubmitting(true);
 
@@ -996,15 +1007,19 @@ const FormularioTrasvasije = () => {
 
       const idEstanqueFijoSeleccionado = estanquesFijosConDistribucion[0];
       const litrosDistribuidos = parseFloat(distribucionLitros[idEstanqueFijoSeleccionado]);
-      const alturasEstanqueFijo = alturasEstanques[idEstanqueFijoSeleccionado];
 
-      // Validar que las alturas estén completas
-      if (!alturasEstanqueFijo || !alturasEstanqueFijo.inicial || !alturasEstanqueFijo.final) {
-        mostrarAlerta("error", "Debe ingresar altura inicial y final del estanque fijo.");
+      // 🆕 Obtener el estanque fijo seleccionado para verificar su tipo
+      const estanqueFijoSeleccionado = estanquesFijos.find(e => e.id_estanque == idEstanqueFijoSeleccionado);
+
+      if (!estanqueFijoSeleccionado) {
+        mostrarAlerta("error", "No se encontró el estanque fijo seleccionado.");
         return;
       }
 
-      // Preparar datos en el formato que espera la API
+      // 🆕 DETECTAR TIPO DE ESTANQUE y validar campos requeridos
+      const esEstanqueAutomatico = estanqueFijoSeleccionado.tipo_estanque === 'fijo_automatico';
+
+      // Preparar datos base
       const datosEnvio = {
         id_usuario: formData.id_usuario,
         id_faena: formData.id_faena,
@@ -1015,12 +1030,50 @@ const FormularioTrasvasije = () => {
         litros_movil_inicial: parseFloat(formData.litrosDocumentados),
         litros_movil_final: parseFloat(formData.litrosDocumentados) - litrosDistribuidos,
 
-        // Alturas del fijo - FORMATO CORRECTO  
-        altura_fijo_inicial: parseFloat(alturasEstanqueFijo.inicial),
-        altura_fijo_final: parseFloat(alturasEstanqueFijo.final),
-
         observaciones: formData.observacion || null
       };
+
+      // 🆕 AGREGAR CAMPOS SEGÚN TIPO DE ESTANQUE
+      if (esEstanqueAutomatico) {
+        // ESTANQUE AUTOMÁTICO - Usar litros del sensor
+        const litrosEstanqueFijo = litrosEstanques[idEstanqueFijoSeleccionado];
+
+        console.log("🔍 DEBUG: Verificando litros del sensor:", {
+          idEstanque: idEstanqueFijoSeleccionado,
+          litrosEstanques: litrosEstanques,
+          litrosEstanqueFijo: litrosEstanqueFijo
+        });
+
+        if (!litrosEstanqueFijo || !litrosEstanqueFijo.inicial || !litrosEstanqueFijo.final) {
+          mostrarAlerta("error", "Debe ingresar la lectura inicial y final del sensor del estanque automático.");
+          setShowEstanquesModal(true); // Reabrir modal para que ingrese los datos
+          return;
+        }
+
+        datosEnvio.litros_fijo_inicial = parseFloat(litrosEstanqueFijo.inicial);
+        datosEnvio.litros_fijo_final = parseFloat(litrosEstanqueFijo.final);
+
+        console.log("📊 Estanque automático detectado - Enviando litros del sensor:", {
+          litros_fijo_inicial: datosEnvio.litros_fijo_inicial,
+          litros_fijo_final: datosEnvio.litros_fijo_final
+        });
+      } else {
+        // ESTANQUE NORMAL (fijo) - Usar alturas
+        const alturasEstanqueFijo = alturasEstanques[idEstanqueFijoSeleccionado];
+
+        if (!alturasEstanqueFijo || !alturasEstanqueFijo.inicial || !alturasEstanqueFijo.final) {
+          mostrarAlerta("error", "Debe ingresar altura inicial y final del estanque fijo.");
+          return;
+        }
+
+        datosEnvio.altura_fijo_inicial = parseFloat(alturasEstanqueFijo.inicial);
+        datosEnvio.altura_fijo_final = parseFloat(alturasEstanqueFijo.final);
+
+        console.log("📏 Estanque con medición manual detectado - Enviando alturas:", {
+          altura_fijo_inicial: datosEnvio.altura_fijo_inicial,
+          altura_fijo_final: datosEnvio.altura_fijo_final
+        });
+      }
 
       console.log("📤 Enviando datos a API:", datosEnvio);
 
@@ -1088,15 +1141,21 @@ const FormularioTrasvasije = () => {
     setStockInicial(0);
 
     const initialAlturas = {};
+    const initialLitros = {};
     const initialDistribucion = {};
     estanquesFijos.forEach((estanque) => {
       initialAlturas[estanque.id_estanque] = {
         inicial: "",
         final: "",
       };
+      initialLitros[estanque.id_estanque] = {
+        inicial: "",
+        final: "",
+      };
       initialDistribucion[estanque.id_estanque] = "";
     });
     setAlturasEstanques(initialAlturas);
+    setLitrosEstanques(initialLitros);
     setDistribucionLitros(initialDistribucion);
     setErrors({});
   };
@@ -1401,7 +1460,12 @@ const FormularioTrasvasije = () => {
           <Button
             text={isSubmitting ? "Procesando..." : "Registrar Trasvasije"}
             onClick={handleSubmit}
-            disabled={isSubmitting || !formData.id_estanque_movil || !calculoPetroleo.calculoRealizado}
+            disabled={
+              isSubmitting ||
+              !formData.id_estanque_movil ||
+              // Verificar que haya distribución completa
+              Object.values(distribucionLitros).every(val => !val || parseFloat(val) <= 0)
+            }
             className={`bg-orange-600 hover:bg-orange-700 text-white text-sm px-8 py-3 rounded-lg transition-colors shadow-sm w-full sm:w-auto sm:ml-auto ${isSubmitting ? "opacity-70 cursor-wait" : ""
               }`}
             icon={!isSubmitting && <FaExchangeAlt className="mr-2 text-white" />}
@@ -1431,7 +1495,10 @@ const FormularioTrasvasije = () => {
           distribucionLitros={distribucionLitros}
           onDistribucionChange={handleDistribucionChange}
           loadingCalculo={loadingCalculo}
-          esTrasvasije={true} // 🆕 ESTA ES LA LÍNEA CLAVE
+          esTrasvasije={true}
+          // 🆕 Props para estanques automáticos
+          litrosEstanques={litrosEstanques}
+          handleLitrosChange={handleLitrosChange}
         />
       </div>
 

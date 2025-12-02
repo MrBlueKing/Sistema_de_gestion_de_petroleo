@@ -7,6 +7,7 @@ import Sidebar from "../../molecules/SideBard";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../../context/userContext";
 import { getFaenaColors, getFaenaColorsById } from '../../../context/faenaColor';
+import SelectorFaena from "../../molecules/SelectorFaena";
 
 const UniversalHeader = ({
   // Configuración básica
@@ -47,12 +48,34 @@ const UniversalHeader = ({
   if (!type || type === "none" || type === "null") {
     return null;
   }
-  const { user, setUser, loading } = useContext(UserContext);
+  const { user, setUser, loading, updateUser } = useContext(UserContext);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [scrolled, setScrolled] = useState(false);
+  const [faenaActual, setFaenaActual] = useState(null);
   const navigate = useNavigate();
+
+  // Inicializar faena actual
+  useEffect(() => {
+    if (user) {
+      // El backend ya devuelve id_faena con el valor correcto (faena_activa_id si existe)
+      const faenaId = user.id_faena;
+      console.log('🏭 UniversalHeader - Usuario:', user);
+      console.log('🏭 UniversalHeader - ID Faena (ya corregido por backend):', user.id_faena);
+      console.log('🏭 UniversalHeader - Faena actual establecida:', faenaId);
+      setFaenaActual(faenaId);
+    }
+  }, [user]);
+
+  const handleFaenaChange = (nuevaFaenaId, faenaData) => {
+    console.log('🔄 Cambiando faena a:', nuevaFaenaId);
+    setFaenaActual(nuevaFaenaId);
+
+    // Solo recargar la página - el backend ya actualizó faena_activa_id
+    // y devolverá el valor correcto en la próxima carga
+    window.location.reload();
+  };
 
   // Obtener información de faena si existe
   const faena = user?.id_faena ? getFaenaColorsById(user.id_faena) : null;
@@ -373,15 +396,12 @@ const UniversalHeader = ({
               )}
             </h1>
 
-            {/* 🎨 UBICACIÓN CON COLOR DINÁMICO - SOLO PARA BOMBERO Y OPERADOR */}
-            {(type === "bombero" || type === "operador") && faena && (
-              <div className="flex items-center text-xs md:text-sm mt-0.5 md:mt-0">
-                <span className={`px-2 py-1 rounded text-xs`}>
-                  {faena.emoji}
-                </span>
-                <span className="font-medium truncate">{faena.name}</span>
-                <span className="hidden md:inline text-gray-500 ml-1"> {faena.region}</span>
-              </div>
+            {/* 🎨 SELECTOR DE FAENA - SOLO PARA BOMBERO Y OPERADOR */}
+            {(type === "bombero" || type === "operador") && faenaActual && (
+              <SelectorFaena
+                faenaActual={faenaActual}
+                onFaenaChange={handleFaenaChange}
+              />
             )}
           </div>
         )}

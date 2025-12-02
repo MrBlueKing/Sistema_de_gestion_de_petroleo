@@ -44,7 +44,8 @@ class EstanqueController extends Controller
 
             Log::info("📦 Estanques encontrados", [
                 'faena' => $id_faena,
-                'cantidad' => $estanques->count()
+                'cantidad' => $estanques->count(),
+                'Estanques' => $estanques->pluck('nombre', 'id_estanque')->toArray()
             ]);
 
             if ($estanques->isEmpty()) {
@@ -461,9 +462,9 @@ class EstanqueController extends Controller
     public function estanquesFijoPorFaena($id_faena)
     {
         try {
-            // Obtenemos solo los estanques FIJOS con la relación stock incluida
+            // Obtenemos los estanques FIJOS (manuales y automáticos) con la relación stock incluida
             $estanques = Estanque::where('id_faena', $id_faena)
-                ->where('tipo_estanque', 'fijo')  // Filtrar solo estanques fijos
+                ->whereIn('tipo_estanque', ['fijo', 'fijo_automatico'])  // Incluir ambos tipos de estanques fijos
                 ->where('activo', 1)  // Solo estanques activos
                 ->with('stock')  // Incluir relación de stock
                 ->get();
@@ -582,6 +583,339 @@ class EstanqueController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error inesperado al obtener los estanques móviles.'
+            ], 500);
+        }
+    }
+
+    // ============================================
+    // MÉTODOS CRUD PARA ADMINISTRACIÓN DE ESTANQUES
+    // ============================================
+
+    /**
+     * Obtener todos los estanques (para administración)
+     * Incluye estanques activos e inactivos de todas las faenas
+     */
+    public function index()
+    {
+        try {
+            $estanques = Estanque::with(['faena', 'stock'])
+                ->orderBy('id_faena')
+                ->orderBy('nombre')
+                ->get()
+                ->map(function ($estanque) {
+                    $stockActual = $estanque->stock ? (float) $estanque->stock->stock_actual : 0.0;
+                    $capacidad = (float) $estanque->capacidad;
+
+                    return [
+                        'id_estanque' => (int) $estanque->id_estanque,
+                        'nombre' => $estanque->nombre,
+                        'tipo_estanque' => $estanque->tipo_estanque,
+                        'capacidad' => $capacidad,
+                        'altura_nominal' => (float) $estanque->altura_nominal,
+                        'id_faena' => (int) $estanque->id_faena,
+                        'nombre_faena' => $estanque->faena ? $estanque->faena->nombre_faena : 'Sin faena',
+                        'activo' => (bool) $estanque->activo,
+                        'stock_actual' => $stockActual,
+                        'porcentaje_llenado' => $capacidad > 0 ? round(($stockActual / $capacidad) * 100, 2) : 0,
+                        'created_at' => $estanque->created_at,
+                        'updated_at' => $estanque->updated_at,
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => $estanques,
+                'total' => $estanques->count()
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener estanques para administración', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener los estanques: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Obtener un estanque específico por ID
+     */
+    public function show($id)
+    {
+        try {
+            $estanque = Estanque::with(['faena', 'stock'])->find($id);
+
+            if (!$estanque) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Estanque no encontrado'
+                ], 404);
+            }
+
+            $stockActual = $estanque->stock ? (float) $estanque->stock->stock_actual : 0.0;
+            $capacidad = (float) $estanque->capacidad;
+
+            $data = [
+                'id_estanque' => (int) $estanque->id_estanque,
+                'nombre' => $estanque->nombre,
+                'tipo_estanque' => $estanque->tipo_estanque,
+                'capacidad' => $capacidad,
+                'altura_nominal' => (float) $estanque->altura_nominal,
+                'id_faena' => (int) $estanque->id_faena,
+                'nombre_faena' => $estanque->faena ? $estanque->faena->nombre_faena : null,
+                'activo' => (bool) $estanque->activo,
+                'stock_actual' => $stockActual,
+                'altura_actual' => $estanque->stock ? (float) $estanque->stock->altura_actual : 0.0,
+                'ultima_medicion' => $estanque->stock ? $estanque->stock->ultima_medicion : null,
+                'porcentaje_llenado' => $capacidad > 0 ? round(($stockActual / $capacidad) * 100, 2) : 0,
+                'capacidad_disponible' => $capacidad - $stockActual,
+                'created_at' => $estanque->created_at,
+                'updated_at' => $estanque->updated_at,
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => $data
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Error al obtener estanque {$id}", [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener el estanque: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Crear un nuevo estanque
+     */
+    public function store(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'nombre' => 'required|string|max:255',
+            'tipo_estanque' => 'required|in:fijo,movil,fijo_automatico',
+            'capacidad' => 'required|numeric|min:0',
+            'altura_nominal' => 'required|numeric|min:0',
+            'id_faena' => 'required|exists:faenas,id_faena',
+            'activo' => 'boolean'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Datos inválidos',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            // Crear el estanque
+            $estanque = Estanque::create([
+                'nombre' => $request->nombre,
+                'tipo_estanque' => $request->tipo_estanque,
+                'capacidad' => $request->capacidad,
+                'altura_nominal' => $request->altura_nominal,
+                'id_faena' => $request->id_faena,
+                'activo' => $request->activo ?? true
+            ]);
+
+            // Crear el registro de stock inicial en 0
+            EstanqueStock::create([
+                'id_estanque' => $estanque->id_estanque,
+                'stock_actual' => 0,
+                'altura_actual' => 0,
+                'ultima_medicion' => now()
+            ]);
+
+            DB::commit();
+
+            Log::info("Estanque creado exitosamente", [
+                'id_estanque' => $estanque->id_estanque,
+                'nombre' => $estanque->nombre
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Estanque creado exitosamente',
+                'data' => $estanque->load('faena')
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error al crear estanque', [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al crear el estanque: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Actualizar un estanque existente
+     */
+    public function update(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'nombre' => 'required|string|max:255',
+            'tipo_estanque' => 'required|in:fijo,movil,fijo_automatico',
+            'capacidad' => 'required|numeric|min:0',
+            'altura_nominal' => 'required|numeric|min:0',
+            'id_faena' => 'required|exists:faenas,id_faena',
+            'activo' => 'boolean'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Datos inválidos',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $estanque = Estanque::find($id);
+
+            if (!$estanque) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Estanque no encontrado'
+                ], 404);
+            }
+
+            // Verificar si el stock actual excede la nueva capacidad
+            $stockActual = $estanque->stock ? $estanque->stock->stock_actual : 0;
+            if ($request->capacidad < $stockActual) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "La nueva capacidad ({$request->capacidad}L) no puede ser menor al stock actual ({$stockActual}L)"
+                ], 400);
+            }
+
+            $estanque->update([
+                'nombre' => $request->nombre,
+                'tipo_estanque' => $request->tipo_estanque,
+                'capacidad' => $request->capacidad,
+                'altura_nominal' => $request->altura_nominal,
+                'id_faena' => $request->id_faena,
+                'activo' => $request->activo ?? $estanque->activo
+            ]);
+
+            Log::info("Estanque actualizado", [
+                'id_estanque' => $estanque->id_estanque,
+                'cambios' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Estanque actualizado exitosamente',
+                'data' => $estanque->load('faena')
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Error al actualizar estanque {$id}", [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al actualizar el estanque: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Eliminar (desactivar) un estanque
+     * No se elimina físicamente para mantener integridad referencial
+     */
+    public function destroy($id)
+    {
+        try {
+            $estanque = Estanque::find($id);
+
+            if (!$estanque) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Estanque no encontrado'
+                ], 404);
+            }
+
+            // Verificar si tiene stock antes de desactivar
+            $stockActual = $estanque->stock ? $estanque->stock->stock_actual : 0;
+            if ($stockActual > 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "No se puede desactivar el estanque '{$estanque->nombre}' porque tiene stock actual ({$stockActual}L). Debe vaciarlo primero."
+                ], 400);
+            }
+
+            // Desactivar en lugar de eliminar
+            $estanque->update(['activo' => false]);
+
+            Log::info("Estanque desactivado", [
+                'id_estanque' => $estanque->id_estanque,
+                'nombre' => $estanque->nombre
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Estanque desactivado exitosamente'
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Error al desactivar estanque {$id}", [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al desactivar el estanque: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Activar un estanque desactivado
+     */
+    public function activate($id)
+    {
+        try {
+            $estanque = Estanque::find($id);
+
+            if (!$estanque) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Estanque no encontrado'
+                ], 404);
+            }
+
+            $estanque->update(['activo' => true]);
+
+            Log::info("Estanque activado", [
+                'id_estanque' => $estanque->id_estanque,
+                'nombre' => $estanque->nombre
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Estanque activado exitosamente',
+                'data' => $estanque
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Error al activar estanque {$id}", [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al activar el estanque: ' . $e->getMessage()
             ], 500);
         }
     }

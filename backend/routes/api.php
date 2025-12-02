@@ -40,6 +40,7 @@ use App\Http\Controllers\Api\MaquinaPermisosController;
 use App\Http\Controllers\Api\RolController;
 use App\Http\Controllers\Api\TrasvasijeController;
 use App\Http\Controllers\ApiPdf\ConsumosPdfController;
+use App\Http\Controllers\Api\UserFaenaController;
 
 /*
 |--------------------------------------------------------------------------
@@ -87,12 +88,47 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/user', function (Request $request) {
         $user = $request->user();
-        $user->load('faena', 'rol');
+        $user->load('faena', 'rol', 'faenaActiva');
+
+        // Si tiene faena_activa_id, usar esa como id_faena para compatibilidad
+        if ($user->faena_activa_id) {
+            // Crear una copia del usuario con id_faena actualizado
+            $userData = $user->toArray();
+            $userData['id_faena'] = $user->faena_activa_id;
+
+            // Cargar la faena activa como 'faena'
+            $faenaActiva = \App\Models\Faena::find($user->faena_activa_id);
+            if ($faenaActiva) {
+                $userData['faena'] = $faenaActiva;
+            }
+
+            return response()->json($userData);
+        }
+
         return response()->json($user);
     });
 
     Route::get('/usuarios/recientes', [UserController::class, 'recientes']);
     Route::get('/user/{id}', [UserController::class, 'show']);
+
+    /*
+    |--------------------------------------------------------------------------
+    | 🏭 GESTIÓN DE FAENAS DEL USUARIO
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('user-faenas')->group(function () {
+        Route::get('/', [UserFaenaController::class, 'getFaenas']);
+        Route::post('/cambiar-activa', [UserFaenaController::class, 'cambiarFaenaActiva']);
+        Route::post('/asignar', [UserFaenaController::class, 'asignarFaena']);
+        Route::delete('/remover', [UserFaenaController::class, 'removerFaena']);
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | 🏭 FAENAS - Endpoint general
+    |--------------------------------------------------------------------------
+    */
+    Route::get('/faenas', [FaenaController::class, 'index']);
 
 
     /*
@@ -556,6 +592,16 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/calcular-litros-petroleo', [EstanqueController::class, 'calcularLitrosPetroleo']);
     Route::get('/capacidad-disponible/{id_faena}', [EstanqueController::class, 'capacidadDisponible']);
+
+    // Rutas CRUD para administración de estanques
+    Route::prefix('admin/estanques')->group(function () {
+        Route::get('/', [EstanqueController::class, 'index']); // Listar todos
+        Route::get('/{id}', [EstanqueController::class, 'show']); // Ver uno específico
+        Route::post('/', [EstanqueController::class, 'store']); // Crear
+        Route::put('/{id}', [EstanqueController::class, 'update']); // Actualizar
+        Route::delete('/{id}', [EstanqueController::class, 'destroy']); // Desactivar
+        Route::patch('/{id}/activate', [EstanqueController::class, 'activate']); // Activar
+    });
 
     Route::apiResource('/kpi-valores-entrada', KpiValoresEntradaController::class);
     Route::post('/calcular-kpis', [KpiCalculoController::class, 'calcular']);

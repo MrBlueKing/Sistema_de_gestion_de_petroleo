@@ -391,7 +391,7 @@ const renderSuccessScreen = () => {
                 <>
                   <div className="w-full bg-gradient-to-r from-green-600 to-green-500 text-white rounded-lg mb-3 p-2 flex items-center justify-center">
                     <FaCheck className="mr-2" />
-                    <span className="text-sm font-medium">Información de solicitud completada adas</span>
+                    <span className="text-sm font-medium">Información de solicitud completada</span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">

@@ -31,6 +31,8 @@ import GestionarPersonal from "../pages/Administrador/GestionarPersonalPage";
 import GestionarPermisoPersonalInterno from "../pages/Administrador/GestionarPermisoPersonalPage";
 import GestionarPersonalExternoPersonalPage from "../pages/Administrador/GestionarPersonalExternoPage";
 import GestionarMaquinasPermiso from "../pages/Administrador/GestionarMaquinasPermisoPage";
+import GestionarFaenasBomberos from "../pages/Administrador/GestionarFaenasBomberos";
+import GestionarEstanques from "../pages/Administrador/GestionarEstanques";
 
 // 🚒 Importaciones Bombero
 import BomberoPage from "../pages/Bombero/BomberoPage";
@@ -289,7 +291,27 @@ const AppRoutes = () => {
         }
       />
 
-      {/* 
+      {/* Ruta para gestionar faenas de bomberos. */}
+      <Route
+        path="/GestionarFaenasBomberos"
+        element={
+          <PrivateRoute requiredRole="admin">
+            <GestionarFaenasBomberos />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Ruta para gestionar estanques. */}
+      <Route
+        path="/administrador/estanques"
+        element={
+          <PrivateRoute requiredRole="admin">
+            <GestionarEstanques />
+          </PrivateRoute>
+        }
+      />
+
+      {/*
       |--------------------------------------------------------------------------
       | 🚒 RUTAS DEL BOMBERO
       |--------------------------------------------------------------------------

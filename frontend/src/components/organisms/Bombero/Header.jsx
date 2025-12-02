@@ -4,12 +4,14 @@ import UserProfileDropdown from "../../molecules/UserProfileDropdown";
 import IconButton from "../../atoms/Button/IconButton";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../../context/userContext";
+import SelectorFaena from "../../molecules/SelectorFaena";
 
 const Header = () => {
-  const { user, loading } = useContext(UserContext);
+  const { user, loading, updateUser } = useContext(UserContext);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [scrolled, setScrolled] = useState(false);
+  const [faenaActual, setFaenaActual] = useState(null);
   const navigate = useNavigate();
 
   const FAENAS = {
@@ -35,7 +37,33 @@ const Header = () => {
     },
   };
 
-  const faena = user?.id_faena ? FAENAS[user.id_faena] : null;
+  // Inicializar faena actual
+  useEffect(() => {
+    if (user) {
+      const faenaId = user.faena_activa_id || user.id_faena;
+      console.log('🏭 Header Bombero - Usuario:', user);
+      console.log('🏭 Header Bombero - Faena activa ID:', user.faena_activa_id);
+      console.log('🏭 Header Bombero - ID Faena:', user.id_faena);
+      console.log('🏭 Header Bombero - Faena actual establecida:', faenaId);
+      setFaenaActual(faenaId);
+    }
+  }, [user]);
+
+  const handleFaenaChange = (nuevaFaenaId, faenaData) => {
+    setFaenaActual(nuevaFaenaId);
+
+    // Actualizar el contexto del usuario
+    if (updateUser) {
+      updateUser({
+        ...user,
+        faena_activa_id: nuevaFaenaId,
+        id_faena: nuevaFaenaId // También actualizar id_faena para compatibilidad
+      });
+    }
+
+    // Recargar la página para que todos los componentes usen la nueva faena
+    window.location.reload();
+  };
 
   // Actualizar la hora actual cada segundo
   useEffect(() => {
@@ -129,13 +157,12 @@ const Header = () => {
                 </span>
               </h1>
 
-              {/* Ubicación */}
-              {faena && (
-                <div className="flex items-center text-xs md:text-sm mt-0.5 md:mt-0">
-                  <FaMapMarkerAlt className={`text-${faena.color} mr-1 flex-shrink-0`} size={10} />
-                  <span className="font-medium truncate">{faena.ubicacion}</span>
-                  <span className="hidden md:inline text-gray-500 ml-1">• {faena.detalle}</span>
-                </div>
+              {/* Selector de Faena */}
+              {faenaActual && (
+                <SelectorFaena
+                  faenaActual={faenaActual}
+                  onFaenaChange={handleFaenaChange}
+                />
               )}
             </div>
           </div>
