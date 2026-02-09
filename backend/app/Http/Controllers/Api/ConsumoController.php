@@ -784,9 +784,11 @@ class ConsumoController extends Controller
                     ORDER BY ce_estanques.nombre 
                     SEPARATOR ' / '
                 ) as estanques_multiples"),
-                    DB::raw("CASE 
+                    DB::raw("CASE
                     WHEN pi.nombre IS NOT NULL THEN CONCAT(pi.nombre, ' ', pi.apellido)
-                    ELSE pe.nombre
+                    WHEN pe.nombre IS NOT NULL THEN pe.nombre
+                    WHEN u.nombre IS NOT NULL THEN CONCAT(u.nombre, ' ', COALESCE(u.apellido, ''))
+                    ELSE 'N/A'
                 END as solicitante_nombre"),
                     // Contar cuántos estanques se usaron en consumo múltiple
                     DB::raw("COUNT(DISTINCT ce.id_estanque) as cantidad_estanques")
@@ -807,6 +809,8 @@ class ConsumoController extends Controller
                     $join->on('s.rut', '=', 'pe.rut')
                         ->where('s.tipo_personal', '=', 'Externo');
                 })
+                // 🆕 JOIN con users para obtener nombre del operador
+                ->leftJoin('users as u', 'c.id_usuario', '=', 'u.id')
                 ->where('c.id_faena', $faenaId)
                 ->groupBy(
                     'c.id_consumo',
@@ -819,7 +823,9 @@ class ConsumoController extends Controller
                     'e.nombre',
                     'pi.nombre',
                     'pi.apellido',
-                    'pe.nombre'
+                    'pe.nombre',
+                    'u.nombre',
+                    'u.apellido'
                 )
                 ->orderBy('c.fecha_consumo', 'desc')
                 ->limit($limit)
@@ -948,6 +954,8 @@ class ConsumoController extends Controller
                     $join->on('s.rut', '=', 'pe.rut')
                         ->where('s.tipo_personal', '=', 'Externo');
                 })
+                // 🆕 JOIN con users para obtener nombre del operador (cuando es usuario del sistema)
+                ->leftJoin('users as u', 'cu.id_usuario', '=', 'u.id')
                 ->whereIn('f.id_faena', $faenasArray);
 
             // Aplicar filtros de fecha si se proporcionan
@@ -1014,6 +1022,9 @@ class ConsumoController extends Controller
                 'pi.apellido as interno_apellido',
                 'pe.nombre as externo_nombre',
                 'pe.id_empresa',
+                // 🆕 Campos del usuario que registra (operador de vehículo)
+                'u.nombre as usuario_nombre',
+                'u.apellido as usuario_apellido',
                 // 🆕 Subconsulta para cantidad de estanques
                 DB::raw('(SELECT COUNT(*) FROM consumo_estanques ce WHERE ce.id_consumo = cu.id_consumo) as cantidad_estanques'),
                 // 🆕 Subconsulta para nombre de estanque (caso simple)
@@ -1102,13 +1113,19 @@ class ConsumoController extends Controller
 
             // 🔍 5. APLICAR VALIDACIÓN DE MEDICIONES ANÓMALAS
             $consumosTransformados = $consumosPaginados->map(function ($consumo) {
-                // 🆕 Construir nombre del solicitante
+                // 🆕 Construir nombre del solicitante (PRIORIDAD: solicitante → usuario)
                 $solicitanteNombre = 'N/A';
+
+                // 1. Intentar obtener desde solicitantes (personal interno/externo)
                 if ($consumo->tipo_personal === 'Interno' && $consumo->interno_nombre) {
                     $solicitanteNombre = trim($consumo->interno_nombre . ' ' . ($consumo->interno_apellido ?? ''));
                 } elseif ($consumo->tipo_personal === 'Externo' && $consumo->externo_nombre) {
                     $empresaInfo = $consumo->id_empresa ? ' (Empresa ID: ' . $consumo->id_empresa . ')' : '';
                     $solicitanteNombre = $consumo->externo_nombre . $empresaInfo;
+                }
+                // 2. Si no hay solicitante, usar el usuario que registró (operador de vehículo)
+                elseif ($consumo->usuario_nombre) {
+                    $solicitanteNombre = trim($consumo->usuario_nombre . ' ' . ($consumo->usuario_apellido ?? ''));
                 }
 
                 // 🆕 Determinar qué mostrar en el campo estanque

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import SearchableDropdown from "../../molecules/SearchableDropdown";
 import axios from "../../../lib/axios";
+import { cleanRut, formatRut, validateRut } from "../../../utils/rutHelper";
 
 const RegistrarPersonal = () => {
   // Estados principales
@@ -32,56 +33,6 @@ const RegistrarPersonal = () => {
 
   // Estado para faenas dinámicas
   const [faenas, setFaenas] = useState([]);
-
-  // Función para validar RUT
-  const validarRut = (rut) => {
-    if (!rut) return false;
-
-    // Limpiar el RUT
-    const rutLimpio = rut.replace(/[^0-9kK]/g, "").toLowerCase();
-
-    if (rutLimpio.length < 8) return false;
-
-    const cuerpo = rutLimpio.slice(0, -1);
-    const dv = rutLimpio.slice(-1);
-
-    // Calcular dígito verificador
-    let suma = 0;
-    let multiplo = 2;
-
-    for (let i = cuerpo.length - 1; i >= 0; i--) {
-      suma += parseInt(cuerpo[i]) * multiplo;
-      multiplo = multiplo === 7 ? 2 : multiplo + 1;
-    }
-
-    const dvCalculado = 11 - (suma % 11);
-    let dvEsperado;
-
-    if (dvCalculado === 11) dvEsperado = "0";
-    else if (dvCalculado === 10) dvEsperado = "k";
-    else dvEsperado = dvCalculado.toString();
-
-    return dv === dvEsperado;
-  };
-
-  // Función para formatear RUT
-  const formatearRut = (rut) => {
-    if (!rut) return "";
-
-    // Limpiar el RUT
-    const rutLimpio = rut.replace(/[^0-9kK]/g, "");
-
-    if (rutLimpio.length <= 1) return rutLimpio;
-
-    // Separar cuerpo y dígito verificador
-    const cuerpo = rutLimpio.slice(0, -1);
-    const dv = rutLimpio.slice(-1);
-
-    // Formatear el cuerpo con puntos
-    const cuerpoFormateado = cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-
-    return `${cuerpoFormateado}-${dv.toUpperCase()}`;
-  };
 
   // Cargar faenas desde la API
   useEffect(() => {
@@ -227,7 +178,7 @@ const RegistrarPersonal = () => {
         setError("Debe seleccionar una faena.");
         return false;
       }
-      if (!validarRut(solicitanteSeleccionado.rut)) {
+      if (!validateRut(solicitanteSeleccionado.rut)) {
         setError("El RUT del solicitante es inválido.");
         return false;
       }
@@ -236,7 +187,7 @@ const RegistrarPersonal = () => {
         setError("El nombre del personal externo es requerido.");
         return false;
       }
-      if (!validarRut(personalExterno.rut)) {
+      if (!validateRut(personalExterno.rut)) {
         setError("El RUT del personal externo es inválido.");
         return false;
       }
@@ -253,7 +204,7 @@ const RegistrarPersonal = () => {
         setError("El nombre de la empresa es requerido.");
         return false;
       }
-      if (!validarRut(empresaExterna.rut)) {
+      if (!validateRut(empresaExterna.rut)) {
         setError("El RUT de la empresa es inválido.");
         return false;
       }
@@ -326,7 +277,7 @@ const RegistrarPersonal = () => {
 
   // Handler para manejo de input RUT con autoformato
   const handleRutChange = (e, setterFn, field = "rut") => {
-    const rutFormateado = formatearRut(e.target.value);
+    const rutFormateado = formatRut(e.target.value);
     setterFn((prev) => ({ ...prev, [field]: rutFormateado }));
   };
 
@@ -346,7 +297,7 @@ const RegistrarPersonal = () => {
         case "Interno":
           endpoint = "/api/registrarUsuarioInterno";
           payload = {
-            rut: solicitanteSeleccionado.rut,
+            rut: cleanRut(solicitanteSeleccionado.rut), // 🧹 Limpiamos RUT antes de enviar
             nombre_completo: solicitanteSeleccionado.nombre,
             cargo: solicitanteSeleccionado.cargo,
             ubicacion: faenaSeleccionada,
@@ -356,7 +307,7 @@ const RegistrarPersonal = () => {
         case "Externo":
           endpoint = "/api/registrar-personal-externo";
           payload = {
-            rut: personalExterno.rut,
+            rut: cleanRut(personalExterno.rut), // 🧹 Limpiamos RUT antes de enviar
             nombre_completo: personalExterno.nombre,
             id_empresa: personalExterno.id_empresa,
             ubicacion: faenaSeleccionada,
@@ -366,7 +317,7 @@ const RegistrarPersonal = () => {
           endpoint = "/api/ingresos-empresas-externas";
           payload = {
             nombre: empresaExterna.nombre,
-            rut: empresaExterna.rut,
+            rut: cleanRut(empresaExterna.rut), // 🧹 Limpiamos RUT antes de enviar
             contacto: empresaExterna.contacto,
           };
           break;

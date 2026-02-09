@@ -109,16 +109,19 @@ class PersonalExternoController extends Controller
                     'error' => 'El nombre y el apellido deben estar presentes.'
                 ], 422);
             }
-    
+
+            // 🧹 Limpiar RUT antes de guardar (eliminar puntos, guiones, espacios)
+            $rutLimpio = preg_replace('/[^0-9kK]/', '', $request->rut);
+
             // Crear solicitante
             $solicitante = Solicitante::create([
-                'rut' => $request->rut,
+                'rut' => $rutLimpio,
                 'tipo_personal' => 'Externo',
             ]);
-    
+
             // Crear personal externo
             $personal = PersonalExterno::create([
-                'rut' => $request->rut,
+                'rut' => $rutLimpio,
                 'nombre' => $nombre . ' ' . $apellido,
                 'id_empresa' => $request->id_empresa,
             ]);

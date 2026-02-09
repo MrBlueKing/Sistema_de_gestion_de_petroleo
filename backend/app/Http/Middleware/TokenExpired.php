@@ -11,8 +11,14 @@ class TokenExpired
 {
     public function handle(Request $request, Closure $next): Response
     {
+        // ✅ IMPORTANTE: Excluir ruta de login centralizado
+        // Este endpoint usa tokens del sistema centralizado, no del local
+        if ($request->is('api/login-centralizado')) {
+            return $next($request);
+        }
+
         $token = $request->bearerToken();
-        
+
         if (!$token) {
             return $next($request); // Dejar que auth:sanctum maneje esto
         }

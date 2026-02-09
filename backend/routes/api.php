@@ -41,6 +41,8 @@ use App\Http\Controllers\Api\RolController;
 use App\Http\Controllers\Api\TrasvasijeController;
 use App\Http\Controllers\ApiPdf\ConsumosPdfController;
 use App\Http\Controllers\Api\UserFaenaController;
+use App\Http\Controllers\Api\CamionesTolvaController;
+use App\Http\Controllers\Api\PersonalInternoPublicoController;
 
 /*
 |--------------------------------------------------------------------------
@@ -52,6 +54,17 @@ use App\Http\Controllers\Api\UserFaenaController;
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 
+// Login alternativo con token del sistema centralizado
+Route::post('/login-centralizado', [AuthController::class, 'loginWithCentralToken']);
+
+// 🚚 Endpoint público para camiones tolva (Sistema de Producción)
+Route::get('/camiones-tolva', [CamionesTolvaController::class, 'getCamionesTolva']);
+
+// 🚜 Endpoint público para dumpers (Sistema de Producción)
+Route::get('/dumpers', [CamionesTolvaController::class, 'getDumpers']);
+
+// 👷 Endpoint para personal interno (Sistema de Producción) - Requiere API Key
+Route::get('/personal-interno-disponible', [PersonalInternoPublicoController::class, 'getPersonalInterno']);
 
 Route::get('/faenasDisponibles', [FaenaController::class, 'getFaenasDisponibles']);
 // Rutas para verificación de ingresos
@@ -85,6 +98,10 @@ Route::middleware('auth:sanctum')->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::post('/logout', [AuthController::class, 'logout']);
+
+    // 🆕 Cambio de rol sin cerrar sesión
+    Route::post('/cambiar-rol', [AuthController::class, 'cambiarRol']);
+    Route::get('/roles-disponibles', [AuthController::class, 'getRolesDisponibles']);
 
     Route::get('/user', function (Request $request) {
         $user = $request->user();

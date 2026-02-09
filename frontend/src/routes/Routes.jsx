@@ -3,6 +3,7 @@ import { Routes, Route } from "react-router-dom";
 import Home from "../pages/HomePage";
 import LoginPage from "../pages/LoginPage";
 import PrivateRoute from "./PrivateRoutes";
+import LoginCentralizado from "../components/organisms/Login/LoginCentralizado";
 // Guardar referencia original
 const originalLog = console.log;
 
@@ -71,6 +72,7 @@ const AppRoutes = () => {
       */}
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/auth/centralizado" element={<LoginCentralizado />} />
 
       {/* 
       |--------------------------------------------------------------------------

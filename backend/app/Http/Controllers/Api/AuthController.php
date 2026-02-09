@@ -21,7 +21,10 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         try {
-            $validator = Validator::make($request->all(), [
+            // ✅ Limpiar RUT antes de validar y guardar
+            $cleanedRut = $this->cleanRut($request->rut);
+
+            $validator = Validator::make(array_merge($request->all(), ['rut' => $cleanedRut]), [
                 'rut' => 'required|string|max:12|unique:users,rut',
                 'nombre' => 'required|string|max:100',
                 'apellido' => 'required|string|max:100',
@@ -46,7 +49,7 @@ class AuthController extends Controller
             }
 
             $user = User::create([
-                'rut' => $request->rut,
+                'rut' => $cleanedRut,
                 'nombre' => $request->nombre,
                 'apellido' => $request->apellido,
                 'email' => $request->email,
@@ -157,15 +160,17 @@ class AuthController extends Controller
                 ], 422);
             }
 
-            $credentials = $request->only('rut', 'password');
+            // ✅ Limpiar RUT antes de buscar usuario (permite login con cualquier formato)
+            $cleanedRut = $this->cleanRut($request->rut);
 
             Log::info('✅ VALIDACIÓN CORRECTA - Buscando usuario', [
-                'rut' => $request->rut,
+                'rut_original' => $request->rut,
+                'rut_limpio' => $cleanedRut,
                 'ip' => $request->ip()
             ]);
 
             // Verificar que el usuario existe y está activo
-            $user = User::where('rut', $request->rut)->first();
+            $user = User::where('rut', $cleanedRut)->first();
 
             if (!$user) {
                 RateLimiter::hit($key, $decayMinutes * 60);
@@ -204,10 +209,15 @@ class AuthController extends Controller
                 ], 403);
             }
 
-            // Intentar autenticación
+            // Intentar autenticación con RUT limpio
             Log::info('🔐 INTENTANDO AUTENTICACIÓN', [
-                'rut' => $request->rut
+                'rut_limpio' => $cleanedRut
             ]);
+
+            $credentials = [
+                'rut' => $cleanedRut,
+                'password' => $request->password
+            ];
 
             if (!Auth::attempt($credentials)) {
                 RateLimiter::hit($key, $decayMinutes * 60);
@@ -458,5 +468,479 @@ class AuthController extends Controller
                 'error' => 'No se pudieron revocar todos los tokens'
             ], 500);
         }
+    }
+
+    /**
+     * Login con token del sistema centralizado
+     * Este método permite autenticación desde el sistema de autenticación centralizado
+     */
+    public function loginWithCentralToken(Request $request)
+    {
+        // Log INMEDIATO para debug
+        error_log('=== EJECUTANDO loginWithCentralToken ===');
+
+        try {
+            error_log('Token en header: ' . $request->header('Authorization'));
+            error_log('Modulo ID: ' . $request->input('modulo_id'));
+
+            Log::info('=== INICIO LOGIN CON TOKEN CENTRALIZADO ===', [
+                'ip' => $request->ip(),
+                'tiene_token' => $request->hasHeader('Authorization'),
+                'rol_solicitado' => $request->input('rol_solicitado') // 🆕
+            ]);
+
+            $validator = Validator::make($request->all(), [
+                'modulo_id' => 'required|integer',
+                'rol_solicitado' => 'nullable|string' // 🆕 Opcional
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Datos inválidos',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // Obtener token del header
+            $token = $request->bearerToken();
+
+            Log::info('🔑 Token recibido', [
+                'tiene_token' => !empty($token),
+                'token_length' => $token ? strlen($token) : 0,
+                'token_preview' => $token ? substr($token, 0, 30) . '...' : 'null',
+                'authorization_header' => $request->header('Authorization')
+            ]);
+
+            if (!$token) {
+                Log::warning('Token no proporcionado');
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Token no proporcionado'
+                ], 401);
+            }
+
+            // Validar token con el sistema centralizado
+            $centralizadoUrl = env('SISTEMA_CENTRALIZADO_URL', 'http://localhost:8001');
+            $rolSolicitado = $request->input('rol_solicitado'); // 🆕
+
+            Log::info('Validando token con sistema centralizado', [
+                'url' => $centralizadoUrl,
+                'modulo_id' => $request->modulo_id,
+                'rol_solicitado' => $rolSolicitado // 🆕
+            ]);
+
+            $response = \Illuminate\Support\Facades\Http::withToken($token)
+                ->post("{$centralizadoUrl}/api/validar-token", [
+                    'modulo_id' => $request->modulo_id,
+                    'rol_solicitado' => $rolSolicitado // 🆕 Enviar el rol
+                ]);
+
+            Log::info('📡 Respuesta del sistema centralizado', [
+                'status' => $response->status(),
+                'successful' => $response->successful(),
+                'body' => $response->json(),
+                'headers' => $response->headers()
+            ]);
+
+            if (!$response->successful() || !$response->json('valid')) {
+                Log::warning('Token inválido o sin acceso al módulo', [
+                    'status' => $response->status(),
+                    'response' => $response->json()
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Token inválido o sin acceso a este módulo'
+                ], 401);
+            }
+
+            $userData = $response->json('user');
+            $roles = $response->json('roles', []);
+            $permisos = $response->json('permisos', []);
+            $rolAsignado = $response->json('rol_asignado'); // 🆕 Rol específico asignado
+
+            // ✅ Limpiar RUT del usuario antes de buscar/crear en el sistema local
+            $cleanedRut = $this->cleanRut($userData['rut']);
+
+            Log::info('Token válido', [
+                'user_rut_original' => $userData['rut'],
+                'user_rut_limpio' => $cleanedRut,
+                'rol_asignado' => $rolAsignado, // 🆕
+                'roles' => $roles,
+                'permisos_count' => count($permisos)
+            ]);
+
+            // Buscar o crear usuario en el sistema local
+            $user = User::where('rut', $cleanedRut)->first();
+
+            // 🆕 Mapear rol ESPECÍFICO a ID local
+            $idRolLocal = $this->obtenerIdRolLocal($rolAsignado ?: ($roles[0] ?? null));
+
+            if (!$idRolLocal) {
+                Log::error('Rol no mapeado', ['rol' => $rolAsignado ?: $roles[0] ?? 'null']);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Rol no soportado en este sistema'
+                ], 400);
+            }
+
+            if (!$user) {
+                // Usuario no existe, crearlo automáticamente con el ROL ESPECÍFICO
+                Log::info('Usuario no existe localmente, creando...', [
+                    'rut_limpio' => $cleanedRut,
+                    'rol_asignado' => $rolAsignado,
+                    'id_rol_local' => $idRolLocal
+                ]);
+
+                $user = User::create([
+                    'rut' => $cleanedRut,
+                    'nombre' => $userData['nombre'],
+                    'apellido' => $userData['apellido'],
+                    'email' => $userData['email'],
+                    'id_rol' => $idRolLocal, // 🆕 Usar el rol específico mapeado
+                    'id_faena' => $userData['faena']['id'] ?? 1,
+                    'password' => Hash::make(uniqid()), // Password random (no se usará)
+                    'estado' => 1
+                ]);
+
+                Log::info('Usuario creado automáticamente', [
+                    'user_id' => $user->id,
+                    'rut' => $user->rut,
+                    'id_rol' => $user->id_rol
+                ]);
+            } else {
+                // Usuario existe, actualizar información Y ROL
+                $user->update([
+                    'nombre' => $userData['nombre'],
+                    'apellido' => $userData['apellido'],
+                    'email' => $userData['email'],
+                    'id_rol' => $idRolLocal // 🆕 Actualizar el rol con el específico
+                ]);
+
+                Log::info('Usuario actualizado con rol específico', [
+                    'user_id' => $user->id,
+                    'id_rol_anterior' => $user->getOriginal('id_rol'),
+                    'id_rol_nuevo' => $idRolLocal
+                ]);
+            }
+
+            // Cargar relaciones
+            $user->load(['rol', 'faena', 'faenaActiva']);
+
+            // ✅ CREAR TOKEN LOCAL del sistema de petróleo
+            // Eliminar tokens antiguos (opcional, para evitar múltiples sesiones)
+            // $user->tokens()->delete();
+
+            $tokenResult = $user->createToken('auth_token');
+            $localToken = $tokenResult->plainTextToken;
+            $tokenModel = $tokenResult->accessToken;
+
+            // Establecer expiración (24 horas)
+            $tokenModel->expires_at = now()->addHours(24);
+            $tokenModel->save();
+
+            // Preparar respuesta con datos del usuario local
+            $responseData = [
+                'success' => true,
+                'message' => 'Autenticación exitosa desde sistema centralizado',
+                'user' => [
+                    'id' => $user->id,
+                    'nombre' => $user->nombre,
+                    'apellido' => $user->apellido,
+                    'rut' => $user->rut,
+                    'email' => $user->email,
+                    'rol' => $user->rol->rol ?? null,
+                    'faena' => $user->faena->ubicacion ?? null,
+                    'id_rol' => $user->id_rol,
+                    'id_faena' => $user->faena_activa_id ?? $user->id_faena,
+                ],
+                'token' => $localToken, // ✅ Token LOCAL del sistema de petróleo
+                'expires_at' => $tokenModel->expires_at->toIso8601String(),
+                'token_type' => 'Bearer',
+                'authenticated_by' => 'sistema_centralizado',
+                'roles_centralizados' => $roles,
+                'permisos' => $permisos
+            ];
+
+            Log::info('=== LOGIN CENTRALIZADO EXITOSO ===', [
+                'user_id' => $user->id,
+                'rut' => $user->rut,
+                'rol_local' => $user->rol->rol ?? 'sin_rol',
+                'roles_centralizados' => $roles
+            ]);
+
+            return response()->json($responseData, 200);
+
+        } catch (\Exception $e) {
+            Log::error('💥 ERROR EN LOGIN CON TOKEN CENTRALIZADO', [
+                'error' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al procesar autenticación centralizada',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * 🆕 Obtener ID del rol local basado en el rol_sistema_externo
+     * Mapeo EXACTO de los roles definidos en modulo_roles
+     */
+    private function obtenerIdRolLocal($rolExterno)
+    {
+        if (!$rolExterno) {
+            return null;
+        }
+
+        // Mapeo EXACTO según los nombres en rol_sistema_externo de la tabla modulo_roles
+        $mapeo = [
+            'admin' => 3,              // Administrador
+            'bombero' => 1,            // Encargado de Operaciones de Combustible
+            'gerente' => 2,            // Gerente
+            'toneladas' => 4,          // Dispatch
+            'planificador' => 5,       // Planificador / Taller Mecánico
+            'OperadorVehiculo' => 6,   // Operador de Vehículo (⚠️ Case sensitive!)
+            'asistente_bombero' => 7,  // Asistente de Operaciones
+            'admin_operador' => 8,     // Administrador de Operadores
+            'JefeMina' => 9,           // Jefe de Mina (⚠️ Case sensitive!)
+        ];
+
+        return $mapeo[$rolExterno] ?? null;
+    }
+
+    /**
+     * 🆕 Cambiar rol activo del usuario sin cerrar sesión
+     * Permite a un usuario con múltiples roles cambiar entre ellos
+     */
+    public function cambiarRol(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'rol_nuevo' => 'required|string'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Datos inválidos',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $user = $request->user();
+            $rolNuevo = $request->input('rol_nuevo');
+
+            Log::info('=== CAMBIO DE ROL ===', [
+                'user_id' => $user->id,
+                'rol_actual' => $user->id_rol,
+                'rol_solicitado' => $rolNuevo
+            ]);
+
+            // Mapear el rol solicitado a ID local
+            $idRolNuevo = $this->obtenerIdRolLocal($rolNuevo);
+
+            if (!$idRolNuevo) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Rol no válido para este sistema'
+                ], 400);
+            }
+
+            // Validar con sistema centralizado que el usuario tiene este rol
+            $centralizadoUrl = env('SISTEMA_CENTRALIZADO_URL', 'http://localhost:8001');
+
+            // Obtener el token actual del usuario
+            $currentToken = $request->user()->currentAccessToken();
+
+            // Validar que el usuario tiene acceso a este rol en el módulo de petróleo
+            // Esto lo hacemos consultando al sistema centralizado
+            try {
+                $response = \Illuminate\Support\Facades\Http::withToken($currentToken->token)
+                    ->post("{$centralizadoUrl}/api/validar-token", [
+                        'modulo_id' => 8, // Módulo de petróleo
+                        'rol_solicitado' => $rolNuevo
+                    ]);
+
+                if (!$response->successful() || !$response->json('valid')) {
+                    Log::warning('Usuario no tiene acceso al rol solicitado', [
+                        'user_id' => $user->id,
+                        'rol_solicitado' => $rolNuevo,
+                        'response' => $response->json()
+                    ]);
+
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'No tienes acceso a este rol'
+                    ], 403);
+                }
+            } catch (\Exception $e) {
+                Log::error('Error validando rol con sistema centralizado', [
+                    'error' => $e->getMessage(),
+                    'user_id' => $user->id,
+                    'rol_solicitado' => $rolNuevo
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error al validar rol con sistema centralizado'
+                ], 500);
+            }
+
+            // Actualizar el rol del usuario en la BD local
+            $user->id_rol = $idRolNuevo;
+            $user->save();
+
+            // Recargar relaciones
+            $user->load(['rol', 'faena', 'faenaActiva']);
+
+            Log::info('✅ Rol cambiado exitosamente', [
+                'user_id' => $user->id,
+                'rol_anterior' => $user->getOriginal('id_rol'),
+                'rol_nuevo' => $idRolNuevo,
+                'rol_nombre' => $user->rol->rol ?? 'sin_rol'
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Rol cambiado exitosamente',
+                'user' => [
+                    'id' => $user->id,
+                    'nombre' => $user->nombre,
+                    'apellido' => $user->apellido,
+                    'rut' => $user->rut,
+                    'email' => $user->email,
+                    'rol' => $user->rol->rol ?? null,
+                    'faena' => $user->faena->ubicacion ?? null,
+                    'id_rol' => $user->id_rol,
+                    'id_faena' => $user->faena_activa_id ?? $user->id_faena,
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('💥 ERROR EN CAMBIO DE ROL', [
+                'error' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al cambiar de rol',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * 🆕 Obtener roles disponibles del usuario desde el sistema centralizado
+     * Para mostrar en el dropdown de cambio de rol
+     */
+    public function getRolesDisponibles(Request $request)
+    {
+        try {
+            $user = $request->user();
+            $currentToken = $request->user()->currentAccessToken();
+            $centralizadoUrl = env('SISTEMA_CENTRALIZADO_URL', 'http://localhost:8001');
+
+            Log::info('Obteniendo roles disponibles del usuario', [
+                'user_id' => $user->id,
+                'rut' => $user->rut
+            ]);
+
+            // Consultar al sistema centralizado los módulos y roles disponibles
+            $response = \Illuminate\Support\Facades\Http::withToken($currentToken->token)
+                ->get("{$centralizadoUrl}/api/modulos-disponibles");
+
+            if (!$response->successful()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error al obtener roles disponibles'
+                ], 500);
+            }
+
+            $modulos = $response->json('modulos', []);
+
+            // Buscar el módulo de petróleo (id=8)
+            $moduloPetroleo = collect($modulos)->firstWhere('id', 8);
+
+            if (!$moduloPetroleo) {
+                return response()->json([
+                    'success' => true,
+                    'roles_disponibles' => [],
+                    'rol_actual' => $user->rol->rol ?? null
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'roles_disponibles' => $moduloPetroleo['roles'] ?? [],
+                'rol_actual' => $user->rol->rol ?? null,
+                'id_rol_actual' => $user->id_rol
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error obteniendo roles disponibles', [
+                'error' => $e->getMessage(),
+                'user_id' => $request->user()->id ?? 'unknown'
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al obtener roles disponibles'
+            ], 500);
+        }
+    }
+
+    /**
+     * @deprecated Usar obtenerIdRolLocal() en su lugar
+     * Mapear roles del sistema centralizado a roles locales
+     */
+    private function mapearRolCentralizado($rolCentralizado)
+    {
+        // Mapeo de roles del sistema centralizado a IDs locales
+        $mapeo = [
+            'administrador' => 3, // admin (id_rol = 3)
+            'gerente' => 2, // gerente (id_rol = 2)
+            'bombero' => 1, // bombero (id_rol = 1)
+            'asistente_bombero' => 7, // asistente_bombero (id_rol = 7)
+            'operador_vehiculo' => 6, // OperadorVehiculo (id_rol = 6)
+            'planificador' => 5, // planificador (id_rol = 5)
+            'jefe_mina' => 9, // JefeMina (id_rol = 9)
+            'admin_operador' => 8, // admin_operador (id_rol = 8)
+            'toneladas' => 4 // toneladas (id_rol = 4)
+        ];
+
+        // Normalizar a minúsculas para comparación
+        $rolNormalizado = strtolower($rolCentralizado);
+
+        return $mapeo[$rolNormalizado] ?? 1; // Por defecto: bombero
+    }
+
+    /**
+     * ✅ Limpiar RUT para normalizarlo (solo números y K)
+     * Permite login con cualquier formato: 12.345.678-9, 12345678-9, 123456789
+     *
+     * @param string $rut RUT en cualquier formato
+     * @return string RUT limpio (solo números y K)
+     */
+    private function cleanRut($rut)
+    {
+        // Eliminar puntos, guiones, espacios
+        // Mantener solo números y la letra K (mayúscula o minúscula)
+        $cleanedRut = preg_replace('/[^0-9kK]/', '', $rut);
+
+        Log::info('🧹 RUT limpiado', [
+            'original' => $rut,
+            'limpio' => $cleanedRut
+        ]);
+
+        return $cleanedRut;
     }
 }

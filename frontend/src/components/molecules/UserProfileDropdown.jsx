@@ -1,6 +1,7 @@
-import React, { useRef, useEffect, useContext } from "react";
-import { FaChevronDown } from "react-icons/fa";
+import React, { useRef, useEffect, useContext, useState } from "react";
+import { FaChevronDown, FaExchangeAlt, FaSpinner } from "react-icons/fa";
 import { UserContext } from "../../context/userContext";
+import axios from "../../lib/axios";
 
 const UserProfileDropdown = ({
   userMenuOpen,
@@ -8,8 +9,44 @@ const UserProfileDropdown = ({
   handleLogout,
   faenaColors = null // 🎨 NUEVA PROP PARA COLORES
 }) => {
-  const { user, loading } = useContext(UserContext);
+  const { user, loading, refreshUser } = useContext(UserContext);
   const dropdownRef = useRef(null);
+  const [displayUser, setDisplayUser] = useState(null);
+
+  // 🆕 Estados para cambio de rol
+  const [rolesDisponibles, setRolesDisponibles] = useState([]);
+  const [loadingRoles, setLoadingRoles] = useState(false);
+  const [cambiandoRol, setCambiandoRol] = useState(false);
+  const [errorRoles, setErrorRoles] = useState(null);
+
+  // 🆕 CARGAR DATOS INMEDIATAMENTE DE LOCALSTORAGE MIENTRAS SE CARGA EL CONTEXTO
+  useEffect(() => {
+    if (user) {
+      // Si el contexto ya tiene el usuario, usarlo
+      setDisplayUser(user);
+    } else {
+      // Si no, intentar cargar de localStorage para mostrar algo inmediatamente
+      try {
+        const storedAuth = localStorage.getItem('authToken');
+        if (storedAuth) {
+          const authData = JSON.parse(storedAuth);
+          if (authData.userName && authData.userLastName) {
+            // Crear un objeto de usuario temporal desde localStorage
+            const tempUser = {
+              nombre: authData.userName,
+              apellido: authData.userLastName,
+              id_rol: authData.roleId || null,
+              id_faena: authData.faenaId || null
+            };
+            setDisplayUser(tempUser);
+          }
+        }
+      } catch (e) {
+        // Fallback silencioso
+        console.error('Error al cargar usuario desde localStorage:', e);
+      }
+    }
+  }, [user]);
 
   // 🎨 CONFIGURACIÓN LOCAL DE COLORES POR FAENA - INDEPENDIENTE DEL PADRE
   const FAENAS_COLORS = {
@@ -109,6 +146,96 @@ const UserProfileDropdown = ({
     return roles[idRol] || `Rol ${idRol}`;
   };
 
+  // 🆕 Función para obtener ID de rol desde nombre del sistema centralizado
+  const getRoleId = (rolNombre) => {
+    const mapeo = {
+      'bombero': 1,
+      'gerente': 2,
+      'administrador': 3,
+      'admin': 3,
+      'toneladas': 4,
+      'planificador': 5,
+      'operador_vehiculo': 6,
+      'asistente_bombero': 7,
+      'admin_operador': 8,
+      'jefe_mina': 9
+    };
+    return mapeo[rolNombre?.toLowerCase()] || null;
+  };
+
+  // 🆕 Función para obtener nombre display amigable del rol
+  const getRoleDisplayName = (rolNombre) => {
+    const nombres = {
+      'bombero': 'Bombero',
+      'gerente': 'Gerente',
+      'administrador': 'Administrador',
+      'admin': 'Administrador',
+      'toneladas': 'Distpach',
+      'planificador': 'Taller Mecánico',
+      'operador_vehiculo': 'Operador Vehículo',
+      'asistente_bombero': 'Asistente Bombero',
+      'admin_operador': 'Admin Operador',
+      'jefe_mina': 'Jefe Mina'
+    };
+    return nombres[rolNombre?.toLowerCase()] || rolNombre;
+  };
+
+  // 🆕 Cargar roles disponibles cuando se abre el dropdown
+  useEffect(() => {
+    if (userMenuOpen && user) {
+      cargarRolesDisponibles();
+    }
+  }, [userMenuOpen, user]);
+
+  // 🆕 Función para cargar roles disponibles desde el backend
+  const cargarRolesDisponibles = async () => {
+    setLoadingRoles(true);
+    setErrorRoles(null);
+    try {
+      const response = await axios.get('/api/roles-disponibles');
+      if (response.data.success) {
+        setRolesDisponibles(response.data.roles_disponibles || []);
+      }
+    } catch (error) {
+      console.error('Error cargando roles disponibles:', error);
+      setErrorRoles('No se pudieron cargar los roles');
+    } finally {
+      setLoadingRoles(false);
+    }
+  };
+
+  // 🆕 Función para cambiar de rol
+  const handleCambiarRol = async (nuevoRol) => {
+    if (cambiandoRol) return; // Evitar múltiples clicks
+
+    setCambiandoRol(true);
+    try {
+      console.log('🔄 Cambiando a rol:', nuevoRol);
+
+      const response = await axios.post('/api/cambiar-rol', {
+        rol_nuevo: nuevoRol
+      });
+
+      if (response.data.success) {
+        console.log('✅ Rol cambiado exitosamente');
+
+        // Refrescar el contexto del usuario
+        await refreshUser();
+
+        // Cerrar el dropdown
+        setUserMenuOpen(false);
+
+        // Redirigir a la página principal del nuevo rol
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('❌ Error cambiando de rol:', error);
+      alert(error.response?.data?.message || 'Error al cambiar de rol');
+    } finally {
+      setCambiandoRol(false);
+    }
+  };
+
   // Manejador para clics fuera del dropdown
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -128,20 +255,20 @@ const UserProfileDropdown = ({
     };
   }, [userMenuOpen, setUserMenuOpen]);
 
-  // 🎨 RENDERIZADO MEJORADO PARA LAS INICIALES - NO MÁS FLASH AZUL
+  // 🎨 RENDERIZADO MEJORADO PARA LAS INICIALES - USA displayUser
   const renderInitials = () => {
-    if (loading && (!user || !user.nombre || !user.apellido)) {
+    if (loading && (!displayUser || !displayUser.nombre || !displayUser.apellido)) {
       // Solo mostrar "..." si realmente no tenemos datos del usuario
       return <span className="font-semibold text-white">...</span>;
     }
 
-    if (!user || !user.nombre || !user.apellido) {
+    if (!displayUser || !displayUser.nombre || !displayUser.apellido) {
       return <span className="font-semibold text-white">N/A</span>;
     }
 
     return (
       <span className="font-semibold text-white">
-        {user.nombre.charAt(0)}{user.apellido.charAt(0)}
+        {displayUser.nombre.charAt(0)}{displayUser.apellido.charAt(0)}
       </span>
     );
   };
@@ -174,18 +301,18 @@ const UserProfileDropdown = ({
 
         {/* 🎨 INFORMACIÓN DEL USUARIO - CON "CARGANDO..." DE COLOR FAENA */}
         <div className="hidden md:block text-left">
-          {!user ? (
+          {!displayUser ? (
             <p className={`text-xs font-medium ${getLoadingTextColor()}`}>
               Cargando...
             </p>
           ) : (
             <>
               <h3 className="font-medium text-gray-800">
-                {user.nombre || 'Usuario'} {user.apellido || ''}
+                {displayUser.nombre || 'Usuario'} {displayUser.apellido || ''}
               </h3>
               <div className="flex items-center gap-1">
                 <p className="text-xs text-gray-500">
-                  {user.id_rol ? getRoleName(user.id_rol) : "Rol desconocido"}
+                  {displayUser.id_rol ? getRoleName(displayUser.id_rol) : "Rol desconocido"}
                 </p>
                 {/* Mostrar indicador de carga si está loading pero ya tenemos datos */}
                 {loading && (
@@ -199,7 +326,61 @@ const UserProfileDropdown = ({
       </button>
 
       {userMenuOpen && (
-        <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-40 border border-gray-200">
+        <div className="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg py-1 z-40 border border-gray-200">
+          {/* 🆕 Sección de roles disponibles */}
+          {rolesDisponibles.length > 1 && (
+            <>
+              <div className="px-4 py-2 border-b border-gray-200">
+                <p className="text-xs text-gray-500 font-medium mb-2">
+                  Cambiar rol:
+                </p>
+                {loadingRoles ? (
+                  <div className="flex items-center justify-center py-2">
+                    <FaSpinner className="animate-spin text-gray-400" />
+                  </div>
+                ) : errorRoles ? (
+                  <p className="text-xs text-red-500">{errorRoles}</p>
+                ) : (
+                  <div className="space-y-1">
+                    {rolesDisponibles.map((rol) => {
+                      const esRolActual = user?.rol === rol ||
+                                         user?.id_rol === getRoleId(rol);
+
+                      return (
+                        <button
+                          key={rol}
+                          onClick={() => !esRolActual && handleCambiarRol(rol)}
+                          disabled={esRolActual || cambiandoRol}
+                          className={`
+                            w-full text-left px-3 py-2 text-sm rounded transition-colors flex items-center gap-2
+                            ${esRolActual
+                              ? 'bg-blue-50 text-blue-700 font-medium cursor-default'
+                              : 'hover:bg-gray-100 text-gray-700 cursor-pointer'
+                            }
+                            ${cambiandoRol ? 'opacity-50 cursor-not-allowed' : ''}
+                          `}
+                        >
+                          {cambiandoRol && !esRolActual ? (
+                            <FaSpinner className="animate-spin text-sm" />
+                          ) : esRolActual ? (
+                            <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
+                          ) : (
+                            <FaExchangeAlt className="text-xs text-gray-400" />
+                          )}
+                          <span className="capitalize">
+                            {getRoleDisplayName(rol)}
+                            {esRolActual && <span className="text-xs ml-1">(actual)</span>}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Botón de cerrar sesión */}
           <button
             onClick={handleLogout}
             className="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100 w-full text-left transition-colors"

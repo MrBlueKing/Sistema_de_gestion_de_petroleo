@@ -9,10 +9,14 @@ import Button from "../../atoms/Button/Button";
 import LoadingOverlay from "../../atoms/FeedBack/Loading";
 import ErrorMessage from "../../atoms/FeedBack/ErrorMessage";
 import icono from "../../../assets/logo.png";
-import { FaUser, FaLock } from "react-icons/fa";
+import { FaUser, FaLock, FaExternalLinkAlt } from "react-icons/fa";
 import { UserContext } from "../../../context/userContext";
+import authCentralizadoService from "../../../services/authCentralizado";
 
 const LoginScreen = () => {
+  // 🔒 CONFIGURACIÓN: Forzar login centralizado únicamente
+  const FORCE_CENTRALIZED_LOGIN = true; // Cambiar a false para permitir login local
+
   const [formData, setFormData] = useState({
     rut: "",
     password: ""
@@ -77,6 +81,14 @@ const LoginScreen = () => {
 
   // Verificar sesión existente
   useEffect(() => {
+    // Si está configurado para login centralizado únicamente, redirigir inmediatamente
+    if (FORCE_CENTRALIZED_LOGIN) {
+      console.log("🔒 Login centralizado obligatorio, redirigiendo...");
+      const centralizadoUrl = authCentralizadoService.getCentralSystemUrl();
+      window.location.href = centralizadoUrl;
+      return;
+    }
+
     if (isSessionValid()) {
       try {
         const sessionData = JSON.parse(localStorage.getItem("authToken"));
@@ -277,6 +289,22 @@ const LoginScreen = () => {
             loading={isLoading}
           />
         </form>
+
+        {/* Botón opcional para ir al sistema centralizado */}
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <button
+            type="button"
+            onClick={() => window.location.href = authCentralizadoService.getCentralSystemUrl()}
+            className="w-full flex items-center justify-center gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 py-2 px-4 rounded-lg transition-colors text-sm font-medium"
+            disabled={isLoading}
+          >
+            <FaExternalLinkAlt className="text-sm" />
+            Ingresar con Sistema Centralizado
+          </button>
+          <p className="text-xs text-gray-500 text-center mt-2">
+            Acceso único a todos los sistemas
+          </p>
+        </div>
 
         <div className="absolute top-4 right-4">
           <div className="flex items-center space-x-1">

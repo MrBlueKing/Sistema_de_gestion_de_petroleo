@@ -81,15 +81,18 @@ class PersonalInternoController extends Controller
                 ], 422);
             }
 
+            // 🧹 Limpiar RUT antes de guardar (eliminar puntos, guiones, espacios)
+            $rutLimpio = preg_replace('/[^0-9kK]/', '', $request->rut);
+
             // 1. Crear el solicitante (tabla 'solicitantes')
             $solicitante = Solicitante::create([
-                'rut' => $request->rut,
+                'rut' => $rutLimpio,
                 'tipo_personal' => 'Interno',
             ]);
 
             // 2. Crear personal interno relacionado (tabla 'personal_interno')
             $personal = PersonalInterno::create([
-                'rut' => $request->rut,
+                'rut' => $rutLimpio,
                 'nombre' => $nombre,
                 'apellido' => $apellido,
                 'cargo' => $request->cargo,

@@ -16,32 +16,36 @@ const instance = axios.create({
 // Interceptor para requests - agregar token automáticamente
 instance.interceptors.request.use(
   (config) => {
-    // Verificar si la sesión es válida antes de hacer la petición
-    if (isSessionValid()) {
-      const token = getAuthToken();
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    } else {
-      // Si la sesión no es válida, limpiar el localStorage
-      clearSession();
-      
-      // Solo redirigir si no estamos en rutas públicas
-      const publicRoutes = ['/login', '/register', '/test-mantenimiento'];
-      const isPublicRoute = publicRoutes.some(route => 
-        config.url?.includes(route)
-      );
-      
-      if (!isPublicRoute && window.location.pathname !== '/login') {
-        console.warn('Sesión expirada, redirigiendo al login');
-        window.location.href = '/login';
-        return Promise.reject({
-          message: 'Sesión expirada',
-          isAuthError: true
-        });
+    // ✅ SOLO agregar token si NO hay uno ya configurado manualmente
+    // Esto permite que el login centralizado use su propio token
+    if (!config.headers.Authorization) {
+      // Verificar si la sesión es válida antes de hacer la petición
+      if (isSessionValid()) {
+        const token = getAuthToken();
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+      } else {
+        // Si la sesión no es válida, limpiar el localStorage
+        clearSession();
+
+        // Solo redirigir si no estamos en rutas públicas
+        const publicRoutes = ['/login', '/register', '/test-mantenimiento', '/auth/centralizado'];
+        const isPublicRoute = publicRoutes.some(route =>
+          config.url?.includes(route) || window.location.pathname.includes(route)
+        );
+
+        if (!isPublicRoute && window.location.pathname !== '/login') {
+          console.warn('Sesión expirada, redirigiendo al login');
+          window.location.href = '/login';
+          return Promise.reject({
+            message: 'Sesión expirada',
+            isAuthError: true
+          });
+        }
       }
     }
-    
+
     return config;
   },
   (error) => {
