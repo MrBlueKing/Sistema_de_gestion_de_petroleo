@@ -8,6 +8,7 @@ import {
   FaShieldAlt,
   FaMapMarkerAlt,
   FaGasPump,
+  FaFilePdf,
 } from "react-icons/fa";
 import { MdCarRental, MdDashboard, MdSecurity } from "react-icons/md";
 import { GrLicense } from "react-icons/gr";
@@ -336,6 +337,13 @@ export default function Main() {
                 to="/administrador/estanques"
                 color="from-blue-500 to-cyan-500"
                 description="Administrar estanques"
+              />
+              <QuickAccessButton
+                icon={FaFilePdf}
+                title="Reportes PDF"
+                to="/administrador/reportes"
+                color="from-red-500 to-rose-600"
+                description="Consumo y rendimiento comparativo"
               />
             </div>
           </div>

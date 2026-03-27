@@ -144,7 +144,8 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
         if (maquina) {
             // 🆕 LIMPIAR DATOS ANTERIORES PRIMERO
             setDatosUltimoConsumo(null);
-            setKilometrajeError(""); // Limpiar errores previos
+            setKilometrajeError("");
+            setLitrosWarning("");
 
             // 🆕 MOSTRAR INDICADOR DE CARGA
             console.log(`📊 Cargando historial para ${maquina.nombre_maquina}...`);
@@ -210,6 +211,7 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
     // 🆕 ESTADOS PARA FUNCIONALIDADES AVANZADAS
     const [fieldErrors, setFieldErrors] = useState({});
     const [kilometrajeError, setKilometrajeError] = useState("");
+    const [litrosWarning, setLitrosWarning] = useState("");
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [createdCarga, setCreatedCarga] = useState(null);
 
@@ -259,6 +261,24 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
         const ultimoKilometraje = datosUltimoConsumo?.medicion;
         if (ultimoKilometraje && numValue <= ultimoKilometraje) {
             return `Debe ser mayor a ${Math.round(ultimoKilometraje).toLocaleString()} km`;
+        }
+
+        return "";
+    };
+
+    // ✅ ADVERTENCIA EN TIEMPO REAL PARA LITROS
+    const validateLitrosRealTime = (value) => {
+        if (!value || value === '') return "";
+        const num = parseFloat(value);
+        if (isNaN(num) || num <= 0) return "";
+
+        if (num > 1000) {
+            return `Valor muy alto: ${num.toLocaleString()} litros. ¿Es correcto?`;
+        }
+
+        const ultimosLitros = datosUltimoConsumo?.litros_consumidos;
+        if (ultimosLitros && num > ultimosLitros * 3) {
+            return `¿Seguro? La última carga de esta máquina fue ~${Math.round(ultimosLitros)} L`;
         }
 
         return "";
@@ -374,29 +394,24 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
         }
     }, [error]);
 
-    // ✅ CALCULAR COSTO AUTOMÁTICAMENTE
-    // ✅ CÁLCULO AUTOMÁTICO SEGÚN MODO (COPEC o SHELL)
+    // ✅ RECALCULAR AL CAMBIAR DE MODO (solo depende de modoCalculo, sin riesgo de loop)
     useEffect(() => {
-        if (modoCalculo === 'COPEC') {
-            // Modo COPEC: Calcular costo total
-            if (formData.precio_por_litro && formData.litros && parseFloat(formData.litros) > 0) {
-                const costoCalculado = (parseFloat(formData.precio_por_litro) * parseFloat(formData.litros)).toFixed(2);
-                setFormData(prev => ({
-                    ...prev,
-                    costo: costoCalculado
-                }));
+        setFormData(prev => {
+            const litros = parseFloat(prev.litros) || 0;
+            if (modoCalculo === 'COPEC') {
+                const precio = parseFloat(prev.precio_por_litro) || 0;
+                if (litros > 0 && precio > 0) {
+                    return { ...prev, costo: (litros * precio).toFixed(2) };
+                }
+            } else {
+                const costo = parseFloat(prev.costo) || 0;
+                if (litros > 0 && costo > 0) {
+                    return { ...prev, precio_por_litro: (costo / litros).toFixed(2) };
+                }
             }
-        } else {
-            // Modo SHELL: Calcular precio por litro
-            if (formData.costo && formData.litros && parseFloat(formData.litros) > 0) {
-                const precioCalculado = (parseFloat(formData.costo) / parseFloat(formData.litros)).toFixed(2);
-                setFormData(prev => ({
-                    ...prev,
-                    precio_por_litro: precioCalculado
-                }));
-            }
-        }
-    }, [formData.precio_por_litro, formData.litros, formData.costo, modoCalculo]);
+            return prev;
+        });
+    }, [modoCalculo]);
 
     // ✅ FUNCIÓN PARA MANEJAR INPUT CHANGE
     const handleInputChange = (field, value) => {
@@ -421,10 +436,26 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
             return;
         }
 
-        setFormData(prev => ({
-            ...prev,
-            [field]: value
-        }));
+        setFormData(prev => {
+            const newData = { ...prev, [field]: value };
+
+            // Cálculo inline según modo activo (evita useEffect con dependencias circulares)
+            if (modoCalculo === 'COPEC' && (field === 'litros' || field === 'precio_por_litro')) {
+                const litros = field === 'litros' ? parseFloat(value) || 0 : parseFloat(prev.litros) || 0;
+                const precio = field === 'precio_por_litro' ? parseFloat(value) || 0 : parseFloat(prev.precio_por_litro) || 0;
+                newData.costo = litros > 0 && precio > 0 ? (litros * precio).toFixed(2) : prev.costo;
+            } else if (modoCalculo === 'SHELL' && (field === 'litros' || field === 'costo')) {
+                const litros = field === 'litros' ? parseFloat(value) || 0 : parseFloat(prev.litros) || 0;
+                const costo = field === 'costo' ? parseFloat(value) || 0 : parseFloat(prev.costo) || 0;
+                newData.precio_por_litro = litros > 0 && costo > 0 ? (costo / litros).toFixed(2) : prev.precio_por_litro;
+            }
+
+            return newData;
+        });
+
+        if (field === 'litros') {
+            setLitrosWarning(validateLitrosRealTime(value));
+        }
 
         if (fieldErrors[field]) {
             setFieldErrors(prev => {
@@ -451,8 +482,15 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
             errors.litros = "Los litros deben ser mayor a 0";
         }
 
-        if (!formData.precio_por_litro || parseFloat(formData.precio_por_litro) <= 0) {
-            errors.precio_por_litro = "El precio por litro debe ser mayor a 0";
+        if (modoCalculo === 'COPEC') {
+            if (!formData.precio_por_litro || parseFloat(formData.precio_por_litro) <= 0) {
+                errors.precio_por_litro = "El precio por litro debe ser mayor a 0";
+            }
+        } else {
+            // Modo SHELL: el usuario ingresa el costo total, no el precio por litro
+            if (!formData.costo || parseFloat(formData.costo) <= 0) {
+                errors.costo = "El costo total debe ser mayor a 0";
+            }
         }
 
         if (!formData.ubicacion.trim()) {
@@ -880,6 +918,18 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                                     label="Litros Cargados"
                                     required={true}
                                 />
+                                {maquinaSeleccionada && datosUltimoConsumo?.litros_consumidos && (
+                                    <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-green-700 font-medium">
+                                                Última carga de {maquinaSeleccionada.nombre_maquina}:
+                                            </span>
+                                            <span className="text-green-600 font-bold">
+                                                ~{Math.round(datosUltimoConsumo.litros_consumidos).toLocaleString()} L
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
                                 <InputField
                                     id="litros"
                                     type="number"
@@ -889,8 +939,14 @@ const FormularioAsignacionVehiculo = ({ onIngresoExitoso }) => {
                                     onChange={(e) => handleInputChange('litros', e.target.value)}
                                     icon={<FaGasPump />}
                                     disabled={isLoading}
-                                    className={`${getFieldError('litros') ? 'border-red-300 focus:border-red-500' : ''} text-base`}
+                                    className={`${getFieldError('litros') ? 'border-red-300 focus:border-red-500' : litrosWarning ? 'border-yellow-400 focus:border-yellow-500' : ''} text-base`}
                                 />
+                                {litrosWarning && (
+                                    <p className="text-yellow-600 text-sm mt-1 flex items-center gap-1">
+                                        <span>⚠️</span>
+                                        {litrosWarning}
+                                    </p>
+                                )}
                                 {getFieldError('litros') && (
                                     <p className="text-red-500 text-sm mt-1">{getFieldError('litros')}</p>
                                 )}

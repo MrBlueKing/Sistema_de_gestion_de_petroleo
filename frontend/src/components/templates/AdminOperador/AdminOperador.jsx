@@ -11,6 +11,7 @@ import GestionarUsuariosOperador from '../../organisms/AdminOperador/GestionarUs
 import GraficosPetroleo from '../../organisms/Gerente/Graficos'
 import HistorialMaquinas from '../../organisms/Todos/HistorialMaquinas';
 import Recepciones from '../../organisms/Gerente/VerificacionIngresos';
+import { ProduccionKPIs, ProduccionGraficos, ProduccionTablas } from '../../organisms/Gerente/ProduccionDashboard';
 
 const AdminOperador = () => {
     const [activeTab, setActiveTab] = useState('principal');
@@ -19,13 +20,13 @@ const AdminOperador = () => {
     // 📋 Configuración de permisos por rol
     const rolePermissions = {
         // Gerente: Acceso completo a todo
-        gerente: ['consumos-externos', 'consumos-internos', 'graficos', 'recepciones'],
+        gerente: ['consumos-externos', 'consumos-internos', 'graficos', 'recepciones', 'prod-kpis', 'prod-graficos', 'prod-tablas'],
 
         // Admin Operador: Acceso completo (rol original)
-        admin_operador: ['principal', 'consumos-externos', 'consumos-internos', 'graficos', 'recepciones', 'maquinas', 'usuarios'],
+        admin_operador: ['principal', 'consumos-externos', 'consumos-internos', 'graficos', 'recepciones', 'prod-kpis', 'prod-graficos', 'prod-tablas', 'maquinas', 'usuarios'],
 
         // Jefe de Mina: Acceso a vistas operacionales y gráficos
-        JefeMina: ['consumos-internos', 'graficos', 'recepciones'],
+        JefeMina: ['consumos-internos', 'graficos', 'recepciones', 'prod-kpis', 'prod-graficos', 'prod-tablas'],
 
         // Planificador: Acceso a consumos, gráficos y máquinas para planificación
         planificador: ['consumos-internos']
@@ -94,6 +95,24 @@ const AdminOperador = () => {
             label: 'Recepciones',
             description: 'Gestionar recepciones de combustible',
             icon: 'MdOilBarrel'
+        },
+        {
+            id: 'prod-kpis',
+            label: 'Producción KPIs',
+            description: 'Indicadores clave de producción minera',
+            icon: 'FaIndustry'
+        },
+        {
+            id: 'prod-graficos',
+            label: 'Producción Gráficos',
+            description: 'Gráficos de producción minera',
+            icon: 'VscGraph'
+        },
+        {
+            id: 'prod-tablas',
+            label: 'Producción Tablas',
+            description: 'Tablas detalladas de producción minera',
+            icon: 'FaListAlt'
         },
         {
             id: 'maquinas',
@@ -175,6 +194,36 @@ const AdminOperador = () => {
                         showUnauthorized={true}
                     >
                         <Recepciones />
+                    </RoleBasedComponent>
+                );
+
+            case 'prod-kpis':
+                return (
+                    <RoleBasedComponent
+                        allowedRoles={['gerente', 'admin_operador', 'JefeMina']}
+                        showUnauthorized={true}
+                    >
+                        <ProduccionKPIs />
+                    </RoleBasedComponent>
+                );
+
+            case 'prod-graficos':
+                return (
+                    <RoleBasedComponent
+                        allowedRoles={['gerente', 'admin_operador', 'JefeMina']}
+                        showUnauthorized={true}
+                    >
+                        <ProduccionGraficos />
+                    </RoleBasedComponent>
+                );
+
+            case 'prod-tablas':
+                return (
+                    <RoleBasedComponent
+                        allowedRoles={['gerente', 'admin_operador', 'JefeMina']}
+                        showUnauthorized={true}
+                    >
+                        <ProduccionTablas />
                     </RoleBasedComponent>
                 );
 

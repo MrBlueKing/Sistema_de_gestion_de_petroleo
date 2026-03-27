@@ -27,15 +27,14 @@ const Main = () => {
       color: "bg-blue-50 hover:bg-blue-100 border-blue-200 hover:border-blue-300",
       enabled: true
     },
-    // ÁREA DE PRODUCCIÓN - DESHABILITADO
+    // ÁREA DE PRODUCCIÓN
     {
       title: "Gestión de Producción",
-      description: "Tonelajes, padrones, plantas y metas de producción",
-      subtitle: "Próximamente",
-      icon: <FiTruck className="w-10 h-10 text-gray-400" />,
+      description: "Dashboard de producción minera: dumpadas, mezclas, lotes y despachos",
+      icon: <FiTruck className="w-10 h-10 text-emerald-600" />,
       path: "/gerente/produccion",
-      color: "bg-gray-50 border-gray-200 cursor-not-allowed",
-      enabled: false
+      color: "bg-emerald-50 hover:bg-emerald-100 border-emerald-200 hover:border-emerald-300",
+      enabled: true
     },
     // ÁREA OPERACIONAL RECEPCION PETROLEO
     {

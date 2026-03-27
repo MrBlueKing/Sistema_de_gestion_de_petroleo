@@ -34,6 +34,7 @@ import GestionarPersonalExternoPersonalPage from "../pages/Administrador/Gestion
 import GestionarMaquinasPermiso from "../pages/Administrador/GestionarMaquinasPermisoPage";
 import GestionarFaenasBomberos from "../pages/Administrador/GestionarFaenasBomberos";
 import GestionarEstanques from "../pages/Administrador/GestionarEstanques";
+import ReportePDFPage from "../pages/Administrador/ReportePDFPage";
 
 // 🚒 Importaciones Bombero
 import BomberoPage from "../pages/Bombero/BomberoPage";
@@ -309,6 +310,16 @@ const AppRoutes = () => {
         element={
           <PrivateRoute requiredRole="admin">
             <GestionarEstanques />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Ruta para reportes PDF comparativos. */}
+      <Route
+        path="/administrador/reportes"
+        element={
+          <PrivateRoute requiredRole="admin">
+            <ReportePDFPage />
           </PrivateRoute>
         }
       />

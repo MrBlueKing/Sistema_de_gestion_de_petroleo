@@ -1,339 +1,173 @@
 import React, { useState, useEffect } from 'react';
-import axios from '../../../lib/axios';
+import produccionService from '../../../services/produccionService';
+import UniversalHeader from '../Todos/UniversalHeader';
+import {
+  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  Area, AreaChart
+} from 'recharts';
 import {
   FiCalendar,
   FiRefreshCw,
   FiTruck,
-  FiTarget,
+  FiBox,
+  FiLayers,
+  FiPackage,
   FiTrendingUp,
   FiBarChart2,
-  FiFilter,
-  FiMapPin,
-  FiChevronDown,
-  FiX,
-  FiDownload,
   FiAlertCircle,
-  FiMenu
+  FiCheckCircle,
+  FiClock
 } from 'react-icons/fi';
-import Header from "../../organisms/Gerente/Header";
-import UniversalHeader from '../Todos/UniversalHeader';
+import { FaIndustry, FaMountain } from 'react-icons/fa';
 
-const ProduccionDiaria = () => {
+const COLORS = {
+  emerald: '#059669',
+  emeraldLight: '#34d399',
+  blue: '#2563eb',
+  blueLight: '#60a5fa',
+  purple: '#7c3aed',
+  purpleLight: '#a78bfa',
+  amber: '#d97706',
+  amberLight: '#fbbf24',
+  red: '#dc2626',
+  orange: '#ea580c',
+  green: '#16a34a',
+  gray: '#6b7280',
+};
+
+const PIE_COLORS = ['#059669', '#d97706', '#6b7280', '#dc2626'];
+
+const GestionProduccion = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(false);
   const [error, setError] = useState(null);
-  
-  // Estados para filtros
-  const [filtros, setFiltros] = useState({
-    fechaInicio: new Date(Date.now() - 86400000).toISOString().split('T')[0], // Ayer por defecto
-    fechaFin: new Date(Date.now() - 86400000).toISOString().split('T')[0], // Ayer por defecto
-    faenasSeleccionadas: []
-  });
-  
-  // Estados para datos
-  const [faenasDisponibles, setFaenasDisponibles] = useState([]);
-  const [datosProduccion, setDatosProduccion] = useState({
-    produccion_por_fecha: {},
-    resumen_periodo: null
-  });
-  
-  // Estado para vista actual
-  const [fechaVistaActual, setFechaVistaActual] = useState('');
-  const [fechasDisponibles, setFechasDisponibles] = useState([]);
-  const [vistaActual, setVistaActual] = useState('agregado'); // 'agregado' o 'por_fecha'
+  const [datos, setDatos] = useState(null);
 
-  // Cargar faenas disponibles al montar el componente
+  // Filtros
+  const [fechaInicio, setFechaInicio] = useState(() => {
+    const date = new Date();
+    date.setMonth(date.getMonth() - 1);
+    return date.toISOString().split('T')[0];
+  });
+  const [fechaFin, setFechaFin] = useState(() => {
+    return new Date().toISOString().split('T')[0];
+  });
+
   useEffect(() => {
-    cargarFaenasDisponibles();
-    cargarDatosIniciales();
+    cargarDatos();
   }, []);
 
-  // Función para obtener datos agregados de todas las fechas
-  const obtenerDatosAgregados = () => {
-    if (!datosProduccion.produccion_por_fecha || Object.keys(datosProduccion.produccion_por_fecha).length === 0) {
-      return {
-        padrones: [],
-        totales_planta: [],
-        total_general: { tonelaje: 0, ley_promedio: 0, viajes: 0, padrones_activos: 0 }
-      };
-    }
-
-    // Agregar todos los padrones de todas las fechas
-    const padronesAgregados = {};
-    const plantasAgregadas = {};
-    let totalGeneral = { tonelaje: 0, viajes: 0, ley_suma: 0, ley_count: 0 };
-
-    // Procesar cada fecha
-    Object.values(datosProduccion.produccion_por_fecha).forEach(fechaData => {
-      if (fechaData.padrones) {
-        fechaData.padrones.forEach(padron => {
-          const key = `${padron.faena}-${padron.padron}-${padron.planta}`;
-          
-          if (!padronesAgregados[key]) {
-            padronesAgregados[key] = {
-              faena: padron.faena,
-              capacidad: padron.capacidad,
-              padron: padron.padron,
-              planta: padron.planta,
-              tonelaje: 0,
-              viajes: 0,
-              ley_suma: 0,
-              ley_count: 0,
-              ley_ponderada: 0
-            };
-          }
-
-          // Agregar valores
-          padronesAgregados[key].tonelaje += parseFloat(padron.tonelaje) || 0;
-          padronesAgregados[key].viajes += parseInt(padron.viajes) || 0;
-          
-          if (padron.ley_ponderada && padron.ley_ponderada > 0) {
-            padronesAgregados[key].ley_suma += parseFloat(padron.ley_ponderada);
-            padronesAgregados[key].ley_count += 1;
-          }
-        });
-      }
-
-      // Agregar totales por planta
-      if (fechaData.totales_planta) {
-        fechaData.totales_planta.forEach(planta => {
-          if (!plantasAgregadas[planta.planta]) {
-            plantasAgregadas[planta.planta] = {
-              planta: planta.planta,
-              tonelaje: 0,
-              viajes: 0,
-              ley_suma: 0,
-              ley_count: 0
-            };
-          }
-
-          plantasAgregadas[planta.planta].tonelaje += parseFloat(planta.tonelaje) || 0;
-          plantasAgregadas[planta.planta].viajes += parseInt(planta.viajes) || 0;
-          
-          if (planta.ley_promedio && planta.ley_promedio > 0) {
-            plantasAgregadas[planta.planta].ley_suma += parseFloat(planta.ley_promedio);
-            plantasAgregadas[planta.planta].ley_count += 1;
-          }
-        });
-      }
-
-      // Agregar total general
-      if (fechaData.total_general) {
-        totalGeneral.tonelaje += parseFloat(fechaData.total_general.tonelaje) || 0;
-        totalGeneral.viajes += parseInt(fechaData.total_general.viajes) || 0;
-        
-        if (fechaData.total_general.ley_promedio && fechaData.total_general.ley_promedio > 0) {
-          totalGeneral.ley_suma += parseFloat(fechaData.total_general.ley_promedio);
-          totalGeneral.ley_count += 1;
-        }
-      }
-    });
-
-    // Calcular promedios de ley para padrones
-    Object.values(padronesAgregados).forEach(padron => {
-      padron.ley_ponderada = padron.ley_count > 0 ? padron.ley_suma / padron.ley_count : 0;
-      delete padron.ley_suma;
-      delete padron.ley_count;
-    });
-
-    // Calcular promedios de ley para plantas
-    const totalesPlantaFinal = Object.values(plantasAgregadas).map(planta => ({
-      planta: planta.planta,
-      tonelaje: planta.tonelaje,
-      viajes: planta.viajes,
-      ley_promedio: planta.ley_count > 0 ? planta.ley_suma / planta.ley_count : 0
-    }));
-
-    // Calcular promedio de ley general
-    const leyPromedioGeneral = totalGeneral.ley_count > 0 ? totalGeneral.ley_suma / totalGeneral.ley_count : 0;
-
-    return {
-      padrones: Object.values(padronesAgregados).sort((a, b) => a.faena.localeCompare(b.faena) || a.planta.localeCompare(b.planta)),
-      totales_planta: totalesPlantaFinal.sort((a, b) => a.planta.localeCompare(b.planta)),
-      total_general: {
-        tonelaje: totalGeneral.tonelaje,
-        ley_promedio: leyPromedioGeneral,
-        viajes: totalGeneral.viajes,
-        padrones_activos: Object.keys(padronesAgregados).length
-      }
-    };
-  };
-
-  const cargarFaenasDisponibles = async () => {
-    try {
-      const response = await axios.get('/api/produccion/faenasProd');
-      if (response.data.success) {
-        setFaenasDisponibles(response.data.data);
-      } else {
-        setError('No se pudieron cargar las faenas');
-      }
-    } catch (error) {
-      console.error('Error al cargar faenas:', error);
-      setError('Error de conexión al cargar faenas');
-    }
-  };
-
-  const cargarDatosIniciales = async () => {
+  const cargarDatos = async () => {
     try {
       setLoading(true);
       setError(null);
-      await aplicarFiltros();
-    } catch (error) {
-      console.error('Error al cargar datos iniciales:', error);
-      setError('Error al cargar los datos iniciales');
+
+      const response = await produccionService.getResumenGerencial({
+        fecha_inicio: fechaInicio,
+        fecha_fin: fechaFin,
+      });
+
+      if (response.success) {
+        setDatos(response.data);
+      } else {
+        setError(response.message || 'Error al cargar datos');
+      }
+    } catch (err) {
+      console.error('Error cargando datos de producción:', err);
+      setError('Error de conexión con el sistema de producción. Verifique que el servidor esté activo en el puerto 8002.');
     } finally {
       setLoading(false);
     }
   };
 
-  const aplicarFiltros = async () => {
-    try {
-      setRefreshing(true);
-      setError(null);
-      
-      const params = {
-        fecha_inicio: filtros.fechaInicio,
-        fecha_fin: filtros.fechaFin
-      };
-
-      // Solo agregar faenas si hay alguna seleccionada
-      if (filtros.faenasSeleccionadas.length > 0) {
-        params.faenas = filtros.faenasSeleccionadas;
-      }
-
-      console.log('Aplicando filtros:', params); // Debug
-
-      const response = await axios.get('/api/produccion/filtrada', { params });
-      
-      console.log('Respuesta del servidor:', response.data); // Debug
-      
-      if (response.data.success) {
-        setDatosProduccion(response.data.data);
-        
-        // Configurar fechas disponibles y vista actual
-        const fechas = Object.keys(response.data.data.produccion_por_fecha).sort((a, b) => new Date(b) - new Date(a));
-        setFechasDisponibles(fechas);
-        setFechaVistaActual(fechas[0] || '');
-        
-        console.log('Fechas disponibles:', fechas); // Debug
-        console.log('Total registros:', response.data.data.total_registros); // Debug
-        
-        if (fechas.length === 0) {
-          setError('No se encontraron datos para los filtros seleccionados');
-        }
-      } else {
-        setError(response.data.message || 'Error al obtener los datos');
-        setDatosProduccion({
-          produccion_por_fecha: {},
-          resumen_periodo: null
-        });
-        setFechasDisponibles([]);
-        setFechaVistaActual('');
-      }
-    } catch (error) {
-      console.error('Error al aplicar filtros:', error);
-      setError(`Error de conexión: ${error.response?.data?.message || error.message}`);
-      setDatosProduccion({
-        produccion_por_fecha: {},
-        resumen_periodo: null
-      });
-      setFechasDisponibles([]);
-      setFechaVistaActual('');
-    } finally {
-      setRefreshing(false);
-    }
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await cargarDatos();
+    setRefreshing(false);
   };
 
-  // Aplicar filtros automáticamente cuando cambien
-  useEffect(() => {
-    if (faenasDisponibles.length > 0) { // Solo aplicar si ya se cargaron las faenas
-      aplicarFiltros();
-    }
-  }, [filtros.fechaInicio, filtros.fechaFin, filtros.faenasSeleccionadas]);
-
-  // Manejadores de eventos
-  const handleFiltroChange = (campo, valor) => {
-    setFiltros(prev => ({
-      ...prev,
-      [campo]: valor
-    }));
+  const handleAplicarFiltros = () => {
+    cargarDatos();
   };
 
-  const handleFaenaToggle = (idFaena) => {
-    setFiltros(prev => ({
-      ...prev,
-      faenasSeleccionadas: prev.faenasSeleccionadas.includes(idFaena)
-        ? prev.faenasSeleccionadas.filter(id => id !== idFaena)
-        : [...prev.faenasSeleccionadas, idFaena]
-    }));
-  };
-
-  const limpiarFiltros = () => {
-    setFiltros({
-      fechaInicio: new Date(Date.now() - 86400000).toISOString().split('T')[0],
-      fechaFin: new Date(Date.now() - 86400000).toISOString().split('T')[0],
-      faenasSeleccionadas: []
-    });
-  };
-
-  const establecerRangoRapido = (dias) => {
-    const fin = new Date();
-    fin.setDate(fin.getDate() - 1); // Terminar en ayer
-    const inicio = new Date(fin);
-    inicio.setDate(inicio.getDate() - (dias - 1));
-    
-    setFiltros(prev => ({
-      ...prev,
-      fechaInicio: inicio.toISOString().split('T')[0],
-      fechaFin: fin.toISOString().split('T')[0]
-    }));
-  };
-
-  // Formateo y utilidades
   const formatNumber = (num) => {
     if (num === null || num === undefined) return '-';
-    return new Intl.NumberFormat('es-CL', { 
+    return new Intl.NumberFormat('es-CL', {
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2 
+      maximumFractionDigits: 2,
     }).format(num);
   };
 
-  const formatFecha = (fecha) => {
-    if (!fecha) return '';
-    const fechaObj = new Date(fecha + 'T12:00:00');
-    return fechaObj.toLocaleDateString('es-ES', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+  const formatInteger = (num) => {
+    if (num === null || num === undefined) return '-';
+    return new Intl.NumberFormat('es-CL').format(num);
   };
 
-  const formatFechaCorta = (fecha) => {
-    if (!fecha) return '';
-    const fechaObj = new Date(fecha + 'T12:00:00');
-    return fechaObj.toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
+  // Preparar datos para gráficos
+  const produccionDiariaData = (datos?.produccion_diaria || [])
+    .slice()
+    .reverse()
+    .map((dia) => ({
+      ...dia,
+      fecha: dia.fecha?.substring(5) || dia.fecha, // MM-DD
+      tonelaje: Number(dia.tonelaje) || 0,
+      cantidad: Number(dia.cantidad) || 0,
+      ley_promedio: Number(dia.ley_promedio) || 0,
+    }));
 
-  // Obtener datos de la fecha actual seleccionada
-  const datosActuales = datosProduccion.produccion_por_fecha[fechaVistaActual] || {
-    padrones: [],
-    totales_planta: [],
-    total_general: { tonelaje: 0, ley_promedio: 0, viajes: 0, padrones_activos: 0 }
+  const topFrentesData = (datos?.top_frentes || []).map((f) => ({
+    ...f,
+    tonelaje: Number(f.tonelaje) || 0,
+    cantidad: Number(f.cantidad) || 0,
+    ley_promedio: Number(f.ley_promedio) || 0,
+    nombre: f.nombre?.length > 18 ? f.nombre.substring(0, 18) + '…' : f.nombre,
+  }));
+
+  const estadosDumpadasData = datos
+    ? [
+        { name: 'Completadas', value: Number(datos.dumpadas?.completadas) || 0 },
+        { name: 'Pendientes', value: Number(datos.dumpadas?.pendientes) || 0 },
+      ].filter((d) => d.value > 0)
+    : [];
+
+  const estadosMezclasData = datos
+    ? [
+        { name: 'Activas', value: Number(datos.mezclas?.activas) || 0 },
+        { name: 'Completadas', value: Number(datos.mezclas?.completadas) || 0 },
+      ].filter((d) => d.value > 0)
+    : [];
+
+  const estadosLotesData = datos
+    ? [
+        { name: 'Abiertos', value: Number(datos.lotes?.abiertos) || 0 },
+        { name: 'Cerrados', value: Number(datos.lotes?.cerrados) || 0 },
+      ].filter((d) => d.value > 0)
+    : [];
+
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-sm">
+        <p className="font-semibold text-gray-800 mb-1">{label}</p>
+        {payload.map((entry, i) => (
+          <p key={i} style={{ color: entry.color }}>
+            {entry.name}: {formatNumber(entry.value)}
+          </p>
+        ))}
+      </div>
+    );
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen p-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando datos de producción...</p>
+      <div className="flex-1 overflow-auto bg-gray-50">
+        <UniversalHeader type="gerente" />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Cargando datos de producción...</p>
+          </div>
         </div>
       </div>
     );
@@ -341,623 +175,536 @@ const ProduccionDiaria = () => {
 
   return (
     <div className="flex-1 overflow-auto bg-gray-50">
-      <div className="max-w-7xl mx-auto p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6">
-        <div className="block lg:hidden">
-          <UniversalHeader type="gerente" />
-        </div>
-        <div className="hidden lg:block">
-          <UniversalHeader type="gerente" />
-        </div>
+      <UniversalHeader type="gerente" />
 
-        {/* Header con controles */}
-        <div className="bg-white rounded-lg shadow-sm border p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 space-y-4 sm:space-y-0">
-            <div className="text-center sm:text-left">
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Producción por Faenas</h1>
-              <p className="text-gray-600 mt-1 text-sm sm:text-base">Vista detallada con filtros avanzados</p>
+      <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6 mt-12">
+        {/* Header */}
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2">
+                <FaIndustry className="text-emerald-600" />
+                Dashboard de Producción
+              </h1>
+              <p className="text-gray-600 mt-1">
+                Datos del Sistema de Producción Minera
+              </p>
             </div>
-            <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`w-full sm:w-auto flex items-center justify-center space-x-2 px-4 py-2 rounded-lg border transition-colors ${
-                  showFilters 
-                    ? 'bg-blue-50 border-blue-300 text-blue-700' 
-                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <FiFilter className="w-4 h-4" />
-                <span>Filtros</span>
-                <FiChevronDown className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-              </button>
-              <button
-                onClick={aplicarFiltros}
-                disabled={refreshing}
-                className="w-full sm:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-              >
-                <FiRefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-                <span>Actualizar</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Panel de filtros */}
-          {showFilters && (
-            <div className="bg-gray-50 rounded-lg p-4 border space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Filtro de fecha inicio */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Fecha Inicio</label>
-                  <div className="relative">
-                    <FiCalendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type="date"
-                      value={filtros.fechaInicio}
-                      onChange={(e) => handleFiltroChange('fechaInicio', e.target.value)}
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Filtro de fecha fin */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Fecha Fin</label>
-                  <div className="relative">
-                    <FiCalendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type="date"
-                      value={filtros.fechaFin}
-                      onChange={(e) => handleFiltroChange('fechaFin', e.target.value)}
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Botones de rangos rápidos */}
-                <div className="sm:col-span-2 lg:col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Rangos Rápidos</label>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => establecerRangoRapido(1)}
-                      className="px-3 py-2 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 flex-1 sm:flex-none"
-                    >
-                      Ayer
-                    </button>
-                    <button
-                      onClick={() => establecerRangoRapido(7)}
-                      className="px-3 py-2 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 flex-1 sm:flex-none"
-                    >
-                      7 días
-                    </button>
-                    <button
-                      onClick={() => establecerRangoRapido(30)}
-                      className="px-3 py-2 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 flex-1 sm:flex-none"
-                    >
-                      30 días
-                    </button>
-                  </div>
-                </div>
-
-                {/* Botón limpiar filtros */}
-                <div className="flex items-end">
-                  <button
-                    onClick={limpiarFiltros}
-                    className="w-full flex items-center justify-center space-x-2 px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
-                  >
-                    <FiX className="w-4 h-4" />
-                    <span>Limpiar</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Filtro de faenas */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Faenas</label>
-                <div className="flex flex-wrap gap-2">
-                  {faenasDisponibles.map((faena) => (
-                    <button
-                      key={faena.id_faena}
-                      onClick={() => handleFaenaToggle(faena.id_faena)}
-                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg border transition-colors ${
-                        filtros.faenasSeleccionadas.includes(faena.id_faena)
-                          ? 'bg-blue-100 border-blue-300 text-blue-700'
-                          : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      <FiMapPin className="w-4 h-4" />
-                      <span className="text-sm">{faena.ubicacion}</span>
-                    </button>
-                  ))}
-                </div>
-                {filtros.faenasSeleccionadas.length === 0 && (
-                  <p className="text-sm text-gray-500 mt-1">Todas las faenas seleccionadas por defecto</p>
-                )}
-              </div>
-
-              {/* Botón aplicar filtros */}
-              <div className="flex justify-center pt-4 border-t">
-                <button
-                  onClick={aplicarFiltros}
-                  disabled={refreshing}
-                  className="w-full sm:w-auto flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <FiRefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-                  <span>{refreshing ? 'Aplicando...' : 'Aplicar Filtros'}</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Mostrar estado de los datos */}
-        {!error && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-sm space-y-2 sm:space-y-0">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-1 sm:space-y-0">
-                <span className="text-blue-700">
-                  📊 Período: {formatFechaCorta(filtros.fechaInicio)} - {formatFechaCorta(filtros.fechaFin)}
-                </span>
-                {filtros.faenasSeleccionadas.length > 0 && (
-                  <span className="text-blue-700">
-                    📍 Faenas: {filtros.faenasSeleccionadas.length} seleccionadas
-                  </span>
-                )}
-              </div>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-1 sm:space-y-0">
-                <span className="text-blue-600">
-                  {fechasDisponibles.length} fecha{fechasDisponibles.length !== 1 ? 's' : ''} con datos
-                </span>
-                <span className="text-blue-600">
-                  Vista: {vistaActual === 'agregado' ? 'Agregada' : 'Individual'}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Mostrar error si existe */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <FiAlertCircle className="w-5 h-5 text-red-500 mr-2 flex-shrink-0" />
-              <span className="text-red-700 text-sm">{error}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Selector de vista */}
-        <div className="bg-white rounded-lg shadow-sm border p-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-            <h3 className="text-lg font-medium text-gray-900">Vista de Datos</h3>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-4 sm:space-y-0">
-              <div className="flex bg-gray-100 rounded-lg p-1 w-full sm:w-auto">
-                <button
-                  onClick={() => setVistaActual('agregado')}
-                  className={`px-3 py-1 text-sm rounded-md transition-colors flex-1 sm:flex-none ${
-                    vistaActual === 'agregado' 
-                      ? 'bg-white text-blue-600 shadow-sm' 
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Vista Agregada
-                </button>
-                <button
-                  onClick={() => setVistaActual('por_fecha')}
-                  className={`px-3 py-1 text-sm rounded-md transition-colors flex-1 sm:flex-none ${
-                    vistaActual === 'por_fecha' 
-                      ? 'bg-white text-blue-600 shadow-sm' 
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Por Fecha
-                </button>
-              </div>
-              
-              {vistaActual === 'por_fecha' && fechasDisponibles.length > 1 && (
-                <select
-                  value={fechaVistaActual}
-                  onChange={(e) => setFechaVistaActual(e.target.value)}
-                  className="w-full sm:w-auto border border-gray-300 rounded-lg px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  {fechasDisponibles.map(fecha => (
-                    <option key={fecha} value={fecha}>
-                      {formatFechaCorta(fecha)}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Resumen del período (cuando hay múltiples fechas y vista agregada) */}
-        {datosProduccion.resumen_periodo && fechasDisponibles.length > 1 && vistaActual === 'agregado' && (
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-4 sm:p-6">
-            <h3 className="text-base sm:text-lg font-semibold text-blue-900 mb-4 flex items-center">
-              <FiBarChart2 className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-              <span className="text-sm sm:text-base">
-                Resumen del Período ({formatFechaCorta(filtros.fechaInicio)} - {formatFechaCorta(filtros.fechaFin)})
-              </span>
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-              <div className="text-center">
-                <div className="text-xl sm:text-2xl font-bold text-blue-900">{formatNumber(datosProduccion.resumen_periodo.tonelaje_total)}</div>
-                <div className="text-xs sm:text-sm text-blue-600">Toneladas Total</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xl sm:text-2xl font-bold text-green-700">{formatNumber(datosProduccion.resumen_periodo.ley_promedio_periodo)}%</div>
-                <div className="text-xs sm:text-sm text-green-600">Ley Promedio</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xl sm:text-2xl font-bold text-purple-700">{datosProduccion.resumen_periodo.viajes_total}</div>
-                <div className="text-xs sm:text-sm text-purple-600">Viajes Total</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xl sm:text-2xl font-bold text-orange-700">{datosProduccion.resumen_periodo.dias_con_produccion}</div>
-                <div className="text-xs sm:text-sm text-orange-600">Días Activos</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xl sm:text-2xl font-bold text-red-700">{datosProduccion.resumen_periodo.padrones_distintos}</div>
-                <div className="text-xs sm:text-sm text-red-600">Padrones</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xl sm:text-2xl font-bold text-gray-700">{datosProduccion.resumen_periodo.faenas_activas}</div>
-                <div className="text-xs sm:text-sm text-gray-600">Faenas</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Layout principal - Mobile first con sidebar toggle */}
-        <div className="flex flex-col lg:grid lg:grid-cols-3 lg:gap-6 space-y-4 lg:space-y-0">
-          
-          {/* Botón para mostrar métricas en móvil */}
-          <div className="lg:hidden">
             <button
-              onClick={() => setShowSidebar(!showSidebar)}
-              className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg border"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
             >
-              <FiMenu className="w-4 h-4" />
-              <span>{showSidebar ? 'Ocultar Métricas' : 'Ver Métricas'}</span>
+              <FiRefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Actualizando...' : 'Actualizar'}
             </button>
           </div>
 
-          {/* Panel lateral con métricas - Responsive */}
-          <div className={`lg:order-2 space-y-4 lg:space-y-6 ${showSidebar ? 'block' : 'hidden lg:block'}`}>
-            
-            {/* Resumen rápido */}
-            <div className="bg-white rounded-lg shadow-sm border p-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
-                <FiBarChart2 className="w-4 h-4 mr-2" />
-                {vistaActual === 'agregado' ? 'Resumen del Período' : 'Resumen de la Fecha'}
-              </h3>
-              <div className="space-y-2 text-sm">
-                {(() => {
-                  const datos = vistaActual === 'agregado' ? obtenerDatosAgregados() : datosActuales;
-                  return (
-                    <>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Total Toneladas:</span>
-                        <span className="font-medium">{formatNumber(datos.total_general.tonelaje)} t</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Total Viajes:</span>
-                        <span className="font-medium">{datos.total_general.viajes || 0}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Ley Promedio:</span>
-                        <span className="font-medium">{formatNumber(datos.total_general.ley_promedio)}%</span>
-                      </div>
-                      <div className="flex justify-between border-t pt-2">
-                        <span className="text-gray-600">Padrones Activos:</span>
-                        <span className="font-medium">{datos.padrones?.filter(p => p.tonelaje > 0).length || 0}</span>
-                      </div>
-                      {vistaActual === 'agregado' && datosProduccion.resumen_periodo && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Días Productivos:</span>
-                          <span className="font-medium">{datosProduccion.resumen_periodo.dias_con_produccion}</span>
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
+          {/* Filtros */}
+          <div className="mt-4 flex flex-wrap items-end gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Desde</label>
+              <div className="relative">
+                <FiCalendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="date"
+                  value={fechaInicio}
+                  onChange={(e) => setFechaInicio(e.target.value)}
+                  className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
               </div>
             </div>
-
-            {/* Distribución por planta */}
-            <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-              <div className="bg-yellow-50 px-4 py-3 border-b">
-                <h3 className="text-sm font-medium text-gray-700 text-center">
-                  Distribución por Planta
-                </h3>
-              </div>
-              <div className="p-4">
-                <div className="space-y-3">
-                  {(() => {
-                    const datos = vistaActual === 'agregado' ? obtenerDatosAgregados() : datosActuales;
-                    return datos.totales_planta && datos.totales_planta.length > 0 ? (
-                      datos.totales_planta.map((planta, index) => (
-                        <div key={index} className="bg-gray-50 rounded-lg p-3">
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="font-medium text-gray-900 text-sm">{planta.planta}</span>
-                            <span className="text-xs text-gray-500">{planta.viajes} viajes</span>
-                          </div>
-                          <div className="space-y-1 text-xs">
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Toneladas:</span>
-                              <span className="font-medium">{formatNumber(planta.tonelaje)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Ley promedio:</span>
-                              <span className="font-medium">{formatNumber(planta.ley_promedio)}%</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center text-gray-500 py-4 text-sm">
-                        No hay datos de plantas disponibles
-                      </div>
-                    );
-                  })()}
-                </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Hasta</label>
+              <div className="relative">
+                <FiCalendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="date"
+                  value={fechaFin}
+                  onChange={(e) => setFechaFin(e.target.value)}
+                  className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
               </div>
             </div>
+            <button
+              onClick={handleAplicarFiltros}
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors border border-gray-300"
+            >
+              Aplicar Filtros
+            </button>
+          </div>
+        </div>
 
-            {/* Distribución por faena */}
-            <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-              <div className="bg-green-50 px-4 py-3 border-b">
-                <h3 className="text-sm font-medium text-gray-700 text-center flex items-center justify-center">
-                  <FiMapPin className="w-4 h-4 mr-2" />
-                  Faenas Activas
-                </h3>
-              </div>
-              <div className="p-4">
-                <div className="space-y-2">
-                  {(() => {
-                    // Agrupar por faena según la vista actual
-                    const datos = vistaActual === 'agregado' ? obtenerDatosAgregados() : datosActuales;
-                    const faenasAgrupadas = {};
-                    
-                    if (datos.padrones) {
-                      datos.padrones.forEach(padron => {
-                        if (!faenasAgrupadas[padron.faena]) {
-                          faenasAgrupadas[padron.faena] = {
-                            tonelaje: 0,
-                            viajes: 0,
-                            padrones: 0
-                          };
-                        }
-                        faenasAgrupadas[padron.faena].tonelaje += parseFloat(padron.tonelaje) || 0;
-                        faenasAgrupadas[padron.faena].viajes += parseInt(padron.viajes) || 0;
-                        faenasAgrupadas[padron.faena].padrones += 1;
-                      });
-                    }
-
-                    return Object.keys(faenasAgrupadas).length > 0 ? (
-                      Object.entries(faenasAgrupadas).map(([faena, datos]) => (
-                        <div key={faena} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
-                          <div>
-                            <div className="font-medium text-gray-900 text-sm">{faena || 'Sin faena'}</div>
-                            <div className="text-xs text-gray-500">{datos.padrones} padrón{datos.padrones !== 1 ? 'es' : ''}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-medium text-gray-900 text-sm">{formatNumber(datos.tonelaje)} t</div>
-                            <div className="text-xs text-gray-500">{datos.viajes} viajes</div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center text-gray-500 py-4 text-sm">
-                        {vistaActual === 'agregado' ? 'No hay faenas activas en el período' : 'No hay faenas activas en esta fecha'}
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
+        {/* Error */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+            <FiAlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-red-700 font-medium">Error</p>
+              <p className="text-red-600 text-sm">{error}</p>
             </div>
+          </div>
+        )}
 
-            {/* Estado de conexión */}
-            <div className="bg-white rounded-lg shadow-sm border p-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                <FiTarget className="w-4 h-4 mr-2" />
-                Estado del Sistema
-              </h3>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Faenas disponibles:</span>
-                  <span className="font-medium">{faenasDisponibles.length}</span>
+        {datos && (
+          <>
+            {/* KPIs principales */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Dumpadas */}
+              <div className="bg-white rounded-lg shadow-sm border p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-center gap-2 text-emerald-600 mb-2">
+                  <FaMountain className="w-5 h-5" />
+                  <span className="text-sm font-medium">Dumpadas</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Estado conexión:</span>
-                  <span className={`font-medium ${error ? 'text-red-600' : 'text-green-600'}`}>
-                    {error ? 'Error' : 'Conectado'}
+                <p className="text-2xl font-bold text-gray-900">{formatInteger(datos.dumpadas?.total)}</p>
+                <p className="text-sm text-gray-500">{formatNumber(datos.dumpadas?.tonelaje_total)} t</p>
+                <div className="mt-2 flex items-center gap-2 text-xs">
+                  <span className="flex items-center gap-1 text-green-600">
+                    <FiCheckCircle className="w-3 h-3" />
+                    {datos.dumpadas?.completadas} completadas
+                  </span>
+                  <span className="flex items-center gap-1 text-amber-600">
+                    <FiClock className="w-3 h-3" />
+                    {datos.dumpadas?.pendientes} pendientes
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Vista actual:</span>
-                  <span className="font-medium">{vistaActual === 'agregado' ? 'Agregada' : 'Por fecha'}</span>
+              </div>
+
+              {/* Mezclas */}
+              <div className="bg-white rounded-lg shadow-sm border p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-center gap-2 text-blue-600 mb-2">
+                  <FiLayers className="w-5 h-5" />
+                  <span className="text-sm font-medium">Mezclas</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Última consulta:</span>
-                  <span className="font-medium text-xs">{new Date().toLocaleTimeString('es-ES')}</span>
+                <p className="text-2xl font-bold text-gray-900">{formatInteger(datos.mezclas?.total)}</p>
+                <p className="text-sm text-gray-500">{formatNumber(datos.mezclas?.tonelaje_total)} t</p>
+                <div className="mt-2 flex items-center gap-2 text-xs">
+                  <span className="flex items-center gap-1 text-orange-600">
+                    <FiClock className="w-3 h-3" />
+                    {datos.mezclas?.activas} activas
+                  </span>
+                  <span className="flex items-center gap-1 text-green-600">
+                    <FiCheckCircle className="w-3 h-3" />
+                    {datos.mezclas?.completadas} completadas
+                  </span>
+                </div>
+              </div>
+
+              {/* Lotes */}
+              <div className="bg-white rounded-lg shadow-sm border p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-center gap-2 text-purple-600 mb-2">
+                  <FiPackage className="w-5 h-5" />
+                  <span className="text-sm font-medium">Lotes</span>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{formatInteger(datos.lotes?.total)}</p>
+                <p className="text-sm text-gray-500">{formatNumber(datos.lotes?.tonelaje_total)} t</p>
+                <div className="mt-2 flex items-center gap-2 text-xs">
+                  <span className="flex items-center gap-1 text-purple-600">
+                    <FiBox className="w-3 h-3" />
+                    {datos.lotes?.abiertos} abiertos
+                  </span>
+                  <span className="flex items-center gap-1 text-green-600">
+                    <FiCheckCircle className="w-3 h-3" />
+                    {datos.lotes?.cerrados} cerrados
+                  </span>
+                </div>
+              </div>
+
+              {/* Despachos */}
+              <div className="bg-white rounded-lg shadow-sm border p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-center gap-2 text-amber-600 mb-2">
+                  <FiTruck className="w-5 h-5" />
+                  <span className="text-sm font-medium">Despachos</span>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{formatInteger(datos.despachos?.total)}</p>
+                <p className="text-sm text-gray-500">{formatNumber(datos.despachos?.tonelaje_despachado)} t</p>
+                <div className="mt-2 flex items-center gap-2 text-xs">
+                  <span className="flex items-center gap-1 text-amber-600">
+                    <FiTruck className="w-3 h-3" />
+                    {datos.despachos?.despachadas} despachadas
+                  </span>
+                  <span className="flex items-center gap-1 text-green-600">
+                    <FiCheckCircle className="w-3 h-3" />
+                    {datos.despachos?.recibidas} recibidas
+                  </span>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Tabla principal de producción */}
-          <div className="lg:col-span-2 lg:order-1 bg-white rounded-lg shadow-sm border overflow-hidden">
-            <div className="bg-gray-50 px-4 py-3 border-b">
-              <h3 className="text-base sm:text-lg font-medium text-gray-900">
-                {vistaActual === 'agregado' ? 
-                  `Producción Agregada (${formatFechaCorta(filtros.fechaInicio)} - ${formatFechaCorta(filtros.fechaFin)})` :
-                  `Producción ${formatFecha(fechaVistaActual)}`
-                }
-              </h3>
+            {/* Ley promedio + Estado conexión */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="lg:col-span-2 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg border border-emerald-200 p-6">
+                <h3 className="text-lg font-semibold text-emerald-800 mb-4 flex items-center gap-2">
+                  <FiTrendingUp />
+                  Ley Promedio del Período
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center">
+                    <p className="text-3xl font-bold text-emerald-700">{formatNumber(datos.dumpadas?.ley_promedio)}%</p>
+                    <p className="text-sm text-emerald-600">Cu Total (Dumpadas)</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-3xl font-bold text-blue-700">{formatNumber(datos.mezclas?.ley_promedio)}%</p>
+                    <p className="text-sm text-blue-600">Cu Estimada (Mezclas)</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Estado de módulos */}
+              <div className="bg-white rounded-lg shadow-sm border p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                  <FiBarChart2 />
+                  Resumen Estados
+                </h3>
+                <div className="space-y-3">
+                  {estadosDumpadasData.length > 0 && (
+                    <div>
+                      <div className="flex justify-between text-xs text-gray-600 mb-1">
+                        <span>Dumpadas completadas</span>
+                        <span>{datos.dumpadas?.total > 0 ? Math.round((datos.dumpadas.completadas / datos.dumpadas.total) * 100) : 0}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-emerald-500 h-2 rounded-full transition-all"
+                          style={{ width: `${datos.dumpadas?.total > 0 ? (datos.dumpadas.completadas / datos.dumpadas.total) * 100 : 0}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {estadosMezclasData.length > 0 && (
+                    <div>
+                      <div className="flex justify-between text-xs text-gray-600 mb-1">
+                        <span>Mezclas completadas</span>
+                        <span>{datos.mezclas?.total > 0 ? Math.round((datos.mezclas.completadas / datos.mezclas.total) * 100) : 0}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-blue-500 h-2 rounded-full transition-all"
+                          style={{ width: `${datos.mezclas?.total > 0 ? (datos.mezclas.completadas / datos.mezclas.total) * 100 : 0}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {estadosLotesData.length > 0 && (
+                    <div>
+                      <div className="flex justify-between text-xs text-gray-600 mb-1">
+                        <span>Lotes cerrados</span>
+                        <span>{datos.lotes?.total > 0 ? Math.round((datos.lotes.cerrados / datos.lotes.total) * 100) : 0}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-purple-500 h-2 rounded-full transition-all"
+                          style={{ width: `${datos.lotes?.total > 0 ? (datos.lotes.cerrados / datos.lotes.total) * 100 : 0}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center pt-2 border-t text-sm">
+                    <span className="text-gray-600">Conexión Producción:</span>
+                    <span className="font-medium text-green-600 flex items-center gap-1">
+                      <FiCheckCircle className="w-4 h-4" />
+                      Activo
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
-            
-            {/* Tabla responsive con scroll horizontal */}
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-red-50">
-                  <tr>
-                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider border-r">
-                      Faena
-                    </th>
-                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider border-r hidden sm:table-cell">
-                      Capacidad
-                    </th>
-                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider border-r">
-                      Padrón
-                    </th>
-                    <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider border-r hidden md:table-cell">
-                      Planta
-                    </th>
-                    <th className="px-2 sm:px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider border-r">
-                      Tonelaje
-                    </th>
-                    <th className="px-2 sm:px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider border-r hidden sm:table-cell">
-                      Ley %
-                    </th>
-                    <th className="px-2 sm:px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Viajes
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {(() => {
-                    // Obtener datos según la vista seleccionada
-                    const datos = vistaActual === 'agregado' ? obtenerDatosAgregados() : datosActuales;
-                    
-                    return datos.padrones && datos.padrones.length > 0 ? (
-                      datos.padrones.map((padron, index) => (
-                        <tr key={`${padron.faena}-${padron.padron}-${index}`} className="hover:bg-gray-50">
-                          <td className="px-2 sm:px-4 py-3 text-xs sm:text-sm text-gray-900 border-r">
-                            <div className="flex items-center">
-                              <FiMapPin className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 mr-1 sm:mr-2 flex-shrink-0" />
-                              <span className="truncate">{padron.faena || '-'}</span>
-                            </div>
+
+            {/* Gráfico: Producción diaria - Tonelaje */}
+            {produccionDiariaData.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                <div className="bg-emerald-50 px-6 py-4 border-b">
+                  <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <FiBarChart2 className="text-emerald-600" />
+                    Producción Diaria - Tonelaje
+                  </h3>
+                </div>
+                <div className="p-4">
+                  <ResponsiveContainer width="100%" height={320}>
+                    <BarChart data={produccionDiariaData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="fecha" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Legend />
+                      <Bar dataKey="tonelaje" name="Tonelaje (t)" fill={COLORS.emerald} radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="cantidad" name="Cantidad" fill={COLORS.blueLight} radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {/* Gráfico: Ley promedio diaria */}
+            {produccionDiariaData.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                <div className="bg-teal-50 px-6 py-4 border-b">
+                  <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <FiTrendingUp className="text-teal-600" />
+                    Ley Cu Promedio Diaria (%)
+                  </h3>
+                </div>
+                <div className="p-4">
+                  <ResponsiveContainer width="100%" height={280}>
+                    <AreaChart data={produccionDiariaData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorLey" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={COLORS.emerald} stopOpacity={0.3} />
+                          <stop offset="95%" stopColor={COLORS.emerald} stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="fecha" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} domain={['auto', 'auto']} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Area
+                        type="monotone"
+                        dataKey="ley_promedio"
+                        name="Ley Cu (%)"
+                        stroke={COLORS.emerald}
+                        strokeWidth={2}
+                        fill="url(#colorLey)"
+                        dot={{ r: 4, fill: COLORS.emerald }}
+                        activeDot={{ r: 6 }}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {/* Gráfico: Top Frentes + Distribución estados */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Top Frentes */}
+              {topFrentesData.length > 0 && (
+                <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                  <div className="bg-blue-50 px-6 py-4 border-b">
+                    <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                      <FaMountain className="text-blue-600" />
+                      Top Frentes por Tonelaje
+                    </h3>
+                  </div>
+                  <div className="p-4">
+                    <ResponsiveContainer width="100%" height={Math.max(280, topFrentesData.length * 45)}>
+                      <BarChart data={topFrentesData} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis type="number" tick={{ fontSize: 11 }} />
+                        <YAxis dataKey="nombre" type="category" width={120} tick={{ fontSize: 11 }} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Bar dataKey="tonelaje" name="Tonelaje (t)" fill={COLORS.blue} radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+
+              {/* Distribución de estados */}
+              <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                <div className="bg-purple-50 px-6 py-4 border-b">
+                  <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <FiLayers className="text-purple-600" />
+                    Distribución por Estados
+                  </h3>
+                </div>
+                <div className="p-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {/* Pie Dumpadas */}
+                    {estadosDumpadasData.length > 0 && (
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-gray-700 mb-2">Dumpadas</p>
+                        <ResponsiveContainer width="100%" height={160}>
+                          <PieChart>
+                            <Pie
+                              data={estadosDumpadasData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={35}
+                              outerRadius={60}
+                              paddingAngle={3}
+                              dataKey="value"
+                            >
+                              {estadosDumpadasData.map((_, i) => (
+                                <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="flex justify-center gap-3 text-xs mt-1">
+                          {estadosDumpadasData.map((d, i) => (
+                            <span key={i} className="flex items-center gap-1">
+                              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: PIE_COLORS[i] }} />
+                              {d.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Pie Mezclas */}
+                    {estadosMezclasData.length > 0 && (
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-gray-700 mb-2">Mezclas</p>
+                        <ResponsiveContainer width="100%" height={160}>
+                          <PieChart>
+                            <Pie
+                              data={estadosMezclasData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={35}
+                              outerRadius={60}
+                              paddingAngle={3}
+                              dataKey="value"
+                            >
+                              {estadosMezclasData.map((_, i) => (
+                                <Cell key={i} fill={[COLORS.orange, COLORS.green][i]} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="flex justify-center gap-3 text-xs mt-1">
+                          {estadosMezclasData.map((d, i) => (
+                            <span key={i} className="flex items-center gap-1">
+                              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: [COLORS.orange, COLORS.green][i] }} />
+                              {d.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Pie Lotes */}
+                    {estadosLotesData.length > 0 && (
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-gray-700 mb-2">Lotes</p>
+                        <ResponsiveContainer width="100%" height={160}>
+                          <PieChart>
+                            <Pie
+                              data={estadosLotesData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={35}
+                              outerRadius={60}
+                              paddingAngle={3}
+                              dataKey="value"
+                            >
+                              {estadosLotesData.map((_, i) => (
+                                <Cell key={i} fill={[COLORS.purple, COLORS.green][i]} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="flex justify-center gap-3 text-xs mt-1">
+                          {estadosLotesData.map((d, i) => (
+                            <span key={i} className="flex items-center gap-1">
+                              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: [COLORS.purple, COLORS.green][i] }} />
+                              {d.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Tabla: Producción diaria (detalle) */}
+            {produccionDiariaData.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                <div className="bg-emerald-50 px-6 py-4 border-b">
+                  <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <FiBarChart2 />
+                    Detalle Producción Últimos 7 Días
+                  </h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cantidad</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Tonelaje</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Ley Promedio</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {produccionDiariaData.map((dia, index) => (
+                        <tr key={index} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {dia.fecha}
                           </td>
-                          <td className="px-2 sm:px-4 py-3 text-xs sm:text-sm text-gray-900 border-r hidden sm:table-cell">
-                            {padron.capacidad || '-'}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right">
+                            {formatInteger(dia.cantidad)}
                           </td>
-                          <td className="px-2 sm:px-4 py-3 text-xs sm:text-sm text-gray-900 border-r font-medium">
-                            <div className="max-w-[100px] sm:max-w-none truncate" title={padron.padron}>
-                              {padron.padron || '-'}
-                            </div>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right">
+                            {formatNumber(dia.tonelaje)} t
                           </td>
-                          <td className="px-2 sm:px-4 py-3 text-xs sm:text-sm text-gray-900 border-r hidden md:table-cell">
-                            {padron.planta || '-'}
-                          </td>
-                          <td className="px-2 sm:px-4 py-3 text-xs sm:text-sm text-gray-900 text-right border-r font-medium">
-                            {formatNumber(padron.tonelaje)}
-                          </td>
-                          <td className="px-2 sm:px-4 py-3 text-xs sm:text-sm text-gray-900 text-right border-r hidden sm:table-cell">
-                            {padron.ley_ponderada ? formatNumber(padron.ley_ponderada) + '%' : '-'}
-                          </td>
-                          <td className="px-2 sm:px-4 py-3 text-xs sm:text-sm text-gray-900 text-right">
-                            {padron.viajes || 0}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right">
+                            {formatNumber(dia.ley_promedio)}%
                           </td>
                         </tr>
-                      ))
-                    ) : (
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Tabla: Top frentes (detalle) */}
+            {topFrentesData.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                <div className="bg-blue-50 px-6 py-4 border-b">
+                  <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <FaMountain />
+                    Detalle Top Frentes de Trabajo
+                  </h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
                       <tr>
-                        <td colSpan="7" className="px-4 py-8 text-center text-gray-500 text-sm">
-                          {error ? 'Error al cargar datos' : 'No hay registros de producción para los filtros seleccionados'}
-                        </td>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Frente</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Dumpadas</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Tonelaje</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Ley Promedio</th>
                       </tr>
-                    );
-                  })()}
-                  
-                  {/* Separador */}
-                  {(() => {
-                    const datos = vistaActual === 'agregado' ? obtenerDatosAgregados() : datosActuales;
-                    return datos.padrones && datos.padrones.length > 0 && (
-                      <tr>
-                        <td colSpan="7" className="py-2"></td>
-                      </tr>
-                    );
-                  })()}
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {topFrentesData.map((frente, index) => (
+                        <tr key={index} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {frente.nombre}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right">
+                            {formatInteger(frente.cantidad)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right">
+                            {formatNumber(frente.tonelaje)} t
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right">
+                            {formatNumber(frente.ley_promedio)}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
+        )}
 
-                  {/* Totales por planta */}
-                  {(() => {
-                    const datos = vistaActual === 'agregado' ? obtenerDatosAgregados() : datosActuales;
-                    return datos.totales_planta && datos.totales_planta.map((total, index) => (
-                      <tr key={`total-${index}`} className="bg-gray-50 font-medium">
-                        <td className="px-2 sm:px-4 py-3 text-xs sm:text-sm text-gray-900 border-r"></td>
-                        <td className="px-2 sm:px-4 py-3 text-xs sm:text-sm text-gray-900 border-r hidden sm:table-cell"></td>
-                        <td className="px-2 sm:px-4 py-3 text-xs sm:text-sm text-gray-900 border-r font-bold">
-                          TOTAL {total.planta}
-                        </td>
-                        <td className="px-2 sm:px-4 py-3 text-xs sm:text-sm text-gray-900 border-r hidden md:table-cell"></td>
-                        <td className="px-2 sm:px-4 py-3 text-xs sm:text-sm text-gray-900 text-right border-r font-bold">
-                          {formatNumber(total.tonelaje)}
-                        </td>
-                        <td className="px-2 sm:px-4 py-3 text-xs sm:text-sm text-gray-900 text-right border-r font-bold hidden sm:table-cell">
-                          {formatNumber(total.ley_promedio)}%
-                        </td>
-                        <td className="px-2 sm:px-4 py-3 text-xs sm:text-sm text-gray-900 text-right font-bold">
-                          {total.viajes}
-                        </td>
-                      </tr>
-                    ));
-                  })()}
-
-                  {/* Total general */}
-                  {(() => {
-                    const datos = vistaActual === 'agregado' ? obtenerDatosAgregados() : datosActuales;
-                    return datos.total_general && datos.total_general.tonelaje > 0 && (
-                      <tr className="bg-blue-50 font-bold border-t-2 border-blue-200">
-                        <td className="px-2 sm:px-4 py-3 text-xs sm:text-sm text-gray-900 border-r"></td>
-                        <td className="px-2 sm:px-4 py-3 text-xs sm:text-sm text-gray-900 border-r hidden sm:table-cell"></td>
-                        <td className="px-2 sm:px-4 py-3 text-xs sm:text-sm text-gray-900 border-r font-bold">
-                          Total General
-                        </td>
-                        <td className="px-2 sm:px-4 py-3 text-xs sm:text-sm text-gray-900 border-r hidden md:table-cell"></td>
-                        <td className="px-2 sm:px-4 py-3 text-xs sm:text-sm text-gray-900 text-right border-r font-bold">
-                          {formatNumber(datos.total_general.tonelaje)}
-                        </td>
-                        <td className="px-2 sm:px-4 py-3 text-xs sm:text-sm text-gray-900 text-right border-r font-bold hidden sm:table-cell">
-                          {formatNumber(datos.total_general.ley_promedio)}%
-                        </td>
-                        <td className="px-2 sm:px-4 py-3 text-xs sm:text-sm text-gray-900 text-right font-bold">
-                          {datos.total_general.viajes}
-                        </td>
-                      </tr>
-                    );
-                  })()}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer con información adicional */}
-        <div className="bg-gray-50 rounded-lg border p-4">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-xs sm:text-sm text-gray-600 space-y-2 sm:space-y-0">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-1 sm:space-y-0">
-              <span>Última actualización: {new Date().toLocaleTimeString('es-ES')}</span>
-              {vistaActual === 'agregado' && datosProduccion.resumen_periodo && (
-                <span className="hidden sm:inline">
-                  Promedio diario: {formatNumber((datosProduccion.resumen_periodo.tonelaje_total || 0) / Math.max(1, datosProduccion.resumen_periodo.dias_con_produccion || 1))} t/día
-                </span>
-              )}
-              <span>Vista: {vistaActual === 'agregado' ? 'Datos agregados' : 'Fecha individual'}</span>
-            </div>
-            <div className="flex items-center justify-center sm:justify-end">
-              <button 
-                onClick={() => window.print()}
-                className="flex items-center space-x-1 px-3 py-1 text-gray-600 hover:text-gray-800 border border-gray-300 rounded hover:bg-white text-xs"
-              >
-                <FiDownload className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span>Exportar</span>
-              </button>
-            </div>
-          </div>
-        </div>
+        {/* Footer */}
+        <footer className="text-center text-sm text-gray-500 py-4">
+          <p>&copy; {new Date().getFullYear()} Minera 3H - Sistema de Gestión Integral</p>
+          <p className="mt-1">Datos obtenidos del Sistema de Producción (Puerto 8002)</p>
+        </footer>
       </div>
     </div>
   );
 };
 
-export default ProduccionDiaria;
+export default GestionProduccion;

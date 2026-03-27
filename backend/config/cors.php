@@ -26,6 +26,8 @@ return [
         /* 'http://192.168.18.108:3000',Ruta para pruebas locales de auditoria */
         'http://localhost:5173', // Sistema Centralizado
         'http://127.0.0.1:5173', // Sistema Centralizado
+        'http://localhost:5174', // Sistema Producción
+        'http://127.0.0.1:5174', // Sistema Producción
         'https://api.m3h.cl'
     ], /* que dominios pueden realizar peticiones CORS */
 

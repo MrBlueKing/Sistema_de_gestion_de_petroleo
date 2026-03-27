@@ -548,7 +548,7 @@ class AdminOperadorController extends Controller
             $maquinasDisponibles = Maquinas::select('id_maquina', 'nombre_maquina', 'tipo_maquina', 'patente', 'estado', 'id_categoria', 'chc_maquina')
                 ->with('categoria:id_categoria,nombre_categoria') // Cargar relación con categoría si existe
                 ->where('estado', 1) // Solo máquinas activas
-                ->whereIn('id_categoria', [11, 2]) // Solo rol operador (id_rol = 6)
+                ->whereIn('id_categoria', [11, 2, 15]) // Solo rol operador (id_rol = 6)
                 ->whereNotIn('id_maquina', function ($query) {
                     // Excluir máquinas que ya tienen asignación activa
                     $query->select('id_maquina')
@@ -647,7 +647,7 @@ class AdminOperadorController extends Controller
                     ->where('id_rol', 6)
                     ->count(),
                 'total_maquinas' => Maquinas::where('estado', 1)
-                    ->whereIn('id_categoria', [2, 11])
+                    ->whereIn('id_categoria', [2, 11, 15])
                     ->count(),
                 'porcentaje_asignacion' => [
                     'usuarios' => User::where('estado', 1)->count() > 0
@@ -1019,7 +1019,7 @@ class AdminOperadorController extends Controller
             $categorias = DB::table('categorias_maquinas')
                 ->select('id_categoria', 'nombre_categoria', 'tipo_medicion', 'chc', 'hrc')
                 ->orderBy('nombre_categoria')
-                ->whereIn('id_categoria', [2, 11])
+                ->whereIn('id_categoria', [2, 11, 15])
                 ->get();
 
             // Obtener faenas disponibles
@@ -1328,7 +1328,7 @@ class AdminOperadorController extends Controller
             ->leftJoin('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria')
             ->leftJoin('permisos_maquinas_faenas as pmf', 'm.id_maquina', '=', 'pmf.id_maquina')
             ->leftJoin('faenas as f', 'pmf.id_faena', '=', 'f.id_faena')
-            ->whereIn('m.id_categoria', [2, 11])
+            ->whereIn('m.id_categoria', [2, 11, 15])
             ->select([
                 'm.id_maquina',
                 'm.nombre_maquina',
