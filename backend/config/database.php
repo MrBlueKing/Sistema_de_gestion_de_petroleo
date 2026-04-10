@@ -64,11 +64,11 @@ return [
 
         'bodega' => [
             'driver' => 'mysql',
-            'host' => 'api.m3h.cl',
-            'port' => '3306',
-            'database' => 'mhcl_sistemabodega',
-            'username' => 'mhcl_bodega3h',
-            'password' => 'MCgUM5Nr)?_Z',
+            'host' => env('DB_BODEGA_HOST', 'api.m3h.cl'),
+            'port' => env('DB_BODEGA_PORT', '3306'),
+            'database' => env('DB_BODEGA_DATABASE', 'mhcl_sistemabodega'),
+            'username' => env('DB_BODEGA_USERNAME', 'mhcl_bodega3h'),
+            'password' => env('DB_BODEGA_PASSWORD', ''),
             'charset' => 'utf8mb4',
             'collation' => 'utf8mb4_unicode_ci',
             'prefix' => '',
