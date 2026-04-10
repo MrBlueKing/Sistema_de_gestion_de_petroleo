@@ -21,10 +21,9 @@ const HomePage = () => {
 
     // Si NO hay token en URL, verificar si hay sesión válida
     if (!isSessionValid()) {
-      // NO hay sesión válida → Redirigir INMEDIATAMENTE al sistema centralizado
-      console.log('🔒 Sin sesión válida, redirigiendo a sistema centralizado...');
-      const centralizadoUrl = authCentralizadoService.getCentralSystemUrl();
-      window.location.href = centralizadoUrl;
+      // NO hay sesión válida → Redirigir al login propio del sistema
+      console.log('🔒 Sin sesión válida, redirigiendo a login...');
+      navigate('/login');
       return;
     }
 

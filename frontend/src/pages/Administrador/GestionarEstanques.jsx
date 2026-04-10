@@ -8,7 +8,10 @@ import {
   FaTint,
   FaGasPump,
   FaTruck,
-  FaSearch
+  FaSearch,
+  FaChartLine,
+  FaTimes,
+  FaBan,
 } from "react-icons/fa";
 import UniversalHeader from "../../components/organisms/Todos/UniversalHeader";
 import axios from "../../lib/axios";
@@ -22,6 +25,21 @@ const GestionarEstanques = () => {
   const [filtroFaena, setFiltroFaena] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('');
   const [busqueda, setBusqueda] = useState('');
+
+  // Estado para modal de movimientos
+  const [showMovimientos, setShowMovimientos] = useState(false);
+  const [estanqueDetalle, setEstanqueDetalle] = useState(null);
+  const [movimientos, setMovimientos] = useState([]);
+  const [loadingMovimientos, setLoadingMovimientos] = useState(false);
+  const [fechaMovimientos, setFechaMovimientos] = useState(
+    new Date().toISOString().split('T')[0]
+  );
+
+  // Estado para anulación
+  const [showConfirmAnular, setShowConfirmAnular] = useState(false);
+  const [consumoAAnular, setConsumoAAnular] = useState(null);
+  const [motivoAnulacion, setMotivoAnulacion] = useState('');
+  const [anulando, setAnulando] = useState(false);
 
   const [formData, setFormData] = useState({
     nombre: '',
@@ -124,7 +142,6 @@ const GestionarEstanques = () => {
 
   const handleToggleActivo = async (id, nombre, activoActual) => {
     if (!activoActual) {
-      // Activar estanque
       try {
         const response = await axios.patch(`/api/admin/estanques/${id}/activate`);
         if (response.data.success) {
@@ -136,10 +153,80 @@ const GestionarEstanques = () => {
         alert('Error al activar el estanque');
       }
     } else {
-      // Desactivar estanque
       handleEliminar(id, nombre);
     }
   };
+
+  // ─── Movimientos ────────────────────────────────────────────────────────────
+
+  const abrirMovimientos = async (estanque) => {
+    setEstanqueDetalle(estanque);
+    setShowMovimientos(true);
+    await cargarMovimientos(estanque.id_estanque, fechaMovimientos);
+  };
+
+  const cerrarMovimientos = () => {
+    setShowMovimientos(false);
+    setEstanqueDetalle(null);
+    setMovimientos([]);
+    setShowConfirmAnular(false);
+    setConsumoAAnular(null);
+    setMotivoAnulacion('');
+  };
+
+  const cargarMovimientos = async (idEstanque, fecha) => {
+    setLoadingMovimientos(true);
+    try {
+      const res = await axios.get(`/api/admin/estanques/${idEstanque}/movimientos`, {
+        params: { fecha }
+      });
+      if (res.data.success) {
+        setMovimientos(res.data.data);
+      }
+    } catch (error) {
+      console.error('Error al cargar movimientos:', error);
+      alert('Error al cargar los movimientos');
+    } finally {
+      setLoadingMovimientos(false);
+    }
+  };
+
+  const handleCambioFecha = (nuevaFecha) => {
+    setFechaMovimientos(nuevaFecha);
+    if (estanqueDetalle) {
+      cargarMovimientos(estanqueDetalle.id_estanque, nuevaFecha);
+    }
+  };
+
+  // ─── Anulación ──────────────────────────────────────────────────────────────
+
+  const pedirEliminar = (movimiento) => {
+    setConsumoAAnular(movimiento);
+    setShowConfirmAnular(true);
+  };
+
+  const handleEliminarConsumo = async () => {
+    setAnulando(true);
+    try {
+      const res = await axios.delete(`/api/consumos/${consumoAAnular.id_consumo}`);
+
+      if (res.data.success) {
+        alert(res.data.message);
+        setShowConfirmAnular(false);
+        setConsumoAAnular(null);
+        await Promise.all([
+          cargarMovimientos(estanqueDetalle.id_estanque, fechaMovimientos),
+          cargarDatos()
+        ]);
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || 'Error al eliminar el consumo');
+    } finally {
+      setAnulando(false);
+    }
+  };
+
+  // ─── Utilidades ─────────────────────────────────────────────────────────────
 
   const abrirModalNuevo = () => {
     setFormData({
@@ -169,28 +256,28 @@ const GestionarEstanques = () => {
 
   const getTipoIcon = (tipo) => {
     switch (tipo) {
-      case 'fijo':
-        return <FaGasPump className="text-blue-500" />;
-      case 'movil':
-        return <FaTruck className="text-green-500" />;
-      case 'fijo_automatico':
-        return <FaTint className="text-purple-500" />;
-      default:
-        return <FaGasPump />;
+      case 'fijo': return <FaGasPump className="text-blue-500" />;
+      case 'movil': return <FaTruck className="text-green-500" />;
+      case 'fijo_automatico': return <FaTint className="text-purple-500" />;
+      default: return <FaGasPump />;
     }
   };
 
   const getTipoLabel = (tipo) => {
     switch (tipo) {
-      case 'fijo':
-        return 'Fijo';
-      case 'movil':
-        return 'Móvil';
-      case 'fijo_automatico':
-        return 'Fijo Automático';
-      default:
-        return tipo;
+      case 'fijo': return 'Fijo';
+      case 'movil': return 'Móvil';
+      case 'fijo_automatico': return 'Fijo Automático';
+      default: return tipo;
     }
+  };
+
+  const formatFecha = (fecha) => {
+    if (!fecha) return '-';
+    return new Date(fecha).toLocaleString('es-CL', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
   };
 
   // Filtrado de estanques
@@ -199,7 +286,7 @@ const GestionarEstanques = () => {
     const cumpleTipo = !filtroTipo || est.tipo_estanque === filtroTipo;
     const cumpleBusqueda = !busqueda ||
       est.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-      est.nombre_faena.toLowerCase().includes(busqueda.toLowerCase());
+      (est.nombre_faena && est.nombre_faena.toLowerCase().includes(busqueda.toLowerCase()));
 
     return cumpleFaena && cumpleTipo && cumpleBusqueda;
   });
@@ -269,7 +356,7 @@ const GestionarEstanques = () => {
                 <option value="">Todas las faenas</option>
                 {faenas.map(faena => (
                   <option key={faena.id_faena} value={faena.id_faena}>
-                    {faena.nombre_faena}
+                    {faena.ubicacion}
                   </option>
                 ))}
               </select>
@@ -400,7 +487,14 @@ const GestionarEstanques = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex gap-2">
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => abrirMovimientos(estanque)}
+                            className="text-indigo-600 hover:text-indigo-900"
+                            title="Ver movimientos"
+                          >
+                            <FaChartLine size={18} />
+                          </button>
                           <button
                             onClick={() => handleEditar(estanque)}
                             className="text-blue-600 hover:text-blue-900"
@@ -440,7 +534,186 @@ const GestionarEstanques = () => {
         </div>
       </div>
 
-      {/* Modal Crear/Editar */}
+      {/* ─── Modal Movimientos ──────────────────────────────────────────────── */}
+      {showMovimientos && estanqueDetalle && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] flex flex-col">
+
+            {/* Header del modal */}
+            <div className="flex justify-between items-start p-6 border-b">
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">
+                  {estanqueDetalle.nombre}
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Stock actual: <strong>{Number(estanqueDetalle.stock_actual).toLocaleString('es-CL')} L</strong>
+                  {' · '}
+                  {estanqueDetalle.nombre_faena}
+                </p>
+              </div>
+              <button
+                onClick={cerrarMovimientos}
+                className="text-gray-400 hover:text-gray-600 text-xl"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            {/* Filtro de fecha */}
+            <div className="px-6 py-3 bg-gray-50 border-b flex items-center gap-3">
+              <label className="text-sm font-medium text-gray-700">Fecha:</label>
+              <input
+                type="date"
+                value={fechaMovimientos}
+                onChange={(e) => handleCambioFecha(e.target.value)}
+                className="border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500"
+              />
+              {loadingMovimientos && (
+                <span className="text-sm text-gray-400">Cargando...</span>
+              )}
+            </div>
+
+            {/* Tabla de movimientos */}
+            <div className="overflow-y-auto flex-1 p-6">
+              {loadingMovimientos ? (
+                <div className="flex justify-center py-12">
+                  <div className="text-gray-400">Cargando movimientos...</div>
+                </div>
+              ) : movimientos.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  No hay movimientos registrados para esta fecha
+                </div>
+              ) : (
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Hora</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Movimiento</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Litros</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Contraparte</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Observación</th>
+                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-100">
+                    {movimientos.map((mov, i) => (
+                      <tr
+                        key={i}
+                        className={`${mov.anulado ? 'opacity-50 bg-red-50' : 'hover:bg-gray-50'}`}
+                      >
+                        <td className="px-4 py-3 whitespace-nowrap text-gray-600">
+                          {formatFecha(mov.fecha)}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-gray-800">
+                          {mov.tipo}
+                          {mov.anulado ? (
+                            <span className="ml-2 text-xs text-red-500 font-semibold">ANULADO</span>
+                          ) : null}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                            mov.movimiento === 'ENTRADA'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-orange-100 text-orange-700'
+                          }`}>
+                            {mov.movimiento}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-right font-medium">
+                          {Number(mov.litros).toLocaleString('es-CL')} L
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">{mov.contraparte || '-'}</td>
+                        <td className="px-4 py-3 text-gray-500 max-w-xs truncate">
+                          {mov.observacion || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {mov.id_consumo ? (
+                            <button
+                              onClick={() => pedirEliminar(mov)}
+                              className="text-red-500 hover:text-red-700 flex items-center gap-1 mx-auto text-xs font-medium"
+                              title="Eliminar consumo"
+                            >
+                              <FaBan size={13} /> Eliminar
+                            </button>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Totales */}
+            {!loadingMovimientos && movimientos.length > 0 && (
+              <div className="px-6 py-3 bg-gray-50 border-t flex gap-8 text-sm">
+                <div>
+                  <span className="text-gray-500">Total entradas: </span>
+                  <strong className="text-green-600">
+                    {movimientos
+                      .filter(m => m.movimiento === 'ENTRADA' && !m.anulado)
+                      .reduce((s, m) => s + Number(m.litros), 0)
+                      .toLocaleString('es-CL')} L
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-gray-500">Total salidas: </span>
+                  <strong className="text-orange-600">
+                    {movimientos
+                      .filter(m => m.movimiento === 'SALIDA' && !m.anulado)
+                      .reduce((s, m) => s + Number(m.litros), 0)
+                      .toLocaleString('es-CL')} L
+                  </strong>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ─── Modal Confirmar Anulación ──────────────────────────────────────── */}
+      {showConfirmAnular && consumoAAnular && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-60 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <FaBan className="text-red-500 text-2xl" />
+              <h3 className="text-lg font-bold text-gray-800">Eliminar consumo</h3>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-2">
+              Vas a eliminar el consumo de{' '}
+              <strong>{Number(consumoAAnular.litros).toLocaleString('es-CL')} L</strong>
+              {' '}hacia <strong>{consumoAAnular.contraparte}</strong>.
+            </p>
+            <p className="text-sm text-gray-500 mb-6">
+              Los litros volverán al estanque <strong>{estanqueDetalle?.nombre}</strong>. Esta acción no se puede deshacer.
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleEliminarConsumo}
+                disabled={anulando}
+                className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white py-2 rounded-lg text-sm font-medium transition-colors"
+              >
+                {anulando ? 'Eliminando...' : 'Confirmar eliminación'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowConfirmAnular(false);
+                  setConsumoAAnular(null);
+                }}
+                disabled={anulando}
+                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Modal Crear/Editar ─────────────────────────────────────────────── */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -535,7 +808,7 @@ const GestionarEstanques = () => {
                     <option value="">Seleccione una faena</option>
                     {faenas.map((faena) => (
                       <option key={faena.id_faena} value={faena.id_faena}>
-                        {faena.nombre_faena}
+                        {faena.ubicacion}
                       </option>
                     ))}
                   </select>

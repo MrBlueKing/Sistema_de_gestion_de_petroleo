@@ -613,7 +613,7 @@ class EstanqueController extends Controller
                         'capacidad' => $capacidad,
                         'altura_nominal' => (float) $estanque->altura_nominal,
                         'id_faena' => (int) $estanque->id_faena,
-                        'nombre_faena' => $estanque->faena ? $estanque->faena->nombre_faena : 'Sin faena',
+                        'nombre_faena' => $estanque->faena ? $estanque->faena->ubicacion : 'Sin faena',
                         'activo' => (bool) $estanque->activo,
                         'stock_actual' => $stockActual,
                         'porcentaje_llenado' => $capacidad > 0 ? round(($stockActual / $capacidad) * 100, 2) : 0,
@@ -664,7 +664,7 @@ class EstanqueController extends Controller
                 'capacidad' => $capacidad,
                 'altura_nominal' => (float) $estanque->altura_nominal,
                 'id_faena' => (int) $estanque->id_faena,
-                'nombre_faena' => $estanque->faena ? $estanque->faena->nombre_faena : null,
+                'nombre_faena' => $estanque->faena ? $estanque->faena->ubicacion : null,
                 'activo' => (bool) $estanque->activo,
                 'stock_actual' => $stockActual,
                 'altura_actual' => $estanque->stock ? (float) $estanque->stock->altura_actual : 0.0,
@@ -917,6 +917,116 @@ class EstanqueController extends Controller
                 'success' => false,
                 'message' => 'Error al activar el estanque: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Movimientos de un estanque (entradas y salidas) con filtro de fecha
+     */
+    public function movimientos(Request $request, $id)
+    {
+        try {
+            $estanque = Estanque::find($id);
+            if (!$estanque) {
+                return response()->json(['success' => false, 'message' => 'Estanque no encontrado'], 404);
+            }
+
+            $fecha = $request->get('fecha', now()->toDateString());
+
+            $movimientos = DB::select("
+                SELECT tipo, movimiento, fecha, litros, contraparte, observacion, id_consumo, anulado
+                FROM (
+                    SELECT
+                        'Consumo' AS tipo,
+                        'SALIDA' AS movimiento,
+                        c.fecha_consumo AS fecha,
+                        c.litros_consumidos AS litros,
+                        COALESCE(m.nombre_maquina, 'N/A') AS contraparte,
+                        c.observacion,
+                        c.id_consumo,
+                        c.anulado
+                    FROM consumos c
+                    LEFT JOIN maquinas m ON c.id_equipo = m.id_maquina
+                    WHERE c.id_estanque = ?
+                      AND DATE(c.fecha_consumo) = ?
+
+                    UNION ALL
+
+                    SELECT
+                        'Consumo múltiple' AS tipo,
+                        'SALIDA' AS movimiento,
+                        c.fecha_consumo AS fecha,
+                        ce.litros_desde_estanque AS litros,
+                        COALESCE(m.nombre_maquina, 'N/A') AS contraparte,
+                        c.observacion,
+                        c.id_consumo,
+                        c.anulado
+                    FROM consumo_estanques ce
+                    JOIN consumos c ON ce.id_consumo = c.id_consumo
+                    LEFT JOIN maquinas m ON c.id_equipo = m.id_maquina
+                    WHERE ce.id_estanque = ?
+                      AND DATE(c.fecha_consumo) = ?
+
+                    UNION ALL
+
+                    SELECT
+                        'Trasvasije fijo→móvil' AS tipo,
+                        'SALIDA' AS movimiento,
+                        t.fecha_trasvasije AS fecha,
+                        d.litros_desde_estanque AS litros,
+                        COALESCE(e_movil.nombre, 'N/A') AS contraparte,
+                        t.observaciones,
+                        NULL AS id_consumo,
+                        0 AS anulado
+                    FROM trasvasijes_multi_fijo_a_movil_detalle d
+                    JOIN trasvasijes_multi_fijo_a_movil t ON d.id_trasvasije_multi = t.id_trasvasije
+                    LEFT JOIN estanques e_movil ON t.id_estanque_movil = e_movil.id_estanque
+                    WHERE d.id_estanque_fijo = ?
+                      AND DATE(t.fecha_trasvasije) = ?
+
+                    UNION ALL
+
+                    SELECT
+                        'Trasvasije móvil→fijo' AS tipo,
+                        'ENTRADA' AS movimiento,
+                        t.fecha_trasvasije AS fecha,
+                        t.litros_trasvasijados AS litros,
+                        COALESCE(e_movil.nombre, 'N/A') AS contraparte,
+                        t.observaciones,
+                        NULL AS id_consumo,
+                        0 AS anulado
+                    FROM trasvasijes_movil_a_fijo t
+                    LEFT JOIN estanques e_movil ON t.id_estanque_movil = e_movil.id_estanque
+                    WHERE t.id_estanque_fijo = ?
+                      AND DATE(t.fecha_trasvasije) = ?
+
+                    UNION ALL
+
+                    SELECT
+                        'Ingreso/Recepción' AS tipo,
+                        'ENTRADA' AS movimiento,
+                        created_at AS fecha,
+                        litros_recibidos AS litros,
+                        numero_guia AS contraparte,
+                        observacion,
+                        NULL AS id_consumo,
+                        0 AS anulado
+                    FROM ingresos_petroleo
+                    WHERE id_faena = ?
+                      AND DATE(created_at) = ?
+                ) AS movimientos
+                ORDER BY fecha DESC
+            ", [$id, $fecha, $id, $fecha, $id, $fecha, $id, $fecha, $estanque->id_faena, $fecha]);
+
+            return response()->json([
+                'success' => true,
+                'estanque' => $estanque->nombre,
+                'fecha' => $fecha,
+                'data' => $movimientos,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener movimientos de estanque', ['id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
     }
 }

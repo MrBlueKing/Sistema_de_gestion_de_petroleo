@@ -614,11 +614,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('admin/estanques')->group(function () {
         Route::get('/', [EstanqueController::class, 'index']); // Listar todos
         Route::get('/{id}', [EstanqueController::class, 'show']); // Ver uno específico
+        Route::get('/{id}/movimientos', [EstanqueController::class, 'movimientos']); // Movimientos del día
         Route::post('/', [EstanqueController::class, 'store']); // Crear
         Route::put('/{id}', [EstanqueController::class, 'update']); // Actualizar
         Route::delete('/{id}', [EstanqueController::class, 'destroy']); // Desactivar
         Route::patch('/{id}/activate', [EstanqueController::class, 'activate']); // Activar
     });
+
+    Route::delete('/consumos/{id}', [ConsumoController::class, 'eliminarConsumo']);
 
     Route::apiResource('/kpi-valores-entrada', KpiValoresEntradaController::class);
     Route::post('/calcular-kpis', [KpiCalculoController::class, 'calcular']);

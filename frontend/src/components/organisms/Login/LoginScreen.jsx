@@ -15,7 +15,7 @@ import authCentralizadoService from "../../../services/authCentralizado";
 
 const LoginScreen = () => {
   // 🔒 CONFIGURACIÓN: Forzar login centralizado únicamente
-  const FORCE_CENTRALIZED_LOGIN = true; // Cambiar a false para permitir login local
+  const FORCE_CENTRALIZED_LOGIN = false; // Cambiar a false para permitir login local
 
   const [formData, setFormData] = useState({
     rut: "",

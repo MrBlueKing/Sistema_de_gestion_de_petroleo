@@ -2000,4 +2000,48 @@ class ConsumoController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Eliminar un consumo y devolver los litros a los estanques
+     */
+    public function eliminarConsumo($id)
+    {
+        $consumo = Consumo::with('consumoEstanques')->find($id);
+
+        if (!$consumo) {
+            return response()->json(['success' => false, 'message' => 'Consumo no encontrado'], 404);
+        }
+
+        DB::beginTransaction();
+        try {
+            // Devolver litros a cada estanque involucrado
+            if ($consumo->consumoEstanques->isNotEmpty()) {
+                foreach ($consumo->consumoEstanques as $ce) {
+                    $stock = \App\Models\EstanqueStock::where('id_estanque', $ce->id_estanque)->first();
+                    if ($stock) {
+                        $stock->increment('stock_actual', (float) $ce->litros_desde_estanque);
+                    }
+                }
+            } else {
+                $stock = \App\Models\EstanqueStock::where('id_estanque', $consumo->id_estanque)->first();
+                if ($stock) {
+                    $stock->increment('stock_actual', (float) $consumo->litros_consumidos);
+                }
+            }
+
+            $consumo->consumoEstanques()->delete();
+            $consumo->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Consumo eliminado. Litros devueltos al estanque.',
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error al eliminar consumo', ['id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al eliminar: ' . $e->getMessage()], 500);
+        }
+    }
 }

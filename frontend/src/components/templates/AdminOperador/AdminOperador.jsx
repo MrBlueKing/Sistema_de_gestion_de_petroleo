@@ -20,13 +20,13 @@ const AdminOperador = () => {
     // 📋 Configuración de permisos por rol
     const rolePermissions = {
         // Gerente: Acceso completo a todo
-        gerente: ['consumos-externos', 'consumos-internos', 'graficos', 'recepciones', 'prod-kpis', 'prod-graficos', 'prod-tablas'],
+        gerente: ['consumos-externos', 'consumos-internos', 'graficos', 'recepciones'],
 
         // Admin Operador: Acceso completo (rol original)
-        admin_operador: ['principal', 'consumos-externos', 'consumos-internos', 'graficos', 'recepciones', 'prod-kpis', 'prod-graficos', 'prod-tablas', 'maquinas', 'usuarios'],
+        admin_operador: ['principal', 'consumos-externos', 'consumos-internos', 'graficos', 'recepciones', 'maquinas', 'usuarios'],
 
         // Jefe de Mina: Acceso a vistas operacionales y gráficos
-        JefeMina: ['consumos-internos', 'graficos', 'recepciones', 'prod-kpis', 'prod-graficos', 'prod-tablas'],
+        JefeMina: ['consumos-internos', 'graficos', 'recepciones'],
 
         // Planificador: Acceso a consumos, gráficos y máquinas para planificación
         planificador: ['consumos-internos']

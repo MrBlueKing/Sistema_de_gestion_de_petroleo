@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\AdminOperador;
 
 use App\Http\Controllers\Controller;
+use App\Models\OperadorVehiculo\CargaExterna;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;

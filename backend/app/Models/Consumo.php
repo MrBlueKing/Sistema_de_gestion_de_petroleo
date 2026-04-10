@@ -32,7 +32,7 @@ class Consumo extends Model
         'numeral_inicial',
         'numeral_final',
         'precio_litro',
-        'observacion'
+        'observacion',
     ];
 
     protected $casts = [
@@ -41,7 +41,7 @@ class Consumo extends Model
         'medicion' => 'decimal:3',
         'numeral_inicial' => 'decimal:3',
         'numeral_final' => 'decimal:3',
-        'precio_litro' => 'decimal:2'
+        'precio_litro' => 'decimal:2',
     ];
 
     // ===================================
