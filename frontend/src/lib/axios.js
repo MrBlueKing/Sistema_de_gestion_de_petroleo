@@ -3,9 +3,7 @@ import axios from "axios";
 import { clearSession, getAuthToken, isSessionValid } from "../utils/session";
 
 const instance = axios.create({
-  //  baseURL: "https://api.m3h.cl/", produccion
-  //  baseURL: "http://localhost:8000/", // local prueba en red local 
-  baseURL: "http://localhost:8000/", //local solo pc
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000/",
   headers: {
     "Content-Type": "application/json",
     "Accept": "application/json",

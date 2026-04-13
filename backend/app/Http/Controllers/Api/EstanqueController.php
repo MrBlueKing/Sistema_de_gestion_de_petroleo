@@ -944,7 +944,7 @@ class EstanqueController extends Controller
                         COALESCE(m.nombre_maquina, 'N/A') AS contraparte,
                         c.observacion,
                         c.id_consumo,
-                        c.anulado
+                        0 AS anulado
                     FROM consumos c
                     LEFT JOIN maquinas m ON c.id_equipo = m.id_maquina
                     WHERE c.id_estanque = ?
@@ -960,7 +960,7 @@ class EstanqueController extends Controller
                         COALESCE(m.nombre_maquina, 'N/A') AS contraparte,
                         c.observacion,
                         c.id_consumo,
-                        c.anulado
+                        0 AS anulado
                     FROM consumo_estanques ce
                     JOIN consumos c ON ce.id_consumo = c.id_consumo
                     LEFT JOIN maquinas m ON c.id_equipo = m.id_maquina

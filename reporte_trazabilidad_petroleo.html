@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reporte Trazabilidad Petróleo — 26/03/2026</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #1a1a2e; font-size: 14px; }
+
+    .page-header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+      color: white;
+      padding: 32px 40px 24px;
+    }
+    .page-header h1 { font-size: 24px; font-weight: 700; letter-spacing: 0.5px; }
+    .page-header .subtitle { color: #a0aec0; font-size: 13px; margin-top: 6px; }
+    .page-header .meta { display: flex; gap: 24px; margin-top: 16px; }
+    .page-header .meta span {
+      background: rgba(255,255,255,0.1);
+      border-radius: 6px;
+      padding: 4px 12px;
+      font-size: 12px;
+      color: #e2e8f0;
+    }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
+
+    /* Alert boxes */
+    .alert { border-radius: 8px; padding: 14px 18px; margin-bottom: 16px; font-size: 13px; border-left: 4px solid; }
+    .alert-ok   { background: #f0fff4; border-color: #38a169; color: #276749; }
+    .alert-warn { background: #fffbeb; border-color: #d69e2e; color: #744210; }
+    .alert-err  { background: #fff5f5; border-color: #e53e3e; color: #742a2a; }
+    .alert-info { background: #ebf8ff; border-color: #3182ce; color: #1a365d; }
+    .alert strong { font-weight: 700; }
+
+    /* Sections */
+    .section { background: white; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 24px; overflow: hidden; }
+    .section-header {
+      padding: 16px 24px;
+      border-bottom: 1px solid #e8ecf0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-header h2 { font-size: 15px; font-weight: 700; color: #1a1a2e; }
+    .section-header .tag {
+      font-size: 11px; font-weight: 600; padding: 2px 10px;
+      border-radius: 20px; margin-left: auto;
+    }
+    .tag-ok   { background: #c6f6d5; color: #276749; }
+    .tag-warn { background: #fefcbf; color: #744210; }
+    .tag-err  { background: #fed7d7; color: #742a2a; }
+    .tag-info { background: #bee3f8; color: #1a365d; }
+    .section-body { padding: 20px 24px; }
+
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th {
+      background: #f7fafc;
+      color: #4a5568;
+      font-weight: 600;
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 2px solid #e2e8f0;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    tbody td { padding: 10px 12px; border-bottom: 1px solid #f0f4f8; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #f7fafc; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .mono { font-family: 'Courier New', monospace; font-size: 12px; }
+
+    /* Status badges */
+    .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 20px; }
+    .badge-ok   { background: #c6f6d5; color: #276749; }
+    .badge-warn { background: #fefcbf; color: #744210; }
+    .badge-err  { background: #fed7d7; color: #742a2a; }
+    .badge-info { background: #bee3f8; color: #2b6cb0; }
+    .badge-gray { background: #e2e8f0; color: #4a5568; }
+
+    /* Tank cards */
+    .tanks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px; }
+    .tank-card {
+      border: 1.5px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 14px;
+      position: relative;
+      overflow: hidden;
+    }
+    .tank-card.ok    { border-color: #9ae6b4; }
+    .tank-card.warn  { border-color: #f6e05e; }
+    .tank-card.issue { border-color: #feb2b2; }
+    .tank-card .tank-name { font-weight: 700; font-size: 12px; color: #2d3748; margin-bottom: 4px; }
+    .tank-card .tank-type { font-size: 11px; color: #718096; margin-bottom: 10px; }
+    .tank-card .tank-bar-bg {
+      height: 8px; border-radius: 4px; background: #e2e8f0; margin-bottom: 6px; overflow: hidden;
+    }
+    .tank-card .tank-bar { height: 8px; border-radius: 4px; }
+    .bar-ok   { background: #48bb78; }
+    .bar-warn { background: #ecc94b; }
+    .bar-err  { background: #fc8181; }
+    .tank-card .tank-stock { font-size: 18px; font-weight: 800; color: #1a1a2e; }
+    .tank-card .tank-cap   { font-size: 11px; color: #718096; }
+    .tank-card .tank-pct   { font-size: 11px; font-weight: 600; color: #4a5568; text-align: right; margin-top: 2px; }
+
+    /* Flow diagram */
+    .flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+    .flow-box {
+      background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 6px;
+      padding: 6px 12px; font-size: 12px; font-weight: 600;
+    }
+    .flow-arrow { color: #a0aec0; font-size: 16px; }
+    .flow-box.green  { background: #f0fff4; border-color: #9ae6b4; color: #276749; }
+    .flow-box.yellow { background: #fffff0; border-color: #f6e05e; color: #744210; }
+    .flow-box.red    { background: #fff5f5; border-color: #feb2b2; color: #742a2a; }
+    .flow-box.blue   { background: #ebf8ff; border-color: #90cdf4; color: #2b6cb0; }
+
+    /* Summary cards */
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px; }
+    .sum-card { border-radius: 8px; padding: 16px; text-align: center; }
+    .sum-card .sum-val { font-size: 28px; font-weight: 800; line-height: 1; }
+    .sum-card .sum-lbl { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+    .sum-card.blue  { background: #ebf8ff; color: #2b6cb0; }
+    .sum-card.green { background: #f0fff4; color: #276749; }
+    .sum-card.red   { background: #fff5f5; color: #c53030; }
+    .sum-card.gray  { background: #f7fafc; color: #4a5568; }
+    .sum-card.purple{ background: #faf5ff; color: #6b46c1; }
+
+    /* Anomaly cards */
+    .anomaly { border-radius: 8px; padding: 16px; margin-bottom: 12px; border: 1.5px solid; }
+    .anomaly-solved { background: #f0fff4; border-color: #9ae6b4; }
+    .anomaly-warn   { background: #fffbeb; border-color: #f6e05e; }
+    .anomaly h4 { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+    .anomaly p  { font-size: 12px; line-height: 1.6; }
+    .anomaly .anom-status { font-size: 11px; font-weight: 700; margin-top: 8px; }
+
+    /* Timeline */
+    .timeline { position: relative; padding-left: 20px; }
+    .timeline::before { content:''; position:absolute; left:6px; top:4px; bottom:4px; width:2px; background:#e2e8f0; }
+    .tl-item { position: relative; margin-bottom: 14px; padding-left: 16px; }
+    .tl-item::before {
+      content:''; position:absolute; left:-14px; top:5px;
+      width:10px; height:10px; border-radius:50%; border:2px solid white;
+    }
+    .tl-item.ok::before   { background:#48bb78; }
+    .tl-item.warn::before { background:#ecc94b; }
+    .tl-item.err::before  { background:#fc8181; }
+    .tl-item.info::before { background:#63b3ed; }
+    .tl-time { font-size: 11px; color: #718096; margin-bottom: 2px; }
+    .tl-text { font-size: 13px; font-weight: 600; color: #2d3748; }
+    .tl-sub  { font-size: 12px; color: #718096; margin-top: 2px; }
+
+    /* SQL block */
+    .sql-block {
+      background: #1a1a2e; color: #a8d8a8; font-family: 'Courier New', monospace;
+      font-size: 12px; border-radius: 8px; padding: 16px; overflow-x: auto;
+      margin-top: 8px; line-height: 1.7;
+    }
+    .sql-keyword { color: #63b3ed; font-weight: 700; }
+    .sql-comment { color: #718096; }
+    .sql-val     { color: #fbd38d; }
+
+    /* Divider */
+    .divider { height: 1px; background: #e8ecf0; margin: 18px 0; }
+
+    /* Cols */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media(max-width: 640px){ .two-col { grid-template-columns: 1fr; } }
+
+    /* Pending */
+    .pending-item { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+    .pending-item .pi-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    .pending-item .pi-text { font-size: 13px; }
+    .pending-item .pi-text strong { display: block; font-weight: 700; color: #2d3748; }
+    .pending-item .pi-text span   { color: #718096; font-size: 12px; }
+
+    footer { text-align: center; color: #a0aec0; font-size: 12px; padding: 24px 0 32px; }
+  </style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Reporte de Trazabilidad — Petróleo</h1>
+  <div class="subtitle">Análisis completo de ingresos, distribución, trasvasijes y stock por estanque</div>
+  <div class="meta">
+    <span>📅 Período analizado: 26-03-2026</span>
+    <span>🏭 Faenas: Catemu · La Cruz Parcela</span>
+    <span>📊 Generado: 02-04-2026</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- RESUMEN EJECUTIVO -->
+  <div class="section">
+    <div class="section-header">
+      <h2>Resumen Ejecutivo</h2>
+      <span class="tag tag-info">Vista general</span>
+    </div>
+    <div class="section-body">
+      <div class="summary-grid">
+        <div class="sum-card blue">
+          <div class="sum-val">10.310</div>
+          <div class="sum-lbl">Litros registrados</div>
+        </div>
+        <div class="sum-card purple">
+          <div class="sum-val">9</div>
+          <div class="sum-lbl">Guías registradas</div>
+        </div>
+        <div class="sum-card green">
+          <div class="sum-val">5</div>
+          <div class="sum-lbl">Estanques activos</div>
+        </div>
+        <div class="sum-card gray">
+          <div class="sum-val">11</div>
+          <div class="sum-lbl">Trasvasijes</div>
+        </div>
+        <div class="sum-card red">
+          <div class="sum-val">1.690</div>
+          <div class="sum-lbl">Litros sin registrar</div>
+        </div>
+      </div>
+
+      <div class="alert alert-warn">
+        <strong>Atención:</strong> Quedan <strong>1.690 litros</strong> sin ingresar al sistema (990 L + 700 L según los tickets físicos). Deben registrarse para cuadrar el inventario.
+      </div>
+      <div class="alert alert-ok">
+        <strong>La Cruz Parcela:</strong> Todos los registros cuadran perfectamente. Los estanques 20 y 23 tienen sus stocks correctamente justificados.
+      </div>
+      <div class="alert alert-info">
+        <strong>Catemu:</strong> Los litros de IBC 1 e IBC 2 salieron vía trasvasijes hacia el estanque móvil. El detalle exacto por estanque requiere revisar la tabla <code>trasvasijes_multi_fijo_a_movil_detalle</code>.
+      </div>
+    </div>
+  </div>
+
+  <!-- TIMELINE DEL DÍA -->
+  <div class="section">
+    <div class="section-header">
+      <h2>Cronología — 26/03/2026</h2>
+      <span class="tag tag-info">Día completo</span>
+    </div>
+    <div class="section-body">
+      <div class="timeline">
+        <div class="tl-item ok">
+          <div class="tl-time">11:02 AM — Catemu</div>
+          <div class="tl-text">Guía 82731 — 2.000 L ingresados</div>
+          <div class="tl-sub">Distribuidos: 1.000 L → IBC 1 (id 17) · 1.000 L → IBC 2 (id 19)</div>
+        </div>
+        <div class="tl-item ok">
+          <div class="tl-time">11:23 AM — Catemu + La Cruz Parcela</div>
+          <div class="tl-text">Guía 92741 — 3.000 L ingresados (¡en 3 estanques!)</div>
+          <div class="tl-sub">1.000 L → Petroline (id 18) · 1.000 L → Eurolentz (id 21) · 1.000 L → <strong>Est. Fijo La Cruz Parcela (id 20)</strong></div>
+        </div>
+        <div class="tl-item info">
+          <div class="tl-time">15:38 PM — La Cruz Parcela (inicio serie)</div>
+          <div class="tl-text">Guía 193650 — 50 L → Est. Fijo Parcela (id 20)</div>
+          <div class="tl-sub">Stock previo id 20: 1.000 L (llegados con guía 92741 a las 11:23)</div>
+        </div>
+        <div class="tl-item info">
+          <div class="tl-time">15:39 PM</div>
+          <div class="tl-text">Guía 193659 — 990 L → Est. Fijo Parcela (id 20)</div>
+        </div>
+        <div class="tl-item info">
+          <div class="tl-time">15:41 PM</div>
+          <div class="tl-text">Guía 193634 — 990 L → Est. Fijo Parcela (id 20)</div>
+        </div>
+        <div class="tl-item info">
+          <div class="tl-time">15:44 PM</div>
+          <div class="tl-text">Guía 4117 — 300,36 L → Est. Fijo Parcela (id 20)</div>
+          <div class="tl-sub">Id 20 completamente lleno: 1.000 + 50 + 990 + 990 + 300,35 = 3.330,35 L</div>
+        </div>
+        <div class="tl-item info">
+          <div class="tl-time">15:46 PM</div>
+          <div class="tl-text">Guía 193648 — 990 L → Est. Fijo Parcela (id 23)</div>
+        </div>
+        <div class="tl-item info">
+          <div class="tl-time">15:49 PM</div>
+          <div class="tl-text">Guía 193644 — 990 L → Est. Fijo Parcela (id 23)</div>
+        </div>
+        <div class="tl-item ok">
+          <div class="tl-time">15:51 PM</div>
+          <div class="tl-text">Guía 41052 — 1.000 L → Est. Fijo Parcela (id 23)</div>
+          <div class="tl-sub">Id 23 completo: 0 + 990 + 990 + 1.000 = 2.980 L</div>
+        </div>
+        <div class="tl-item warn">
+          <div class="tl-time">Pendiente</div>
+          <div class="tl-text">990 L y 700 L — sin ingresar al sistema</div>
+          <div class="tl-sub">Tickets físicos existen, falta registro en el sistema</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAENA: LA CRUZ PARCELA -->
+  <div class="section">
+    <div class="section-header">
+      <h2>Faena: La Cruz Parcela</h2>
+      <span class="tag tag-ok">Datos OK ✓</span>
+    </div>
+    <div class="section-body">
+
+      <div class="tanks-grid">
+        <div class="tank-card ok">
+          <div class="tank-name">Est. Fijo La Cruz Parcela</div>
+          <div class="tank-type">Fijo · id 20 · Cap. 3.400 L</div>
+          <div class="tank-bar-bg"><div class="tank-bar bar-ok" style="width:98%"></div></div>
+          <div class="tank-stock">3.330,35 L</div>
+          <div class="tank-cap">de 3.400 L</div>
+          <div class="tank-pct">98% lleno</div>
+        </div>
+        <div class="tank-card ok">
+          <div class="tank-name">Est. Fijo La Cruz Parcela</div>
+          <div class="tank-type">Fijo · id 23 · Cap. 3.400 L</div>
+          <div class="tank-bar-bg"><div class="tank-bar bar-ok" style="width:88%"></div></div>
+          <div class="tank-stock">2.980 L</div>
+          <div class="tank-cap">de 3.400 L</div>
+          <div class="tank-pct">88% lleno</div>
+        </div>
+        <div class="tank-card">
+          <div class="tank-name">Estanque Móvil La Cruz</div>
+          <div class="tank-type">Móvil · id 9 · Cap. 40 L</div>
+          <div class="tank-bar-bg"><div class="tank-bar bar-err" style="width:0%"></div></div>
+          <div class="tank-stock">0 L</div>
+          <div class="tank-cap">de 40 L</div>
+          <div class="tank-pct">Sin uso</div>
+        </div>
+      </div>
+
+      <div class="alert alert-ok">
+        <strong>Stock justificado al 100%.</strong> El misterio de los 1.000 L iniciales del Est. id 20 quedó resuelto: llegaron con la guía 92741 a las 11:23 del 26-03, junto con los 1.000 L de Petroline y los 1.000 L de Eurolentz.
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Guía</th>
+            <th>Hora</th>
+            <th>Litros</th>
+            <th>Estanque destino</th>
+            <th>Stock antes</th>
+            <th>Stock después</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">92741</td>
+            <td>11:23</td>
+            <td class="num">1.000,00 L</td>
+            <td>id 20 (La Cruz Parcela 1)</td>
+            <td class="num">0 L</td>
+            <td class="num">1.000 L</td>
+            <td><span class="badge badge-ok">✓ OK</span></td>
+          </tr>
+          <tr>
+            <td class="mono">193650</td>
+            <td>15:38</td>
+            <td class="num">50,00 L</td>
+            <td>id 20 (La Cruz Parcela 1)</td>
+            <td class="num">1.000 L</td>
+            <td class="num">1.050 L</td>
+            <td><span class="badge badge-ok">✓ OK</span></td>
+          </tr>
+          <tr>
+            <td class="mono">193659</td>
+            <td>15:39</td>
+            <td class="num">990,00 L</td>
+            <td>id 20 (La Cruz Parcela 1)</td>
+            <td class="num">1.050 L</td>
+            <td class="num">2.040 L</td>
+            <td><span class="badge badge-ok">✓ OK</span></td>
+          </tr>
+          <tr>
+            <td class="mono">193634</td>
+            <td>15:41</td>
+            <td class="num">990,00 L</td>
+            <td>id 20 (La Cruz Parcela 1)</td>
+            <td class="num">2.040 L</td>
+            <td class="num">3.030 L</td>
+            <td><span class="badge badge-ok">✓ OK</span></td>
+          </tr>
+          <tr>
+            <td class="mono">4117</td>
+            <td>15:44</td>
+            <td class="num">300,36 L</td>
+            <td>id 20 (La Cruz Parcela 1)</td>
+            <td class="num">3.030 L</td>
+            <td class="num">3.330,35 L</td>
+            <td><span class="badge badge-ok">✓ OK</span></td>
+          </tr>
+          <tr>
+            <td class="mono">193648</td>
+            <td>15:46</td>
+            <td class="num">990,00 L</td>
+            <td>id 23 (La Cruz Parcela 2)</td>
+            <td class="num">0 L</td>
+            <td class="num">990 L</td>
+            <td><span class="badge badge-ok">✓ OK</span></td>
+          </tr>
+          <tr>
+            <td class="mono">193644</td>
+            <td>15:49</td>
+            <td class="num">990,00 L</td>
+            <td>id 23 (La Cruz Parcela 2)</td>
+            <td class="num">990 L</td>
+            <td class="num">1.980 L</td>
+            <td><span class="badge badge-ok">✓ OK</span></td>
+          </tr>
+          <tr>
+            <td class="mono">41052</td>
+            <td>15:51</td>
+            <td class="num">1.000,00 L</td>
+            <td>id 23 (La Cruz Parcela 2)</td>
+            <td class="num">1.980 L</td>
+            <td class="num">2.980 L</td>
+            <td><span class="badge badge-ok">✓ OK</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- FAENA: CATEMU -->
+  <div class="section">
+    <div class="section-header">
+      <h2>Faena: Catemu</h2>
+      <span class="tag tag-warn">Revisar detalle trasvasijes</span>
+    </div>
+    <div class="section-body">
+
+      <div class="tanks-grid">
+        <div class="tank-card warn">
+          <div class="tank-name">Catemu Estanque 1 IBC</div>
+          <div class="tank-type">Fijo · id 17 · Cap. 1.000 L</div>
+          <div class="tank-bar-bg"><div class="tank-bar bar-warn" style="width:14%"></div></div>
+          <div class="tank-stock">139 L</div>
+          <div class="tank-cap">de 1.000 L</div>
+          <div class="tank-pct">14% — La mayor parte fue al móvil</div>
+        </div>
+        <div class="tank-card issue">
+          <div class="tank-name">Catemu Estanque 2 IBC</div>
+          <div class="tank-type">Fijo · id 19 · Cap. 1.000 L</div>
+          <div class="tank-bar-bg"><div class="tank-bar bar-err" style="width:0%"></div></div>
+          <div class="tank-stock">0 L</div>
+          <div class="tank-cap">de 1.000 L</div>
+          <div class="tank-pct">Vacío — todo fue al móvil</div>
+        </div>
+        <div class="tank-card ok">
+          <div class="tank-name">Catemu Est. 3 Petroline</div>
+          <div class="tank-type">Fijo · id 18 · Cap. 1.100 L</div>
+          <div class="tank-bar-bg"><div class="tank-bar bar-warn" style="width:13%"></div></div>
+          <div class="tank-stock">145 L</div>
+          <div class="tank-cap">de 1.100 L</div>
+          <div class="tank-pct">13% — tiene corrección de error</div>
+        </div>
+        <div class="tank-card ok">
+          <div class="tank-name">Catemu Est. Eurolentz</div>
+          <div class="tank-type">Fijo · id 21 · Cap. 1.000 L</div>
+          <div class="tank-bar-bg"><div class="tank-bar bar-ok" style="width:100%"></div></div>
+          <div class="tank-stock">1.000 L</div>
+          <div class="tank-cap">de 1.000 L</div>
+          <div class="tank-pct">100% — lleno</div>
+        </div>
+        <div class="tank-card ok">
+          <div class="tank-name">Estanque Móvil Catemu</div>
+          <div class="tank-type">Móvil · id 16 · Cap. 650 L</div>
+          <div class="tank-bar-bg"><div class="tank-bar bar-ok" style="width:47%"></div></div>
+          <div class="tank-stock">306 L</div>
+          <div class="tank-cap">de 650 L</div>
+          <div class="tank-pct">47% — en operación activa</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;color:#2d3748">Ingresos del 26-03-2026</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Guía</th>
+            <th>Litros totales</th>
+            <th>Distribución</th>
+            <th>Precio/L</th>
+            <th>Total $</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">82731</td>
+            <td class="num">2.000 L</td>
+            <td>1.000 L → IBC 1 (id 17) &nbsp;·&nbsp; 1.000 L → IBC 2 (id 19)</td>
+            <td class="num">$1.103</td>
+            <td class="num">$2.205.341</td>
+            <td><span class="badge badge-ok">✓ OK</span></td>
+          </tr>
+          <tr>
+            <td class="mono">92741</td>
+            <td class="num">3.000 L</td>
+            <td>1.000 L → Petroline (id 18) &nbsp;·&nbsp; 1.000 L → Eurolentz (id 21) &nbsp;·&nbsp; 1.000 L → La Cruz Parcela (id 20)</td>
+            <td class="num">$1.103</td>
+            <td class="num">$3.308.010</td>
+            <td><span class="badge badge-ok">✓ OK</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="divider"></div>
+
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;color:#2d3748">Reconciliación final por estanque fijo</h3>
+
+      <div class="alert alert-ok" style="margin-bottom:14px">
+        Con el detalle de <code>trasvasijes_multi_fijo_a_movil_detalle</code> todos los stocks quedan <strong>100% justificados</strong>. El estanque móvil actúa como punto de distribución a máquinas — los fijos lo alimentan vía trasvasijes.
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Estanque</th>
+            <th class="num">Recibido (ingreso)</th>
+            <th class="num">Salida trasvasijes</th>
+            <th class="num">Consumos directos</th>
+            <th class="num">Stock calculado</th>
+            <th class="num">Stock sistema</th>
+            <th>Resultado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>IBC 1 (id 17)</strong></td>
+            <td class="num">1.000 L</td>
+            <td class="num">861 L <small>(IDs 8+9+10)</small></td>
+            <td class="num">0 L</td>
+            <td class="num"><strong>139 L</strong></td>
+            <td class="num">139 L</td>
+            <td><span class="badge badge-ok">✓ Cuadra</span></td>
+          </tr>
+          <tr>
+            <td><strong>IBC 2 (id 19)</strong></td>
+            <td class="num">1.000 L</td>
+            <td class="num">930 L <small>(ID 4, corrección)</small> + 70 L <small>(ID 11)</small> = 1.000 L</td>
+            <td class="num">0 L</td>
+            <td class="num"><strong>0 L</strong></td>
+            <td class="num">0 L</td>
+            <td><span class="badge badge-ok">✓ Cuadra</span></td>
+          </tr>
+          <tr>
+            <td><strong>Petroline (id 18)</strong></td>
+            <td class="num">314 L (previo) + 1.000 L (92741)</td>
+            <td class="num">IDs 1+2+3+6+7 = 1.460 L salida / +930 L corrección</td>
+            <td class="num">990 L</td>
+            <td class="num"><strong>~145 L</strong></td>
+            <td class="num">145 L</td>
+            <td><span class="badge badge-ok">✓ Cuadra</span></td>
+          </tr>
+          <tr>
+            <td><strong>Eurolentz (id 21)</strong></td>
+            <td class="num">1.000 L (92741)</td>
+            <td class="num">ID 5: −415 L + retorno móvil: +415 L = neto 0 L</td>
+            <td class="num">0 L</td>
+            <td class="num"><strong>1.000 L</strong></td>
+            <td class="num">1.000 L</td>
+            <td><span class="badge badge-ok">✓ Cuadra</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="divider"></div>
+
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;color:#2d3748">Detalle completo de trasvasijes — fijo → móvil</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Fecha</th>
+            <th>Estanque fijo origen</th>
+            <th>Destino</th>
+            <th class="num">Litros</th>
+            <th class="num">Stock fijo antes</th>
+            <th class="num">Stock fijo después</th>
+            <th>Nota</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td><td>26-03</td>
+            <td>Catemu Est. 3 Petroline</td>
+            <td>Estanque Móvil</td>
+            <td class="num">314 L</td><td class="num">314 L</td><td class="num">0 L</td>
+            <td><span class="badge badge-info">Primer trasvasije</span></td>
+          </tr>
+          <tr>
+            <td>2</td><td>27-03</td>
+            <td>Catemu Est. 3 Petroline</td>
+            <td>Estanque Móvil</td>
+            <td class="num">455 L</td><td class="num">1.057 L</td><td class="num">602 L</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>3</td><td>27-03</td>
+            <td>Catemu Est. 3 Petroline</td>
+            <td>Estanque Móvil</td>
+            <td class="num">250 L</td><td class="num">372 L</td><td class="num">122 L</td>
+            <td></td>
+          </tr>
+          <tr style="background:#fff5f5">
+            <td>4</td><td>30-03</td>
+            <td>Catemu Est. 2 IBC</td>
+            <td><strong>Catemu Est. 3 Petroline</strong></td>
+            <td class="num">930 L</td><td class="num">1.000 L</td><td class="num">70 L</td>
+            <td><span class="badge badge-warn">Corrección: devuelve a Petroline</span></td>
+          </tr>
+          <tr style="background:#fffbeb">
+            <td>5</td><td>30-03</td>
+            <td>Catemu Est. Eurolentz</td>
+            <td>Estanque Móvil</td>
+            <td class="num">415 L</td><td class="num">1.000 L</td><td class="num">585 L</td>
+            <td><span class="badge badge-warn">Corrección: extracción equivocada</span></td>
+          </tr>
+          <tr style="background:#fffbeb">
+            <td>6</td><td>30-03</td>
+            <td>Catemu Est. 3 Petroline</td>
+            <td>Estanque Móvil</td>
+            <td class="num">415 L</td><td class="num">1.007 L</td><td class="num">592 L</td>
+            <td><span class="badge badge-warn">Corrección: extracción del correcto</span></td>
+          </tr>
+          <tr>
+            <td>7</td><td>31-03</td>
+            <td>Catemu Est. 3 Petroline</td>
+            <td>Estanque Móvil</td>
+            <td class="num">227 L</td><td class="num">372 L</td><td class="num">145 L</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>8</td><td>01-04</td>
+            <td>Catemu Est. 1 IBC</td>
+            <td>Estanque Móvil</td>
+            <td class="num">404 L</td><td class="num">1.000 L</td><td class="num">596 L</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>9</td><td>01-04</td>
+            <td>Catemu Est. 1 IBC</td>
+            <td>Estanque Móvil</td>
+            <td class="num">225 L</td><td class="num">596 L</td><td class="num">371 L</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>10</td><td>02-04</td>
+            <td>Catemu Est. 1 IBC</td>
+            <td>Estanque Móvil</td>
+            <td class="num">232 L</td><td class="num">371 L</td><td class="num">139 L</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>11</td><td>02-04</td>
+            <td>Catemu Est. 2 IBC</td>
+            <td>Estanque Móvil</td>
+            <td class="num">70 L</td><td class="num">70 L</td><td class="num">0 L</td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="divider"></div>
+
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;color:#2d3748">Trasvasije móvil → fijo (corrección)</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th><th>Litros</th><th>Origen</th><th>Destino</th><th class="num">Stock fijo antes</th><th class="num">Stock fijo después</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="background:#fffbeb">
+            <td>30-03</td><td class="num">415 L</td>
+            <td>Estanque Móvil Catemu</td>
+            <td>Catemu Est. Eurolentz (id 21)</td>
+            <td class="num">585 L</td><td class="num">1.000 L</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ANOMALÍAS -->
+  <div class="section">
+    <div class="section-header">
+      <h2>Anomalías detectadas y su explicación</h2>
+      <span class="tag tag-ok">Todas resueltas</span>
+    </div>
+    <div class="section-body">
+
+      <div class="anomaly anomaly-solved">
+        <h4>✅ Anomalía A + B — Error de extracción del encargado (30-03-2026) y su corrección</h4>
+        <p>
+          El encargado extrajo petróleo del <strong>estanque equivocado</strong>. La corrección requirió 4 operaciones encadenadas:
+        </p>
+        <div style="margin:10px 0 6px">
+          <div class="flow">
+            <div class="flow-box red">IBC 2 (1.000 L)</div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-box yellow">ID 4: devuelve 930 L a Petroline</div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-box green">Petroline recupera stock (77→1.007 L)</div>
+          </div>
+          <div class="flow" style="margin-top:6px">
+            <div class="flow-box red">Eurolentz (extracción equivocada)</div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-box yellow">ID 5: 415 L al móvil (error)</div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-box yellow">Trasvasije inverso: 415 L de vuelta a Eurolentz</div>
+            <span class="flow-arrow">→</span>
+            <div class="flow-box green">ID 6: 415 L desde Petroline (correcto)</div>
+          </div>
+        </div>
+        <p>El <strong>IBC 2 quedó con 70 L</strong> tras entregar los 930 L de corrección. Esos 70 L salieron en el trasvasije ID 11 (02-04). Stock final IBC 2 = 0 L ✓</p>
+        <div class="anom-status" style="color:#276749">Estado: Completamente explicado y cuadrado</div>
+      </div>
+
+      <div class="anomaly anomaly-solved">
+        <h4>✅ Anomalía C — ¿De dónde vienen los 1.000 L iniciales del Estanque 1 La Cruz Parcela (id 20)?</h4>
+        <p>
+          La guía <strong>92741 (3.000 L)</strong> fue distribuida entre <strong>tres estanques</strong>:
+          Petroline (1.000 L), Eurolentz (1.000 L) y <strong>Estanque Fijo La Cruz Parcela id 20 (1.000 L)</strong>.
+          Esos 1.000 L llegaron a las 11:23 del 26-03, antes de los ingresos de la tarde (15:38+),
+          por eso el sistema mostraba 1.000 L en ese estanque sin una guía obvia asociada.
+        </p>
+        <div class="anom-status" style="color:#276749">Estado: Resuelto — origen identificado en guía 92741 (verificacion_altura IDs 753–754)</div>
+      </div>
+
+      <div class="anomaly anomaly-solved">
+        <h4>✅ Anomalía C — ¿De dónde vienen los 1.000 L iniciales del Estanque 1 La Cruz Parcela (id 20)?</h4>
+        <p>
+          La guía <strong>92741 (3.000 L)</strong> fue registrada originalmente como un ingreso a Catemu, pero en realidad fue distribuida entre <strong>tres estanques</strong>:
+          Petroline (1.000 L), Eurolentz (1.000 L) y Estanque Fijo La Cruz Parcela id 20 (1.000 L).
+          Esto queda confirmado por los registros de <code>verificacion_altura</code> (id_verificacion 753 y 754).
+          Esos 1.000 L llegaron a las 11:23 del 26-03, justo antes de los ingresos de la tarde (15:38+).
+        </p>
+        <div class="anom-status" style="color:#276749">Estado: Resuelto — origen identificado en guía 92741</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PENDIENTES -->
+  <div class="section">
+    <div class="section-header">
+      <h2>Pendientes y próximos pasos</h2>
+      <span class="tag tag-warn">1 acción requerida</span>
+    </div>
+    <div class="section-body">
+
+      <div class="pending-item">
+        <div class="pi-icon">🔴</div>
+        <div class="pi-text">
+          <strong>Registrar los 1.690 L faltantes en el sistema</strong>
+          <span>Existen 2 tickets físicos sin ingresar: <strong>990 L</strong> y <strong>700 L</strong>. Deben registrarse con sus guías correspondientes para cuadrar el inventario total. Una vez ingresados, todos los stocks quedarán 100% justificados.</span>
+        </div>
+      </div>
+
+      <div class="pending-item">
+        <div class="pi-icon">🟡</div>
+        <div class="pi-text">
+          <strong>Verificar físicamente Catemu Estanque 1 IBC (id 17)</strong>
+          <span>El encargado reporta que está vacío, pero el sistema muestra <strong>139 L</strong>. El sistema está correcto según los registros (1.000 L recibidos − 861 L trasvasijados = 139 L). Medir físicamente para confirmar si hay diferencia real o error de percepción.</span>
+        </div>
+      </div>
+
+      <div class="pending-item">
+        <div class="pi-icon">🟢</div>
+        <div class="pi-text">
+          <strong>Catemu fijos (IBC 1, IBC 2, Petroline, Eurolentz) — reconciliados ✓</strong>
+          <span>Todos los stocks del sistema están justificados con ingresos + trasvasijes + consumos. No se requiere acción adicional.</span>
+        </div>
+      </div>
+
+      <div class="pending-item">
+        <div class="pi-icon">🟢</div>
+        <div class="pi-text">
+          <strong>La Cruz Parcela — no requiere acción ✓</strong>
+          <span>Est. id 20: 3.330,35 L ✓ · Est. id 23: 2.980 L ✓</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+  <!-- ============================================================ -->
+  <!-- SECCIÓN: SQLs FOTO DEL MOMENTO                               -->
+  <!-- ============================================================ -->
+  <div class="container" style="padding-top:0">
+  <div class="section">
+    <div class="section-header">
+      <h2>SQLs — Foto del momento</h2>
+      <span class="tag tag-info">Ejecutar en cualquier momento</span>
+    </div>
+    <div class="section-body">
+      <div class="alert alert-info" style="margin-bottom:20px">
+        Estos queries muestran el estado <strong>actual en tiempo real</strong> del sistema.
+        Reemplaza <code>:id_faena</code> por el ID de la faena que necesites
+        (ej: Catemu = <strong>?</strong>, La Cruz = <strong>?</strong>).
+        Para ver todas las faenas, elimina el <code>WHERE f.id_faena = :id_faena</code>.
+      </div>
+
+      <!-- SQL 1 -->
+      <h3 style="font-size:14px;font-weight:700;color:#2d3748;margin-bottom:6px">
+        1 — Stock actual de todos los estanques por faena
+      </h3>
+      <p style="font-size:12px;color:#718096;margin-bottom:8px">
+        Foto instantánea del nivel de cada estanque: capacidad, stock actual, porcentaje de llenado y última medición.
+      </p>
+      <div class="sql-block">
+<span class="sql-keyword">SELECT</span><br>
+&nbsp;&nbsp;f.id_faena,<br>
+&nbsp;&nbsp;f.ubicacion                                     <span class="sql-keyword">AS</span> faena,<br>
+&nbsp;&nbsp;e.id_estanque,<br>
+&nbsp;&nbsp;e.nombre                                        <span class="sql-keyword">AS</span> estanque,<br>
+&nbsp;&nbsp;e.tipo_estanque,<br>
+&nbsp;&nbsp;e.capacidad,<br>
+&nbsp;&nbsp;es.stock_actual,<br>
+&nbsp;&nbsp;es.altura_actual,<br>
+&nbsp;&nbsp;<span class="sql-keyword">ROUND</span>((es.stock_actual / e.capacidad) * 100, 1)  <span class="sql-keyword">AS</span> porcentaje_lleno,<br>
+&nbsp;&nbsp;es.ultima_medicion,<br>
+&nbsp;&nbsp;<span class="sql-keyword">CASE</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="sql-keyword">WHEN</span> (es.stock_actual / e.capacidad) >= 0.75 <span class="sql-keyword">THEN</span> <span class="sql-val">'OK'</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="sql-keyword">WHEN</span> (es.stock_actual / e.capacidad) >= 0.25 <span class="sql-keyword">THEN</span> <span class="sql-val">'MEDIO'</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="sql-keyword">ELSE</span> <span class="sql-val">'BAJO'</span><br>
+&nbsp;&nbsp;<span class="sql-keyword">END</span>                                               <span class="sql-keyword">AS</span> nivel_alerta<br>
+<span class="sql-keyword">FROM</span> estanques e<br>
+<span class="sql-keyword">JOIN</span> faenas f          <span class="sql-keyword">ON</span> f.id_faena      = e.id_faena<br>
+<span class="sql-keyword">JOIN</span> estanque_stock es <span class="sql-keyword">ON</span> es.id_estanque  = e.id_estanque<br>
+<span class="sql-keyword">WHERE</span> e.activo = 1<br>
+<span class="sql-comment">-- AND f.id_faena = :id_faena   ← descomentar para filtrar por faena</span><br>
+<span class="sql-keyword">ORDER BY</span> f.ubicacion, e.tipo_estanque <span class="sql-keyword">DESC</span>, e.nombre;
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- SQL 2 -->
+      <h3 style="font-size:14px;font-weight:700;color:#2d3748;margin-bottom:6px">
+        2 — Ingresos del período (filtrable por fecha y faena)
+      </h3>
+      <p style="font-size:12px;color:#718096;margin-bottom:8px">
+        Todos los ingresos con su detalle: guía, litros documentados vs recibidos, diferencia, precio y a qué estanque llegó cada uno.
+      </p>
+      <div class="sql-block">
+<span class="sql-keyword">SELECT</span><br>
+&nbsp;&nbsp;f.ubicacion                                     <span class="sql-keyword">AS</span> faena,<br>
+&nbsp;&nbsp;ip.id_ingreso,<br>
+&nbsp;&nbsp;ip.created_at                                   <span class="sql-keyword">AS</span> fecha_ingreso,<br>
+&nbsp;&nbsp;ip.numero_guia,<br>
+&nbsp;&nbsp;ip.litros_documentados,<br>
+&nbsp;&nbsp;ip.litros_recibidos,<br>
+&nbsp;&nbsp;ip.diferencia                                   <span class="sql-keyword">AS</span> diferencia_litros,<br>
+&nbsp;&nbsp;ip.precio,<br>
+&nbsp;&nbsp;ip.precio_total,<br>
+&nbsp;&nbsp;ip.tipo_recepcion,<br>
+&nbsp;&nbsp;<span class="sql-comment">-- Estanques que recibieron (via verificacion_altura)</span><br>
+&nbsp;&nbsp;<span class="sql-keyword">GROUP_CONCAT</span>(<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="sql-keyword">DISTINCT</span> <span class="sql-keyword">CONCAT</span>(e.nombre, <span class="sql-val">' ('</span>, va.volumen_calculado, <span class="sql-val">' L)'</span>)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="sql-keyword">ORDER BY</span> va.id_verificacion<br>
+&nbsp;&nbsp;&nbsp;&nbsp;SEPARATOR <span class="sql-val">' | '</span><br>
+&nbsp;&nbsp;)                                               <span class="sql-keyword">AS</span> distribucion_estanques<br>
+<span class="sql-keyword">FROM</span> ingresos_petroleo ip<br>
+<span class="sql-keyword">JOIN</span> faenas f                  <span class="sql-keyword">ON</span> f.id_faena    = ip.id_faena<br>
+<span class="sql-keyword">LEFT JOIN</span> verificacion_altura va <span class="sql-keyword">ON</span> va.id_ingreso  = ip.id_ingreso<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="sql-keyword">AND</span> va.volumen_calculado > 0<br>
+<span class="sql-keyword">LEFT JOIN</span> estanques e           <span class="sql-keyword">ON</span> e.id_estanque  = va.id_estanque<br>
+<span class="sql-keyword">WHERE</span> ip.created_at <span class="sql-keyword">BETWEEN</span> <span class="sql-val">':fecha_inicio'</span> <span class="sql-keyword">AND</span> <span class="sql-val">':fecha_fin'</span><br>
+<span class="sql-comment">-- AND ip.id_faena = :id_faena   ← descomentar para filtrar por faena</span><br>
+<span class="sql-keyword">GROUP BY</span> ip.id_ingreso<br>
+<span class="sql-keyword">ORDER BY</span> ip.created_at <span class="sql-keyword">DESC</span>;
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- SQL 3 -->
+      <h3 style="font-size:14px;font-weight:700;color:#2d3748;margin-bottom:6px">
+        3 — Trasvasijes recientes con detalle de origen y destino
+      </h3>
+      <p style="font-size:12px;color:#718096;margin-bottom:8px">
+        Todos los trasvasijes del período: qué fijo aportó, cuánto, hacia dónde, stock antes y después.
+      </p>
+      <div class="sql-block">
+<span class="sql-comment">-- Trasvasijes fijo → móvil (con detalle por estanque fijo)</span><br>
+<span class="sql-keyword">SELECT</span><br>
+&nbsp;&nbsp;f.ubicacion                             <span class="sql-keyword">AS</span> faena,<br>
+&nbsp;&nbsp;t.id_trasvasije,<br>
+&nbsp;&nbsp;t.fecha_trasvasije,<br>
+&nbsp;&nbsp;<span class="sql-val">'fijo → móvil'</span>                        <span class="sql-keyword">AS</span> tipo,<br>
+&nbsp;&nbsp;e_fijo.nombre                           <span class="sql-keyword">AS</span> estanque_origen,<br>
+&nbsp;&nbsp;e_movil.nombre                          <span class="sql-keyword">AS</span> estanque_destino,<br>
+&nbsp;&nbsp;d.litros_desde_estanque                 <span class="sql-keyword">AS</span> litros,<br>
+&nbsp;&nbsp;d.stock_inicial_fijo                    <span class="sql-keyword">AS</span> stock_origen_antes,<br>
+&nbsp;&nbsp;d.stock_final_fijo                      <span class="sql-keyword">AS</span> stock_origen_despues,<br>
+&nbsp;&nbsp;t.stock_inicial_movil                   <span class="sql-keyword">AS</span> stock_destino_antes,<br>
+&nbsp;&nbsp;t.stock_final_movil                     <span class="sql-keyword">AS</span> stock_destino_despues,<br>
+&nbsp;&nbsp;t.observaciones<br>
+<span class="sql-keyword">FROM</span> trasvasijes_multi_fijo_a_movil t<br>
+<span class="sql-keyword">JOIN</span> trasvasijes_multi_fijo_a_movil_detalle d <span class="sql-keyword">ON</span> d.id_trasvasije_multi = t.id_trasvasije<br>
+<span class="sql-keyword">JOIN</span> estanques e_movil <span class="sql-keyword">ON</span> e_movil.id_estanque = t.id_estanque_movil<br>
+<span class="sql-keyword">JOIN</span> estanques e_fijo  <span class="sql-keyword">ON</span> e_fijo.id_estanque  = d.id_estanque_fijo<br>
+<span class="sql-keyword">JOIN</span> faenas f          <span class="sql-keyword">ON</span> f.id_faena          = t.id_faena<br>
+<span class="sql-keyword">WHERE</span> t.fecha_trasvasije <span class="sql-keyword">BETWEEN</span> <span class="sql-val">':fecha_inicio'</span> <span class="sql-keyword">AND</span> <span class="sql-val">':fecha_fin'</span><br>
+<span class="sql-comment">-- AND t.id_faena = :id_faena</span><br>
+<br>
+<span class="sql-keyword">UNION ALL</span><br>
+<br>
+<span class="sql-comment">-- Trasvasijes móvil → fijo</span><br>
+<span class="sql-keyword">SELECT</span><br>
+&nbsp;&nbsp;f.ubicacion,<br>
+&nbsp;&nbsp;t2.id_trasvasije,<br>
+&nbsp;&nbsp;t2.fecha_trasvasije,<br>
+&nbsp;&nbsp;<span class="sql-val">'móvil → fijo'</span>,<br>
+&nbsp;&nbsp;em.nombre,<br>
+&nbsp;&nbsp;ef.nombre,<br>
+&nbsp;&nbsp;t2.litros_trasvasijados,<br>
+&nbsp;&nbsp;t2.stock_inicial_movil,<br>
+&nbsp;&nbsp;t2.stock_final_movil,<br>
+&nbsp;&nbsp;t2.stock_inicial_fijo,<br>
+&nbsp;&nbsp;t2.stock_final_fijo,<br>
+&nbsp;&nbsp;NULL<br>
+<span class="sql-keyword">FROM</span> trasvasijes_movil_a_fijo t2<br>
+<span class="sql-keyword">JOIN</span> estanques em <span class="sql-keyword">ON</span> em.id_estanque = t2.id_estanque_movil<br>
+<span class="sql-keyword">JOIN</span> estanques ef <span class="sql-keyword">ON</span> ef.id_estanque = t2.id_estanque_fijo<br>
+<span class="sql-keyword">JOIN</span> faenas f     <span class="sql-keyword">ON</span> f.id_faena     = t2.id_faena<br>
+<span class="sql-keyword">WHERE</span> t2.fecha_trasvasije <span class="sql-keyword">BETWEEN</span> <span class="sql-val">':fecha_inicio'</span> <span class="sql-keyword">AND</span> <span class="sql-val">':fecha_fin'</span><br>
+<span class="sql-comment">-- AND t2.id_faena = :id_faena</span><br>
+<br>
+<span class="sql-keyword">ORDER BY</span> fecha_trasvasije <span class="sql-keyword">DESC</span>;
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- SQL 4 -->
+      <h3 style="font-size:14px;font-weight:700;color:#2d3748;margin-bottom:6px">
+        4 — Trazabilidad completa: ingreso → estanque → qué pasó después
+      </h3>
+      <p style="font-size:12px;color:#718096;margin-bottom:8px">
+        Por cada ingreso, muestra todos los eventos posteriores en ese estanque: consumos y trasvasijes, en orden cronológico.
+      </p>
+      <div class="sql-block">
+<span class="sql-keyword">WITH</span> ingresos_base <span class="sql-keyword">AS</span> (<br>
+&nbsp;&nbsp;<span class="sql-keyword">SELECT</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;ip.id_ingreso, ip.numero_guia, ip.created_at <span class="sql-keyword">AS</span> fecha_ingreso,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;ip.litros_recibidos, ip.precio_total, ip.id_faena,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;va.id_estanque, va.volumen_calculado <span class="sql-keyword">AS</span> litros_a_este_estanque<br>
+&nbsp;&nbsp;<span class="sql-keyword">FROM</span> ingresos_petroleo ip<br>
+&nbsp;&nbsp;<span class="sql-keyword">JOIN</span> verificacion_altura va <span class="sql-keyword">ON</span> va.id_ingreso = ip.id_ingreso<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="sql-keyword">AND</span> va.volumen_calculado > 0<br>
+&nbsp;&nbsp;<span class="sql-keyword">WHERE</span> ip.created_at <span class="sql-keyword">BETWEEN</span> <span class="sql-val">':fecha_inicio'</span> <span class="sql-keyword">AND</span> <span class="sql-val">':fecha_fin'</span><br>
+<span class="sql-comment">-- AND ip.id_faena = :id_faena</span><br>
+),<br>
+eventos <span class="sql-keyword">AS</span> (<br>
+&nbsp;&nbsp;<span class="sql-comment">-- Consumos simples</span><br>
+&nbsp;&nbsp;<span class="sql-keyword">SELECT</span> c.id_estanque, c.fecha_consumo <span class="sql-keyword">AS</span> fecha_evento,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="sql-val">'CONSUMO'</span> <span class="sql-keyword">AS</span> tipo,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;c.litros_consumidos <span class="sql-keyword">AS</span> litros,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="sql-keyword">CONCAT</span>(<span class="sql-val">'Equipo: '</span>, <span class="sql-keyword">IFNULL</span>(m.nombre_maquina, <span class="sql-val">'N/A'</span>)) <span class="sql-keyword">AS</span> detalle<br>
+&nbsp;&nbsp;<span class="sql-keyword">FROM</span> consumos c<br>
+&nbsp;&nbsp;<span class="sql-keyword">LEFT JOIN</span> maquinas m <span class="sql-keyword">ON</span> m.id_maquina = c.id_equipo<br>
+&nbsp;&nbsp;<span class="sql-keyword">WHERE</span> c.tipo_consumo = <span class="sql-val">'simple'</span><br>
+&nbsp;&nbsp;<span class="sql-keyword">UNION ALL</span><br>
+&nbsp;&nbsp;<span class="sql-comment">-- Consumos múltiples</span><br>
+&nbsp;&nbsp;<span class="sql-keyword">SELECT</span> ce.id_estanque, c.fecha_consumo,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="sql-val">'CONSUMO MÚLTIPLE'</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;ce.litros_desde_estanque,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="sql-keyword">CONCAT</span>(<span class="sql-val">'Equipo: '</span>, <span class="sql-keyword">IFNULL</span>(m.nombre_maquina, <span class="sql-val">'N/A'</span>))<br>
+&nbsp;&nbsp;<span class="sql-keyword">FROM</span> consumo_estanques ce<br>
+&nbsp;&nbsp;<span class="sql-keyword">JOIN</span> consumos c <span class="sql-keyword">ON</span> c.id_consumo = ce.id_consumo<br>
+&nbsp;&nbsp;<span class="sql-keyword">LEFT JOIN</span> maquinas m <span class="sql-keyword">ON</span> m.id_maquina = c.id_equipo<br>
+&nbsp;&nbsp;<span class="sql-keyword">UNION ALL</span><br>
+&nbsp;&nbsp;<span class="sql-comment">-- Trasvasijes salida</span><br>
+&nbsp;&nbsp;<span class="sql-keyword">SELECT</span> d.id_estanque_fijo, t.fecha_trasvasije,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="sql-val">'TRASVASIJE SALIDA'</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;d.litros_desde_estanque,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="sql-keyword">CONCAT</span>(<span class="sql-val">'→ '</span>, e_dest.nombre)<br>
+&nbsp;&nbsp;<span class="sql-keyword">FROM</span> trasvasijes_multi_fijo_a_movil_detalle d<br>
+&nbsp;&nbsp;<span class="sql-keyword">JOIN</span> trasvasijes_multi_fijo_a_movil t <span class="sql-keyword">ON</span> t.id_trasvasije = d.id_trasvasije_multi<br>
+&nbsp;&nbsp;<span class="sql-keyword">JOIN</span> estanques e_dest <span class="sql-keyword">ON</span> e_dest.id_estanque = t.id_estanque_movil<br>
+)<br>
+<span class="sql-keyword">SELECT</span><br>
+&nbsp;&nbsp;ib.numero_guia,<br>
+&nbsp;&nbsp;<span class="sql-keyword">DATE</span>(ib.fecha_ingreso)           <span class="sql-keyword">AS</span> fecha_ingreso,<br>
+&nbsp;&nbsp;ib.litros_a_este_estanque        <span class="sql-keyword">AS</span> litros_ingresados,<br>
+&nbsp;&nbsp;e.nombre                         <span class="sql-keyword">AS</span> estanque,<br>
+&nbsp;&nbsp;e.tipo_estanque,<br>
+&nbsp;&nbsp;ev.tipo                          <span class="sql-keyword">AS</span> tipo_evento,<br>
+&nbsp;&nbsp;<span class="sql-keyword">DATE</span>(ev.fecha_evento)            <span class="sql-keyword">AS</span> fecha_evento,<br>
+&nbsp;&nbsp;ev.litros                        <span class="sql-keyword">AS</span> litros_evento,<br>
+&nbsp;&nbsp;ev.detalle<br>
+<span class="sql-keyword">FROM</span> ingresos_base ib<br>
+<span class="sql-keyword">JOIN</span> estanques e <span class="sql-keyword">ON</span> e.id_estanque = ib.id_estanque<br>
+<span class="sql-keyword">LEFT JOIN</span> eventos ev <span class="sql-keyword">ON</span> ev.id_estanque = ib.id_estanque<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="sql-keyword">AND</span> ev.fecha_evento >= ib.fecha_ingreso<br>
+<span class="sql-keyword">ORDER BY</span> ib.fecha_ingreso, ib.id_ingreso, ev.fecha_evento;
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- SQL 5 -->
+      <h3 style="font-size:14px;font-weight:700;color:#2d3748;margin-bottom:6px">
+        5 — Consumos por equipo / máquina del período
+      </h3>
+      <p style="font-size:12px;color:#718096;margin-bottom:8px">
+        Ranking de consumo por máquina: litros totales, costo, horas/km registrados y promedio de consumo.
+      </p>
+      <div class="sql-block">
+<span class="sql-keyword">SELECT</span><br>
+&nbsp;&nbsp;f.ubicacion                                         <span class="sql-keyword">AS</span> faena,<br>
+&nbsp;&nbsp;m.id_maquina,<br>
+&nbsp;&nbsp;m.nombre_maquina                                    <span class="sql-keyword">AS</span> equipo,<br>
+&nbsp;&nbsp;m.patente,<br>
+&nbsp;&nbsp;cat.nombre_categoria                                <span class="sql-keyword">AS</span> categoria,<br>
+&nbsp;&nbsp;<span class="sql-keyword">COUNT</span>(c.id_consumo)                                 <span class="sql-keyword">AS</span> n_cargas,<br>
+&nbsp;&nbsp;<span class="sql-keyword">SUM</span>(c.litros_consumidos)                            <span class="sql-keyword">AS</span> total_litros,<br>
+&nbsp;&nbsp;<span class="sql-keyword">SUM</span>(c.litros_consumidos * c.precio_litro)           <span class="sql-keyword">AS</span> costo_total,<br>
+&nbsp;&nbsp;<span class="sql-keyword">MIN</span>(c.fecha_consumo)                                <span class="sql-keyword">AS</span> primera_carga,<br>
+&nbsp;&nbsp;<span class="sql-keyword">MAX</span>(c.fecha_consumo)                                <span class="sql-keyword">AS</span> ultima_carga,<br>
+&nbsp;&nbsp;<span class="sql-keyword">MAX</span>(c.numeral_final) - <span class="sql-keyword">MIN</span>(c.numeral_inicial)      <span class="sql-keyword">AS</span> diferencia_numerales,<br>
+&nbsp;&nbsp;<span class="sql-keyword">ROUND</span>(<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="sql-keyword">SUM</span>(c.litros_consumidos) /<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="sql-keyword">NULLIF</span>(<span class="sql-keyword">MAX</span>(c.numeral_final) - <span class="sql-keyword">MIN</span>(c.numeral_inicial), 0),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;3<br>
+&nbsp;&nbsp;)                                                   <span class="sql-keyword">AS</span> rendimiento_lts_por_numeral<br>
+<span class="sql-keyword">FROM</span> consumos c<br>
+<span class="sql-keyword">JOIN</span> faenas f           <span class="sql-keyword">ON</span> f.id_faena      = c.id_faena<br>
+<span class="sql-keyword">JOIN</span> maquinas m         <span class="sql-keyword">ON</span> m.id_maquina    = c.id_equipo<br>
+<span class="sql-keyword">LEFT JOIN</span> categorias_maquinas cat <span class="sql-keyword">ON</span> cat.id_categoria = m.id_categoria<br>
+<span class="sql-keyword">WHERE</span> c.fecha_consumo <span class="sql-keyword">BETWEEN</span> <span class="sql-val">':fecha_inicio'</span> <span class="sql-keyword">AND</span> <span class="sql-val">':fecha_fin'</span><br>
+<span class="sql-comment">-- AND c.id_faena = :id_faena</span><br>
+<span class="sql-keyword">GROUP BY</span> m.id_maquina, f.id_faena<br>
+<span class="sql-keyword">ORDER BY</span> total_litros <span class="sql-keyword">DESC</span>;
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- SQL 6 -->
+      <h3 style="font-size:14px;font-weight:700;color:#2d3748;margin-bottom:6px">
+        6 — Reconciliación: stock sistema vs stock calculado por movimientos
+      </h3>
+      <p style="font-size:12px;color:#718096;margin-bottom:8px">
+        Detecta discrepancias entre lo que dice el sistema y lo que debería haber según ingresos − consumos − trasvasijes. Diferencia positiva = sistema tiene más de lo esperado. Negativa = sistema tiene menos.
+      </p>
+      <div class="sql-block">
+<span class="sql-keyword">SELECT</span><br>
+&nbsp;&nbsp;f.ubicacion                                         <span class="sql-keyword">AS</span> faena,<br>
+&nbsp;&nbsp;e.id_estanque,<br>
+&nbsp;&nbsp;e.nombre                                            <span class="sql-keyword">AS</span> estanque,<br>
+&nbsp;&nbsp;e.tipo_estanque,<br>
+&nbsp;&nbsp;e.capacidad,<br>
+&nbsp;&nbsp;es.stock_actual                                     <span class="sql-keyword">AS</span> stock_sistema,<br>
+&nbsp;&nbsp;<span class="sql-keyword">COALESCE</span>(ing.total_ingresado, 0)                    <span class="sql-keyword">AS</span> total_ingresado,<br>
+&nbsp;&nbsp;<span class="sql-keyword">COALESCE</span>(con.consumido_simple, 0)                   <span class="sql-keyword">AS</span> consumido_simple,<br>
+&nbsp;&nbsp;<span class="sql-keyword">COALESCE</span>(conm.consumido_multiple, 0)                <span class="sql-keyword">AS</span> consumido_multiple,<br>
+&nbsp;&nbsp;<span class="sql-keyword">COALESCE</span>(tras_sal.salida_trasvasije, 0)             <span class="sql-keyword">AS</span> salida_trasvasije,<br>
+&nbsp;&nbsp;<span class="sql-keyword">COALESCE</span>(tras_ent.entrada_trasvasije, 0)            <span class="sql-keyword">AS</span> entrada_trasvasije,<br>
+&nbsp;&nbsp;<span class="sql-keyword">ROUND</span>(<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="sql-keyword">COALESCE</span>(ing.total_ingresado, 0)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="sql-keyword">COALESCE</span>(con.consumido_simple, 0)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="sql-keyword">COALESCE</span>(conm.consumido_multiple, 0)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="sql-keyword">COALESCE</span>(tras_sal.salida_trasvasije, 0)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="sql-keyword">COALESCE</span>(tras_ent.entrada_trasvasije, 0),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;2<br>
+&nbsp;&nbsp;)                                                   <span class="sql-keyword">AS</span> stock_calculado,<br>
+&nbsp;&nbsp;<span class="sql-keyword">ROUND</span>(<br>
+&nbsp;&nbsp;&nbsp;&nbsp;es.stock_actual - (<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="sql-keyword">COALESCE</span>(ing.total_ingresado, 0)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- <span class="sql-keyword">COALESCE</span>(con.consumido_simple, 0)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- <span class="sql-keyword">COALESCE</span>(conm.consumido_multiple, 0)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- <span class="sql-keyword">COALESCE</span>(tras_sal.salida_trasvasije, 0)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ <span class="sql-keyword">COALESCE</span>(tras_ent.entrada_trasvasije, 0)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;), 2<br>
+&nbsp;&nbsp;)                                                   <span class="sql-keyword">AS</span> diferencia,<br>
+&nbsp;&nbsp;<span class="sql-keyword">CASE</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="sql-keyword">WHEN</span> <span class="sql-keyword">ABS</span>(es.stock_actual - <span class="sql-keyword">COALESCE</span>(ing.total_ingresado,0) + <span class="sql-keyword">COALESCE</span>(con.consumido_simple,0) + <span class="sql-keyword">COALESCE</span>(conm.consumido_multiple,0) + <span class="sql-keyword">COALESCE</span>(tras_sal.salida_trasvasije,0) - <span class="sql-keyword">COALESCE</span>(tras_ent.entrada_trasvasije,0)) &lt;= 5 <span class="sql-keyword">THEN</span> <span class="sql-val">'OK'</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="sql-keyword">WHEN</span> <span class="sql-keyword">ABS</span>(es.stock_actual - <span class="sql-keyword">COALESCE</span>(ing.total_ingresado,0) + <span class="sql-keyword">COALESCE</span>(con.consumido_simple,0) + <span class="sql-keyword">COALESCE</span>(conm.consumido_multiple,0) + <span class="sql-keyword">COALESCE</span>(tras_sal.salida_trasvasije,0) - <span class="sql-keyword">COALESCE</span>(tras_ent.entrada_trasvasije,0)) &lt;= 50 <span class="sql-keyword">THEN</span> <span class="sql-val">'REVISAR'</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="sql-keyword">ELSE</span> <span class="sql-val">'ALERTA'</span><br>
+&nbsp;&nbsp;<span class="sql-keyword">END</span>                                                 <span class="sql-keyword">AS</span> estado<br>
+<span class="sql-keyword">FROM</span> estanques e<br>
+<span class="sql-keyword">JOIN</span> faenas f           <span class="sql-keyword">ON</span> f.id_faena      = e.id_faena<br>
+<span class="sql-keyword">JOIN</span> estanque_stock es  <span class="sql-keyword">ON</span> es.id_estanque  = e.id_estanque<br>
+<span class="sql-keyword">LEFT JOIN</span> (<br>
+&nbsp;&nbsp;<span class="sql-keyword">SELECT</span> va.id_estanque, <span class="sql-keyword">SUM</span>(va.volumen_calculado) <span class="sql-keyword">AS</span> total_ingresado<br>
+&nbsp;&nbsp;<span class="sql-keyword">FROM</span> verificacion_altura va<br>
+&nbsp;&nbsp;<span class="sql-keyword">JOIN</span> ingresos_petroleo ip <span class="sql-keyword">ON</span> ip.id_ingreso = va.id_ingreso<br>
+&nbsp;&nbsp;<span class="sql-keyword">WHERE</span> va.volumen_calculado > 0<br>
+&nbsp;&nbsp;<span class="sql-keyword">GROUP BY</span> va.id_estanque<br>
+) ing <span class="sql-keyword">ON</span> ing.id_estanque = e.id_estanque<br>
+<span class="sql-keyword">LEFT JOIN</span> (<br>
+&nbsp;&nbsp;<span class="sql-keyword">SELECT</span> id_estanque, <span class="sql-keyword">SUM</span>(litros_consumidos) <span class="sql-keyword">AS</span> consumido_simple<br>
+&nbsp;&nbsp;<span class="sql-keyword">FROM</span> consumos <span class="sql-keyword">WHERE</span> tipo_consumo = <span class="sql-val">'simple'</span> <span class="sql-keyword">GROUP BY</span> id_estanque<br>
+) con <span class="sql-keyword">ON</span> con.id_estanque = e.id_estanque<br>
+<span class="sql-keyword">LEFT JOIN</span> (<br>
+&nbsp;&nbsp;<span class="sql-keyword">SELECT</span> id_estanque, <span class="sql-keyword">SUM</span>(litros_desde_estanque) <span class="sql-keyword">AS</span> consumido_multiple<br>
+&nbsp;&nbsp;<span class="sql-keyword">FROM</span> consumo_estanques <span class="sql-keyword">GROUP BY</span> id_estanque<br>
+) conm <span class="sql-keyword">ON</span> conm.id_estanque = e.id_estanque<br>
+<span class="sql-keyword">LEFT JOIN</span> (<br>
+&nbsp;&nbsp;<span class="sql-keyword">SELECT</span> d.id_estanque_fijo, <span class="sql-keyword">SUM</span>(d.litros_desde_estanque) <span class="sql-keyword">AS</span> salida_trasvasije<br>
+&nbsp;&nbsp;<span class="sql-keyword">FROM</span> trasvasijes_multi_fijo_a_movil_detalle d <span class="sql-keyword">GROUP BY</span> d.id_estanque_fijo<br>
+) tras_sal <span class="sql-keyword">ON</span> tras_sal.id_estanque_fijo = e.id_estanque<br>
+<span class="sql-keyword">LEFT JOIN</span> (<br>
+&nbsp;&nbsp;<span class="sql-keyword">SELECT</span> id_estanque_fijo, <span class="sql-keyword">SUM</span>(litros_trasvasijados) <span class="sql-keyword">AS</span> entrada_trasvasije<br>
+&nbsp;&nbsp;<span class="sql-keyword">FROM</span> trasvasijes_movil_a_fijo <span class="sql-keyword">GROUP BY</span> id_estanque_fijo<br>
+) tras_ent <span class="sql-keyword">ON</span> tras_ent.id_estanque_fijo = e.id_estanque<br>
+<span class="sql-keyword">WHERE</span> e.activo = 1<br>
+<span class="sql-comment">-- AND f.id_faena = :id_faena</span><br>
+<span class="sql-keyword">ORDER BY</span> estado <span class="sql-keyword">DESC</span>, f.ubicacion, e.nombre;
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- SQL 7 -->
+      <h3 style="font-size:14px;font-weight:700;color:#2d3748;margin-bottom:6px">
+        7 — Resumen gerencia: costos y totales del período
+      </h3>
+      <p style="font-size:12px;color:#718096;margin-bottom:8px">
+        Vista ejecutiva: total comprado, total consumido, costo, stock valorizado actual y litros sin registrar (tickets pendientes).
+      </p>
+      <div class="sql-block">
+<span class="sql-keyword">SELECT</span><br>
+&nbsp;&nbsp;f.id_faena,<br>
+&nbsp;&nbsp;f.ubicacion                                         <span class="sql-keyword">AS</span> faena,<br>
+&nbsp;&nbsp;<span class="sql-comment">-- Ingresos del período</span><br>
+&nbsp;&nbsp;<span class="sql-keyword">COUNT</span>(<span class="sql-keyword">DISTINCT</span> ip.id_ingreso)                      <span class="sql-keyword">AS</span> n_ingresos,<br>
+&nbsp;&nbsp;<span class="sql-keyword">SUM</span>(ip.litros_recibidos)                            <span class="sql-keyword">AS</span> total_litros_comprados,<br>
+&nbsp;&nbsp;<span class="sql-keyword">SUM</span>(ip.precio_total)                                <span class="sql-keyword">AS</span> gasto_total_compra,<br>
+&nbsp;&nbsp;<span class="sql-keyword">ROUND</span>(<span class="sql-keyword">SUM</span>(ip.precio_total) / <span class="sql-keyword">SUM</span>(ip.litros_recibidos), 2) <span class="sql-keyword">AS</span> precio_promedio_litro,<br>
+&nbsp;&nbsp;<span class="sql-comment">-- Diferencias de recepción (documentado vs recibido)</span><br>
+&nbsp;&nbsp;<span class="sql-keyword">SUM</span>(ip.diferencia)                                  <span class="sql-keyword">AS</span> diferencia_total_recepcion,<br>
+&nbsp;&nbsp;<span class="sql-comment">-- Consumos del período</span><br>
+&nbsp;&nbsp;<span class="sql-keyword">COUNT</span>(<span class="sql-keyword">DISTINCT</span> c.id_consumo)                       <span class="sql-keyword">AS</span> n_consumos,<br>
+&nbsp;&nbsp;<span class="sql-keyword">SUM</span>(c.litros_consumidos)                            <span class="sql-keyword">AS</span> total_litros_consumidos,<br>
+&nbsp;&nbsp;<span class="sql-keyword">SUM</span>(c.litros_consumidos * c.precio_litro)           <span class="sql-keyword">AS</span> costo_total_consumo,<br>
+&nbsp;&nbsp;<span class="sql-comment">-- Stock actual valorizado</span><br>
+&nbsp;&nbsp;<span class="sql-keyword">SUM</span>(es.stock_actual)                                <span class="sql-keyword">AS</span> stock_total_litros,<br>
+&nbsp;&nbsp;<span class="sql-keyword">ROUND</span>(<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="sql-keyword">SUM</span>(es.stock_actual) * (<span class="sql-keyword">SUM</span>(ip.precio_total) / <span class="sql-keyword">NULLIF</span>(<span class="sql-keyword">SUM</span>(ip.litros_recibidos),0)),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;0<br>
+&nbsp;&nbsp;)                                                   <span class="sql-keyword">AS</span> stock_valorizado<br>
+<span class="sql-keyword">FROM</span> faenas f<br>
+<span class="sql-keyword">LEFT JOIN</span> ingresos_petroleo ip <span class="sql-keyword">ON</span> ip.id_faena = f.id_faena<br>
+&nbsp;&nbsp;<span class="sql-keyword">AND</span> ip.created_at <span class="sql-keyword">BETWEEN</span> <span class="sql-val">':fecha_inicio'</span> <span class="sql-keyword">AND</span> <span class="sql-val">':fecha_fin'</span><br>
+<span class="sql-keyword">LEFT JOIN</span> consumos c <span class="sql-keyword">ON</span> c.id_faena = f.id_faena<br>
+&nbsp;&nbsp;<span class="sql-keyword">AND</span> c.fecha_consumo <span class="sql-keyword">BETWEEN</span> <span class="sql-val">':fecha_inicio'</span> <span class="sql-keyword">AND</span> <span class="sql-val">':fecha_fin'</span><br>
+<span class="sql-keyword">LEFT JOIN</span> estanques e <span class="sql-keyword">ON</span> e.id_faena = f.id_faena <span class="sql-keyword">AND</span> e.activo = 1<br>
+<span class="sql-keyword">LEFT JOIN</span> estanque_stock es <span class="sql-keyword">ON</span> es.id_estanque = e.id_estanque<br>
+<span class="sql-comment">-- AND f.id_faena = :id_faena</span><br>
+<span class="sql-keyword">GROUP BY</span> f.id_faena<br>
+<span class="sql-keyword">ORDER BY</span> gasto_total_compra <span class="sql-keyword">DESC</span>;
+      </div>
+
+    </div>
+  </div>
+  </div>
+
+<footer>
+  Reporte generado · Sistema de Gestión de Petróleo · Faenas Catemu y La Cruz Parcela · 02-04-2026
+</footer>
+
+</body>
+</html>
