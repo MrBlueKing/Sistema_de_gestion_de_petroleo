@@ -572,6 +572,153 @@ class TrasvasijeController extends Controller
     }
 
     // ========================================
+    // EDICIÓN DE TRASVASIJES
+    // ========================================
+
+    /**
+     * Editar fecha y/o litros de un trasvasije móvil→fijo
+     * PUT /api/trasvasijes/movil-a-fijo/{id}
+     */
+    public function editarMovilAFijo(Request $request, $id)
+    {
+        $trasvasije = TrasvasijeMovilAFijo::find($id);
+        if (!$trasvasije) {
+            return response()->json(['success' => false, 'message' => 'Trasvasije no encontrado'], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'fecha_trasvasije'     => 'nullable|date',
+            'litros_trasvasijados' => 'nullable|numeric|min:0.01',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => 'Datos inválidos', 'errors' => $validator->errors()], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            if ($request->filled('fecha_trasvasije')) {
+                $trasvasije->fecha_trasvasije = $request->fecha_trasvasije;
+            }
+
+            if ($request->filled('litros_trasvasijados')) {
+                $oldLitros = (float) $trasvasije->litros_trasvasijados;
+                $newLitros = (float) $request->litros_trasvasijados;
+                $diff = $newLitros - $oldLitros;
+
+                if ($diff !== 0.0) {
+                    $stockMovil = EstanqueStock::where('id_estanque', $trasvasije->id_estanque_movil)->first();
+                    $stockFijo  = EstanqueStock::where('id_estanque', $trasvasije->id_estanque_fijo)->first();
+
+                    if ($diff > 0 && $stockMovil && $stockMovil->stock_actual < $diff) {
+                        DB::rollBack();
+                        return response()->json(['success' => false, 'message' => 'Stock insuficiente en estanque móvil'], 400);
+                    }
+
+                    // Movil pierde más (o recupera), fijo gana más (o devuelve)
+                    if ($diff > 0) {
+                        if ($stockMovil) $stockMovil->decrement('stock_actual', $diff);
+                        if ($stockFijo)  $stockFijo->increment('stock_actual', $diff);
+                    } else {
+                        if ($stockMovil) $stockMovil->increment('stock_actual', abs($diff));
+                        if ($stockFijo)  $stockFijo->decrement('stock_actual', abs($diff));
+                    }
+
+                    $trasvasije->litros_trasvasijados = $newLitros;
+                }
+            }
+
+            $trasvasije->save();
+            DB::commit();
+
+            return response()->json(['success' => true, 'message' => 'Trasvasije actualizado exitosamente']);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error al editar trasvasije movil→fijo', ['id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Editar fecha y/o litros de un trasvasije fijo→móvil
+     * PUT /api/trasvasijes/fijo-a-movil/{id}
+     *
+     * Para editar litros se requiere id_estanque_fijo (el estanque desde cuya vista se edita)
+     */
+    public function editarFijoAMovil(Request $request, $id)
+    {
+        $trasvasije = Trasvasijes_multi_fijo_a_movil::with('detalles')->find($id);
+        if (!$trasvasije) {
+            return response()->json(['success' => false, 'message' => 'Trasvasije no encontrado'], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'fecha_trasvasije'      => 'nullable|date',
+            'litros_desde_estanque' => 'nullable|numeric|min:0.01',
+            'id_estanque_fijo'      => 'nullable|integer|exists:estanques,id_estanque',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => 'Datos inválidos', 'errors' => $validator->errors()], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            if ($request->filled('fecha_trasvasije')) {
+                $trasvasije->fecha_trasvasije = $request->fecha_trasvasije;
+            }
+
+            if ($request->filled('litros_desde_estanque') && $request->filled('id_estanque_fijo')) {
+                $detalle = $trasvasije->detalles->firstWhere('id_estanque_fijo', (int) $request->id_estanque_fijo);
+                if (!$detalle) {
+                    DB::rollBack();
+                    return response()->json(['success' => false, 'message' => 'Detalle de estanque fijo no encontrado'], 404);
+                }
+
+                $oldLitros = (float) $detalle->litros_desde_estanque;
+                $newLitros = (float) $request->litros_desde_estanque;
+                $diff = $newLitros - $oldLitros;
+
+                if ($diff !== 0.0) {
+                    $stockFijo  = EstanqueStock::where('id_estanque', (int) $request->id_estanque_fijo)->first();
+                    $stockMovil = EstanqueStock::where('id_estanque', $trasvasije->id_estanque_movil)->first();
+
+                    if ($diff > 0 && $stockFijo && $stockFijo->stock_actual < $diff) {
+                        DB::rollBack();
+                        return response()->json(['success' => false, 'message' => 'Stock insuficiente en estanque fijo'], 400);
+                    }
+
+                    // Fijo pierde más (o recupera), móvil gana más (o devuelve)
+                    if ($diff > 0) {
+                        if ($stockFijo)  $stockFijo->decrement('stock_actual', $diff);
+                        if ($stockMovil) $stockMovil->increment('stock_actual', $diff);
+                    } else {
+                        if ($stockFijo)  $stockFijo->increment('stock_actual', abs($diff));
+                        if ($stockMovil) $stockMovil->decrement('stock_actual', abs($diff));
+                    }
+
+                    $detalle->litros_desde_estanque = $newLitros;
+                    $detalle->save();
+
+                    // Recalcular total
+                    $trasvasije->litros_bombeados_total = TrasvasijeMultiDetalle::where('id_trasvasije_multi', $trasvasije->id_trasvasije)->sum('litros_desde_estanque');
+                }
+            }
+
+            $trasvasije->save();
+            DB::commit();
+
+            return response()->json(['success' => true, 'message' => 'Trasvasije actualizado exitosamente']);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error al editar trasvasije fijo→movil', ['id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    // ========================================
     // CONSULTAS Y LISTADOS
     // ========================================
 

@@ -297,6 +297,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/movil-a-fijo', [TrasvasijeController::class, 'registrarMovilAFijo']);
         Route::post('/fijo-a-movil', [TrasvasijeController::class, 'registrarFijoAMovil']);
 
+        // Editar trasvasijes (admin)
+        Route::put('/movil-a-fijo/{id}', [TrasvasijeController::class, 'editarMovilAFijo']);
+        Route::put('/fijo-a-movil/{id}', [TrasvasijeController::class, 'editarFijoAMovil']);
+
         // Verificar trasvasijes móvil→fijo
         Route::post('/movil-a-fijo/{id}/verificar', [TrasvasijeController::class, 'verificarMovilAFijo']);
 
@@ -622,6 +626,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::delete('/consumos/{id}', [ConsumoController::class, 'eliminarConsumo']);
+    Route::put('/consumos/{id}', [ConsumoController::class, 'editarConsumo']);
 
     Route::apiResource('/kpi-valores-entrada', KpiValoresEntradaController::class);
     Route::post('/calcular-kpis', [KpiCalculoController::class, 'calcular']);

@@ -934,7 +934,8 @@ class EstanqueController extends Controller
             $fecha = $request->get('fecha', now()->toDateString());
 
             $movimientos = DB::select("
-                SELECT tipo, movimiento, fecha, litros, contraparte, observacion, id_consumo, anulado
+                SELECT tipo, movimiento, fecha, litros, contraparte, observacion,
+                       id_consumo, id_trasvasije, tipo_registro, id_consumo_estanque, anulado
                 FROM (
                     SELECT
                         'Consumo' AS tipo,
@@ -944,11 +945,15 @@ class EstanqueController extends Controller
                         COALESCE(m.nombre_maquina, 'N/A') AS contraparte,
                         c.observacion,
                         c.id_consumo,
+                        NULL AS id_trasvasije,
+                        'consumo_simple' AS tipo_registro,
+                        NULL AS id_consumo_estanque,
                         0 AS anulado
                     FROM consumos c
                     LEFT JOIN maquinas m ON c.id_equipo = m.id_maquina
                     WHERE c.id_estanque = ?
                       AND DATE(c.fecha_consumo) = ?
+                      AND NOT EXISTS (SELECT 1 FROM consumo_estanques ce2 WHERE ce2.id_consumo = c.id_consumo)
 
                     UNION ALL
 
@@ -960,6 +965,9 @@ class EstanqueController extends Controller
                         COALESCE(m.nombre_maquina, 'N/A') AS contraparte,
                         c.observacion,
                         c.id_consumo,
+                        NULL AS id_trasvasije,
+                        'consumo_multiple' AS tipo_registro,
+                        ce.id_consumo_estanque AS id_consumo_estanque,
                         0 AS anulado
                     FROM consumo_estanques ce
                     JOIN consumos c ON ce.id_consumo = c.id_consumo
@@ -977,6 +985,9 @@ class EstanqueController extends Controller
                         COALESCE(e_movil.nombre, 'N/A') AS contraparte,
                         t.observaciones,
                         NULL AS id_consumo,
+                        t.id_trasvasije AS id_trasvasije,
+                        'trasvasije_fijo_movil' AS tipo_registro,
+                        NULL AS id_consumo_estanque,
                         0 AS anulado
                     FROM trasvasijes_multi_fijo_a_movil_detalle d
                     JOIN trasvasijes_multi_fijo_a_movil t ON d.id_trasvasije_multi = t.id_trasvasije
@@ -994,6 +1005,9 @@ class EstanqueController extends Controller
                         COALESCE(e_movil.nombre, 'N/A') AS contraparte,
                         t.observaciones,
                         NULL AS id_consumo,
+                        t.id_trasvasije AS id_trasvasije,
+                        'trasvasije_movil_fijo' AS tipo_registro,
+                        NULL AS id_consumo_estanque,
                         0 AS anulado
                     FROM trasvasijes_movil_a_fijo t
                     LEFT JOIN estanques e_movil ON t.id_estanque_movil = e_movil.id_estanque
@@ -1010,6 +1024,9 @@ class EstanqueController extends Controller
                         numero_guia AS contraparte,
                         observacion,
                         NULL AS id_consumo,
+                        NULL AS id_trasvasije,
+                        'ingreso' AS tipo_registro,
+                        NULL AS id_consumo_estanque,
                         0 AS anulado
                     FROM ingresos_petroleo
                     WHERE id_faena = ?

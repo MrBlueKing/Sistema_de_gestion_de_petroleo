@@ -12,6 +12,7 @@ import {
   FaChartLine,
   FaTimes,
   FaBan,
+  FaPencilAlt,
 } from "react-icons/fa";
 import UniversalHeader from "../../components/organisms/Todos/UniversalHeader";
 import axios from "../../lib/axios";
@@ -40,6 +41,12 @@ const GestionarEstanques = () => {
   const [consumoAAnular, setConsumoAAnular] = useState(null);
   const [motivoAnulacion, setMotivoAnulacion] = useState('');
   const [anulando, setAnulando] = useState(false);
+
+  // Estado para edición de movimientos
+  const [showEditarMovimiento, setShowEditarMovimiento] = useState(false);
+  const [movimientoAEditar, setMovimientoAEditar] = useState(null);
+  const [editForm, setEditForm] = useState({ fecha: '', litros: '' });
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
 
   const [formData, setFormData] = useState({
     nombre: '',
@@ -223,6 +230,88 @@ const GestionarEstanques = () => {
       alert(error.response?.data?.message || 'Error al eliminar el consumo');
     } finally {
       setAnulando(false);
+    }
+  };
+
+  // ─── Edición de movimientos ──────────────────────────────────────────────────
+
+  const abrirEditar = (mov) => {
+    // Convertir fecha a formato datetime-local (YYYY-MM-DDTHH:MM)
+    const fechaLocal = mov.fecha
+      ? new Date(mov.fecha).toISOString().slice(0, 16)
+      : '';
+    setMovimientoAEditar(mov);
+    setEditForm({ fecha: fechaLocal, litros: String(mov.litros) });
+    setShowEditarMovimiento(true);
+  };
+
+  const cerrarEditar = () => {
+    setShowEditarMovimiento(false);
+    setMovimientoAEditar(null);
+    setEditForm({ fecha: '', litros: '' });
+  };
+
+  const handleGuardarEdicion = async () => {
+    if (!movimientoAEditar) return;
+    setGuardandoEdicion(true);
+
+    try {
+      const mov = movimientoAEditar;
+      const fechaOriginal = mov.fecha
+        ? new Date(mov.fecha).toISOString().slice(0, 16)
+        : '';
+      const fechaCambio = editForm.fecha !== fechaOriginal ? editForm.fecha : null;
+      const litrosCambio = parseFloat(editForm.litros) !== parseFloat(mov.litros) ? editForm.litros : null;
+
+      if (!fechaCambio && !litrosCambio) {
+        cerrarEditar();
+        return;
+      }
+
+      let res;
+
+      if (mov.tipo_registro === 'consumo_simple') {
+        const body = {};
+        if (fechaCambio) body.fecha_consumo = fechaCambio;
+        if (litrosCambio) body.litros_consumidos = litrosCambio;
+        res = await axios.put(`/api/consumos/${mov.id_consumo}`, body);
+
+      } else if (mov.tipo_registro === 'consumo_multiple') {
+        const body = {};
+        if (fechaCambio) body.fecha_consumo = fechaCambio;
+        if (litrosCambio) {
+          body.litros_consumidos = litrosCambio;
+          body.id_consumo_estanque = mov.id_consumo_estanque;
+        }
+        res = await axios.put(`/api/consumos/${mov.id_consumo}`, body);
+
+      } else if (mov.tipo_registro === 'trasvasije_movil_fijo') {
+        const body = {};
+        if (fechaCambio) body.fecha_trasvasije = fechaCambio;
+        if (litrosCambio) body.litros_trasvasijados = litrosCambio;
+        res = await axios.put(`/api/trasvasijes/movil-a-fijo/${mov.id_trasvasije}`, body);
+
+      } else if (mov.tipo_registro === 'trasvasije_fijo_movil') {
+        const body = {};
+        if (fechaCambio) body.fecha_trasvasije = fechaCambio;
+        if (litrosCambio) {
+          body.litros_desde_estanque = litrosCambio;
+          body.id_estanque_fijo = estanqueDetalle.id_estanque;
+        }
+        res = await axios.put(`/api/trasvasijes/fijo-a-movil/${mov.id_trasvasije}`, body);
+      }
+
+      if (res?.data?.success) {
+        cerrarEditar();
+        await Promise.all([
+          cargarMovimientos(estanqueDetalle.id_estanque, fechaMovimientos),
+          cargarDatos()
+        ]);
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || 'Error al guardar los cambios');
+    } finally {
+      setGuardandoEdicion(false);
     }
   };
 
@@ -628,15 +717,26 @@ const GestionarEstanques = () => {
                           {mov.observacion || '-'}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          {mov.id_consumo ? (
-                            <button
-                              onClick={() => pedirEliminar(mov)}
-                              className="text-red-500 hover:text-red-700 flex items-center gap-1 mx-auto text-xs font-medium"
-                              title="Eliminar consumo"
-                            >
-                              <FaBan size={13} /> Eliminar
-                            </button>
-                          ) : null}
+                          <div className="flex items-center justify-center gap-2">
+                            {mov.tipo_registro && mov.tipo_registro !== 'ingreso' && !mov.anulado && (
+                              <button
+                                onClick={() => abrirEditar(mov)}
+                                className="text-blue-500 hover:text-blue-700 flex items-center gap-1 text-xs font-medium"
+                                title="Editar registro"
+                              >
+                                <FaPencilAlt size={12} /> Editar
+                              </button>
+                            )}
+                            {mov.id_consumo && !mov.anulado ? (
+                              <button
+                                onClick={() => pedirEliminar(mov)}
+                                className="text-red-500 hover:text-red-700 flex items-center gap-1 text-xs font-medium"
+                                title="Eliminar consumo"
+                              >
+                                <FaBan size={13} /> Eliminar
+                              </button>
+                            ) : null}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -668,6 +768,78 @@ const GestionarEstanques = () => {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ─── Modal Editar Movimiento ────────────────────────────────────────── */}
+      {showEditarMovimiento && movimientoAEditar && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-60 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <FaPencilAlt className="text-blue-500 text-xl" />
+                <h3 className="text-lg font-bold text-gray-800">Editar registro</h3>
+              </div>
+              <button onClick={cerrarEditar} className="text-gray-400 hover:text-gray-600">
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600">
+              <div><strong>Tipo:</strong> {movimientoAEditar.tipo}</div>
+              <div><strong>Contraparte:</strong> {movimientoAEditar.contraparte || '-'}</div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Fecha y hora
+                </label>
+                <input
+                  type="datetime-local"
+                  value={editForm.fecha}
+                  onChange={(e) => setEditForm({ ...editForm, fecha: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+
+              {movimientoAEditar.tipo_registro !== 'ingreso' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Litros
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={editForm.litros}
+                    onChange={(e) => setEditForm({ ...editForm, litros: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    Valor actual: {Number(movimientoAEditar.litros).toLocaleString('es-CL')} L
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={handleGuardarEdicion}
+                disabled={guardandoEdicion}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2 rounded-lg text-sm font-medium transition-colors"
+              >
+                {guardandoEdicion ? 'Guardando...' : 'Guardar cambios'}
+              </button>
+              <button
+                onClick={cerrarEditar}
+                disabled={guardandoEdicion}
+                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -2002,6 +2002,113 @@ class ConsumoController extends Controller
     }
 
     /**
+     * Editar fecha y/o litros de un consumo existente
+     * PUT /api/consumos/{id}
+     */
+    public function editarConsumo(Request $request, $id)
+    {
+        $consumo = Consumo::with('consumoEstanques')->find($id);
+
+        if (!$consumo) {
+            return response()->json(['success' => false, 'message' => 'Consumo no encontrado'], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'fecha_consumo'       => 'nullable|date',
+            'litros_consumidos'   => 'nullable|numeric|min:0.01',
+            'id_consumo_estanque' => 'nullable|integer|exists:consumo_estanques,id_consumo_estanque',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => 'Datos inválidos', 'errors' => $validator->errors()], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            // ── 1. Actualizar fecha ──────────────────────────────────────────
+            if ($request->filled('fecha_consumo')) {
+                $consumo->fecha_consumo = $request->fecha_consumo;
+            }
+
+            // ── 2. Actualizar litros ─────────────────────────────────────────
+            if ($request->filled('litros_consumidos')) {
+                $newLitros = (float) $request->litros_consumidos;
+
+                if ($consumo->consumoEstanques->isNotEmpty()) {
+                    // Consumo múltiple: actualizar la porción de un estanque específico
+                    if (!$request->filled('id_consumo_estanque')) {
+                        DB::rollBack();
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Para consumos múltiples se requiere id_consumo_estanque'
+                        ], 422);
+                    }
+
+                    $ce = $consumo->consumoEstanques->firstWhere('id_consumo_estanque', (int) $request->id_consumo_estanque);
+                    if (!$ce) {
+                        DB::rollBack();
+                        return response()->json(['success' => false, 'message' => 'Detalle de estanque no encontrado'], 404);
+                    }
+
+                    $oldLitrosCe = (float) $ce->litros_desde_estanque;
+                    $diff = $newLitros - $oldLitrosCe;
+
+                    if ($diff !== 0.0) {
+                        $stock = \App\Models\EstanqueStock::where('id_estanque', $ce->id_estanque)->first();
+                        if ($stock) {
+                            if ($diff > 0 && $stock->stock_actual < $diff) {
+                                DB::rollBack();
+                                return response()->json(['success' => false, 'message' => 'Stock insuficiente en el estanque'], 400);
+                            }
+                            if ($diff > 0) {
+                                $stock->decrement('stock_actual', $diff);
+                            } else {
+                                $stock->increment('stock_actual', abs($diff));
+                            }
+                        }
+
+                        $ce->litros_desde_estanque = $newLitros;
+                        $ce->save();
+
+                        // Recalcular total del consumo
+                        $consumo->litros_consumidos = \App\Models\ConsumoEstanque::where('id_consumo', $consumo->id_consumo)->sum('litros_desde_estanque');
+                    }
+                } else {
+                    // Consumo simple
+                    $oldLitros = (float) $consumo->litros_consumidos;
+                    $diff = $newLitros - $oldLitros;
+
+                    if ($diff !== 0.0) {
+                        $stock = \App\Models\EstanqueStock::where('id_estanque', $consumo->id_estanque)->first();
+                        if ($stock) {
+                            if ($diff > 0 && $stock->stock_actual < $diff) {
+                                DB::rollBack();
+                                return response()->json(['success' => false, 'message' => 'Stock insuficiente en el estanque'], 400);
+                            }
+                            if ($diff > 0) {
+                                $stock->decrement('stock_actual', $diff);
+                            } else {
+                                $stock->increment('stock_actual', abs($diff));
+                            }
+                        }
+                        $consumo->litros_consumidos = $newLitros;
+                    }
+                }
+            }
+
+            $consumo->save();
+            DB::commit();
+
+            return response()->json(['success' => true, 'message' => 'Consumo actualizado exitosamente']);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error al editar consumo', ['id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error al editar: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Eliminar un consumo y devolver los litros a los estanques
      */
     public function eliminarConsumo($id)
