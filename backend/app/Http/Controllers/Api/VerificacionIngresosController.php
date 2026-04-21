@@ -1261,10 +1261,22 @@ class VerificacionIngresosController extends Controller
             Log::info('🔄 obtenerStockInicial - no es carga actual, reconstruyendo desde ultimo ingreso o stock general');
 
             // Buscar ultimo ingreso anterior al inicio del periodo
+            // Preferir estanques_fijos porque su stock_inicial refleja el total de la faena.
+            // Los ingresos de estanque_movil tienen stock_inicial del móvil (puede ser 0 si era nuevo),
+            // lo que haría perder el stock del estanque fijo al calcular el punto de partida.
             $ultimoIngresoAnterior = IngresoPetroleo::where('id_faena', $idFaena)
                 ->where('created_at', '<', $fechaInicioPeriodo)
+                ->where('tipo_recepcion', 'estanques_fijos')
                 ->orderBy('created_at', 'desc')
                 ->first();
+
+            // Fallback: si no hay ingresos fijos previos, usar cualquier ingreso anterior
+            if (!$ultimoIngresoAnterior) {
+                $ultimoIngresoAnterior = IngresoPetroleo::where('id_faena', $idFaena)
+                    ->where('created_at', '<', $fechaInicioPeriodo)
+                    ->orderBy('created_at', 'desc')
+                    ->first();
+            }
 
             if ($ultimoIngresoAnterior) {
                 $datosIngresoAnterior = $this->calcularErroresIngreso($ultimoIngresoAnterior);
