@@ -623,6 +623,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/{id}', [EstanqueController::class, 'update']); // Actualizar
         Route::delete('/{id}', [EstanqueController::class, 'destroy']); // Desactivar
         Route::patch('/{id}/activate', [EstanqueController::class, 'activate']); // Activar
+        Route::post('/recalcular-stocks/{id_faena}', [EstanqueController::class, 'recalcularStocks']); // Recalcular stocks
     });
 
     Route::delete('/consumos/{id}', [ConsumoController::class, 'eliminarConsumo']);

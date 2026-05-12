@@ -456,6 +456,28 @@ class ConsumoController extends Controller
                 Carbon::parse($request->fecha_consumo)->setTimezone('America/Santiago') :
                 now('America/Santiago');
 
+            // Validar stock histórico antes de iniciar la transacción
+            if ($esMultiple && $request->has('estanques_multiples')) {
+                foreach ($request->estanques_multiples as $estanqueData) {
+                    $litrosRequeridos = (float) ($estanqueData['litros'] ?? 0);
+                    if (!isset($estanqueData['id_estanque']) || $litrosRequeridos <= 0) continue;
+
+                    $stockDisponible = $this->calcularStockHistorico((int)$estanqueData['id_estanque'], $fechaConsumo);
+                    if ($stockDisponible < $litrosRequeridos) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Stock insuficiente al momento del consumo ({$fechaConsumo->toDateTimeString()}). Disponible: {$stockDisponible}L, solicitado: {$litrosRequeridos}L",
+                            'data' => [
+                                'id_estanque' => $estanqueData['id_estanque'],
+                                'stock_disponible' => $stockDisponible,
+                                'litros_solicitados' => $litrosRequeridos,
+                                'fecha_consumo' => $fechaConsumo->toDateTimeString(),
+                            ]
+                        ], 422);
+                    }
+                }
+            }
+
             // ✅ OBTENER EL ÚLTIMO INGRESO DE PETRÓLEO IGUAL QUE EN EL MÉTODO STORE
             $ultimoIngreso = IngresoPetroleo::where('id_faena', $idFaena)
                 ->orderBy('created_at', 'desc')
@@ -537,14 +559,7 @@ class ConsumoController extends Controller
                     $litrosEstanque = $estanqueData['litros'];
                     $medicionEstanque = $estanqueData['medicion'] ?? null;
 
-                    if ($litrosEstanque <= 0 || $estanque->stock->stock_actual < $litrosEstanque) {
-                        Log::warning("Stock insuficiente en estanque", [
-                            'id_estanque' => $estanque->id_estanque,
-                            'stock_actual' => $estanque->stock->stock_actual,
-                            'litros_solicitados' => $litrosEstanque
-                        ]);
-                        continue;
-                    }
+                    if ($litrosEstanque <= 0) continue;
 
                     $stockInicial = $estanque->stock->stock_actual;
                     $stockFinal = $stockInicial - $litrosEstanque;
@@ -569,12 +584,12 @@ class ConsumoController extends Controller
 
                     $consumoEstanque->save();
 
-                    // Actualizar stock del estanque
-                    $estanque->stock->stock_actual = $stockFinal;
+                    // Recalcular stock desde todos los movimientos registrados (robusto ante entradas retroactivas)
+                    $estanque->stock->stock_actual = $this->calcularStockHistorico($estanque->id_estanque, now('America/Santiago'));
                     if ($estanque->altura_nominal && $estanque->capacidad && $estanque->capacidad > 0) {
-                        $estanque->stock->altura_actual = $medicionFinal;
+                        $estanque->stock->altura_actual = ($estanque->stock->stock_actual / $estanque->capacidad) * $estanque->altura_nominal;
                     }
-                    $estanque->stock->ultima_medicion = $fechaConsumo;
+                    $estanque->stock->ultima_medicion = now('America/Santiago');
                     $estanque->stock->save();
 
                     // Registrar movimiento
@@ -624,8 +639,9 @@ class ConsumoController extends Controller
                     throw new \Exception("Estanque no encontrado o sin stock configurado");
                 }
 
-                if ($estanque->stock->stock_actual < $litrosConsumidos) {
-                    throw new \Exception("Stock insuficiente en el estanque seleccionado");
+                $stockHistoricoSimple = $this->calcularStockHistorico($estanque->id_estanque, $fechaConsumo);
+                if ($stockHistoricoSimple < $litrosConsumidos) {
+                    throw new \Exception("Stock insuficiente en el estanque. Disponible: {$stockHistoricoSimple}L, solicitado: {$litrosConsumidos}L");
                 }
 
                 $stockInicial = $estanque->stock->stock_actual;
@@ -649,12 +665,12 @@ class ConsumoController extends Controller
 
                 $consumoEstanque->save();
 
-                // Actualizar stock del estanque
-                $estanque->stock->stock_actual = $stockFinal;
+                // Recalcular stock desde todos los movimientos registrados
+                $estanque->stock->stock_actual = $this->calcularStockHistorico($estanque->id_estanque, now('America/Santiago'));
                 if ($estanque->altura_nominal && $estanque->capacidad && $estanque->capacidad > 0) {
-                    $estanque->stock->altura_actual = $medicionFinal;
+                    $estanque->stock->altura_actual = ($estanque->stock->stock_actual / $estanque->capacidad) * $estanque->altura_nominal;
                 }
-                $estanque->stock->ultima_medicion = $fechaConsumo;
+                $estanque->stock->ultima_medicion = now('America/Santiago');
                 $estanque->stock->save();
 
                 // Registrar movimiento
@@ -2050,53 +2066,26 @@ class ConsumoController extends Controller
                         return response()->json(['success' => false, 'message' => 'Detalle de estanque no encontrado'], 404);
                     }
 
-                    $oldLitrosCe = (float) $ce->litros_desde_estanque;
-                    $diff = $newLitros - $oldLitrosCe;
+                    $ce->litros_desde_estanque = $newLitros;
+                    $ce->save();
 
-                    if ($diff !== 0.0) {
-                        $stock = \App\Models\EstanqueStock::where('id_estanque', $ce->id_estanque)->first();
-                        if ($stock) {
-                            if ($diff > 0 && $stock->stock_actual < $diff) {
-                                DB::rollBack();
-                                return response()->json(['success' => false, 'message' => 'Stock insuficiente en el estanque'], 400);
-                            }
-                            if ($diff > 0) {
-                                $stock->decrement('stock_actual', $diff);
-                            } else {
-                                $stock->increment('stock_actual', abs($diff));
-                            }
-                        }
-
-                        $ce->litros_desde_estanque = $newLitros;
-                        $ce->save();
-
-                        // Recalcular total del consumo
-                        $consumo->litros_consumidos = \App\Models\ConsumoEstanque::where('id_consumo', $consumo->id_consumo)->sum('litros_desde_estanque');
-                    }
+                    // Recalcular total del consumo
+                    $consumo->litros_consumidos = \App\Models\ConsumoEstanque::where('id_consumo', $consumo->id_consumo)->sum('litros_desde_estanque');
                 } else {
                     // Consumo simple
-                    $oldLitros = (float) $consumo->litros_consumidos;
-                    $diff = $newLitros - $oldLitros;
-
-                    if ($diff !== 0.0) {
-                        $stock = \App\Models\EstanqueStock::where('id_estanque', $consumo->id_estanque)->first();
-                        if ($stock) {
-                            if ($diff > 0 && $stock->stock_actual < $diff) {
-                                DB::rollBack();
-                                return response()->json(['success' => false, 'message' => 'Stock insuficiente en el estanque'], 400);
-                            }
-                            if ($diff > 0) {
-                                $stock->decrement('stock_actual', $diff);
-                            } else {
-                                $stock->increment('stock_actual', abs($diff));
-                            }
-                        }
-                        $consumo->litros_consumidos = $newLitros;
-                    }
+                    $consumo->litros_consumidos = $newLitros;
                 }
             }
 
             $consumo->save();
+
+            // ── 3. Recalcular stock desde cero para todos los estanques afectados ──
+            $idEstanques = $consumo->consumoEstanques->isNotEmpty()
+                ? $consumo->consumoEstanques->pluck('id_estanque')->toArray()
+                : [$consumo->id_estanque];
+
+            \App\Services\StockService::recalcularStockActual($idEstanques);
+
             DB::commit();
 
             return response()->json(['success' => true, 'message' => 'Consumo actualizado exitosamente']);
@@ -2150,5 +2139,10 @@ class ConsumoController extends Controller
             Log::error('Error al eliminar consumo', ['id' => $id, 'error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'Error al eliminar: ' . $e->getMessage()], 500);
         }
+    }
+
+    private function calcularStockHistorico(int $idEstanque, \Carbon\Carbon $fechaHasta): float
+    {
+        return \App\Services\StockService::calcularStockHistorico($idEstanque, $fechaHasta);
     }
 }

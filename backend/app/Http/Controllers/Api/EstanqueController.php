@@ -1046,4 +1046,31 @@ class EstanqueController extends Controller
             return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
     }
+
+    /**
+     * Recalcula el stock_actual de todos los estanques activos de una faena.
+     * POST /api/estanques/recalcular-stocks/{id_faena}
+     */
+    public function recalcularStocks($id_faena)
+    {
+        $estanques = Estanque::where('id_faena', $id_faena)->where('activo', true)->get();
+
+        if ($estanques->isEmpty()) {
+            return response()->json(['success' => false, 'message' => 'No se encontraron estanques para esta faena'], 404);
+        }
+
+        try {
+            $idEstanques = $estanques->pluck('id_estanque')->toArray();
+            \App\Services\StockService::recalcularStockActual($idEstanques);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Stocks recalculados correctamente',
+                'estanques_actualizados' => count($idEstanques),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al recalcular stocks', ['id_faena' => $id_faena, 'error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+        }
+    }
 }
