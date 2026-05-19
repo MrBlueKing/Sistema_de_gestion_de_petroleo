@@ -688,19 +688,6 @@ export const ProduccionCompleta = () => {
                 </div>
               </div>
 
-              {/* Alerta dumpadas sin análisis (solo si hay pendientes) */}
-              {(datos.dumpadas?.pendientes ?? 0) > 0 && (
-                <div className="bg-amber-50 border border-amber-300 rounded-xl p-5 flex items-center gap-4 shadow-sm">
-                  <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                    <FiAlertCircle className="w-6 h-6 text-amber-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-amber-800">Dumpadas sin análisis</p>
-                    <p className="text-2xl font-bold text-amber-700">{datos.dumpadas?.pendientes}</p>
-                    <p className="text-xs text-amber-600">pendientes de laboratorio</p>
-                  </div>
-                </div>
-              )}
 
               {/* Top frentes + Tabla empresa × planta */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
