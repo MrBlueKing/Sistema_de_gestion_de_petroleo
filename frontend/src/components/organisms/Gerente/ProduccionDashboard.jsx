@@ -6,7 +6,6 @@ import {
   BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   Area, AreaChart, ComposedChart, Line,
-  ScatterChart, Scatter, ZAxis, ReferenceLine,
 } from 'recharts';
 import {
   FiTruck, FiBox, FiLayers, FiPackage, FiTrendingUp,
@@ -541,10 +540,12 @@ export const ProduccionGraficos = () => {
 export const ProduccionCompleta = () => {
   const { loading, error, datos, fechaInicio, setFechaInicio, fechaFin, setFechaFin, cargarDatos, selectedFaenas, handleFaenaToggle, faenasConDatos } = useProduccionData();
   const { topFrentes, paretoFrentes } = usePreparedData(datos);
-  const [reporte, setReporte] = useState(null);
+  const [reporte, setReporte]               = useState(null);
   const [reporteLoading, setReporteLoading] = useState(false);
-  const [scatterLotes, setScatterLotes] = useState([]);
-  const [scatterLoading, setScatterLoading] = useState(false);
+  const [dumpDiarias, setDumpDiarias]       = useState([]);
+  const [dumpLoading, setDumpLoading]       = useState(false);
+  const [dumpMetrica, setDumpMetrica]       = useState('toneladas'); // 'toneladas' | 'cantidad'
+
   const [vista, setVista] = useState('resumen');
 
   // Cuando exactamente una faena está seleccionada → filtrar por ella
@@ -568,17 +569,15 @@ export const ProduccionCompleta = () => {
     finally { setReporteLoading(false); }
   };
 
-  const cargarScatter = async (faenaId, fi, ff) => {
-    setScatterLoading(true);
+  const cargarDumpDiarias = async (faenaId, fi, ff) => {
+    setDumpLoading(true);
     try {
-      const params = {};
+      const params = { fecha_desde: fi, fecha_hasta: ff };
       if (faenaId) params.id_faena = faenaId;
-      if (fi) params.fecha_desde = fi;
-      if (ff) params.fecha_hasta = ff;
-      const res = await produccionService.getAnalisisLotes(params);
-      if (res.success) setScatterLotes(res.data ?? []);
-    } catch (e) { console.error('Error scatter:', e); }
-    finally { setScatterLoading(false); }
+      const res = await produccionService.getDumpadasDiarias(params);
+      if (res.success) setDumpDiarias(res.data ?? []);
+    } catch (e) { console.error('Error dumpadas diarias:', e); }
+    finally { setDumpLoading(false); }
   };
 
   useEffect(() => {
@@ -586,7 +585,7 @@ export const ProduccionCompleta = () => {
     const fiStr = fi.toISOString().split('T')[0];
     const ffStr = new Date().toISOString().split('T')[0];
     cargarReporte(null, fiStr, ffStr);
-    cargarScatter(null, fiStr, ffStr);
+    cargarDumpDiarias(null, fiStr, ffStr);
   }, []);
 
   // Recarga automática cuando cambian fechas o selección de faenas
@@ -595,7 +594,7 @@ export const ProduccionCompleta = () => {
     if (ningunaSeleccionada) return;
     cargarDatos(faenaIdActiva);
     cargarReporte(faenaIdActiva, fechaInicio, fechaFin);
-    cargarScatter(faenaIdActiva, fechaInicio, fechaFin);
+    cargarDumpDiarias(faenaIdActiva, fechaInicio, fechaFin);
   }, [fechaInicio, fechaFin, faenaIdActiva, ningunaSeleccionada]);
 
   return (
@@ -840,85 +839,94 @@ export const ProduccionCompleta = () => {
                 </div>
               )}
 
-              {/* Scatter: Ley Cu vs Tonelaje por lote */}
-              {(scatterLotes.length > 0 || scatterLoading) && (
-                <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-                  <div className="px-6 py-4 border-b flex items-center gap-2">
-                    <FiTrendingUp className="text-purple-600 w-5 h-5" />
-                    <div>
-                      <h3 className="text-base font-semibold text-gray-800">Ley Cu vs Tonelaje por Lote</h3>
-                      <p className="text-xs text-gray-400">Cada punto es un lote — detecta lotes de alto valor y outliers</p>
+              {/* Avance diario por frente */}
+              {(dumpDiarias.length > 0 || dumpLoading) && (() => {
+                // Pivotear: [{ fecha, frente, ton, cant }] → [{ fecha, Frente1: val, Frente2: val }]
+                const frentes = [...new Set(dumpDiarias.map(d => d.frente))].sort();
+                const byFecha = {};
+                dumpDiarias.forEach(d => {
+                  if (!byFecha[d.fecha]) byFecha[d.fecha] = { fecha: d.fecha.slice(5) }; // MM-DD
+                  byFecha[d.fecha][d.frente] = dumpMetrica === 'toneladas' ? d.toneladas : d.cantidad;
+                });
+                const chartData = Object.values(byFecha).sort((a, b) => a.fecha.localeCompare(b.fecha));
+                const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#84cc16'];
+
+                return (
+                  <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                    <div className="px-6 py-4 border-b flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <FiBarChart2 className="text-emerald-600 w-5 h-5" />
+                        <div>
+                          <h3 className="text-base font-semibold text-gray-800">Avance Diario por Frente</h3>
+                          <p className="text-xs text-gray-400">Dumpadas por día desglosadas por frente de trabajo</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-1 text-xs">
+                        <button onClick={() => setDumpMetrica('toneladas')}
+                          className={`px-3 py-1 rounded-full font-semibold transition-colors ${dumpMetrica === 'toneladas' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                          Toneladas
+                        </button>
+                        <button onClick={() => setDumpMetrica('cantidad')}
+                          className={`px-3 py-1 rounded-full font-semibold transition-colors ${dumpMetrica === 'cantidad' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                          Cantidad
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  {scatterLoading ? (
-                    <div className="p-8 text-center"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500 mx-auto" /></div>
-                  ) : (() => {
-                    // Agrupar por empresa para colores
-                    const empresas = [...new Set(scatterLotes.map(l => l.empresa).filter(Boolean))];
-                    const SCATTER_COLORS = ['#7c3aed','#2563eb','#059669','#d97706','#dc2626','#0891b2','#7c3aed'];
-                    const empresaColor = Object.fromEntries(empresas.map((e, i) => [e, SCATTER_COLORS[i % SCATTER_COLORS.length]]));
-
-                    const avgLey = scatterLotes.reduce((s, l) => s + (l.ley_ponderada ?? 0), 0) / (scatterLotes.filter(l => l.ley_ponderada != null).length || 1);
-                    const avgTon = scatterLotes.reduce((s, l) => s + (l.peso_total ?? 0), 0) / (scatterLotes.length || 1);
-
-                    return (
+                    {dumpLoading ? (
+                      <div className="p-8 text-center"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-500 mx-auto" /></div>
+                    ) : (
                       <div className="p-4">
-                        <ResponsiveContainer width="100%" height={340}>
-                          <ScatterChart margin={{ top: 20, right: 30, bottom: 20, left: 10 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                            <XAxis dataKey="peso_total" name="Tonelaje" type="number" domain={['auto', 'auto']}
-                              label={{ value: 'Tonelaje despachado (t)', position: 'insideBottom', offset: -10, fontSize: 11, fill: '#6b7280' }}
-                              tick={{ fontSize: 11 }} />
-                            <YAxis dataKey="ley_ponderada" name="Ley Cu" type="number" domain={['auto', 'auto']}
-                              label={{ value: 'Ley Cu (%)', angle: -90, position: 'insideLeft', fontSize: 11, fill: '#6b7280' }}
-                              tick={{ fontSize: 11 }} />
-                            <ZAxis range={[40, 40]} />
-                            <ReferenceLine x={avgTon} stroke="#94a3b8" strokeDasharray="4 4" label={{ value: 'Prom. t', position: 'top', fontSize: 10, fill: '#94a3b8' }} />
-                            <ReferenceLine y={avgLey} stroke="#94a3b8" strokeDasharray="4 4" label={{ value: 'Prom. ley', position: 'right', fontSize: 10, fill: '#94a3b8' }} />
+                        <ResponsiveContainer width="100%" height={320}>
+                          <BarChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 40 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                            <XAxis dataKey="fecha" tick={{ fontSize: 10, angle: -35, textAnchor: 'end' }} interval={0} />
+                            <YAxis tick={{ fontSize: 11 }}
+                              label={{ value: dumpMetrica === 'toneladas' ? 'Toneladas' : 'Dumpadas', angle: -90, position: 'insideLeft', fontSize: 11, fill: '#6b7280' }} />
                             <Tooltip
-                              cursor={{ strokeDasharray: '3 3' }}
-                              content={({ active, payload }) => {
+                              content={({ active, payload, label }) => {
                                 if (!active || !payload?.length) return null;
-                                const d = payload[0]?.payload;
+                                const total = payload.reduce((s, p) => s + (p.value ?? 0), 0);
                                 return (
-                                  <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs">
-                                    <p className="font-bold text-gray-800 mb-1">{d.numero_lote}</p>
-                                    <p className="text-gray-600">{d.empresa} · {d.planta}</p>
-                                    <p className="text-indigo-700 mt-1">Tonelaje: {formatNumber(d.peso_total)} t</p>
-                                    <p className="text-purple-700">Ley Cu: {d.ley_ponderada != null ? `${formatNumber(d.ley_ponderada)}%` : '—'}</p>
-                                    <p className="text-gray-400">{d.n_camionadas} camionadas · {d.estado}</p>
+                                  <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs min-w-[140px]">
+                                    <p className="font-semibold text-gray-700 mb-2">{label}</p>
+                                    {payload.map(p => (
+                                      <div key={p.dataKey} className="flex justify-between gap-3">
+                                        <span style={{ color: p.fill }}>{p.dataKey}</span>
+                                        <span className="font-mono font-semibold">
+                                          {dumpMetrica === 'toneladas' ? `${formatNumber(p.value)} t` : p.value}
+                                        </span>
+                                      </div>
+                                    ))}
+                                    <div className="border-t mt-1 pt-1 flex justify-between font-semibold text-gray-800">
+                                      <span>Total</span>
+                                      <span className="font-mono">
+                                        {dumpMetrica === 'toneladas' ? `${formatNumber(total)} t` : total}
+                                      </span>
+                                    </div>
                                   </div>
                                 );
                               }}
                             />
-                            {empresas.map(emp => (
-                              <Scatter
-                                key={emp}
-                                name={emp}
-                                data={scatterLotes.filter(l => l.empresa === emp && l.ley_ponderada != null)}
-                                fill={empresaColor[emp]}
-                                fillOpacity={0.75}
-                              />
+                            {frentes.map((f, i) => (
+                              <Bar key={f} dataKey={f} stackId="a" fill={COLORS[i % COLORS.length]}
+                                radius={i === frentes.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]} />
                             ))}
-                          </ScatterChart>
+                          </BarChart>
                         </ResponsiveContainer>
-                        {/* Leyenda manual */}
-                        <div className="flex flex-wrap justify-center gap-4 mt-2">
-                          {empresas.map(emp => (
-                            <span key={emp} className="flex items-center gap-1.5 text-xs text-gray-600">
-                              <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: empresaColor[emp] }} />
-                              {emp}
+                        <div className="flex flex-wrap justify-center gap-3 mt-1">
+                          {frentes.map((f, i) => (
+                            <span key={f} className="flex items-center gap-1.5 text-xs text-gray-600">
+                              <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                              {f}
                             </span>
                           ))}
                         </div>
-                        <p className="text-xs text-gray-400 text-center mt-1">
-                          Cuadrante superior derecho = lotes de mayor tonelaje y mayor ley (más valiosos)
-                        </p>
                       </div>
-                    );
-                  })()}
-                </div>
-              )}
+                    )}
+                  </div>
+                );
+              })()}
+
             </>
           )}
         </>

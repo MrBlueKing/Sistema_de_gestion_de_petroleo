@@ -130,6 +130,11 @@ const produccionService = {
     return response.data;
   },
 
+  getDumpadasDiarias: async (params = {}) => {
+    const response = await produccionAxios.get('/gerencial/dumpadas-diarias', { params });
+    return response.data;
+  },
+
   // ========================================
   // CAMIONADAS (DESPACHOS)
   // ========================================
