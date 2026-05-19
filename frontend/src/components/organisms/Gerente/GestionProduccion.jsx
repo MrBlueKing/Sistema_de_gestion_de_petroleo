@@ -38,11 +38,80 @@ const COLORS = {
 
 const PIE_COLORS = ['#059669', '#d97706', '#6b7280', '#dc2626'];
 
+const TablaDetalle = ({ titulo, loading, error, datos, columnas }) => {
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto mb-3" />
+        <p className="text-gray-500 text-sm">Cargando {titulo.toLowerCase()}...</p>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+        <FiAlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+        <p className="text-red-600 text-sm">{error}</p>
+      </div>
+    );
+  }
+  if (!datos) return null;
+  return (
+    <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+      <div className="px-6 py-4 border-b bg-gray-50 flex items-center justify-between">
+        <h3 className="font-semibold text-gray-800">{titulo} <span className="text-gray-400 font-normal text-sm">({datos.length} registros)</span></h3>
+      </div>
+      {datos.length === 0 ? (
+        <div className="p-8 text-center text-gray-400 text-sm">Sin registros</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                {columnas.map((col, i) => (
+                  <th key={i} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                    {col.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {datos.map((row, i) => (
+                <tr key={i} className="hover:bg-gray-50">
+                  {columnas.map((col, j) => (
+                    <td key={j} className="px-4 py-3 whitespace-nowrap text-gray-700">
+                      {col.render(row)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const TABS = [
+  { key: 'resumen', label: 'Resumen' },
+  { key: 'dumpadas', label: 'Dumpadas' },
+  { key: 'mezclas', label: 'Mezclas' },
+  { key: 'lotes', label: 'Lotes' },
+  { key: 'camionadas', label: 'Camionadas' },
+];
+
 const GestionProduccion = () => {
+  const [tab, setTab] = useState('resumen');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [datos, setDatos] = useState(null);
+
+  // Estado para tabs de detalle
+  const [tabData, setTabData] = useState({});
+  const [tabLoading, setTabLoading] = useState({});
+  const [tabError, setTabError] = useState({});
 
   // Filtros
   const [fechaInicio, setFechaInicio] = useState(() => {
@@ -57,6 +126,12 @@ const GestionProduccion = () => {
   useEffect(() => {
     cargarDatos();
   }, []);
+
+  useEffect(() => {
+    if (tab !== 'resumen' && !tabData[tab]) {
+      cargarTabData(tab);
+    }
+  }, [tab]);
 
   const cargarDatos = async () => {
     try {
@@ -81,9 +156,33 @@ const GestionProduccion = () => {
     }
   };
 
+  const cargarTabData = async (tabKey) => {
+    setTabLoading((prev) => ({ ...prev, [tabKey]: true }));
+    setTabError((prev) => ({ ...prev, [tabKey]: null }));
+    try {
+      let response;
+      if (tabKey === 'dumpadas') response = await produccionService.getDumpadas({ per_page: 50 });
+      else if (tabKey === 'mezclas') response = await produccionService.getMezclas({ per_page: 50 });
+      else if (tabKey === 'lotes') response = await produccionService.getLotes({ per_page: 50 });
+      else if (tabKey === 'camionadas') response = await produccionService.getCamionadas({ per_page: 50 });
+
+      const items = response?.data?.data ?? response?.data ?? response ?? [];
+      setTabData((prev) => ({ ...prev, [tabKey]: Array.isArray(items) ? items : [] }));
+    } catch (err) {
+      console.error(`Error cargando ${tabKey}:`, err);
+      setTabError((prev) => ({ ...prev, [tabKey]: `Error al cargar ${tabKey}` }));
+    } finally {
+      setTabLoading((prev) => ({ ...prev, [tabKey]: false }));
+    }
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
-    await cargarDatos();
+    if (tab === 'resumen') {
+      await cargarDatos();
+    } else {
+      await cargarTabData(tab);
+    }
     setRefreshing(false);
   };
 
@@ -200,43 +299,64 @@ const GestionProduccion = () => {
             </button>
           </div>
 
-          {/* Filtros */}
-          <div className="mt-4 flex flex-wrap items-end gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Desde</label>
-              <div className="relative">
-                <FiCalendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="date"
-                  value={fechaInicio}
-                  onChange={(e) => setFechaInicio(e.target.value)}
-                  className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                />
+          {/* Filtros (solo en resumen) */}
+          {tab === 'resumen' && (
+            <div className="mt-4 flex flex-wrap items-end gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Desde</label>
+                <div className="relative">
+                  <FiCalendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="date"
+                    value={fechaInicio}
+                    onChange={(e) => setFechaInicio(e.target.value)}
+                    className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  />
+                </div>
               </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Hasta</label>
-              <div className="relative">
-                <FiCalendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="date"
-                  value={fechaFin}
-                  onChange={(e) => setFechaFin(e.target.value)}
-                  className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Hasta</label>
+                <div className="relative">
+                  <FiCalendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="date"
+                    value={fechaFin}
+                    onChange={(e) => setFechaFin(e.target.value)}
+                    className="pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  />
+                </div>
               </div>
+              <button
+                onClick={handleAplicarFiltros}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors border border-gray-300"
+              >
+                Aplicar Filtros
+              </button>
             </div>
-            <button
-              onClick={handleAplicarFiltros}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors border border-gray-300"
-            >
-              Aplicar Filtros
-            </button>
+          )}
+        </div>
+
+        {/* Tabs */}
+        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+          <div className="flex border-b overflow-x-auto">
+            {TABS.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`px-5 py-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
+                  tab === t.key
+                    ? 'border-emerald-600 text-emerald-700 bg-emerald-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Error */}
-        {error && (
+        {/* Error resumen */}
+        {tab === 'resumen' && error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
             <FiAlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
             <div>
@@ -246,7 +366,7 @@ const GestionProduccion = () => {
           </div>
         )}
 
-        {datos && (
+        {tab === 'resumen' && datos && (
           <>
             {/* KPIs principales */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -695,6 +815,82 @@ const GestionProduccion = () => {
               </div>
             )}
           </>
+        )}
+
+        {/* Vista Dumpadas */}
+        {tab === 'dumpadas' && (
+          <TablaDetalle
+            titulo="Dumpadas"
+            loading={tabLoading.dumpadas}
+            error={tabError.dumpadas}
+            datos={tabData.dumpadas}
+            columnas={[
+              { label: 'ID', render: (r) => r.id },
+              { label: 'Frente', render: (r) => r.frenteTrabajo?.nombre ?? r.id_frente_trabajo ?? '-' },
+              { label: 'Fecha', render: (r) => r.fecha ?? '-' },
+              { label: 'Tonelaje', render: (r) => r.ton ?? '-' },
+              { label: 'Ley (%)', render: (r) => r.ley ?? '-' },
+              { label: 'Estado', render: (r) => r.estado ?? '-' },
+              { label: 'Jornada', render: (r) => r.jornada ?? '-' },
+            ]}
+          />
+        )}
+
+        {/* Vista Mezclas */}
+        {tab === 'mezclas' && (
+          <TablaDetalle
+            titulo="Mezclas"
+            loading={tabLoading.mezclas}
+            error={tabError.mezclas}
+            datos={tabData.mezclas}
+            columnas={[
+              { label: 'Código', render: (r) => r.codigo ?? r.id },
+              { label: 'Fecha', render: (r) => r.fecha ?? '-' },
+              { label: 'Planta', render: (r) => r.planta?.nombre ?? '-' },
+              { label: 'Total ton', render: (r) => r.total_ton ?? '-' },
+              { label: 'Ton disponibles', render: (r) => r.toneladas_disponibles ?? '-' },
+              { label: 'Ley dump (%)', render: (r) => r.ley_prom_dump ?? '-' },
+              { label: 'Estado', render: (r) => r.estado ?? '-' },
+            ]}
+          />
+        )}
+
+        {/* Vista Lotes */}
+        {tab === 'lotes' && (
+          <TablaDetalle
+            titulo="Lotes"
+            loading={tabLoading.lotes}
+            error={tabError.lotes}
+            datos={tabData.lotes}
+            columnas={[
+              { label: 'N° Lote', render: (r) => r.numero_lote ?? r.id },
+              { label: 'Planta', render: (r) => r.planta_nombre ?? r.planta?.nombre ?? '-' },
+              { label: 'Empresa', render: (r) => r.empresa_nombre ?? r.empresa?.nombre ?? '-' },
+              { label: 'Fecha creación', render: (r) => r.fecha_creacion ?? '-' },
+              { label: 'Peso total (t)', render: (r) => r.peso_total ?? '-' },
+              { label: 'Camionadas', render: (r) => r.numero_camionadas ?? '-' },
+              { label: 'Estado', render: (r) => r.estado ?? '-' },
+            ]}
+          />
+        )}
+
+        {/* Vista Camionadas */}
+        {tab === 'camionadas' && (
+          <TablaDetalle
+            titulo="Camionadas"
+            loading={tabLoading.camionadas}
+            error={tabError.camionadas}
+            datos={tabData.camionadas}
+            columnas={[
+              { label: 'N° Camionada', render: (r) => r.numero_camionada ?? r.id },
+              { label: 'Patente', render: (r) => r.patente ?? '-' },
+              { label: 'Fecha despacho', render: (r) => r.fecha_despacho ?? '-' },
+              { label: 'Lote', render: (r) => r.lote?.numero_lote ?? r.lote_id ?? '-' },
+              { label: 'Peso (t)', render: (r) => r.peso ?? '-' },
+              { label: 'Peso real (t)', render: (r) => r.peso_real ?? '-' },
+              { label: 'Estado', render: (r) => r.estado ?? '-' },
+            ]}
+          />
         )}
 
         {/* Footer */}

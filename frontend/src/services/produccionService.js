@@ -79,7 +79,17 @@ const produccionService = {
   // LOTES
   // ========================================
   getLotes: async (params = {}) => {
-    const response = await produccionAxios.get('/dispatch/lotes', { params });
+    const response = await produccionAxios.get('/gerencial/lotes', { params });
+    return response.data;
+  },
+
+  getPlantas: async () => {
+    const response = await produccionAxios.get('/gerencial/plantas');
+    return response.data;
+  },
+
+  getEmpresas: async () => {
+    const response = await produccionAxios.get('/gerencial/empresas');
     return response.data;
   },
 
@@ -88,6 +98,35 @@ const produccionService = {
   // ========================================
   getAcopios: async (params = {}) => {
     const response = await produccionAxios.get('/dispatch/acopios', { params });
+    return response.data;
+  },
+
+  // ========================================
+  // REPORTE PRODUCCIÓN (empresa × planta)
+  // ========================================
+  getReporteProduccion: async (params = {}) => {
+    const response = await produccionAxios.get('/gerencial/reporte-produccion', { params });
+    return response.data;
+  },
+
+  // ========================================
+  // RECONSTRUCCIÓN DE LOTE
+  // ========================================
+  getLote: async (id) => {
+    const response = await produccionAxios.get(`/gerencial/lotes/${id}`);
+    return response.data;
+  },
+
+  getReconstruccionLote: async (id) => {
+    const response = await produccionAxios.get(`/gerencial/lotes/${id}/reconstruccion`);
+    return response.data;
+  },
+
+  // ========================================
+  // ANÁLISIS (scatter + pareto)
+  // ========================================
+  getAnalisisLotes: async (params = {}) => {
+    const response = await produccionAxios.get('/gerencial/analisis-lotes', { params });
     return response.data;
   },
 

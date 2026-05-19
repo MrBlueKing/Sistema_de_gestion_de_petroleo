@@ -15,14 +15,14 @@ class MantenimientoController extends Controller
     public function index(Request $request)
     {
         try {
-            $faena = $request->get('faena', 'todas');
+            // Soporta faena simple (legacy) o faenas múltiples como array/csv
+            $faenaParam = $request->get('faena', 'todas');
+            $faenasParam = $request->get('faenas'); // ej: "1,2,4" o [1,2,4]
 
-            // Subquery para obtener la última mantención por máquina
             $latestMantenciones = DB::table('mantenciones')
                 ->select('id_maquina', DB::raw('MAX(fecha_mantencion) as latest_fecha_mantencion'))
                 ->groupBy('id_maquina');
 
-            // Subquery para obtener el último consumo por equipo
             $latestConsumos = DB::table('consumos')
                 ->select('id_equipo', DB::raw('MAX(fecha_consumo) as latest_fecha_consumo'))
                 ->groupBy('id_equipo');
@@ -32,7 +32,6 @@ class MantenimientoController extends Controller
                 ->leftJoin('maquinas_internas as mi', 'm.id_maquina', '=', 'mi.id_maquina')
                 ->leftJoin('permisos_maquinas_faenas as pmf', 'm.id_maquina', '=', 'pmf.id_maquina')
 
-                // Unir con la subquery de la última mantención
                 ->leftJoinSub($latestMantenciones, 'lm', function ($join) {
                     $join->on('m.id_maquina', '=', 'lm.id_maquina');
                 })
@@ -41,7 +40,6 @@ class MantenimientoController extends Controller
                         ->on('mt.fecha_mantencion', '=', 'lm.latest_fecha_mantencion');
                 })
 
-                // Unir con la subquery del último consumo
                 ->leftJoinSub($latestConsumos, 'lc', function ($join) {
                     $join->on('m.id_maquina', '=', 'lc.id_equipo');
                 })
@@ -58,22 +56,28 @@ class MantenimientoController extends Controller
                     'cm.tipo_medicion',
                     'cm.horas_mantencion as intervalo_mantenimiento',
                     'm.estado as estado_operativo',
-
-                    // Último mantenimiento
                     'mt.fecha_mantencion as ultimo_mantenimiento_fecha',
                     'mt.horas_kilometros_actuales as medicion_ultimo_mantenimiento',
                     'mt.proxima_mantencion as proximo_mantenimiento_configurado',
                     'mt.tipo_mantenimiento as tipo_mantenimiento',
                     'mt.observaciones as ultimo_mantenimiento_obs',
                     'mt.realizado_por as id_usuario_realizo',
-
-                    // Último consumo
                     'c.medicion as medicion_actual',
-                    'c.fecha_consumo as fecha_ultima_medicion'
-                ]);
+                    'c.fecha_consumo as fecha_ultima_medicion',
+                    DB::raw("(SELECT GROUP_CONCAT(f.ubicacion ORDER BY f.ubicacion SEPARATOR '|||') FROM permisos_maquinas_faenas pmf2 JOIN faenas f ON pmf2.id_faena = f.id_faena WHERE pmf2.id_maquina = m.id_maquina) as faenas_nombres")
+                ])
+                ->distinct();
 
-            if ($faena !== 'todas') {
-                $query->where('pmf.id_faena', $faena);
+            // Filtro por faenas (soporta múltiples IDs)
+            if ($faenasParam) {
+                $ids = is_array($faenasParam)
+                    ? $faenasParam
+                    : array_filter(array_map('trim', explode(',', $faenasParam)));
+                if (count($ids) > 0) {
+                    $query->whereIn('pmf.id_faena', $ids);
+                }
+            } elseif ($faenaParam !== 'todas') {
+                $query->where('pmf.id_faena', $faenaParam);
             }
 
             $maquinas = $query->get();
@@ -100,7 +104,7 @@ class MantenimientoController extends Controller
     {
         $request->validate([
             'id_maquina' => 'required|exists:maquinas,id_maquina',
-            'descripcion' => 'required|string|min:10',
+            'descripcion' => 'required|string',
             'tipo_mantenimiento' => 'required|in:preventivo,correctivo,mayor',
             'observaciones' => 'nullable|string',
             'proximo_mantenimiento' => 'nullable|numeric|min:1',
@@ -125,7 +129,8 @@ class MantenimientoController extends Controller
                 throw new \Exception('Máquina no encontrada');
             }
 
-            $medicionActual = $maquina->medicion_actual ?? 0;
+            // Usar medicion_manual si se proporcionó (corrección de lectura errónea del sistema)
+            $medicionActual = $request->medicion_manual ?? $maquina->medicion_actual ?? 0;
             $intervaloProximoMantenimiento = $request->proximo_mantenimiento ?? $maquina->intervalo_default;
 
             $fullObservaciones = $request->descripcion;
@@ -271,6 +276,23 @@ class MantenimientoController extends Controller
                 $query->where('pmf.id_faena', $faena);
             }
 
+            $resultados = $query->select([
+                'mt.tipo_mantenimiento',
+                'm.nombre_maquina as equipo',
+                DB::raw('COUNT(*) as cantidad'),
+            ])->groupBy('mt.tipo_mantenimiento', 'm.nombre_maquina')->get();
+
+            $estadisticas = [
+                'total_mantenimientos' => $resultados->sum('cantidad'),
+                'periodo_dias' => $periodo,
+                'por_tipo' => [
+                    'preventivo' => $resultados->where('tipo_mantenimiento', 'preventivo')->sum('cantidad'),
+                    'correctivo' => $resultados->where('tipo_mantenimiento', 'correctivo')->sum('cantidad'),
+                    'mayor' => $resultados->where('tipo_mantenimiento', 'mayor')->sum('cantidad'),
+                ],
+                'detalle' => $resultados->values(),
+            ];
+
             return response()->json([
                 'status' => 'success',
                 'data' => $estadisticas
@@ -292,7 +314,7 @@ class MantenimientoController extends Controller
             'id_maquina' => 'required|exists:maquinas,id_maquina',
             'fecha_programada' => 'required|date|after_or_equal:today', // Cambiado a after_or_equal para permitir hoy
             'tipo_mantenimiento' => 'required|in:preventivo,correctivo,mayor',
-            'descripcion' => 'required|string|min:10',
+            'descripcion' => 'required|string',
             'costo_estimado' => 'nullable|numeric|min:0'
         ]);
 
@@ -804,6 +826,61 @@ class MantenimientoController extends Controller
         }
     }
 
+    /**
+     * Configuración: máquinas con faenas asignadas + categorías con intervalo
+     */
+    public function configuracion()
+    {
+        try {
+            $maquinas = DB::table('maquinas as m')
+                ->join('categorias_maquinas as cm', 'm.id_categoria', '=', 'cm.id_categoria')
+                ->select(
+                    'm.id_maquina',
+                    'm.nombre_maquina',
+                    'm.patente',
+                    'm.estado',
+                    'cm.id_categoria',
+                    'cm.nombre_categoria',
+                    'cm.tipo_medicion',
+                    'cm.horas_mantencion as intervalo'
+                )
+                ->orderBy('cm.nombre_categoria')
+                ->orderBy('m.nombre_maquina')
+                ->get();
+
+            $faenasPorMaquina = DB::table('permisos_maquinas_faenas as pmf')
+                ->join('faenas as f', 'pmf.id_faena', '=', 'f.id_faena')
+                ->select('pmf.id_maquina', 'f.id_faena', 'f.ubicacion as nombre_faena')
+                ->get()
+                ->groupBy('id_maquina');
+
+            $maquinas = $maquinas->map(function ($m) use ($faenasPorMaquina) {
+                $m->faenas = $faenasPorMaquina->get($m->id_maquina, collect())
+                    ->map(fn($f) => ['id' => $f->id_faena, 'nombre' => $f->nombre_faena])
+                    ->values();
+                return $m;
+            });
+
+            $categorias = DB::table('categorias_maquinas')
+                ->select('id_categoria', 'nombre_categoria', 'tipo_medicion', 'horas_mantencion as intervalo')
+                ->orderBy('nombre_categoria')
+                ->get();
+
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'maquinas' => $maquinas,
+                    'categorias' => $categorias,
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al obtener configuración: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     // ============= MÉTODOS PRIVADOS DE APOYO =============
 
     /**
@@ -958,10 +1035,13 @@ class MantenimientoController extends Controller
             'fecha_estimada_mantenimiento' => $fechaEstimada,
             'ultimo_mantenimiento' => $ultimoMantenimiento,
             'puede_realizar_mantenimiento' => ($maquina->estado_operativo ?? $maquina->estado) !== 'en_mantenimiento',
+            'faenas' => $maquina->faenas_nombres
+                ? array_values(array_filter(explode('|||', $maquina->faenas_nombres)))
+                : [],
 
             // Campos adicionales para compatibilidad con HorasTrabajoChart o similar
-            'horasProgramadas' => $intervaloProximoMantenimiento, // Cantidad del intervalo
-            'horasActuales' => $medicionAcumulada, // Medición acumulada desde el último mant.
+            'horasProgramadas' => $intervaloProximoMantenimiento,
+            'horasActuales' => $medicionAcumulada,
             'diferencia' => $hastaProximo
         ];
     }

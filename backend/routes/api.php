@@ -434,6 +434,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('mantenimiento')->group(function () {
         Route::get('/', [MantenimientoController::class, 'index']);
         Route::post('/', [MantenimientoController::class, 'store']);
+        Route::get('/configuracion', [MantenimientoController::class, 'configuracion']);
         Route::get('/{id}/historial', [MantenimientoController::class, 'historial']);
         Route::put('/{id}/operativa', [MantenimientoController::class, 'marcarOperativa']);
         Route::get('/estadisticas', [MantenimientoController::class, 'estadisticas']);

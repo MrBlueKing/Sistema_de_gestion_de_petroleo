@@ -78,18 +78,18 @@ const LoginCentralizado = () => {
         navigate('/bombero');
         break;
       case 'operador_vehiculo':
-      case 'operadorvehiculo':  // ← Agregado para soportar OperadorVehiculo
-        navigate('/operadorVehiculo');
+      case 'operadorvehiculo':
+        navigate('/OperadorVehiculo');
         break;
       case 'planificador':
-        navigate('/planificador');
+        navigate('/TallerMecanico');
         break;
       case 'toneladas':
-        navigate('/toneladas');
+        navigate('/distpach');
         break;
       case 'jefe_mina':
-      case 'jefemina':  // ← Agregado para soportar JefeMina
-        navigate('/jefeMina');
+      case 'jefemina':
+        navigate('/Operaciones');
         break;
       default:
         console.warn('⚠️ Rol desconocido:', rol);

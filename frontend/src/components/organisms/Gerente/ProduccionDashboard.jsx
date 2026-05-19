@@ -1,15 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import produccionService from '../../../services/produccionService';
+import { FAENA_COLORS, DEFAULT_FAENA_COLORS } from '../../../context/faenaColor';
+import SelectorFaenasGrid from '../../molecules/SelectorFaenasGrid';
 import {
   BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  Area, AreaChart
+  Area, AreaChart, ComposedChart, Line,
+  ScatterChart, Scatter, ZAxis, ReferenceLine,
 } from 'recharts';
 import {
   FiTruck, FiBox, FiLayers, FiPackage, FiTrendingUp,
   FiBarChart2, FiAlertCircle, FiCheckCircle, FiClock, FiRefreshCw
 } from 'react-icons/fi';
 import { FaIndustry, FaMountain } from 'react-icons/fa';
+import ReconstruccionLote from './ReconstruccionLote';
 
 const CHART_COLORS = {
   emerald: '#059669',
@@ -55,21 +59,38 @@ const useProduccionData = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [datos, setDatos] = useState(null);
+  const [faenasConDatos, setFaenasConDatos] = useState([]);
+  const [selectedFaenas, setSelectedFaenas] = useState([]);
+  const faenasInitialized = useRef(false);
   const [fechaInicio, setFechaInicio] = useState(() => {
     const date = new Date();
-    date.setMonth(date.getMonth() - 1);
+    date.setDate(1);
     return date.toISOString().split('T')[0];
   });
   const [fechaFin, setFechaFin] = useState(() => new Date().toISOString().split('T')[0]);
 
-  const cargarDatos = async () => {
+  const cargarFaenas = async () => {
+    try {
+      const response = await produccionService.getFaenas();
+      if (response.success) {
+        const ids = response.data || [];
+        const faenas = ids
+          .map((id) => FAENA_COLORS[id] ?? { ...DEFAULT_FAENA_COLORS, id })
+          .filter((f) => f.id !== null);
+        setFaenasConDatos(faenas);
+      }
+    } catch (err) {
+      console.error('Error cargando faenas:', err);
+    }
+  };
+
+  const cargarDatos = async (faenaId = null) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await produccionService.getResumenGerencial({
-        fecha_inicio: fechaInicio,
-        fecha_fin: fechaFin,
-      });
+      const params = { fecha_inicio: fechaInicio, fecha_fin: fechaFin };
+      if (faenaId) params.id_faena = faenaId;
+      const response = await produccionService.getResumenGerencial(params);
       if (response.success) {
         setDatos(response.data);
       } else {
@@ -83,9 +104,32 @@ const useProduccionData = () => {
     }
   };
 
-  useEffect(() => { cargarDatos(); }, []);
+  useEffect(() => {
+    cargarFaenas();
+    cargarDatos(null);
+  }, []);
 
-  return { loading, error, datos, fechaInicio, setFechaInicio, fechaFin, setFechaFin, cargarDatos };
+  // Inicializa selectedFaenas la primera vez que llegan las faenas (un solo render)
+  useEffect(() => {
+    if (faenasConDatos.length > 0 && !faenasInitialized.current) {
+      faenasInitialized.current = true;
+      setSelectedFaenas(faenasConDatos.map((f) => f.name));
+    }
+  }, [faenasConDatos]);
+
+  const handleFaenaToggle = (name, isSelected) => {
+    const next = isSelected
+      ? [...selectedFaenas, name]
+      : selectedFaenas.filter((n) => n !== name);
+    setSelectedFaenas(next);
+  };
+
+  return {
+    loading, error, datos,
+    fechaInicio, setFechaInicio,
+    fechaFin, setFechaFin,
+    cargarDatos, selectedFaenas, handleFaenaToggle, faenasConDatos,
+  };
 };
 
 // Preparar datos para gráficos
@@ -127,13 +171,21 @@ const usePreparedData = (datos) => {
       ].filter((d) => d.value > 0)
     : [];
 
-  return { produccionDiaria, topFrentes, estadosDumpadas, estadosMezclas, estadosLotes };
+  // Pareto: agrega % acumulado al topFrentes ordenado por tonelaje desc
+  const totalTonFrentes = topFrentes.reduce((s, f) => s + f.tonelaje, 0);
+  let acum = 0;
+  const paretoFrentes = topFrentes.map((f) => {
+    acum += f.tonelaje;
+    return { ...f, pct_acumulado: totalTonFrentes > 0 ? Math.round((acum / totalTonFrentes) * 100) : 0 };
+  });
+
+  return { produccionDiaria, topFrentes, paretoFrentes, estadosDumpadas, estadosMezclas, estadosLotes };
 };
 
 // =============================================
 // Componente: Filtros de Producción
 // =============================================
-const FiltrosProduccion = ({ fechaInicio, setFechaInicio, fechaFin, setFechaFin, onAplicar, onRefresh, loading }) => (
+const FiltrosProduccion = ({ fechaInicio, setFechaInicio, fechaFin, setFechaFin, loading }) => (
   <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
     <div className="flex flex-wrap items-end gap-4">
       <div>
@@ -154,20 +206,12 @@ const FiltrosProduccion = ({ fechaInicio, setFechaInicio, fechaFin, setFechaFin,
           className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
         />
       </div>
-      <button
-        onClick={onAplicar}
-        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors border border-gray-300 text-sm"
-      >
-        Aplicar
-      </button>
-      <button
-        onClick={onRefresh}
-        disabled={loading}
-        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors text-sm"
-      >
-        <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-        {loading ? 'Cargando...' : 'Actualizar'}
-      </button>
+      {loading && (
+        <div className="flex items-center gap-2 text-sm text-emerald-600 pb-2">
+          <FiRefreshCw className="w-4 h-4 animate-spin" />
+          Cargando…
+        </div>
+      )}
     </div>
   </div>
 );
@@ -209,7 +253,7 @@ export const ProduccionKPIs = () => {
       <FiltrosProduccion
         fechaInicio={fechaInicio} setFechaInicio={setFechaInicio}
         fechaFin={fechaFin} setFechaFin={setFechaFin}
-        onAplicar={cargarDatos} onRefresh={cargarDatos} loading={loading}
+        loading={loading}
       />
 
       {loading && <ProduccionLoading />}
@@ -356,7 +400,7 @@ export const ProduccionGraficos = () => {
       <FiltrosProduccion
         fechaInicio={fechaInicio} setFechaInicio={setFechaInicio}
         fechaFin={fechaFin} setFechaFin={setFechaFin}
-        onAplicar={cargarDatos} onRefresh={cargarDatos} loading={loading}
+        loading={loading}
       />
 
       {loading && <ProduccionLoading />}
@@ -492,6 +536,398 @@ export const ProduccionGraficos = () => {
 };
 
 // =============================================
+// COMPONENTE COMBINADO: Vista Gerencial
+// =============================================
+export const ProduccionCompleta = () => {
+  const { loading, error, datos, fechaInicio, setFechaInicio, fechaFin, setFechaFin, cargarDatos, selectedFaenas, handleFaenaToggle, faenasConDatos } = useProduccionData();
+  const { topFrentes, paretoFrentes } = usePreparedData(datos);
+  const [reporte, setReporte] = useState(null);
+  const [reporteLoading, setReporteLoading] = useState(false);
+  const [scatterLotes, setScatterLotes] = useState([]);
+  const [scatterLoading, setScatterLoading] = useState(false);
+  const [vista, setVista] = useState('resumen');
+
+  // Cuando exactamente una faena está seleccionada → filtrar por ella
+  const faenaIdActiva = selectedFaenas.length === 1
+    ? (faenasConDatos.find((f) => f.name === selectedFaenas[0])?.id ?? null)
+    : null;
+
+  // Faenas cargadas pero ninguna seleccionada → no mostrar datos
+  const ningunaSeleccionada = faenasConDatos.length > 0 && selectedFaenas.length === 0;
+
+  const didMount = useRef(false);
+
+  const cargarReporte = async (faenaId, fi, ff) => {
+    setReporteLoading(true);
+    try {
+      const params = { fecha_inicio: fi, fecha_fin: ff };
+      if (faenaId) params.id_faena = faenaId;
+      const res = await produccionService.getReporteProduccion(params);
+      if (res.success) setReporte(res.data);
+    } catch (e) { console.error('Error reporte:', e); }
+    finally { setReporteLoading(false); }
+  };
+
+  const cargarScatter = async (faenaId, fi, ff) => {
+    setScatterLoading(true);
+    try {
+      const params = {};
+      if (faenaId) params.id_faena = faenaId;
+      if (fi) params.fecha_desde = fi;
+      if (ff) params.fecha_hasta = ff;
+      const res = await produccionService.getAnalisisLotes(params);
+      if (res.success) setScatterLotes(res.data ?? []);
+    } catch (e) { console.error('Error scatter:', e); }
+    finally { setScatterLoading(false); }
+  };
+
+  useEffect(() => {
+    const fi = new Date(); fi.setDate(1);
+    const fiStr = fi.toISOString().split('T')[0];
+    const ffStr = new Date().toISOString().split('T')[0];
+    cargarReporte(null, fiStr, ffStr);
+    cargarScatter(null, fiStr, ffStr);
+  }, []);
+
+  // Recarga automática cuando cambian fechas o selección de faenas
+  useEffect(() => {
+    if (!didMount.current) { didMount.current = true; return; }
+    if (ningunaSeleccionada) return;
+    cargarDatos(faenaIdActiva);
+    cargarReporte(faenaIdActiva, fechaInicio, fechaFin);
+    cargarScatter(faenaIdActiva, fechaInicio, fechaFin);
+  }, [fechaInicio, fechaFin, faenaIdActiva, ningunaSeleccionada]);
+
+  return (
+    <div className="mt-6 space-y-6">
+      {/* Sub-navegación */}
+      <div className="flex gap-2 border-b border-gray-200 pb-0">
+        {[
+          { id: 'resumen', label: 'Resumen de Producción' },
+          { id: 'trazabilidad', label: 'Trazabilidad de Lote' },
+        ].map(v => (
+          <button
+            key={v.id}
+            onClick={() => setVista(v.id)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              vista === v.id
+                ? 'border-emerald-600 text-emerald-700'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            {v.label}
+          </button>
+        ))}
+      </div>
+
+      {vista === 'trazabilidad' && <ReconstruccionLote />}
+
+      {vista === 'resumen' && (
+        <>
+          {faenasConDatos.length > 0 && (
+            <SelectorFaenasGrid
+              faenas={faenasConDatos}
+              mode="multi"
+              selectedFaenas={selectedFaenas}
+              onToggle={handleFaenaToggle}
+              loading={loading}
+            />
+          )}
+
+          <FiltrosProduccion
+            fechaInicio={fechaInicio} setFechaInicio={setFechaInicio}
+            fechaFin={fechaFin} setFechaFin={setFechaFin}
+            loading={loading}
+          />
+
+          {loading && <ProduccionLoading />}
+          {error && <ProduccionError error={error} />}
+
+          {!loading && ningunaSeleccionada && (
+            <div className="flex flex-col items-center justify-center py-16 text-gray-400 gap-3">
+              <FaIndustry className="text-5xl opacity-30" />
+              <p className="text-lg font-medium">Selecciona al menos una faena para ver datos</p>
+            </div>
+          )}
+
+          {!loading && datos && !ningunaSeleccionada && (
+            <>
+              {/* 3 KPIs gerenciales grandes */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-gradient-to-br from-emerald-600 to-emerald-700 rounded-xl p-6 text-white shadow-lg">
+                  <div className="flex items-center gap-2 mb-1 opacity-80">
+                    <FiTruck className="w-5 h-5" />
+                    <span className="text-sm font-medium">Tonelaje Despachado</span>
+                  </div>
+                  <p className="text-4xl font-bold mt-2">{formatNumber(datos.despachos?.tonelaje_despachado)}</p>
+                  <p className="text-sm opacity-70 mt-1">toneladas en el período</p>
+                  <p className="text-xs opacity-60 mt-2">{formatInteger(datos.despachos?.total)} camionadas</p>
+                </div>
+
+                <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-6 text-white shadow-lg">
+                  <div className="flex items-center gap-2 mb-1 opacity-80">
+                    <FiTrendingUp className="w-5 h-5" />
+                    <span className="text-sm font-medium">Ley Cu Ponderada</span>
+                  </div>
+                  <p className="text-4xl font-bold mt-2">
+                    {reporte?.total_general?.ley_ponderada != null
+                      ? `${formatNumber(reporte.total_general.ley_ponderada)}%`
+                      : '—'}
+                  </p>
+                  <p className="text-sm opacity-70 mt-1">Cu en lotes despachados</p>
+                  <p className="text-xs opacity-60 mt-2">{formatNumber(datos.dumpadas?.ley_promedio)}% en dumpadas</p>
+                </div>
+
+                <div className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl p-6 text-white shadow-lg">
+                  <div className="flex items-center gap-2 mb-1 opacity-80">
+                    <FiPackage className="w-5 h-5" />
+                    <span className="text-sm font-medium">Lotes Cerrados</span>
+                  </div>
+                  <p className="text-4xl font-bold mt-2">{formatInteger(datos.lotes?.cerrados)}</p>
+                  <p className="text-sm opacity-70 mt-1">de {formatInteger(datos.lotes?.total)} lotes en total</p>
+                  <p className="text-xs opacity-60 mt-2">{formatInteger(datos.lotes?.abiertos)} aún abiertos</p>
+                </div>
+              </div>
+
+              {/* Alerta dumpadas sin análisis (solo si hay pendientes) */}
+              {(datos.dumpadas?.pendientes ?? 0) > 0 && (
+                <div className="bg-amber-50 border border-amber-300 rounded-xl p-5 flex items-center gap-4 shadow-sm">
+                  <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                    <FiAlertCircle className="w-6 h-6 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-amber-800">Dumpadas sin análisis</p>
+                    <p className="text-2xl font-bold text-amber-700">{datos.dumpadas?.pendientes}</p>
+                    <p className="text-xs text-amber-600">pendientes de laboratorio</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Top frentes + Tabla empresa × planta */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {topFrentes.length > 0 && (
+                  <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                    <div className="bg-blue-50 px-6 py-4 border-b">
+                      <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2">
+                        <FaMountain className="text-blue-600" /> Top Frentes por Tonelaje
+                      </h3>
+                    </div>
+                    <div className="p-4">
+                      <ResponsiveContainer width="100%" height={Math.max(240, topFrentes.length * 42)}>
+                        <BarChart data={topFrentes} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                          <XAxis type="number" tick={{ fontSize: 11 }} />
+                          <YAxis dataKey="nombre" type="category" width={120} tick={{ fontSize: 11 }} />
+                          <Tooltip content={<CustomTooltip />} />
+                          <Bar dataKey="tonelaje" name="Tonelaje (t)" fill={CHART_COLORS.blue} radius={[0, 4, 4, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                  <div className="bg-amber-50 px-6 py-4 border-b flex items-center justify-between">
+                    <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2">
+                      <FaIndustry className="text-amber-600" /> Por Empresa y Planta
+                    </h3>
+                    <button
+                      onClick={() => cargarReporte(faenaIdActiva, fechaInicio, fechaFin)}
+                      disabled={reporteLoading}
+                      className="text-xs text-gray-500 hover:text-amber-600 flex items-center gap-1 border border-gray-200 rounded px-2 py-1 hover:border-amber-300 transition-colors"
+                    >
+                      <FiRefreshCw className={`w-3 h-3 ${reporteLoading ? 'animate-spin' : ''}`} />
+                      Actualizar
+                    </button>
+                  </div>
+                  {reporteLoading ? (
+                    <div className="p-8 text-center"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-amber-500 mx-auto" /></div>
+                  ) : reporte ? (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200 text-xs">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wide">Empresa</th>
+                            <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wide">Planta</th>
+                            <th className="px-4 py-3 text-right font-medium text-gray-500 uppercase tracking-wide">Viajes</th>
+                            <th className="px-4 py-3 text-right font-medium text-gray-500 uppercase tracking-wide">Tonelaje</th>
+                            <th className="px-4 py-3 text-right font-medium text-gray-500 uppercase tracking-wide">Ley %</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-100">
+                          {reporte.filas.map((f, i) => (
+                            <tr key={i} className="hover:bg-gray-50">
+                              <td className="px-4 py-2 font-medium text-gray-800">{f.empresa}</td>
+                              <td className="px-4 py-2 text-gray-600">{f.planta}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{f.n_viajes}</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{formatNumber(f.tonelaje)} t</td>
+                              <td className="px-4 py-2 text-right text-gray-700">{f.ley_ponderada != null ? `${formatNumber(f.ley_ponderada)}%` : '—'}</td>
+                            </tr>
+                          ))}
+                          {reporte.totales_por_planta.map((t, i) => (
+                            <tr key={`sub-${i}`} className="bg-amber-50 border-t border-amber-200">
+                              <td className="px-4 py-2 font-bold text-amber-800 uppercase" colSpan={2}>Total {t.planta}</td>
+                              <td className="px-4 py-2 text-right font-bold text-amber-800">{t.n_viajes}</td>
+                              <td className="px-4 py-2 text-right font-bold text-amber-800">{formatNumber(t.tonelaje)} t</td>
+                              <td className="px-4 py-2 text-right font-bold text-amber-800">{t.ley_ponderada != null ? `${formatNumber(t.ley_ponderada)}%` : '—'}</td>
+                            </tr>
+                          ))}
+                          <tr className="bg-gray-800">
+                            <td className="px-4 py-3 font-bold text-white" colSpan={2}>Total General</td>
+                            <td className="px-4 py-3 text-right font-bold text-white">{reporte.total_general.n_viajes}</td>
+                            <td className="px-4 py-3 text-right font-bold text-white">{formatNumber(reporte.total_general.tonelaje)} t</td>
+                            <td className="px-4 py-3 text-right font-bold text-amber-300">{reporte.total_general.ley_ponderada != null ? `${formatNumber(reporte.total_general.ley_ponderada)}%` : '—'}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="p-8 text-center text-gray-400 text-sm">Sin datos disponibles.</div>
+                  )}
+                </div>
+              </div>
+
+              {/* ── ANÁLISIS ─────────────────────────────── */}
+
+              {/* Pareto de frentes */}
+              {paretoFrentes.length > 0 && (
+                <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                  <div className="px-6 py-4 border-b flex items-center gap-2">
+                    <FiBarChart2 className="text-indigo-600 w-5 h-5" />
+                    <div>
+                      <h3 className="text-base font-semibold text-gray-800">Pareto de Frentes</h3>
+                      <p className="text-xs text-gray-400">Tonelaje por frente + % acumulado — identifica qué frentes concentran la producción</p>
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <ResponsiveContainer width="100%" height={300}>
+                      <ComposedChart data={paretoFrentes} margin={{ top: 10, right: 50, left: 0, bottom: 60 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                        <XAxis dataKey="nombre" tick={{ fontSize: 10, angle: -35, textAnchor: 'end' }} interval={0} />
+                        <YAxis yAxisId="ton" tick={{ fontSize: 11 }} />
+                        <YAxis yAxisId="pct" orientation="right" domain={[0, 100]} unit="%" tick={{ fontSize: 11 }} width={42} />
+                        <Tooltip
+                          content={({ active, payload, label }) => {
+                            if (!active || !payload?.length) return null;
+                            const ton = payload.find(p => p.dataKey === 'tonelaje');
+                            const pct = payload.find(p => p.dataKey === 'pct_acumulado');
+                            return (
+                              <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs">
+                                <p className="font-semibold text-gray-800 mb-1">{label}</p>
+                                {ton && <p className="text-blue-700">Tonelaje: {formatNumber(ton.value)} t</p>}
+                                {pct && <p className="text-orange-600">% Acumulado: {pct.value}%</p>}
+                              </div>
+                            );
+                          }}
+                        />
+                        <Bar yAxisId="ton" dataKey="tonelaje" name="Tonelaje (t)" fill={CHART_COLORS.blue} radius={[3, 3, 0, 0]} />
+                        <Line yAxisId="pct" dataKey="pct_acumulado" name="% Acumulado" type="monotone"
+                          stroke="#f97316" strokeWidth={2.5} dot={{ r: 4, fill: '#f97316', strokeWidth: 0 }}
+                          activeDot={{ r: 6 }} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                    {paretoFrentes.length > 0 && (() => {
+                      const idx80 = paretoFrentes.findIndex(f => f.pct_acumulado >= 80);
+                      if (idx80 < 0) return null;
+                      return (
+                        <p className="text-xs text-gray-500 mt-2 text-center">
+                          <span className="font-semibold text-orange-600">{idx80 + 1} frente{idx80 > 0 ? 's' : ''}</span>
+                          {' '}generan el 80% del tonelaje total
+                        </p>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {/* Scatter: Ley Cu vs Tonelaje por lote */}
+              {(scatterLotes.length > 0 || scatterLoading) && (
+                <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                  <div className="px-6 py-4 border-b flex items-center gap-2">
+                    <FiTrendingUp className="text-purple-600 w-5 h-5" />
+                    <div>
+                      <h3 className="text-base font-semibold text-gray-800">Ley Cu vs Tonelaje por Lote</h3>
+                      <p className="text-xs text-gray-400">Cada punto es un lote — detecta lotes de alto valor y outliers</p>
+                    </div>
+                  </div>
+                  {scatterLoading ? (
+                    <div className="p-8 text-center"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500 mx-auto" /></div>
+                  ) : (() => {
+                    // Agrupar por empresa para colores
+                    const empresas = [...new Set(scatterLotes.map(l => l.empresa).filter(Boolean))];
+                    const SCATTER_COLORS = ['#7c3aed','#2563eb','#059669','#d97706','#dc2626','#0891b2','#7c3aed'];
+                    const empresaColor = Object.fromEntries(empresas.map((e, i) => [e, SCATTER_COLORS[i % SCATTER_COLORS.length]]));
+
+                    const avgLey = scatterLotes.reduce((s, l) => s + (l.ley_ponderada ?? 0), 0) / (scatterLotes.filter(l => l.ley_ponderada != null).length || 1);
+                    const avgTon = scatterLotes.reduce((s, l) => s + (l.peso_total ?? 0), 0) / (scatterLotes.length || 1);
+
+                    return (
+                      <div className="p-4">
+                        <ResponsiveContainer width="100%" height={340}>
+                          <ScatterChart margin={{ top: 20, right: 30, bottom: 20, left: 10 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                            <XAxis dataKey="peso_total" name="Tonelaje" type="number" domain={['auto', 'auto']}
+                              label={{ value: 'Tonelaje despachado (t)', position: 'insideBottom', offset: -10, fontSize: 11, fill: '#6b7280' }}
+                              tick={{ fontSize: 11 }} />
+                            <YAxis dataKey="ley_ponderada" name="Ley Cu" type="number" domain={['auto', 'auto']}
+                              label={{ value: 'Ley Cu (%)', angle: -90, position: 'insideLeft', fontSize: 11, fill: '#6b7280' }}
+                              tick={{ fontSize: 11 }} />
+                            <ZAxis range={[40, 40]} />
+                            <ReferenceLine x={avgTon} stroke="#94a3b8" strokeDasharray="4 4" label={{ value: 'Prom. t', position: 'top', fontSize: 10, fill: '#94a3b8' }} />
+                            <ReferenceLine y={avgLey} stroke="#94a3b8" strokeDasharray="4 4" label={{ value: 'Prom. ley', position: 'right', fontSize: 10, fill: '#94a3b8' }} />
+                            <Tooltip
+                              cursor={{ strokeDasharray: '3 3' }}
+                              content={({ active, payload }) => {
+                                if (!active || !payload?.length) return null;
+                                const d = payload[0]?.payload;
+                                return (
+                                  <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs">
+                                    <p className="font-bold text-gray-800 mb-1">{d.numero_lote}</p>
+                                    <p className="text-gray-600">{d.empresa} · {d.planta}</p>
+                                    <p className="text-indigo-700 mt-1">Tonelaje: {formatNumber(d.peso_total)} t</p>
+                                    <p className="text-purple-700">Ley Cu: {d.ley_ponderada != null ? `${formatNumber(d.ley_ponderada)}%` : '—'}</p>
+                                    <p className="text-gray-400">{d.n_camionadas} camionadas · {d.estado}</p>
+                                  </div>
+                                );
+                              }}
+                            />
+                            {empresas.map(emp => (
+                              <Scatter
+                                key={emp}
+                                name={emp}
+                                data={scatterLotes.filter(l => l.empresa === emp && l.ley_ponderada != null)}
+                                fill={empresaColor[emp]}
+                                fillOpacity={0.75}
+                              />
+                            ))}
+                          </ScatterChart>
+                        </ResponsiveContainer>
+                        {/* Leyenda manual */}
+                        <div className="flex flex-wrap justify-center gap-4 mt-2">
+                          {empresas.map(emp => (
+                            <span key={emp} className="flex items-center gap-1.5 text-xs text-gray-600">
+                              <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: empresaColor[emp] }} />
+                              {emp}
+                            </span>
+                          ))}
+                        </div>
+                        <p className="text-xs text-gray-400 text-center mt-1">
+                          Cuadrante superior derecho = lotes de mayor tonelaje y mayor ley (más valiosos)
+                        </p>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+// =============================================
 // PESTAÑA 3: Producción Tablas
 // =============================================
 export const ProduccionTablas = () => {
@@ -503,7 +939,7 @@ export const ProduccionTablas = () => {
       <FiltrosProduccion
         fechaInicio={fechaInicio} setFechaInicio={setFechaInicio}
         fechaFin={fechaFin} setFechaFin={setFechaFin}
-        onAplicar={cargarDatos} onRefresh={cargarDatos} loading={loading}
+        loading={loading}
       />
 
       {loading && <ProduccionLoading />}

@@ -11,7 +11,8 @@ import GestionarUsuariosOperador from '../../organisms/AdminOperador/GestionarUs
 import GraficosPetroleo from '../../organisms/Gerente/Graficos'
 import HistorialMaquinas from '../../organisms/Todos/HistorialMaquinas';
 import Recepciones from '../../organisms/Gerente/VerificacionIngresos';
-import { ProduccionKPIs, ProduccionGraficos, ProduccionTablas } from '../../organisms/Gerente/ProduccionDashboard';
+import { ProduccionKPIs, ProduccionGraficos, ProduccionTablas, ProduccionCompleta } from '../../organisms/Gerente/ProduccionDashboard';
+import PanelMantenimiento from '../../organisms/Mantenimiento/PanelMantenimiento';
 
 const AdminOperador = () => {
     const [activeTab, setActiveTab] = useState('principal');
@@ -20,7 +21,7 @@ const AdminOperador = () => {
     // 📋 Configuración de permisos por rol
     const rolePermissions = {
         // Gerente: Acceso completo a todo
-        gerente: ['consumos-externos', 'consumos-internos', 'graficos', 'recepciones'],
+        gerente: ['consumos-externos', 'consumos-internos', 'graficos', 'recepciones', 'produccion'],
 
         // Admin Operador: Acceso completo (rol original)
         admin_operador: ['principal', 'consumos-externos', 'consumos-internos', 'graficos', 'recepciones', 'maquinas', 'usuarios'],
@@ -28,8 +29,8 @@ const AdminOperador = () => {
         // Jefe de Mina: Acceso a vistas operacionales y gráficos
         JefeMina: ['consumos-internos', 'graficos', 'recepciones'],
 
-        // Planificador: Acceso a consumos, gráficos y máquinas para planificación
-        planificador: ['consumos-internos']
+        // Planificador: Acceso a consumos, gráficos, máquinas y mantenimiento
+        planificador: ['consumos-internos', 'mantenimiento']
     };
 
     // 🎯 Mapeo de roles a tipos de header
@@ -97,22 +98,10 @@ const AdminOperador = () => {
             icon: 'MdOilBarrel'
         },
         {
-            id: 'prod-kpis',
-            label: 'Producción KPIs',
-            description: 'Indicadores clave de producción minera',
+            id: 'produccion',
+            label: 'Producción',
+            description: 'KPIs, gráficos y tablas de producción minera',
             icon: 'FaIndustry'
-        },
-        {
-            id: 'prod-graficos',
-            label: 'Producción Gráficos',
-            description: 'Gráficos de producción minera',
-            icon: 'VscGraph'
-        },
-        {
-            id: 'prod-tablas',
-            label: 'Producción Tablas',
-            description: 'Tablas detalladas de producción minera',
-            icon: 'FaListAlt'
         },
         {
             id: 'maquinas',
@@ -125,6 +114,12 @@ const AdminOperador = () => {
             label: 'Usuarios',
             description: 'Gestionar usuarios operadores',
             icon: 'FaUserCog'
+        },
+        {
+            id: 'mantenimiento',
+            label: 'Mantenimiento',
+            description: 'Panel de mantenciones y estado de equipos',
+            icon: 'FaCogs'
         }
     ];
 
@@ -197,33 +192,13 @@ const AdminOperador = () => {
                     </RoleBasedComponent>
                 );
 
-            case 'prod-kpis':
+            case 'produccion':
                 return (
                     <RoleBasedComponent
                         allowedRoles={['gerente', 'admin_operador', 'JefeMina']}
                         showUnauthorized={true}
                     >
-                        <ProduccionKPIs />
-                    </RoleBasedComponent>
-                );
-
-            case 'prod-graficos':
-                return (
-                    <RoleBasedComponent
-                        allowedRoles={['gerente', 'admin_operador', 'JefeMina']}
-                        showUnauthorized={true}
-                    >
-                        <ProduccionGraficos />
-                    </RoleBasedComponent>
-                );
-
-            case 'prod-tablas':
-                return (
-                    <RoleBasedComponent
-                        allowedRoles={['gerente', 'admin_operador', 'JefeMina']}
-                        showUnauthorized={true}
-                    >
-                        <ProduccionTablas />
+                        <ProduccionCompleta />
                     </RoleBasedComponent>
                 );
 
@@ -244,6 +219,16 @@ const AdminOperador = () => {
                         showUnauthorized={true}
                     >
                         <GestionarUsuariosOperador />
+                    </RoleBasedComponent>
+                );
+
+            case 'mantenimiento':
+                return (
+                    <RoleBasedComponent
+                        allowedRoles={['gerente', 'admin_operador', 'JefeMina', 'planificador']}
+                        showUnauthorized={true}
+                    >
+                        <PanelMantenimiento />
                     </RoleBasedComponent>
                 );
 
