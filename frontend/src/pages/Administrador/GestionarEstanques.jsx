@@ -253,27 +253,6 @@ const GestionarEstanques = () => {
     setEditForm({ fecha: '', litros: '' });
   };
 
-  const handleRecalcularStocks = async () => {
-    if (!filtroFaena) {
-      alert('Selecciona una faena en el filtro para recalcular sus stocks.');
-      return;
-    }
-    if (!window.confirm('¿Recalcular stocks de todos los estanques de esta faena? Esto corregirá cualquier inconsistencia causada por consumos con fecha modificada.')) {
-      return;
-    }
-    setRecalculando(true);
-    try {
-      const res = await axios.post(`/api/admin/estanques/recalcular-stocks/${filtroFaena}`);
-      if (res.data.success) {
-        alert(`Stocks recalculados correctamente (${res.data.estanques_actualizados} estanques).`);
-        await cargarDatos();
-      }
-    } catch (error) {
-      alert(error.response?.data?.message || 'Error al recalcular stocks');
-    } finally {
-      setRecalculando(false);
-    }
-  };
 
   const handleGuardarEdicion = async () => {
     if (!movimientoAEditar) return;
@@ -432,15 +411,6 @@ const GestionarEstanques = () => {
               </p>
             </div>
             <div className="flex gap-3">
-              <button
-                onClick={handleRecalcularStocks}
-                disabled={recalculando}
-                className="bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white px-4 py-3 rounded-lg flex items-center gap-2 transition-colors text-sm font-medium"
-                title="Recalcula el stock de cada estanque sumando todos los movimientos históricos. Úsalo si los stocks se ven incorrectos."
-              >
-                <FaSync className={recalculando ? 'animate-spin' : ''} />
-                {recalculando ? 'Recalculando...' : 'Recalcular Stocks'}
-              </button>
               <button
                 onClick={abrirModalNuevo}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors"
