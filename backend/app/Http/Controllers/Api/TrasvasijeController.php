@@ -602,16 +602,32 @@ class TrasvasijeController extends Controller
             }
 
             if ($request->filled('litros_trasvasijados')) {
-                $trasvasije->litros_trasvasijados = (float) $request->litros_trasvasijados;
+                $oldLitros = (float) $trasvasije->litros_trasvasijados;
+                $newLitros = (float) $request->litros_trasvasijados;
+                $diff = $newLitros - $oldLitros;
+
+                if ($diff !== 0.0) {
+                    $stockMovil = EstanqueStock::where('id_estanque', $trasvasije->id_estanque_movil)->first();
+                    $stockFijo  = EstanqueStock::where('id_estanque', $trasvasije->id_estanque_fijo)->first();
+
+                    if ($diff > 0 && $stockMovil && $stockMovil->stock_actual < $diff) {
+                        DB::rollBack();
+                        return response()->json(['success' => false, 'message' => 'Stock insuficiente en estanque móvil'], 400);
+                    }
+
+                    if ($diff > 0) {
+                        if ($stockMovil) $stockMovil->decrement('stock_actual', $diff);
+                        if ($stockFijo)  $stockFijo->increment('stock_actual', $diff);
+                    } else {
+                        if ($stockMovil) $stockMovil->increment('stock_actual', abs($diff));
+                        if ($stockFijo)  $stockFijo->decrement('stock_actual', abs($diff));
+                    }
+
+                    $trasvasije->litros_trasvasijados = $newLitros;
+                }
             }
 
             $trasvasije->save();
-
-            // Recalcular stock desde cero para ambos estanques involucrados
-            \App\Services\StockService::recalcularStockActual([
-                $trasvasije->id_estanque_movil,
-                $trasvasije->id_estanque_fijo,
-            ]);
 
             DB::commit();
 
@@ -660,19 +676,35 @@ class TrasvasijeController extends Controller
                     return response()->json(['success' => false, 'message' => 'Detalle de estanque fijo no encontrado'], 404);
                 }
 
-                $detalle->litros_desde_estanque = (float) $request->litros_desde_estanque;
-                $detalle->save();
+                $oldLitros = (float) $detalle->litros_desde_estanque;
+                $newLitros = (float) $request->litros_desde_estanque;
+                $diff = $newLitros - $oldLitros;
 
-                // Recalcular total del trasvasije
-                $trasvasije->litros_bombeados_total = TrasvasijeMultiDetalle::where('id_trasvasije_multi', $trasvasije->id_trasvasije)->sum('litros_desde_estanque');
+                if ($diff !== 0.0) {
+                    $stockFijo  = EstanqueStock::where('id_estanque', (int) $request->id_estanque_fijo)->first();
+                    $stockMovil = EstanqueStock::where('id_estanque', $trasvasije->id_estanque_movil)->first();
+
+                    if ($diff > 0 && $stockFijo && $stockFijo->stock_actual < $diff) {
+                        DB::rollBack();
+                        return response()->json(['success' => false, 'message' => 'Stock insuficiente en estanque fijo'], 400);
+                    }
+
+                    if ($diff > 0) {
+                        if ($stockFijo)  $stockFijo->decrement('stock_actual', $diff);
+                        if ($stockMovil) $stockMovil->increment('stock_actual', $diff);
+                    } else {
+                        if ($stockFijo)  $stockFijo->increment('stock_actual', abs($diff));
+                        if ($stockMovil) $stockMovil->decrement('stock_actual', abs($diff));
+                    }
+
+                    $detalle->litros_desde_estanque = $newLitros;
+                    $detalle->save();
+
+                    $trasvasije->litros_bombeados_total = TrasvasijeMultiDetalle::where('id_trasvasije_multi', $trasvasije->id_trasvasije)->sum('litros_desde_estanque');
+                }
             }
 
             $trasvasije->save();
-
-            // Recalcular stock desde cero para el estanque móvil y todos los fijos del trasvasije
-            $idEstanques = $trasvasije->detalles->pluck('id_estanque_fijo')->toArray();
-            $idEstanques[] = $trasvasije->id_estanque_movil;
-            \App\Services\StockService::recalcularStockActual($idEstanques);
 
             DB::commit();
 
