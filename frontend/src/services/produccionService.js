@@ -1,12 +1,7 @@
-/**
- * Servicio para consumir API del Sistema de Producción
- * Backend: localhost:8002
- */
-
 import axios from 'axios';
 import { getAuthToken } from '../utils/session';
 
-const PRODUCCION_API_URL = 'http://localhost:8002/api';
+const PRODUCCION_API_URL = import.meta.env.VITE_PRODUCCION_API_URL || 'http://localhost:8002/api';
 
 // Crear instancia de axios para producción
 const produccionAxios = axios.create({
