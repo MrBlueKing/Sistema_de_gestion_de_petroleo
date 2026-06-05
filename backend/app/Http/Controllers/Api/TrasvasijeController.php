@@ -415,8 +415,16 @@ class TrasvasijeController extends Controller
                         'message' => "Stock insuficiente en estanque fijo {$estanqueFijo->nombre}. Stock actual: {$stockInicialFijo}L, requerido: {$litrosDesdeEsteEstanque}L"
                     ], 400);
                 }
+            } elseif ($esTransferenciaMultiple && !$tieneIdPrincipal) {
+                // Para principal múltiple: validar solo los litros asignados a este estanque
+                if ($stockInicialFijo < $litrosDesdeEsteEstanque) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Stock insuficiente en estanque fijo {$estanqueFijo->nombre}. Stock actual: {$stockInicialFijo}L, requerido: {$litrosDesdeEsteEstanque}L"
+                    ], 400);
+                }
             } else {
-                // Para principal o simple: validar con litros bombeados totales
+                // Para transferencia simple: validar con litros bombeados totales
                 if ($stockInicialFijo < $litrosBombeados) {
                     return response()->json([
                         'success' => false,
