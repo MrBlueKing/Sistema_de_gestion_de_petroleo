@@ -11,8 +11,10 @@ import GestionarUsuariosOperador from '../../organisms/AdminOperador/GestionarUs
 import GraficosPetroleo from '../../organisms/Gerente/Graficos'
 import HistorialMaquinas from '../../organisms/Todos/HistorialMaquinas';
 import Recepciones from '../../organisms/Gerente/VerificacionIngresos';
-import { ProduccionKPIs, ProduccionGraficos, ProduccionTablas, ProduccionCompleta } from '../../organisms/Gerente/ProduccionDashboard';
 import PanelMantenimiento from '../../organisms/Mantenimiento/PanelMantenimiento';
+import FallasPanel from '../../organisms/Planificador/FallasPanel';
+import InsumosPanel from '../../organisms/Insumos/InsumosPanel';
+import EstadisticasTallerPanel from '../../organisms/Estadisticas/EstadisticasTallerPanel';
 
 const AdminOperador = () => {
     const [activeTab, setActiveTab] = useState('principal');
@@ -21,7 +23,7 @@ const AdminOperador = () => {
     // 📋 Configuración de permisos por rol
     const rolePermissions = {
         // Gerente: Acceso completo a todo
-        gerente: ['consumos-externos', 'consumos-internos', 'graficos', 'recepciones', 'produccion'],
+        gerente: ['consumos-externos', 'consumos-internos', 'graficos', 'recepciones', 'estadisticas'],
 
         // Admin Operador: Acceso completo (rol original)
         admin_operador: ['principal', 'consumos-externos', 'consumos-internos', 'graficos', 'recepciones', 'maquinas', 'usuarios'],
@@ -29,8 +31,8 @@ const AdminOperador = () => {
         // Jefe de Mina: Acceso a vistas operacionales y gráficos
         JefeMina: ['consumos-internos', 'graficos', 'recepciones'],
 
-        // Planificador: Acceso a consumos, gráficos, máquinas y mantenimiento
-        planificador: ['consumos-internos', 'mantenimiento']
+        // Planificador: Acceso a consumos, programa de gestión de fallas, insumos y estadísticas
+        planificador: ['consumos-internos', 'fallas', 'insumos', 'estadisticas']
     };
 
     // 🎯 Mapeo de roles a tipos de header
@@ -98,12 +100,6 @@ const AdminOperador = () => {
             icon: 'MdOilBarrel'
         },
         {
-            id: 'produccion',
-            label: 'Producción',
-            description: 'KPIs, gráficos y tablas de producción minera',
-            icon: 'FaIndustry'
-        },
-        {
             id: 'maquinas',
             label: 'Máquinas',
             description: 'Gestionar máquinas del sistema',
@@ -119,6 +115,24 @@ const AdminOperador = () => {
             id: 'mantenimiento',
             label: 'Mantenimiento',
             description: 'Panel de mantenciones y estado de equipos',
+            icon: 'FaCogs'
+        },
+        {
+            id: 'fallas',
+            label: 'PROGRAMA DE GESTIÓN Y ANÁLISIS DE FALLAS',
+            description: 'Gestión y análisis de fallas de equipos',
+            icon: 'FaCogs'
+        },
+        {
+            id: 'insumos',
+            label: 'Neumáticos y Aceites',
+            description: 'Catálogo y registro de cambios de neumáticos y aceites',
+            icon: 'FaCogs'
+        },
+        {
+            id: 'estadisticas',
+            label: 'Gráficos y Estadísticas',
+            description: 'Resumen visual de Fallas y Neumáticos y Aceites',
             icon: 'FaCogs'
         }
     ];
@@ -192,16 +206,6 @@ const AdminOperador = () => {
                     </RoleBasedComponent>
                 );
 
-            case 'produccion':
-                return (
-                    <RoleBasedComponent
-                        allowedRoles={['gerente', 'admin_operador', 'JefeMina']}
-                        showUnauthorized={true}
-                    >
-                        <ProduccionCompleta />
-                    </RoleBasedComponent>
-                );
-
             case 'maquinas':
                 return (
                     <RoleBasedComponent
@@ -229,6 +233,36 @@ const AdminOperador = () => {
                         showUnauthorized={true}
                     >
                         <PanelMantenimiento />
+                    </RoleBasedComponent>
+                );
+
+            case 'fallas':
+                return (
+                    <RoleBasedComponent
+                        allowedRoles={['planificador']}
+                        showUnauthorized={true}
+                    >
+                        <FallasPanel />
+                    </RoleBasedComponent>
+                );
+
+            case 'insumos':
+                return (
+                    <RoleBasedComponent
+                        allowedRoles={['planificador']}
+                        showUnauthorized={true}
+                    >
+                        <InsumosPanel />
+                    </RoleBasedComponent>
+                );
+
+            case 'estadisticas':
+                return (
+                    <RoleBasedComponent
+                        allowedRoles={['planificador', 'gerente']}
+                        showUnauthorized={true}
+                    >
+                        <EstadisticasTallerPanel />
                     </RoleBasedComponent>
                 );
 

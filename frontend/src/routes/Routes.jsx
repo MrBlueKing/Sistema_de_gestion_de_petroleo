@@ -60,6 +60,9 @@ import FormularioOperador from "../components/templates/OperadorVehiculo/Formula
 import MenuPrincipalAdminOperador from "../pages/AdminOperador/MenuPrincipalAdminOperador";
 import ConsumoViewAdminOperador from "../components/organisms/AdminOperador/AdminCargasView";
 
+// 🔩 Importaciones Planificador (Taller Mecánico / Fallas)
+import FallasPage from "../pages/Planificador/FallasPage";
+
 // Importaciones que pueden ser utilizadas por varios roles.
 import HistorialMaquinas from "../components/organisms/Todos/HistorialMaquinas";
 
@@ -482,7 +485,21 @@ const AppRoutes = () => {
         }
       />
 
-      {/* 
+      {/*
+      |--------------------------------------------------------------------------
+      | 🔩 RUTAS DE PLANIFICADOR (TALLER MECÁNICO / FALLAS)
+      |--------------------------------------------------------------------------
+      */}
+      <Route
+        path="/planificador"
+        element={
+          <PrivateRoute requiredRole="planificador">
+            <FallasPage />
+          </PrivateRoute>
+        }
+      />
+
+      {/*
       |--------------------------------------------------------------------------
       | 🔧 RUTAS DE ADMINISTRADOR DE OPERADOR DE VEHICULOS
       |--------------------------------------------------------------------------

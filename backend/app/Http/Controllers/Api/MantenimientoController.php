@@ -1006,7 +1006,7 @@ class MantenimientoController extends Controller
                 'medicion' => $maquina->medicion_ultimo_mantenimiento,
                 'intervalo_configurado' => $maquina->proximo_mantenimiento_configurado,
                 'observaciones' => $maquina->ultimo_mantenimiento_obs,
-                'costo' => $maquina->ultimo_mantenimiento_costo,
+                'costo' => $maquina->ultimo_mantenimiento_costo ?? null,
                 'dias_transcurridos' => $fecha->diffInDays(now())
             ];
             // Inferir tipo de mantenimiento de las observaciones o asignar 'preventivo' por defecto

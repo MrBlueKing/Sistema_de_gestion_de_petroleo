@@ -26,6 +26,11 @@ use App\Http\Controllers\Api\KpiCalculoController;
 use App\Http\Controllers\Api\KpiHistoricoController;
 use App\Http\Controllers\Api\KpiValoresEntradaController;
 use App\Http\Controllers\Api\MantenimientoController;
+use App\Http\Controllers\Api\FallaController;
+use App\Http\Controllers\Api\MecanicoController;
+use App\Http\Controllers\Api\CatalogoInsumoController;
+use App\Http\Controllers\Api\RegistroInsumoController;
+use App\Http\Controllers\Api\EstadisticasTallerController;
 use App\Http\Controllers\Api\PersonalExternoController;
 use App\Http\Controllers\Api\ProyeccionConsumoController;
 use App\Http\Controllers\Api\ReporteController;
@@ -451,6 +456,45 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/{id}/configuracion', [MantenimientoController::class, 'actualizarConfiguracion']);
         Route::get('/{id}/metricas', [MantenimientoController::class, 'obtenerMetricas']);
     });
+
+    /*
+    |--------------------------------------------------------------------------
+    | 🔧 GESTIÓN Y ANÁLISIS DE FALLAS
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('fallas')->group(function () {
+        Route::get('/', [FallaController::class, 'index']);
+        Route::post('/', [FallaController::class, 'store']);
+        Route::get('/{id}', [FallaController::class, 'show']);
+        Route::put('/{id}', [FallaController::class, 'update']);
+        Route::delete('/{id}', [FallaController::class, 'destroy']);
+        Route::put('/{id}/cerrar', [FallaController::class, 'cerrar']);
+        Route::post('/{id}/actividades', [FallaController::class, 'storeActividad']);
+        Route::put('/{id}/actividades/{idActividad}', [FallaController::class, 'updateActividad']);
+        Route::delete('/{id}/actividades/{idActividad}', [FallaController::class, 'destroyActividad']);
+    });
+
+    Route::prefix('mecanicos')->group(function () {
+        Route::get('/', [MecanicoController::class, 'index']);
+        Route::post('/', [MecanicoController::class, 'store']);
+        Route::put('/{id}', [MecanicoController::class, 'update']);
+    });
+
+    Route::prefix('catalogo-insumos')->group(function () {
+        Route::get('/', [CatalogoInsumoController::class, 'index']);
+        Route::post('/', [CatalogoInsumoController::class, 'store']);
+        Route::put('/{id}', [CatalogoInsumoController::class, 'update']);
+        Route::delete('/{id}', [CatalogoInsumoController::class, 'destroy']);
+    });
+
+    Route::prefix('registros-insumo')->group(function () {
+        Route::get('/', [RegistroInsumoController::class, 'index']);
+        Route::post('/', [RegistroInsumoController::class, 'store']);
+        Route::put('/{id}', [RegistroInsumoController::class, 'update']);
+        Route::delete('/{id}', [RegistroInsumoController::class, 'destroy']);
+    });
+
+    Route::get('/estadisticas-taller/resumen', [EstadisticasTallerController::class, 'resumen']);
 
     /*
     |--------------------------------------------------------------------------

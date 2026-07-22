@@ -72,8 +72,9 @@ const SearchableDropdown = ({
     if (typeof opt.value === 'object' && opt.value?.rut) {
       const rut = (opt.value.rut || "").toLowerCase();
       const nombre = (opt.value.nombre || "").toLowerCase();
+      const cargo = (opt.value.cargo || "").toLowerCase();
       const term = search.toLowerCase();
-      return rut.includes(term) || nombre.includes(term);
+      return rut.includes(term) || nombre.includes(term) || cargo.includes(term);
     } else {
       return opt.label.toLowerCase().includes(search.toLowerCase());
     }
