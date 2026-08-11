@@ -4,11 +4,10 @@ import Button from "../../atoms/Button/Button";
 import axios from "../../../lib/axios";
 import catalogoInsumoService from "../../../context/catalogoInsumoService";
 import mecanicoService from "../../../context/mecanicoService";
+import CatalogoInsumoFormModal from "./CatalogoInsumoFormModal";
 
 const PER_PAGE = 20;
 const TIPOS = ["Aceite", "Neumático"];
-
-const nuevaOpcionVacia = () => ({ id_categoria: "", tipo: "", detalle: "", id_responsable: "" });
 
 const CatalogoInsumosPanel = () => {
   const [categorias, setCategorias] = useState([]);
@@ -22,11 +21,8 @@ const CatalogoInsumosPanel = () => {
   const [busqueda, setBusqueda] = useState("");
   const [page, setPage] = useState(1);
   const [paginacion, setPaginacion] = useState(null);
-  const [agregando, setAgregando] = useState(false);
-  const [nuevaOpcion, setNuevaOpcion] = useState(nuevaOpcionVacia());
-  const [guardandoNueva, setGuardandoNueva] = useState(false);
-  const [editandoId, setEditandoId] = useState(null);
-  const [draftEdicion, setDraftEdicion] = useState({});
+  const [mostrarModal, setMostrarModal] = useState(false);
+  const [opcionEditar, setOpcionEditar] = useState(null);
   const [confirmarEliminarId, setConfirmarEliminarId] = useState(null);
 
   const cargar = useCallback(async () => {
@@ -75,56 +71,13 @@ const CatalogoInsumosPanel = () => {
   }, []);
 
   const abrirNuevaOpcion = () => {
-    setNuevaOpcion(nuevaOpcionVacia());
-    setAgregando(true);
-  };
-
-  const guardarNuevaOpcion = async () => {
-    if (!nuevaOpcion.id_categoria || !nuevaOpcion.tipo || !nuevaOpcion.detalle) {
-      setError("Completa categoría, tipo y detalle.");
-      return;
-    }
-    setError(null);
-    setGuardandoNueva(true);
-    const respuesta = await catalogoInsumoService.crear({
-      ...nuevaOpcion,
-      id_responsable: nuevaOpcion.id_responsable || null,
-    });
-    setGuardandoNueva(false);
-
-    if (respuesta.status === "success") {
-      setAgregando(false);
-      await cargar();
-    } else {
-      setError(respuesta.message);
-    }
+    setOpcionEditar(null);
+    setMostrarModal(true);
   };
 
   const iniciarEdicion = (opcion) => {
-    setDraftEdicion({
-      tipo: opcion.tipo,
-      detalle: opcion.detalle,
-      id_responsable: opcion.id_responsable ?? "",
-    });
-    setEditandoId(opcion.id);
-  };
-
-  const guardarEdicion = async (id) => {
-    if (!draftEdicion.tipo || !draftEdicion.detalle) {
-      setError("Completa tipo y detalle.");
-      return;
-    }
-    setError(null);
-    const respuesta = await catalogoInsumoService.actualizar(id, {
-      ...draftEdicion,
-      id_responsable: draftEdicion.id_responsable || null,
-    });
-    if (respuesta.status === "success") {
-      setEditandoId(null);
-      await cargar();
-    } else {
-      setError(respuesta.message);
-    }
+    setOpcionEditar(opcion);
+    setMostrarModal(true);
   };
 
   const alternarActivo = async (opcion) => {
@@ -157,17 +110,18 @@ const CatalogoInsumosPanel = () => {
             Opciones disponibles por categoría de máquina, para elegir al registrar un cambio.
           </p>
         </div>
-        {!agregando && (
-          <Button type="button" text="Agregar opción" icon={<FaPlus />} color="blue" onClick={abrirNuevaOpcion} />
-        )}
+        <Button type="button" text="Agregar opción" icon={<FaPlus />} color="blue" onClick={abrirNuevaOpcion} />
       </div>
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">{error}</div>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-lg p-3 flex flex-wrap items-center gap-3">
-        <FaFilter className="text-gray-400" />
+      <div className="bg-white border border-gray-200 rounded-lg p-3">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-2">
+          <FaFilter className="text-gray-400" /> Buscar / filtrar en el catálogo
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
         <select
           value={filtroCategoria}
           onChange={(e) => setFiltroCategoria(e.target.value)}
@@ -207,6 +161,7 @@ const CatalogoInsumosPanel = () => {
           placeholder="Buscar por detalle o responsable..."
           className="border border-gray-300 rounded-md px-3 py-1.5 text-sm flex-1 min-w-[200px]"
         />
+        </div>
       </div>
 
       <div className="overflow-x-auto border border-gray-200 rounded-lg">
@@ -222,77 +177,7 @@ const CatalogoInsumosPanel = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {agregando && (
-              <tr className="bg-blue-50/40">
-                <td className="px-3 py-2">
-                  <select
-                    value={nuevaOpcion.id_categoria}
-                    onChange={(e) => setNuevaOpcion((prev) => ({ ...prev, id_categoria: e.target.value }))}
-                    className="border border-gray-300 rounded-md px-2 py-1 w-full"
-                  >
-                    <option value="">Elegir...</option>
-                    {categorias.map((c) => (
-                      <option key={c.id_categoria} value={c.id_categoria}>{c.nombre_categoria}</option>
-                    ))}
-                  </select>
-                </td>
-                <td className="px-3 py-2">
-                  <select
-                    value={nuevaOpcion.tipo}
-                    onChange={(e) => setNuevaOpcion((prev) => ({ ...prev, tipo: e.target.value }))}
-                    className="border border-gray-300 rounded-md px-2 py-1 w-full"
-                  >
-                    <option value="">Elegir...</option>
-                    {TIPOS.map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </td>
-                <td className="px-3 py-2">
-                  <input
-                    type="text"
-                    value={nuevaOpcion.detalle}
-                    onChange={(e) => setNuevaOpcion((prev) => ({ ...prev, detalle: e.target.value }))}
-                    placeholder="Ej: 15W40"
-                    className="border border-gray-300 rounded-md px-2 py-1 w-full"
-                  />
-                </td>
-                <td className="px-3 py-2">
-                  <select
-                    value={nuevaOpcion.id_responsable}
-                    onChange={(e) => setNuevaOpcion((prev) => ({ ...prev, id_responsable: e.target.value }))}
-                    className="border border-gray-300 rounded-md px-2 py-1 w-full"
-                  >
-                    <option value="">Sin asignar</option>
-                    {responsables.map((r) => (
-                      <option key={r.id} value={r.id}>{r.nombre}</option>
-                    ))}
-                  </select>
-                </td>
-                <td className="px-3 py-2 text-gray-400">-</td>
-                <td className="px-3 py-2">
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={guardarNuevaOpcion}
-                      disabled={guardandoNueva}
-                      className="text-blue-600 text-xs font-semibold hover:underline disabled:opacity-50"
-                    >
-                      Guardar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAgregando(false)}
-                      className="text-gray-400 text-xs hover:underline"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            )}
-
-            {!loading && opciones.length === 0 && !agregando && (
+            {!loading && opciones.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-3 py-4 text-center text-gray-500">
                   No hay opciones registradas todavía.
@@ -300,68 +185,7 @@ const CatalogoInsumosPanel = () => {
               </tr>
             )}
 
-            {opciones.map((opcion) => {
-              const editando = editandoId === opcion.id;
-
-              if (editando) {
-                return (
-                  <tr key={opcion.id} className="bg-blue-50/40">
-                    <td className="px-3 py-2 text-gray-600">{opcion.categoria?.nombre_categoria}</td>
-                    <td className="px-3 py-2">
-                      <select
-                        value={draftEdicion.tipo}
-                        onChange={(e) => setDraftEdicion((prev) => ({ ...prev, tipo: e.target.value }))}
-                        className="border border-gray-300 rounded-md px-2 py-1 w-full"
-                      >
-                        {TIPOS.map((t) => (
-                          <option key={t} value={t}>{t}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-3 py-2">
-                      <input
-                        type="text"
-                        value={draftEdicion.detalle}
-                        onChange={(e) => setDraftEdicion((prev) => ({ ...prev, detalle: e.target.value }))}
-                        className="border border-gray-300 rounded-md px-2 py-1 w-full"
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <select
-                        value={draftEdicion.id_responsable ?? ""}
-                        onChange={(e) => setDraftEdicion((prev) => ({ ...prev, id_responsable: e.target.value }))}
-                        className="border border-gray-300 rounded-md px-2 py-1 w-full"
-                      >
-                        <option value="">Sin asignar</option>
-                        {responsables.map((r) => (
-                          <option key={r.id} value={r.id}>{r.nombre}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-3 py-2 text-gray-400">-</td>
-                    <td className="px-3 py-2">
-                      <div className="flex gap-3">
-                        <button
-                          type="button"
-                          onClick={() => guardarEdicion(opcion.id)}
-                          className="text-blue-600 text-xs font-semibold hover:underline"
-                        >
-                          Guardar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditandoId(null)}
-                          className="text-gray-400 text-xs hover:underline"
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              }
-
-              return (
+            {opciones.map((opcion) => (
                 <tr key={opcion.id} className={!opcion.activo ? "opacity-50" : ""}>
                   <td className="px-3 py-2">{opcion.categoria?.nombre_categoria || "-"}</td>
                   <td className="px-3 py-2">{opcion.tipo}</td>
@@ -420,8 +244,7 @@ const CatalogoInsumosPanel = () => {
                     )}
                   </td>
                 </tr>
-              );
-            })}
+            ))}
           </tbody>
         </table>
       </div>
@@ -453,6 +276,19 @@ const CatalogoInsumosPanel = () => {
             </button>
           </div>
         </div>
+      )}
+
+      {mostrarModal && (
+        <CatalogoInsumoFormModal
+          opcion={opcionEditar}
+          categorias={categorias}
+          responsables={responsables}
+          onClose={() => setMostrarModal(false)}
+          onGuardado={() => {
+            setMostrarModal(false);
+            cargar();
+          }}
+        />
       )}
     </div>
   );

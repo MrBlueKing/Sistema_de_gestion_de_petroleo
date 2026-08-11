@@ -31,7 +31,7 @@ const RegistroInsumoFormModal = ({ onClose, onCreado }) => {
       const [respMaquinas, respCategorias, respCatalogo] = await Promise.all([
         fallaService.listarMaquinas(),
         axios.get("/api/categorias"),
-        catalogoInsumoService.listar({ activo: true }),
+        catalogoInsumoService.listar({ activo: true, per_page: 1000 }),
       ]);
       if (respMaquinas.status === "success") setMaquinas(respMaquinas.data);
       setCategorias(respCategorias.data.data || []);

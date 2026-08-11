@@ -48,6 +48,7 @@ use App\Http\Controllers\ApiPdf\ConsumosPdfController;
 use App\Http\Controllers\Api\UserFaenaController;
 use App\Http\Controllers\Api\CamionesTolvaController;
 use App\Http\Controllers\Api\PersonalInternoPublicoController;
+use App\Http\Controllers\Api\ConsumoPublicoController;
 
 /*
 |--------------------------------------------------------------------------
@@ -70,6 +71,9 @@ Route::get('/dumpers', [CamionesTolvaController::class, 'getDumpers']);
 
 // 👷 Endpoint para personal interno (Sistema de Producción) - Requiere API Key
 Route::get('/personal-interno-disponible', [PersonalInternoPublicoController::class, 'getPersonalInterno']);
+
+// ⛽ Endpoint de litros consumidos por faena (Sistema de Producción, KPIs de eficiencia) - Requiere API Key
+Route::get('/consumo-litros-disponible', [ConsumoPublicoController::class, 'litrosDisponibles']);
 
 Route::get('/faenasDisponibles', [FaenaController::class, 'getFaenasDisponibles']);
 // Rutas para verificación de ingresos
