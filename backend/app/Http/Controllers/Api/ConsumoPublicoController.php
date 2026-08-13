@@ -41,6 +41,7 @@ class ConsumoPublicoController extends Controller
             $idFaena = $request->query('id_faena');
             $fechaDesde = $request->query('fecha_desde');
             $fechaHasta = $request->query('fecha_hasta');
+            $categorias = $request->query('categorias');
 
             $query = Consumo::query();
 
@@ -50,6 +51,16 @@ class ConsumoPublicoController extends Controller
 
             if ($fechaDesde && $fechaHasta) {
                 $query->whereBetween('fecha_consumo', [$fechaDesde, $fechaHasta . ' 23:59:59']);
+            }
+
+            // Filtro opcional por categoría de máquina (ej: "Pala,Excavadora"), para
+            // que el Sistema de Producción pueda pedir el consumo de un subconjunto
+            // de equipos (ej: solo perforación, o solo equipos que mueven tonelaje).
+            if ($categorias) {
+                $categorias = array_filter(array_map('trim', explode(',', $categorias)));
+                $query->whereHas('equipo.categoria', function ($q) use ($categorias) {
+                    $q->whereIn('nombre_categoria', $categorias);
+                });
             }
 
             $litros = $query->sum('litros_consumidos');
