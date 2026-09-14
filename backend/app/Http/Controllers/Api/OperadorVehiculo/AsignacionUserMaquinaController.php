@@ -428,8 +428,8 @@ class AsignacionUserMaquinaController extends Controller
     {
         try {
             // Obtener máquinas disponibles de las categorías específicas para operadores
-            // Categoría 11: Camionetas normales
-            // Categoría 2: Camionetas arrendadas  
+            // Categoría 2: Camionetas, 7: Camion Tolva, 11: Camionetas Arrendadas,
+            // 12: Camion Pluma, 15: Furgon, 18: Auto
             $maquinasDisponibles = DB::table('maquinas as m')
                 ->leftJoin('categorias_maquinas as c', 'm.id_categoria', '=', 'c.id_categoria')
                 ->select([
@@ -444,7 +444,7 @@ class AsignacionUserMaquinaController extends Controller
                     'c.tipo_medicion'
                 ])
                 ->where('m.estado', 1) // Solo máquinas activas
-                ->whereIn('m.id_categoria', [11, 2, 7, 12, 15]) // Solo camionetas y camionetas arrendadas
+                ->whereIn('m.id_categoria', [11, 2, 7, 12, 15, 18]) // Vehiculos con kilometraje que puede cargar un operador
                 ->orderBy('c.nombre_categoria') // Primero por categoría
                 ->orderBy('m.nombre_maquina') // Luego por nombre
                 ->get()
