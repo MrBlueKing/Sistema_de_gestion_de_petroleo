@@ -116,4 +116,41 @@ class CamionesTolvaController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Máquinas de carguío (categorías Pala y Excavadora): las elige el Supervisor CyT
+     * en el Report de Ciclo Carguío y Transporte del Sistema de Producción.
+     * Endpoint público, mismo formato que getDumpers().
+     */
+    public function getMaquinasCarguio(Request $request)
+    {
+        try {
+            $maquinas = DB::table('maquinas')
+                ->join('categorias_maquinas', 'categorias_maquinas.id_categoria', '=', 'maquinas.id_categoria')
+                ->whereIn('categorias_maquinas.nombre_categoria', ['Pala', 'Excavadora'])
+                ->select(
+                    'maquinas.id_maquina',
+                    'maquinas.nombre_maquina',
+                    'maquinas.patente',
+                    'maquinas.id_categoria',
+                    'maquinas.tipo_maquina',
+                    'categorias_maquinas.nombre_categoria as categoria'
+                )
+                ->orderBy('maquinas.nombre_maquina')
+                ->get();
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $maquinas,
+                'total' => $maquinas->count(),
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener máquinas de carguío', ['message' => $e->getMessage()]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error al obtener máquinas de carguío',
+            ], 500);
+        }
+    }
 }

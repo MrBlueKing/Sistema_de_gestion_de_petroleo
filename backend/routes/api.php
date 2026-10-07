@@ -69,6 +69,9 @@ Route::get('/camiones-tolva', [CamionesTolvaController::class, 'getCamionesTolva
 // 🚜 Endpoint público para dumpers (Sistema de Producción)
 Route::get('/dumpers', [CamionesTolvaController::class, 'getDumpers']);
 
+// 🏗️ Endpoint público para palas y excavadoras (Report CyT del Sistema de Producción)
+Route::get('/maquinas-carguio', [CamionesTolvaController::class, 'getMaquinasCarguio']);
+
 // 👷 Endpoint para personal interno (Sistema de Producción) - Requiere API Key
 Route::get('/personal-interno-disponible', [PersonalInternoPublicoController::class, 'getPersonalInterno']);
 
