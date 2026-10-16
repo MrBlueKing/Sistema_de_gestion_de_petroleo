@@ -63,7 +63,7 @@ function tramo(rows, i, med) {
   return null;
 }
 
-function Grafico({ maquina, rows }) {
+function Grafico({ maquina, rows, foco, onPunto }) {
   const pts = rows.filter((r) => r.m != null);
   if (pts.length < 2) return null;
   const W = 900, H = 170, L = 64, R = 12, T = 12, B = 24;
@@ -87,9 +87,13 @@ function Grafico({ maquina, rows }) {
         {pts.map((p) => {
           const bad = p.estado !== "ok";
           return (
-            <circle key={p.id} cx={sx(new Date(p.f).getTime())} cy={sy(p.m)} r={bad ? 5 : 3} fill={bad ? "#dc2626" : "#2a78d6"} stroke="#fff" strokeWidth="2">
-              <title>{`${fechaCorta(p.f)} · ${fmt(p.m, decs(maquina))} ${unidad(maquina)}${bad ? " · revisar" : ""}`}</title>
-            </circle>
+            <g key={p.id} onClick={() => onPunto(p)} className="cursor-pointer">
+              <circle cx={sx(new Date(p.f).getTime())} cy={sy(p.m)} r={foco === p.id ? 7 : bad ? 5 : 3} fill={bad ? "#dc2626" : "#2a78d6"} stroke={foco === p.id ? "#111827" : "#fff"} strokeWidth="2" />
+              {/* área de clic más grande que el punto */}
+              <circle cx={sx(new Date(p.f).getTime())} cy={sy(p.m)} r="10" fill="transparent">
+                <title>{`${fechaCorta(p.f)} · ${fmt(p.m, decs(maquina))} ${unidad(maquina)}${bad ? " · revisar" : ""} · clic para ver en la tabla`}</title>
+              </circle>
+            </g>
           );
         })}
         <text x={L} y={H - 6} fontSize="11" fill="#9ca3af">{pts[0].f.slice(8, 10)}-{pts[0].f.slice(5, 7)}</text>
@@ -114,6 +118,7 @@ const CorregirHorometros = () => {
   const [motivo, setMotivo] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [aviso, setAviso] = useState(null);
+  const [foco, setFoco] = useState(null); // lectura elegida en el gráfico
   const [historial, setHistorial] = useState([]);
 
   const cargar = async (mantener = sel) => {
@@ -213,7 +218,7 @@ const CorregirHorometros = () => {
               {cargando && !maquinas.length && <p className="text-sm text-gray-400 p-2 animate-pulse">Cargando…</p>}
               {!cargando && !visibles.length && <p className="text-sm text-gray-500 p-2">No hay máquinas con ese filtro.</p>}
               {visibles.map((m) => (
-                <button key={m.id} type="button" onClick={() => { setSel(m.id); setEditId(null); setAviso(null); }}
+                <button key={m.id} type="button" onClick={() => { setSel(m.id); setEditId(null); setAviso(null); setFoco(null); }}
                   className={`w-full text-left rounded-lg px-3 py-2 border ${m.id === sel ? "bg-blue-50 border-blue-500" : "border-transparent hover:bg-gray-50"}`}>
                   <div className="flex justify-between gap-2 items-center">
                     <span className="font-semibold text-sm text-gray-800">{m.nombre}</span>
@@ -247,7 +252,13 @@ const CorregirHorometros = () => {
 
                 {aviso && <div className={`rounded-lg px-4 py-2 text-sm ${aviso.ok ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>{aviso.txt}</div>}
 
-                <Grafico maquina={maquina} rows={maquina.a.rows} />
+                <Grafico maquina={maquina} rows={maquina.a.rows} foco={foco} onPunto={(p) => {
+                  // Clic en un punto: ir a esa lectura en la tabla; si es rara, abrir el editor
+                  setFoco(p.id);
+                  const i = maquina.a.rows.findIndex((x) => x.id === p.id);
+                  if (p.estado !== "ok") abrirEditor(maquina.a.rows[i], i); else setEditId(null);
+                  requestAnimationFrame(() => document.getElementById(`lectura-${p.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+                }} />
 
                 <div className="overflow-auto max-h-[480px] border rounded-lg">
                   <table className="w-full text-sm">
@@ -265,7 +276,7 @@ const CorregirHorometros = () => {
                         const sug = editId === r.id && rara ? sugerir(maquina.a.rows, i, maquina.a.med) : null;
                         return (
                           <React.Fragment key={r.id}>
-                            <tr className={`border-t ${rara ? "bg-red-50" : r.original != null ? "bg-green-50" : ""}`}>
+                            <tr id={`lectura-${r.id}`} className={`border-t ${rara ? "bg-red-50" : r.original != null ? "bg-green-50" : ""} ${foco === r.id ? "outline outline-2 -outline-offset-2 outline-blue-600" : ""}`}>
                               <td className="px-3 py-1.5 font-mono whitespace-nowrap">{fechaCorta(r.f)}</td>
                               <td className="px-3 py-1.5">{r.fa}</td>
                               <td className="px-3 py-1.5 text-right font-mono">{fmt(r.l, 0)}</td>
