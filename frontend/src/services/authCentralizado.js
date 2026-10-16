@@ -33,6 +33,8 @@ class AuthCentralizadoService {
       );
 
       if (response.data.success) {
+        // Módulo SAC con el que entró: Producción lo exige en X-Modulo-ID para validar el token
+        try { localStorage.setItem('moduloId', String(moduloId)); } catch { /* sin storage, se omite */ }
         console.log('✅ Autenticación centralizada exitosa', {
           user: response.data.user.nombre,
           rol: response.data.user.rol
@@ -134,6 +136,12 @@ class AuthCentralizadoService {
     const rol = params.get('rol'); // 🆕 Obtener el rol de la URL
 
     if (token && moduloId) {
+      // Guardar el token del SAC y el módulo apenas llegan desde el Portal: Petróleo cambia el token
+      // por uno propio al iniciar sesión, pero Producción solo acepta el del SAC (+ X-Modulo-ID)
+      try {
+        localStorage.setItem('moduloId', String(moduloId));
+        localStorage.setItem('sacToken', token);
+      } catch { /* sin storage, se omite */ }
       console.log('🔍 Detectados parámetros de autenticación centralizada');
       console.log('🔑 Token recibido:', token);
       console.log('📦 Módulo ID:', moduloId);

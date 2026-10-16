@@ -15,9 +15,15 @@ const produccionAxios = axios.create({
 // Interceptor para agregar token
 produccionAxios.interceptors.request.use(
   (config) => {
-    const token = getAuthToken();
+    // Producción valida contra el SAC: usar el token del SAC (el de Petróleo es propio y no le sirve)
+    const token = localStorage.getItem('sacToken') || getAuthToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    // Producción valida el token contra el SAC con el módulo del que viene la consulta
+    const moduloId = localStorage.getItem('moduloId');
+    if (moduloId) {
+      config.headers['X-Modulo-ID'] = moduloId;
     }
     return config;
   },

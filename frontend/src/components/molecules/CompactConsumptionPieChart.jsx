@@ -24,6 +24,7 @@ import {
   FiMinus,
 } from "react-icons/fi";
 import axios from "../../lib/axios";
+import produccionService from "../../services/produccionService";
 
 const CompactConsumptionPieChart = ({
   faenaSeleccionada = "todas",
@@ -270,6 +271,9 @@ const CompactConsumptionPieChart = ({
   const [error, setError] = useState(null);
   const [periodoAnteriorDescripcion, setPeriodoAnteriorDescripcion] =
     useState("");
+  // Toneladas extraídas (dumpadas de Producción) de cada período, para leer los litros junto al tonelaje
+  const [fechasAnterior, setFechasAnterior] = useState(null);
+  const [toneladas, setToneladas] = useState({ anterior: null, actual: null, cargando: false });
   const isMounted = useRef(true);
   const initialLoadDone = useRef(false);
   const prevFilters = useRef({
@@ -427,6 +431,22 @@ const CompactConsumptionPieChart = ({
     return null;
   };
 
+  useEffect(() => {
+    if (!fechaDesde || !fechaHasta || !fechasAnterior?.desde) return;
+    let vigente = true;
+    setToneladas((t) => ({ ...t, cargando: true }));
+    const faena = faenaSeleccionada && faenaSeleccionada !== "todas" ? { id_faena: faenaSeleccionada } : {};
+    const ton = (desde, hasta) =>
+      produccionService
+        .getResumenGerencial({ fecha_inicio: desde, fecha_fin: hasta, ...faena })
+        .then((r) => Number(r?.data?.dumpadas?.tonelaje_total ?? 0))
+        .catch(() => null);
+    Promise.all([ton(fechasAnterior.desde, fechasAnterior.hasta), ton(fechaDesde, fechaHasta)]).then(([anterior, actual]) => {
+      if (vigente) setToneladas({ anterior, actual, cargando: false });
+    });
+    return () => { vigente = false; };
+  }, [fechaDesde, fechaHasta, faenaSeleccionada, fechasAnterior]);
+
   // 🚨 SOLUCIÓN INMEDIATA: Reemplaza la función obtenerDatosCompletos en tu CompactConsumptionPieChart.jsx
 
   const obtenerDatosCompletos = async () => {
@@ -531,6 +551,7 @@ const CompactConsumptionPieChart = ({
             ? data.periodoAnterior.categoriasFinales
             : [],
           descripcion: data.periodoAnterior.descripcion || "Mes anterior",
+          fechas: data.periodoAnterior.fechas || null,
         };
       } else {
         console.warn("⚠️ [CRÍTICO] No hay período anterior en la respuesta");
@@ -656,6 +677,7 @@ const CompactConsumptionPieChart = ({
 
       setCategorias(categoriasUnificadas);
       setPeriodoAnteriorDescripcion(datosCompletos.descripcionPeriodoAnterior);
+      setFechasAnterior(datosCompletos.periodoAnterior.fechas || null);
 
       console.log(
         "✅ [CRÍTICO] Estados actualizados. categoriasUnificadas.length:",
@@ -1298,6 +1320,15 @@ const CompactConsumptionPieChart = ({
                     : "bg-red-50 border-red-200"
                 }`}
               >
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                  <div className="text-left text-xs text-gray-600">
+                    <div className="text-gray-500">Extraído período anterior</div>
+                    <div className="text-sm font-semibold text-gray-800 tabular-nums">
+                      {toneladas.cargando
+                        ? <span className="font-normal text-gray-400 animate-pulse">Cargando…</span>
+                        : toneladas.anterior == null ? "—" : `${Math.round(toneladas.anterior).toLocaleString("es-CL")} t`}
+                    </div>
+                  </div>
                 <div className="flex items-center justify-center space-x-2">
                   {/* Iconos invertidos con colores: Flecha hacia abajo = bueno (verde), hacia arriba = malo (rojo) */}
                   {cambioTotal < 0 ? (
@@ -1315,6 +1346,15 @@ const CompactConsumptionPieChart = ({
                     {Math.abs(cambioTotal).toLocaleString("es-CL")} L (
                     {Math.abs(porcentajeCambioTotal).toFixed(1)}%)
                   </span>
+                </div>
+                  <div className="text-right text-xs text-gray-600">
+                    <div className="text-gray-500">Extraído período actual</div>
+                    <div className="text-sm font-semibold text-gray-800 tabular-nums">
+                      {toneladas.cargando
+                        ? <span className="font-normal text-gray-400 animate-pulse">Cargando…</span>
+                        : toneladas.actual == null ? "—" : `${Math.round(toneladas.actual).toLocaleString("es-CL")} t`}
+                    </div>
+                  </div>
                 </div>
               </div>
             );
