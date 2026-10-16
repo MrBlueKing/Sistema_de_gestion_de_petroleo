@@ -255,7 +255,7 @@ const CorregirHorometros = () => {
                       <tr>
                         <th className="text-left px-3 py-2">Fecha</th><th className="text-left px-3 py-2">Faena</th>
                         <th className="text-right px-3 py-2">Litros</th><th className="text-right px-3 py-2">Lectura ({unidad(maquina)})</th>
-                        <th className="text-right px-3 py-2">Avance vs anterior</th><th className="text-left px-3 py-2">Estado</th><th className="px-3 py-2"></th>
+                        <th className="text-right px-3 py-2">Avance vs anterior</th><th className="text-left px-3 py-2">Estado</th><th className="text-left px-3 py-2">Observación</th><th className="px-3 py-2"></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -278,12 +278,13 @@ const CorregirHorometros = () => {
                                 {r.estado === "salto" && <span className="text-xs font-semibold rounded-full px-2 py-0.5 bg-red-100 text-red-700">▲ salto grande</span>}
                                 {!rara && r.original != null && <span className="text-xs font-semibold rounded-full px-2 py-0.5 bg-green-100 text-green-700">✓ corregida</span>}
                               </td>
+                              <td className="px-3 py-1.5 text-gray-600 max-w-[260px] truncate" title={r.obs || ""}>{r.obs || <span className="text-gray-300">—</span>}</td>
                               <td className="px-3 py-1.5 text-right">
                                 <button type="button" onClick={() => (editId === r.id ? setEditId(null) : abrirEditor(r, i))} className="text-blue-600 font-semibold text-xs border rounded-md px-2 py-1 hover:bg-blue-50">Corregir</button>
                               </td>
                             </tr>
                             {editId === r.id && (
-                              <tr><td colSpan={7} className="p-3">
+                              <tr><td colSpan={8} className="p-3">
                                 <div className="border border-blue-500 bg-blue-50 rounded-lg p-4 space-y-3">
                                   <h3 className="font-semibold text-gray-800">Corregir lectura del {fechaCorta(r.f)}</h3>
                                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-gray-600">
@@ -292,6 +293,7 @@ const CorregirHorometros = () => {
                                     <label className="grid gap-1">Lectura corregida ({u})<input autoFocus inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder={`ej. ${fmt(maquina.a.rows[i - 1]?.m, dd)}`} className="border rounded-md px-2 py-1.5 font-mono bg-white" /></label>
                                     <label className="grid gap-1">Lectura siguiente<input disabled value={`${fmt(maquina.a.rows[i + 1]?.m, dd)} ${u}`} className="border rounded-md px-2 py-1.5 font-mono bg-gray-100" /></label>
                                   </div>
+                                  {r.obs && <p className="text-sm text-gray-700">Observación del usuario al registrar: <span className="italic">“{r.obs}”</span></p>}
                                   {sug != null && <p className="text-sm text-gray-700">Parece que falta o sobra un dígito o la coma. Sugerencia: <b className="font-mono">{fmt(sug, dd)} {u}</b>, que queda entre la anterior y la siguiente.</p>}
                                   <label className="grid gap-1 text-xs text-gray-600">Motivo (opcional)
                                     <textarea rows={2} value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="ej. Se tipeó sin la coma" className="border rounded-md px-2 py-1.5 text-sm bg-white" />

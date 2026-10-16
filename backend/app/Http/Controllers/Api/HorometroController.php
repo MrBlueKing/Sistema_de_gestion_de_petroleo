@@ -37,7 +37,7 @@ class HorometroController extends Controller
             ->orderBy('m.id_maquina')->orderBy('c.fecha_consumo')->orderBy('c.id_consumo')
             ->get([
                 'm.id_maquina', 'm.nombre_maquina', 'm.patente', 'cat.nombre_categoria', 'cat.tipo_medicion',
-                'c.id_consumo', 'c.fecha_consumo', 'c.litros_consumidos', 'c.medicion', 'f.ubicacion as faena',
+                'c.id_consumo', 'c.fecha_consumo', 'c.litros_consumidos', 'c.medicion', 'c.observacion', 'f.ubicacion as faena',
             ]);
 
         // Valor original de las lecturas ya corregidas (la primera corrección guarda el dato como venía)
@@ -62,6 +62,7 @@ class HorometroController extends Controller
                     'l'        => (float) $r->litros_consumidos,
                     'm'        => $r->medicion !== null ? (float) $r->medicion : null,
                     'fa'       => $r->faena,
+                    'obs'      => $r->observacion !== null && trim($r->observacion) !== '' ? trim($r->observacion) : null,
                     'original' => $originales->has($r->id_consumo) ? (float) $originales[$r->id_consumo] : null,
                 ])->values(),
             ];
