@@ -34,6 +34,7 @@ import GestionarPersonalExternoPersonalPage from "../pages/Administrador/Gestion
 import GestionarMaquinasPermiso from "../pages/Administrador/GestionarMaquinasPermisoPage";
 import GestionarFaenasBomberos from "../pages/Administrador/GestionarFaenasBomberos";
 import GestionarEstanques from "../pages/Administrador/GestionarEstanques";
+import CorregirHorometros from "../pages/Administrador/CorregirHorometros";
 import ReportePDFPage from "../pages/Administrador/ReportePDFPage";
 
 // 🚒 Importaciones Bombero
@@ -313,6 +314,16 @@ const AppRoutes = () => {
         element={
           <PrivateRoute requiredRole="admin">
             <GestionarEstanques />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Corrección de horómetros y kilometraje de los consumos */}
+      <Route
+        path="/administrador/horometros"
+        element={
+          <PrivateRoute requiredRole="admin">
+            <CorregirHorometros />
           </PrivateRoute>
         }
       />

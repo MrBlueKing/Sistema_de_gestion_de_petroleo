@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\CategoriaMaquinaController;
 use App\Http\Controllers\Api\CategoriasChartController;
 use App\Http\Controllers\Api\CombustibleController;
 use App\Http\Controllers\Api\ConsumoController;
+use App\Http\Controllers\Api\HorometroController;
 use App\Http\Controllers\Api\ConsumoProyeccionController;
 use App\Http\Controllers\Api\EmpresaExternaController;
 use App\Http\Controllers\Api\FaenaController;
@@ -797,3 +798,10 @@ Route::get('/dashboard/stats', [IngresoPetroleoController::class, 'getStats']);
 
 // En tu routes/api.php
 Route::get('/recepcionesFecha', [IngresoPetroleoController::class, 'getRecepciones']);
+
+// Corrección de horómetros y kilometraje de los consumos (solo Administrador)
+Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin/horometros')->group(function () {
+    Route::get('/', [HorometroController::class, 'index']);
+    Route::post('/corregir', [HorometroController::class, 'corregir']);
+    Route::get('/{idMaquina}/historial', [HorometroController::class, 'historial'])->whereNumber('idMaquina');
+});

@@ -9,6 +9,7 @@ import {
   FaMapMarkerAlt,
   FaGasPump,
   FaFilePdf,
+  FaTachometerAlt,
 } from "react-icons/fa";
 import { MdCarRental, MdDashboard, MdSecurity } from "react-icons/md";
 import { GrLicense } from "react-icons/gr";
@@ -344,6 +345,13 @@ export default function Main() {
                 to="/administrador/reportes"
                 color="from-red-500 to-rose-600"
                 description="Consumo y rendimiento comparativo"
+              />
+              <QuickAccessButton
+                icon={FaTachometerAlt}
+                title="Horómetros y km"
+                to="/administrador/horometros"
+                color="from-slate-500 to-blue-600"
+                description="Corregir lecturas mal ingresadas"
               />
             </div>
           </div>
